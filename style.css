@@ -1,0 +1,61 @@
+/*
+Theme Name: Koblenzer Puppenspiele Block Theme
+Theme URI: https://www.koblenzer-puppenspiele.de/
+Author: Koblenzer Puppenspiele
+Description: Modernes, mobilfreundliches Block Theme für die Koblenzer Puppenspiele. Header, Navigation, Farben, Layouts, Bilder und Footer sind im WordPress Site Editor visuell bearbeitbar.
+Version: 3.0.0-alpha.1
+Requires at least: 6.6
+Requires PHP: 7.4
+Text Domain: koblenzer-puppenspiele
+*/
+
+:root {
+  --kp-orange: #f07a22;
+  --kp-orange-dark: #c95c10;
+  --kp-black: #080706;
+  --kp-brown: #17110e;
+  --kp-brown-2: #241813;
+  --kp-cream: #f7f1eb;
+  --kp-muted: #c9bcb1;
+  --kp-line: #4b352a;
+}
+
+html { scroll-behavior: smooth; }
+body { overflow-x: hidden; }
+.wp-site-blocks { padding-top: 0; padding-bottom: 0; }
+
+.kp-topbar { position: relative; z-index: 30; min-height: 38px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.kp-header-stage { position: relative; overflow: visible; background: var(--kp-black); }
+.kp-header-photo { margin: 0 !important; width: 100%; }
+.kp-header-photo img { display: block; width: 100%; height: auto !important; max-height: none !important; object-fit: contain !important; object-position: center top; }
+.kp-header-nav { position: absolute !important; top: clamp(12px, 2vw, 28px); right: clamp(12px, 3vw, 40px); z-index: 50; }
+.kp-header-nav .wp-block-navigation__responsive-container-open { display: inline-flex !important; align-items: center; gap: .4rem; min-height: 46px; padding: .68rem 1rem; border: 1px solid rgba(255,255,255,.22); border-radius: 999px; background: var(--kp-orange); color: #fff; box-shadow: 0 10px 28px rgba(0,0,0,.35); font-weight: 800; line-height: 1; }
+.kp-header-nav .wp-block-navigation__responsive-container-open::after { content: "Menü"; font-size: .96rem; }
+.kp-header-nav .wp-block-navigation__responsive-container-open:hover,
+.kp-header-nav .wp-block-navigation__responsive-container-open:focus-visible { background: var(--kp-orange-dark); }
+.kp-header-nav .wp-block-navigation__responsive-container.is-menu-open { padding: 1.25rem; background: rgba(8,7,6,.98) !important; color: #fff !important; }
+.kp-header-nav .wp-block-navigation__responsive-container-close { padding: .6rem; border-radius: 999px; background: var(--kp-orange); color: #fff; }
+.kp-header-nav .wp-block-navigation__responsive-container-content { align-items: stretch !important; justify-content: center !important; }
+.kp-header-nav .wp-block-navigation__responsive-container-content .wp-block-navigation__container { width: min(92vw, 560px); gap: .35rem !important; }
+.kp-header-nav .wp-block-navigation-item__content { display: block; width: 100%; padding: .72rem .9rem !important; border-radius: 12px; font-size: clamp(1.15rem, 3vw, 1.6rem); font-weight: 800; text-decoration: none; }
+.kp-header-nav .wp-block-navigation-item__content:hover,
+.kp-header-nav .wp-block-navigation-item__content:focus-visible { background: rgba(240,122,34,.15); color: #ff9a51; }
+
+.kp-hero { border-top: 4px solid var(--kp-orange); background: linear-gradient(180deg, #100d0b 0%, #18120f 100%); }
+.kp-hero h1 { max-width: 950px; text-wrap: balance; }
+.kp-muted { color: var(--kp-muted); }
+.kp-card { height: 100%; border: 1px solid var(--kp-line); border-radius: 18px; background: var(--kp-brown-2); box-shadow: 0 12px 36px rgba(0,0,0,.22); overflow: hidden; }
+.kp-card > .wp-block-group { height: 100%; }
+.kp-cta { border: 1px solid var(--kp-line); border-left: 6px solid var(--kp-orange); border-radius: 18px; background: linear-gradient(135deg, #211711, #2c1c13); box-shadow: 0 18px 48px rgba(0,0,0,.26); }
+.kp-image-frame img { border-radius: 18px; box-shadow: 0 14px 36px rgba(0,0,0,.24); }
+.kp-footer { border-top: 1px solid var(--kp-line); }
+
+@media (max-width: 640px) {
+  .kp-topbar { min-height: 34px; }
+  .kp-header-nav { top: 10px; right: 10px; }
+  .kp-header-nav .wp-block-navigation__responsive-container-open { min-height: 42px; padding: .58rem .8rem; }
+  .kp-header-nav .wp-block-navigation__responsive-container-open::after { font-size: .88rem; }
+  .kp-header-photo img { width: 100%; height: auto !important; object-fit: contain !important; }
+}
+
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
