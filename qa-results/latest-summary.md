@@ -1,6 +1,6 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-14T17:11:06.534Z
+Erzeugt: 2026-08-14T17:15:20.894Z
 Geprüfte Ansichten: 50
 Auffällige Ansichten: 4
 
@@ -138,7 +138,7 @@ Auffällige Ansichten: 4
 
 ## mobile-412 / repertoire
 - 1 mögliche Fixed-Überdeckungen
-  - Fixed-Überdeckung (29%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Mehr erfahren“
+  - Fixed-Überdeckung (36%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Mehr erfahren“
 
 ## mobile-412 / termine
 - Automatische Layoutchecks: OK
