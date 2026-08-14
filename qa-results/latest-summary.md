@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-14T15:20:57.066Z
-Geprüfte Ansichten: 40
-Auffällige Ansichten: 25
+Erzeugt: 2026-08-14T15:26:38.622Z
+Geprüfte Ansichten: 50
+Auffällige Ansichten: 7
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -11,23 +11,28 @@ Auffällige Ansichten: 25
 - Automatische Layoutchecks: OK
 
 ## desktop-1600 / das-theater
-- 4 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## desktop-1600 / repertoire
-- 2 defekte Bilder
-- 1 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## desktop-1600 / termine
-- 2 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## desktop-1600 / referenzen
-- 2 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## desktop-1600 / jetzt-buchen
 - Automatische Layoutchecks: OK
 
 ## desktop-1600 / kontakt
-- 1 sehr hohe Karten
+- Automatische Layoutchecks: OK
+
+## desktop-1600 / impressum
+- 1 defekte Bilder
+
+## desktop-1600 / datenschutz
+- Automatische Layoutchecks: OK
 
 ## laptop-1366 / startseite
 - Automatische Layoutchecks: OK
@@ -36,23 +41,28 @@ Auffällige Ansichten: 25
 - Automatische Layoutchecks: OK
 
 ## laptop-1366 / das-theater
-- 2 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## laptop-1366 / repertoire
-- 2 defekte Bilder
-- 1 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## laptop-1366 / termine
-- 2 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## laptop-1366 / referenzen
-- 2 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## laptop-1366 / jetzt-buchen
 - Automatische Layoutchecks: OK
 
 ## laptop-1366 / kontakt
-- 1 sehr hohe Karten
+- Automatische Layoutchecks: OK
+
+## laptop-1366 / impressum
+- 1 defekte Bilder
+
+## laptop-1366 / datenschutz
+- Automatische Layoutchecks: OK
 
 ## tablet-820 / startseite
 - Automatische Layoutchecks: OK
@@ -61,23 +71,28 @@ Auffällige Ansichten: 25
 - Automatische Layoutchecks: OK
 
 ## tablet-820 / das-theater
-- 5 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## tablet-820 / repertoire
-- 4 defekte Bilder
-- 3 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## tablet-820 / termine
-- 2 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## tablet-820 / referenzen
-- 3 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## tablet-820 / jetzt-buchen
 - Automatische Layoutchecks: OK
 
 ## tablet-820 / kontakt
-- 2 sehr hohe Karten
+- Automatische Layoutchecks: OK
+
+## tablet-820 / impressum
+- 1 defekte Bilder
+
+## tablet-820 / datenschutz
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / startseite
 - Automatische Layoutchecks: OK
@@ -86,24 +101,28 @@ Auffällige Ansichten: 25
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / das-theater
-- 1 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / repertoire
-- 1 defekte Bilder
-- 3 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / termine
-- 2 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / referenzen
-- 1 defekte Bilder
-- 3 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / jetzt-buchen
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / kontakt
-- 3 sehr hohe Karten
+- Automatische Layoutchecks: OK
+
+## mobile-390 / impressum
+- 1 defekte Bilder
+
+## mobile-390 / datenschutz
+- Automatische Layoutchecks: OK
 
 ## mobile-412 / startseite
 - Automatische Layoutchecks: OK
@@ -112,26 +131,30 @@ Auffällige Ansichten: 25
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / das-theater
-- 4 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## mobile-412 / repertoire
-- 1 defekte Bilder
 - 1 mögliche Fixed-Überdeckungen
-- 3 sehr hohe Karten
   - Fixed-Überdeckung (82%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Buchen“
 
 ## mobile-412 / termine
-- 2 sehr hohe Karten
+- 1 mögliche Fixed-Überdeckungen
+  - Fixed-Überdeckung (21%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Zum Glück gibt’s FREUNDE“
 
 ## mobile-412 / referenzen
-- 1 defekte Bilder
-- 3 sehr hohe Karten
+- Automatische Layoutchecks: OK
 
 ## mobile-412 / jetzt-buchen
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / kontakt
-- 3 sehr hohe Karten
+- Automatische Layoutchecks: OK
+
+## mobile-412 / impressum
+- 1 defekte Bilder
+
+## mobile-412 / datenschutz
+- Automatische Layoutchecks: OK
 
 ## Interaktionen
 
