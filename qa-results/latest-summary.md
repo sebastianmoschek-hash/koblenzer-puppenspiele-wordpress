@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-14T23:02:40.275Z
+Erzeugt: 2026-08-14T23:34:11.832Z
 Geprüfte Ansichten: 50
-Auffällige Ansichten: 1
+Auffällige Ansichten: 0
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -134,8 +134,7 @@ Auffällige Ansichten: 1
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / repertoire
-- 1 mögliche Fixed-Überdeckungen
-  - Fixed-Überdeckung (46%): „wp-block-navigation__responsive-container-open“ über „Buchen“
+- Automatische Layoutchecks: OK
 
 ## mobile-412 / termine
 - Automatische Layoutchecks: OK
