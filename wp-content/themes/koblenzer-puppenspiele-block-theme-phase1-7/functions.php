@@ -42,6 +42,17 @@ add_action( 'wp_enqueue_scripts', function () {
             (string) filemtime( $finish_css )
         );
     }
+
+    $image_fallback = get_theme_file_path( 'assets/image-fallback.js' );
+    if ( file_exists( $image_fallback ) ) {
+        wp_enqueue_script(
+            'koblenzer-puppenspiele-image-fallback',
+            get_theme_file_uri( 'assets/image-fallback.js' ),
+            array(),
+            (string) filemtime( $image_fallback ),
+            true
+        );
+    }
 } );
 
 add_action( 'init', function () {
