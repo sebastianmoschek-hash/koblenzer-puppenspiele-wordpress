@@ -20,7 +20,7 @@ main>.wp-block-post-title{margin-top:0;margin-bottom:1.35rem;max-width:1100px;fo
 .kp-finish-card p{margin:0 0 .75rem;color:#d9c9bd;line-height:1.58}.kp-finish-card a{color:var(--kp-f-orange);font-weight:850;text-decoration:none}.kp-finish-card a:hover{text-decoration:underline}
 .kp-finish-tag{display:inline-block;color:var(--kp-f-orange);font-size:.69rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
 .kp-finish-cta{display:flex;align-items:center;justify-content:space-between;gap:1.25rem;margin-top:1rem;padding:1.25rem 1.35rem;border-left:4px solid var(--kp-f-orange);background:linear-gradient(90deg,#24160f,#15100d);box-shadow:0 14px 32px rgba(0,0,0,.18)}
-.kp-finish-cta h3{margin:.2rem 0 .25rem;font-family:Georgia,'Times New Roman',serif;font-size:1.5rem;color:#fff}.kp-finish-cta p{margin:0;color:#d8c8bd}.kp-finish-button{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;padding:.78rem 1.05rem;border-radius:999px;background:var(--kp-f-orange);color:#fff!important;font-weight:900;text-decoration:none!important;box-shadow:0 10px 24px rgba(0,0,0,.24)}.kp-finish-button:hover{filter:brightness(1.08)}
+.kp-finish-cta h3{margin:.2rem 0 .25rem;font-family:Georgia,'Times New Roman',serif;font-size:1.5rem;color:#fff}.kp-finish-cta p{margin:0;color:#d8c8bd}.kp-finish-button{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;box-sizing:border-box;max-width:100%;padding:.78rem 1.05rem;border-radius:999px;background:var(--kp-f-orange);color:#fff!important;font-weight:900;text-decoration:none!important;box-shadow:0 10px 24px rgba(0,0,0,.24)}.kp-finish-button:hover{filter:brightness(1.08)}
 
 .kp-faq-list{display:grid;gap:.55rem;margin-top:1rem}.kp-faq-item{border:1px solid var(--kp-f-line);border-radius:14px;background:#13100e;overflow:hidden}.kp-faq-item summary{cursor:pointer;padding:1rem 1.1rem;color:#fff;font-weight:850}.kp-faq-item p{margin:0;padding:0 1.1rem 1rem;color:#d8c8bd;line-height:1.6}
 
@@ -29,8 +29,76 @@ main>.wp-block-post-title{margin-top:0;margin-bottom:1.35rem;max-width:1100px;fo
 .kp-termin-card,.kp-repertoire-card,.kp-referenz-card{border-color:var(--kp-f-line)!important;background:linear-gradient(145deg,#17110e,#110d0b)!important;box-shadow:0 12px 30px rgba(0,0,0,.18)}
 .kp-repertoire-card img,.kp-referenz-card img{transition:transform .25s ease}.kp-repertoire-card:hover img,.kp-referenz-card:hover img{transform:scale(1.02)}
 
+/* Visual-QA hardening: keep Theater copy and people cards genuinely horizontal. */
+.kp-theater-copy>.kp-theater-fact{
+  display:flex!important;
+  align-items:flex-start!important;
+}
+.kp-theater-fact>.kp-theater-icon{
+  flex:0 0 52px!important;
+  width:52px!important;
+  min-width:52px!important;
+}
+.kp-theater-fact>p{
+  display:block!important;
+  flex:1 1 auto!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:none!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+  hyphens:auto;
+}
+.kp-person-card>a{
+  display:flex!important;
+  align-items:center!important;
+}
+.kp-person-card .kp-person-image{
+  flex:0 0 min(42%,190px)!important;
+  min-width:150px!important;
+}
+.kp-person-card .kp-person-copy{
+  flex:1 1 0!important;
+  width:auto!important;
+  min-width:0!important;
+}
+.kp-person-card .kp-person-copy p{
+  width:auto!important;
+  min-width:0!important;
+  max-width:none!important;
+  word-break:normal!important;
+  overflow-wrap:normal!important;
+}
+
 .kp-footer{background:#060504!important;padding-top:2.2rem!important;padding-bottom:2.2rem!important}.kp-footer h3{font-family:Georgia,'Times New Roman',serif}.kp-footer .wp-block-navigation-item__content{color:#d6c7bc!important}.kp-footer .wp-block-navigation-item__content:hover{color:var(--kp-f-orange)!important}
 
-@media(max-width:900px){.kp-finish-grid-3,.kp-finish-grid-2{grid-template-columns:1fr}.kp-finish-cta{align-items:flex-start;flex-direction:column}.kp-finish-button{width:100%}}
-@media(max-width:600px){main.wp-block-group{padding-top:2rem!important;padding-bottom:3rem!important}main>.wp-block-post-title{font-size:clamp(2.25rem,11vw,3.1rem)!important;margin-bottom:1rem}.kp-finish-card{padding:1rem;border-radius:14px}.kp-finish>h2{font-size:clamp(1.9rem,9vw,2.5rem)}.kp-finish-cta{padding:1rem}}
+@media(max-width:1050px){
+  .kp-person-card .kp-person-image{flex-basis:130px!important;min-width:130px!important}
+}
+@media(max-width:900px){
+  .kp-finish-grid-3,.kp-finish-grid-2{grid-template-columns:1fr}
+  .kp-finish-cta{align-items:flex-start;flex-direction:column}
+  .kp-finish-button{width:100%}
+  .kp-person-card .kp-person-image{flex-basis:170px!important;min-width:170px!important}
+}
+@media(max-width:600px){
+  main.wp-block-group{padding-top:2rem!important;padding-bottom:3rem!important}
+  main>.wp-block-post-title{font-size:clamp(2.25rem,11vw,3.1rem)!important;margin-bottom:1rem}
+  .kp-finish-card{padding:1rem;border-radius:14px}
+  .kp-finish>h2{font-size:clamp(1.9rem,9vw,2.5rem)}
+  .kp-finish-cta{padding:1rem;width:100%;box-sizing:border-box}
+  .kp-theater-fact>.kp-theater-icon{flex-basis:40px!important;width:40px!important;min-width:40px!important}
+  .kp-person-card .kp-person-image{flex-basis:112px!important;min-width:112px!important;max-width:112px!important}
+}
+@media(max-width:420px){
+  .kp-person-card .kp-person-image{flex-basis:102px!important;min-width:102px!important;max-width:102px!important}
+  .kp-site-nav .wp-block-navigation__responsive-container-open{
+    min-width:92px!important;
+    min-height:46px!important;
+    padding:.58rem .8rem!important;
+    gap:.32rem!important;
+  }
+  .kp-site-nav .wp-block-navigation__responsive-container-open::after{font-size:.82rem!important}
+  .kp-site-nav .wp-block-navigation__responsive-container-open svg{width:18px!important;height:18px!important}
+}
 @media(prefers-reduced-motion:reduce){.kp-finish-card,.kp-repertoire-card img,.kp-referenz-card img{transition:none}}
