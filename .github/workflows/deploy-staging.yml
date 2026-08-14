@@ -52,33 +52,34 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y lftp openssl
+          sudo apt-get install -y lftp
 
       - name: Diagnose explicit FTPS connection safely
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
           : "${FTP_SERVER:?FTP_SERVER secret is missing}"
           : "${FTP_USERNAME:?FTP_USERNAME secret is missing}"
-          : "${FTP_PASSWORD:?FTP_PASSWORD secret is missing}"
+          : "${LFTP_PASSWORD:?FTP_PASSWORD secret is missing}"
 
           echo "Testing explicit FTPS on port 21 against ${FTP_SERVER}…"
 
           set +e
           OUTPUT=$(lftp \
-            -u "$FTP_USERNAME","$FTP_PASSWORD" \
-            "ftp://$FTP_SERVER:21" \
-            -e "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 1; set net:timeout 15; cls -1; bye" 2>&1)
+            --env-password \
+            --user "$FTP_USERNAME" \
+            -p 21 \
+            -e "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 1; set net:timeout 15; cls -1; bye" \
+            "$FTP_SERVER" 2>&1)
           STATUS=$?
           set -e
 
           if [ "$STATUS" -ne 0 ]; then
             SAFE_OUTPUT="${OUTPUT//$FTP_USERNAME/***}"
-            SAFE_OUTPUT="${SAFE_OUTPUT//$FTP_PASSWORD/***}"
             SAFE_OUTPUT="${SAFE_OUTPUT//$'\n'/' | '}"
             echo "::error title=FTPS connection failed::$SAFE_OUTPUT"
             exit "$STATUS"
@@ -90,7 +91,7 @@ jobs:
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
@@ -103,9 +104,11 @@ jobs:
             local target_dir="$2"
 
             lftp \
-              -u "$FTP_USERNAME","$FTP_PASSWORD" \
-              "ftp://$FTP_SERVER:21" \
-              -e "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 2; set net:timeout 20; mirror -R --verbose --only-newer --parallel=2 '$source_dir' '$target_dir'; bye"
+              --env-password \
+              --user "$FTP_USERNAME" \
+              -p 21 \
+              -e "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 2; set net:timeout 20; mirror -R --verbose --only-newer --parallel=2 '$source_dir' '$target_dir'; bye" \
+              "$FTP_SERVER"
           }
 
           if [ -d "$PLUGIN" ]; then
