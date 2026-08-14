@@ -1,6 +1,6 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-14T12:58:51.523Z
+Erzeugt: 2026-08-14T13:09:17.961Z
 Geprüfte Ansichten: 40
 Auffällige Ansichten: 21
 
@@ -11,12 +11,7 @@ Auffällige Ansichten: 21
 - Automatische Layoutchecks: OK
 
 ## desktop-1600 / das-theater
-- 6 defekte Bilder
-- 4 auffällig schmale Textspalten
-  - Schmale Spalte: 123px, 8 Zeilen – „1995 von Björn Christian Küpper in Cochem gegründet, arbeiten die Koblenzer Puppenspiele seit 2010 professionell unter ihrem heutigen Namen.“
-  - Schmale Spalte: 123px, 9 Zeilen – „Das Repertoire reicht von Märchen und Kinderbuchinterpretationen über traditionelle Kasperspiele und Sagen bis zu Uraufführungen und Stoffen der Weltliteratur.“
-  - Schmale Spalte: 123px, 12 Zeilen – „Neben anderen Spielformen pflegt das Ensemble besonders die Kunst des Marionettentheaters im Guckkasten. Die Koblenzer Puppenspiele sind Mitglied der UNIMA und “
-  - Schmale Spalte: 118px, 6 Zeilen – „Seit 2009 Puppenspieler und unter anderem als Nulli und Räuber Hotzenplotz zu erleben.“
+- 3 defekte Bilder
 
 ## desktop-1600 / repertoire
 - 2 defekte Bilder
@@ -41,12 +36,7 @@ Auffällige Ansichten: 21
 - Automatische Layoutchecks: OK
 
 ## laptop-1366 / das-theater
-- 4 defekte Bilder
-- 4 auffällig schmale Textspalten
-  - Schmale Spalte: 123px, 8 Zeilen – „1995 von Björn Christian Küpper in Cochem gegründet, arbeiten die Koblenzer Puppenspiele seit 2010 professionell unter ihrem heutigen Namen.“
-  - Schmale Spalte: 123px, 9 Zeilen – „Das Repertoire reicht von Märchen und Kinderbuchinterpretationen über traditionelle Kasperspiele und Sagen bis zu Uraufführungen und Stoffen der Weltliteratur.“
-  - Schmale Spalte: 123px, 12 Zeilen – „Neben anderen Spielformen pflegt das Ensemble besonders die Kunst des Marionettentheaters im Guckkasten. Die Koblenzer Puppenspiele sind Mitglied der UNIMA und “
-  - Schmale Spalte: 118px, 6 Zeilen – „Seit 2009 Puppenspieler und unter anderem als Nulli und Räuber Hotzenplotz zu erleben.“
+- 2 defekte Bilder
 
 ## laptop-1366 / repertoire
 - 2 defekte Bilder
@@ -71,13 +61,12 @@ Auffällige Ansichten: 21
 - Automatische Layoutchecks: OK
 
 ## tablet-820 / das-theater
-- 5 defekte Bilder
+- 4 defekte Bilder
 - 6 auffällig schmale Textspalten
-- 3 sehr hohe Karten
-  - Schmale Spalte: 123px, 8 Zeilen – „1995 von Björn Christian Küpper in Cochem gegründet, arbeiten die Koblenzer Puppenspiele seit 2010 professionell unter ihrem heutigen Namen.“
-  - Schmale Spalte: 123px, 9 Zeilen – „Das Repertoire reicht von Märchen und Kinderbuchinterpretationen über traditionelle Kasperspiele und Sagen bis zu Uraufführungen und Stoffen der Weltliteratur.“
-  - Schmale Spalte: 123px, 12 Zeilen – „Neben anderen Spielformen pflegt das Ensemble besonders die Kunst des Marionettentheaters im Guckkasten. Die Koblenzer Puppenspiele sind Mitglied der UNIMA und “
-  - Schmale Spalte: 77px, 7 Zeilen – „Gründer der Koblenzer Puppenspiele und seit seiner Kindheit dem Figurentheater verbunden.“
+  - Schmale Spalte: 146px, 7 Zeilen – „1995 von Björn Christian Küpper in Cochem gegründet, arbeiten die Koblenzer Puppenspiele seit 2010 professionell unter ihrem heutigen Namen.“
+  - Schmale Spalte: 146px, 7 Zeilen – „Das Repertoire reicht von Märchen und Kinderbuchinterpretationen über traditionelle Kasperspiele und Sagen bis zu Uraufführungen und Stoffen der Weltliteratur.“
+  - Schmale Spalte: 146px, 9 Zeilen – „Neben anderen Spielformen pflegt das Ensemble besonders die Kunst des Marionettentheaters im Guckkasten. Die Koblenzer Puppenspiele sind Mitglied der UNIMA und “
+  - Schmale Spalte: 86px, 7 Zeilen – „Gründer der Koblenzer Puppenspiele und seit seiner Kindheit dem Figurentheater verbunden.“
 
 ## tablet-820 / repertoire
 - 4 defekte Bilder
@@ -102,7 +91,7 @@ Auffällige Ansichten: 21
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / das-theater
-- 5 defekte Bilder
+- 2 defekte Bilder
 - 1 sehr hohe Karten
 
 ## mobile-390 / repertoire
@@ -129,7 +118,7 @@ Auffällige Ansichten: 21
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / das-theater
-- 6 defekte Bilder
+- 3 defekte Bilder
 - 1 sehr hohe Karten
 
 ## mobile-412 / repertoire
@@ -143,16 +132,14 @@ Auffällige Ansichten: 21
 
 ## mobile-412 / referenzen
 - 1 defekte Bilder
-- 1 mögliche Fixed-Überdeckungen
 - 3 sehr hohe Karten
-  - Fixed-Überdeckung (13%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Evm“
 
 ## mobile-412 / jetzt-buchen
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / kontakt
 - 1 mögliche Fixed-Überdeckungen
-  - Fixed-Überdeckung (23%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Diese Angaben sparen Rückfragen“
+  - Fixed-Überdeckung (22%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Diese Angaben sparen Rückfragen“
 
 ## Interaktionen
 
