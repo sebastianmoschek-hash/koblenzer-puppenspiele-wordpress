@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-14T14:27:39.865Z",
+  "generatedAt": "2026-08-14T15:09:49.122Z",
   "baseUrl": "https://neu.koblenzer-puppenspiele.de",
   "results": [
     {
@@ -325,7 +325,7 @@
       "screenshot": "desktop-1600-das-theater.jpg",
       "errorTextDetected": false,
       "flags": [
-        "2 defekte Bilder"
+        "5 defekte Bilder"
       ],
       "diagnostics": {
         "viewportWidth": 1600,
@@ -336,10 +336,55 @@
         "overflowOffenders": [],
         "brokenImages": [
           {
+            "alt": "Ursula Birgid Küpper",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/ursula_birgid_kuepper.png",
+            "naturalWidth": 800,
+            "naturalHeight": 778,
+            "complete": false,
+            "x": 259,
+            "y": 1523,
+            "top": 1523,
+            "right": 349,
+            "bottom": 1613,
+            "left": 259,
+            "width": 90,
+            "height": 90
+          },
+          {
+            "alt": "Martin Wolfram",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/martin_wolfram.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 656,
+            "y": 1523,
+            "top": 1523,
+            "right": 746,
+            "bottom": 1613,
+            "left": 656,
+            "width": 90,
+            "height": 90
+          },
+          {
+            "alt": "Gordian Schneider",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/gordian_schneider.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 854,
+            "y": 1523,
+            "top": 1523,
+            "right": 944,
+            "bottom": 1613,
+            "left": 854,
+            "width": 90,
+            "height": 90
+          },
+          {
             "alt": "Helmut Schmidt",
             "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/helmut_schmidt.png",
-            "naturalWidth": 800,
-            "naturalHeight": 802,
+            "naturalWidth": 0,
+            "naturalHeight": 0,
             "complete": false,
             "x": 1053,
             "y": 1523,
@@ -4626,19 +4671,19 @@
         "overflowOffenders": [],
         "brokenImages": [
           {
-            "alt": "Martin Wolfram",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/martin_wolfram.png",
-            "naturalWidth": 800,
-            "naturalHeight": 792,
+            "alt": "Sebastian Moschek",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/sebastian_moschek.png",
+            "naturalWidth": 640,
+            "naturalHeight": 626,
             "complete": false,
-            "x": 539,
-            "y": 1514,
-            "top": 1514,
-            "right": 629,
-            "bottom": 1604,
-            "left": 539,
-            "width": 90,
-            "height": 90
+            "x": 917,
+            "y": 1166,
+            "top": 1166,
+            "right": 1074,
+            "bottom": 1324,
+            "left": 917,
+            "width": 157,
+            "height": 157
           },
           {
             "alt": "Gordian Schneider",
@@ -8934,7 +8979,9 @@
       "title": "Das Theater – puppenspiele",
       "screenshot": "tablet-820-das-theater.jpg",
       "errorTextDetected": false,
-      "flags": [],
+      "flags": [
+        "4 defekte Bilder"
+      ],
       "diagnostics": {
         "viewportWidth": 820,
         "viewportHeight": 1180,
@@ -8942,7 +8989,68 @@
         "scrollWidth": 820,
         "horizontalOverflowPx": 0,
         "overflowOffenders": [],
-        "brokenImages": [],
+        "brokenImages": [
+          {
+            "alt": "Martin Wolfram",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/martin_wolfram.png",
+            "naturalWidth": 800,
+            "naturalHeight": 792,
+            "complete": false,
+            "x": 631,
+            "y": 2110,
+            "top": 2110,
+            "right": 721,
+            "bottom": 2200,
+            "left": 631,
+            "width": 90,
+            "height": 90
+          },
+          {
+            "alt": "Gordian Schneider",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/gordian_schneider.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 99,
+            "y": 2289,
+            "top": 2289,
+            "right": 189,
+            "bottom": 2379,
+            "left": 99,
+            "width": 90,
+            "height": 90
+          },
+          {
+            "alt": "Helmut Schmidt",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/helmut_schmidt.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 365,
+            "y": 2289,
+            "top": 2289,
+            "right": 455,
+            "bottom": 2379,
+            "left": 365,
+            "width": 90,
+            "height": 90
+          },
+          {
+            "alt": "Stefanie Czapla",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/stefanie_czapla.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 631,
+            "y": 2289,
+            "top": 2289,
+            "right": 721,
+            "bottom": 2379,
+            "left": 631,
+            "width": 90,
+            "height": 90
+          }
+        ],
         "dominantImages": [],
         "headings": [
           {
@@ -13304,7 +13412,7 @@
       "screenshot": "mobile-390-das-theater.jpg",
       "errorTextDetected": false,
       "flags": [
-        "3 defekte Bilder",
+        "4 defekte Bilder",
         "1 sehr hohe Karten"
       ],
       "diagnostics": {
@@ -13316,10 +13424,25 @@
         "overflowOffenders": [],
         "brokenImages": [
           {
+            "alt": "Martin Wolfram",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/martin_wolfram.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 281,
+            "y": 1747,
+            "top": 1747,
+            "right": 355,
+            "bottom": 1821,
+            "left": 281,
+            "width": 74,
+            "height": 74
+          },
+          {
             "alt": "Gordian Schneider",
             "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/gordian_schneider.png",
-            "naturalWidth": 640,
-            "naturalHeight": 627,
+            "naturalWidth": 0,
+            "naturalHeight": 0,
             "complete": false,
             "x": 35,
             "y": 1913,
@@ -17827,7 +17950,9 @@
       "title": "Das Theater – puppenspiele",
       "screenshot": "mobile-412-das-theater.jpg",
       "errorTextDetected": false,
-      "flags": [],
+      "flags": [
+        "6 defekte Bilder"
+      ],
       "diagnostics": {
         "viewportWidth": 412,
         "viewportHeight": 915,
@@ -17835,7 +17960,98 @@
         "scrollWidth": 412,
         "horizontalOverflowPx": 0,
         "overflowOffenders": [],
-        "brokenImages": [],
+        "brokenImages": [
+          {
+            "alt": "Sebastian Moschek",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/sebastian_moschek.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 37,
+            "y": 1487,
+            "top": 1487,
+            "right": 139,
+            "bottom": 1589,
+            "left": 37,
+            "width": 102,
+            "height": 102
+          },
+          {
+            "alt": "Ursula Birgid Küpper",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/ursula_birgid_kuepper.png",
+            "naturalWidth": 800,
+            "naturalHeight": 778,
+            "complete": false,
+            "x": 39,
+            "y": 1734,
+            "top": 1734,
+            "right": 113,
+            "bottom": 1808,
+            "left": 39,
+            "width": 74,
+            "height": 74
+          },
+          {
+            "alt": "Martin Wolfram",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/martin_wolfram.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 299,
+            "y": 1734,
+            "top": 1734,
+            "right": 373,
+            "bottom": 1808,
+            "left": 299,
+            "width": 74,
+            "height": 74
+          },
+          {
+            "alt": "Gordian Schneider",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/gordian_schneider.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 39,
+            "y": 1887,
+            "top": 1887,
+            "right": 113,
+            "bottom": 1961,
+            "left": 39,
+            "width": 74,
+            "height": 74
+          },
+          {
+            "alt": "Helmut Schmidt",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/helmut_schmidt.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 169,
+            "y": 1887,
+            "top": 1887,
+            "right": 243,
+            "bottom": 1961,
+            "left": 169,
+            "width": 74,
+            "height": 74
+          },
+          {
+            "alt": "Stefanie Czapla",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/stefanie_czapla.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 299,
+            "y": 1887,
+            "top": 1887,
+            "right": 373,
+            "bottom": 1961,
+            "left": 299,
+            "width": 74,
+            "height": 74
+          }
+        ],
         "dominantImages": [],
         "headings": [
           {

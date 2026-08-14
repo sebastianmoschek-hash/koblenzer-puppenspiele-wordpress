@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-14T14:27:39.865Z
+Erzeugt: 2026-08-14T15:09:49.122Z
 Geprüfte Ansichten: 40
-Auffällige Ansichten: 23
+Auffällige Ansichten: 25
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -11,7 +11,7 @@ Auffällige Ansichten: 23
 - Automatische Layoutchecks: OK
 
 ## desktop-1600 / das-theater
-- 2 defekte Bilder
+- 5 defekte Bilder
 
 ## desktop-1600 / repertoire
 - 2 defekte Bilder
@@ -61,7 +61,7 @@ Auffällige Ansichten: 23
 - Automatische Layoutchecks: OK
 
 ## tablet-820 / das-theater
-- Automatische Layoutchecks: OK
+- 4 defekte Bilder
 
 ## tablet-820 / repertoire
 - 4 defekte Bilder
@@ -86,7 +86,7 @@ Auffällige Ansichten: 23
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / das-theater
-- 3 defekte Bilder
+- 4 defekte Bilder
 - 1 sehr hohe Karten
 
 ## mobile-390 / repertoire
@@ -113,7 +113,7 @@ Auffällige Ansichten: 23
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / das-theater
-- Automatische Layoutchecks: OK
+- 6 defekte Bilder
 
 ## mobile-412 / repertoire
 - 1 defekte Bilder
