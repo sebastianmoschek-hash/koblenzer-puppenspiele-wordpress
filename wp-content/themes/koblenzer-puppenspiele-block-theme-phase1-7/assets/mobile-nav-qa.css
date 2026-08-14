@@ -1,4 +1,4 @@
-/* Final phone navigation: pin the actual trigger to the viewport, not the WordPress wrapper. */
+/* Final phone navigation: pin the trigger to the viewport and keep the overlay centered. */
 @media (max-width:420px){
   .kp-navigation-bar{
     height:0!important;
@@ -59,19 +59,92 @@
 
   .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open{
     position:fixed!important;
-    top:0!important;
-    right:0!important;
-    bottom:0!important;
-    left:0!important;
     inset:0!important;
     box-sizing:border-box!important;
-    width:auto!important;
-    min-width:0!important;
-    max-width:none!important;
+    display:flex!important;
+    width:100vw!important;
+    min-width:100vw!important;
+    max-width:100vw!important;
     height:100dvh!important;
     min-height:100dvh!important;
     margin:0!important;
+    padding:0!important;
+    background:rgba(8,7,6,.99)!important;
     transform:none!important;
     z-index:10000!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close{
+    position:relative!important;
+    box-sizing:border-box!important;
+    display:block!important;
+    width:100%!important;
+    max-width:none!important;
+    height:100%!important;
+    margin:0!important;
+    padding:0!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-dialog{
+    box-sizing:border-box!important;
+    display:flex!important;
+    flex-direction:column!important;
+    width:100%!important;
+    min-height:100dvh!important;
+    margin:0!important;
+    padding:0!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content{
+    box-sizing:border-box!important;
+    display:flex!important;
+    flex:1 1 auto!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:100%!important;
+    padding:76px 24px 32px!important;
+    margin:0!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__container{
+    box-sizing:border-box!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    justify-content:center!important;
+    width:min(100%,320px)!important;
+    max-width:320px!important;
+    margin:0 auto!important;
+    padding:0!important;
+    gap:.3rem!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item{
+    width:100%!important;
+    margin:0!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item__content{
+    box-sizing:border-box!important;
+    display:block!important;
+    width:100%!important;
+    padding:.72rem 1rem!important;
+    text-align:center!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container-close{
+    position:absolute!important;
+    top:18px!important;
+    right:18px!important;
+    left:auto!important;
+    bottom:auto!important;
+    z-index:10001!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:48px!important;
+    height:48px!important;
+    margin:0!important;
+    border-radius:999px!important;
   }
 }
