@@ -365,5 +365,3 @@ h2.wp-block-heading{
 
 .kp-ensemble-single-image{width:min(100%,620px)!important;margin:0 auto 1rem!important}.kp-ensemble-single-image img{width:100%;height:auto;max-height:520px;object-fit:contain;border-radius:16px}
 @media(max-width:640px){.kp-ensemble-single-image{width:88vw!important}.kp-ensemble-single-image img{max-height:380px}}
-
-/* Automated deployment smoke test: 2026-08-14 */
