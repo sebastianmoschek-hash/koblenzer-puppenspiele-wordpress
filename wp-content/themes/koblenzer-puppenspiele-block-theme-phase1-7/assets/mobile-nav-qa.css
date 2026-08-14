@@ -148,3 +148,27 @@
     border-radius:999px!important;
   }
 }
+
+/* Shorter phone screens need a slightly tighter menu so every destination remains visible. */
+@media (max-width:420px) and (max-height:870px){
+  .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content{
+    padding:64px 20px 18px!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__container{
+    gap:.12rem!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item__content{
+    padding:.53rem .85rem!important;
+    font-size:1.18rem!important;
+    line-height:1.12!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container-close{
+    top:14px!important;
+    right:14px!important;
+    width:46px!important;
+    height:46px!important;
+  }
+}
