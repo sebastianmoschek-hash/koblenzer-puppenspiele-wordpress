@@ -22,6 +22,26 @@ add_action( 'wp_enqueue_scripts', function () {
         array(),
         $theme->get( 'Version' )
     );
+
+    $theater_css = get_theme_file_path( 'assets/theater-polish.css' );
+    if ( file_exists( $theater_css ) ) {
+        wp_enqueue_style(
+            'koblenzer-puppenspiele-theater-polish',
+            get_theme_file_uri( 'assets/theater-polish.css' ),
+            array( 'koblenzer-puppenspiele-theme' ),
+            (string) filemtime( $theater_css )
+        );
+    }
+
+    $finish_css = get_theme_file_path( 'assets/site-finish.css' );
+    if ( file_exists( $finish_css ) ) {
+        wp_enqueue_style(
+            'koblenzer-puppenspiele-site-finish',
+            get_theme_file_uri( 'assets/site-finish.css' ),
+            array( 'koblenzer-puppenspiele-theme' ),
+            (string) filemtime( $finish_css )
+        );
+    }
 } );
 
 add_action( 'init', function () {
