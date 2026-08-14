@@ -3,6 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 final class KP_Contact {
     const ORIGINAL_IMPRINT = 'https://www.koblenzer-puppenspiele.de/kontakt-impressum.html';
+    const OFFICIAL_EMAIL = 'koblenzer-puppenspiele@gmx.de';
 
     public static function init() {
         add_shortcode( 'kp_contact', array( __CLASS__, 'shortcode' ) );
@@ -16,21 +17,7 @@ final class KP_Contact {
     }
 
     public static function recipient() {
-        $cached = get_transient( 'kp_official_contact_email' );
-        if ( is_string( $cached ) && is_email( $cached ) ) { return sanitize_email( $cached ); }
-        $response = wp_remote_get( self::ORIGINAL_IMPRINT, array( 'timeout' => 12, 'redirection' => 3 ) );
-        if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) { return ''; }
-        $html = (string) wp_remote_retrieve_body( $response );
-        if ( preg_match( '/mailto:([^"\'<>?\s]+)/i', $html, $match ) ) {
-            $email = sanitize_email( html_entity_decode( rawurldecode( $match[1] ), ENT_QUOTES, 'UTF-8' ) );
-            if ( is_email( $email ) ) { set_transient( 'kp_official_contact_email', $email, 12 * HOUR_IN_SECONDS ); return $email; }
-        }
-        $text = html_entity_decode( wp_strip_all_tags( $html ), ENT_QUOTES, 'UTF-8' );
-        if ( preg_match( '/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i', $text, $match ) ) {
-            $email = sanitize_email( $match[0] );
-            if ( is_email( $email ) ) { set_transient( 'kp_official_contact_email', $email, 12 * HOUR_IN_SECONDS ); return $email; }
-        }
-        return '';
+        return self::OFFICIAL_EMAIL;
     }
 
     private static function field( $key ) { return isset( $_POST[ $key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $key ] ) ) : ''; }
@@ -47,14 +34,13 @@ final class KP_Contact {
         $name=self::field('name'); $email=sanitize_email(isset($_POST['email'])?wp_unslash($_POST['email']):''); $message=self::textarea('message'); $privacy=!empty($_POST['privacy']);
         if ( '' === $name || ! is_email( $email ) || '' === $message || ! $privacy ) return array( 'status'=>'error','message'=>'Bitte füllen Sie Name, eine gültige E-Mail-Adresse und Ihre Nachricht aus und bestätigen Sie den Datenschutzhinweis.' );
         $recipient=self::recipient();
-        if ( ! is_email( $recipient ) ) return array( 'status'=>'error','message'=>'Die offizielle Kontaktadresse konnte gerade nicht verlässlich von der bestehenden Website geladen werden. Bitte nutzen Sie vorübergehend den Link zur bisherigen Kontaktseite.' );
 
         $fields=array('Telefon'=>self::field('phone'),'Einrichtung / Organisation'=>self::field('organisation'),'Spielort'=>self::field('place'),'Anlass'=>self::field('occasion'),'Wunschtermine / Zeitraum'=>self::field('dates'),'Publikum / Altersgruppe'=>self::field('audience'),'Wunschstück'=>self::field('piece'));
         $body="Neue Anfrage über koblenzer-puppenspiele.de\n\nName: {$name}\nE-Mail: {$email}\n";
         foreach($fields as $label=>$value){ if($value) $body.=$label.': '.$value."\n"; }
         $body.="\nNachricht:\n{$message}\n\nDatenschutzhinweis im Formular bestätigt: ja\n";
         $sent=wp_mail($recipient,sprintf('Website-Anfrage von %s',$name),$body,array('Reply-To: '.$name.' <'.$email.'>'));
-        return $sent ? array('status'=>'success','message'=>'Vielen Dank! Ihre Anfrage wurde versendet. Wir melden uns so bald wie möglich zurück.') : array('status'=>'error','message'=>'Die Nachricht konnte gerade nicht versendet werden. Bitte nutzen Sie alternativ die offizielle Kontaktseite.');
+        return $sent ? array('status'=>'success','message'=>'Vielen Dank! Ihre Anfrage wurde versendet. Wir melden uns so bald wie möglich zurück.') : array('status'=>'error','message'=>'Die Nachricht konnte gerade nicht versendet werden. Bitte nutzen Sie alternativ die offizielle Kontaktadresse.');
     }
 
     public static function shortcode() {
@@ -64,10 +50,10 @@ final class KP_Contact {
         ob_start(); ?>
         <section class="kp-finish kp-contact-page"><p class="kp-finish-kicker">Kontakt</p><h2>Vorhang auf für Ihre Anfrage</h2><p class="kp-finish-lead">Ob Gastspiel, Kita, Schule, Kulturveranstaltung oder eine allgemeine Frage: Schreiben Sie uns direkt hier. Für Buchungsanfragen helfen mehrere Wunschtermine, Spielort und ungefähre Publikumsgröße.</p>
         <?php if($result['status']):?><div class="kp-contact-notice kp-contact-notice-<?php echo esc_attr($result['status']);?>" role="status"><?php echo esc_html($result['message']);?></div><?php endif;?>
-        <div class="kp-contact-layout"><article class="kp-finish-card kp-contact-direct"><span class="kp-finish-tag">Direkter Kontakt</span><h3>Lieber per E-Mail?</h3><?php if($email):?><p><a href="mailto:<?php echo esc_attr($email);?>"><?php echo esc_html($email);?></a></p><?php else:?><p>Die offizielle E-Mail-Adresse konnte gerade nicht sicher geladen werden.</p><p><a href="<?php echo esc_url(self::ORIGINAL_IMPRINT);?>" target="_blank" rel="noopener">Bisherige Kontaktseite öffnen →</a></p><?php endif;?><p>Für eine schnelle Einschätzung sind Wunschstück, zwei bis drei mögliche Termine, Spielort, Publikumsgröße und Altersgruppe besonders hilfreich.</p><a href="/jetzt-buchen/">Hinweise zur Buchung →</a></article>
+        <div class="kp-contact-layout"><article class="kp-finish-card kp-contact-direct"><span class="kp-finish-tag">Direkter Kontakt</span><h3>Lieber per E-Mail?</h3><p><a href="mailto:<?php echo esc_attr($email);?>"><?php echo esc_html($email);?></a></p><p>Für eine schnelle Einschätzung sind Wunschstück, zwei bis drei mögliche Termine, Spielort, Publikumsgröße und Altersgruppe besonders hilfreich.</p><a href="/jetzt-buchen/">Hinweise zur Buchung →</a></article>
         <form class="kp-contact-form" method="post" action="<?php echo esc_url(get_permalink());?>"><?php wp_nonce_field('kp_contact_submit','kp_contact_nonce');?><input type="hidden" name="kp_contact_submit" value="1"><div class="kp-contact-hp" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
         <div class="kp-contact-fields kp-contact-fields-2"><label>Name *<input type="text" name="name" value="<?php echo esc_attr($values['name']);?>" autocomplete="name" required></label><label>E-Mail *<input type="email" name="email" value="<?php echo esc_attr($values['email']);?>" autocomplete="email" required></label><label>Telefon <span class="kp-contact-optional">optional</span><input type="tel" name="phone" value="<?php echo esc_attr($values['phone']);?>" autocomplete="tel"></label><label>Einrichtung / Organisation <span class="kp-contact-optional">optional</span><input type="text" name="organisation" value="<?php echo esc_attr($values['organisation']);?>"></label><label>Spielort <span class="kp-contact-optional">optional</span><input type="text" name="place" value="<?php echo esc_attr($values['place']);?>"></label><label>Anlass <span class="kp-contact-optional">optional</span><input type="text" name="occasion" value="<?php echo esc_attr($values['occasion']);?>"></label><label>Wunschtermine / Zeitraum <span class="kp-contact-optional">optional</span><input type="text" name="dates" value="<?php echo esc_attr($values['dates']);?>"></label><label>Publikum / Altersgruppe <span class="kp-contact-optional">optional</span><input type="text" name="audience" value="<?php echo esc_attr($values['audience']);?>"></label></div>
-        <label>Wunschstück <span class="kp-contact-optional">optional</span><input type="text" name="piece" value="<?php echo esc_attr($values['piece']);?>"></label><label>Ihre Nachricht *<textarea name="message" rows="6" required><?php echo esc_textarea($values['message']);?></textarea></label><label class="kp-contact-consent"><input type="checkbox" name="privacy" value="1" required><span>Ich habe die <a href="/datenschutz/">Datenschutzerklärung</a> gelesen und bin mit der Verarbeitung meiner Angaben zur Bearbeitung der Anfrage einverstanden. *</span></label><p class="kp-contact-required">* Pflichtfelder · Die Angaben werden durch dieses Formular nicht in WordPress gespeichert.</p><button class="kp-finish-button kp-contact-submit" type="submit" <?php disabled(!$email);?>>Anfrage senden</button></form></div></section>
+        <label>Wunschstück <span class="kp-contact-optional">optional</span><input type="text" name="piece" value="<?php echo esc_attr($values['piece']);?>"></label><label>Ihre Nachricht *<textarea name="message" rows="6" required><?php echo esc_textarea($values['message']);?></textarea></label><label class="kp-contact-consent"><input type="checkbox" name="privacy" value="1" required><span>Ich habe die <a href="/datenschutz/">Datenschutzerklärung</a> gelesen und bin mit der Verarbeitung meiner Angaben zur Bearbeitung der Anfrage einverstanden. *</span></label><p class="kp-contact-required">* Pflichtfelder · Die Angaben werden durch dieses Formular nicht in WordPress gespeichert.</p><button class="kp-finish-button kp-contact-submit" type="submit">Anfrage senden</button></form></div></section>
         <?php return ob_get_clean();
     }
 }
