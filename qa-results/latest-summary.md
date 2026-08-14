@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-14T21:35:16.342Z
+Erzeugt: 2026-08-14T21:46:58.778Z
 Geprüfte Ansichten: 50
-Auffällige Ansichten: 1
+Auffällige Ansichten: 0
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -104,8 +104,7 @@ Auffällige Ansichten: 1
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / repertoire
-- 1 mögliche Fixed-Überdeckungen
-  - Fixed-Überdeckung (20%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Nulli und Priesemut“
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / termine
 - Automatische Layoutchecks: OK
