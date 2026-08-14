@@ -1,8 +1,20 @@
-/* Final mobile QA polish: keep the floating menu accessible while reducing content overlap. */
+/* Final phone navigation: keep the menu accessible without floating over page content. */
 @media (max-width:420px){
+  .kp-navigation-bar{
+    height:auto!important;
+    min-height:54px!important;
+    padding:5px 8px!important;
+    border-bottom:1px solid rgba(255,255,255,.08)!important;
+    background:#080706!important;
+  }
+
   .kp-site-nav{
-    right:max(6px,env(safe-area-inset-right))!important;
-    bottom:max(6px,env(safe-area-inset-bottom))!important;
+    position:static!important;
+    display:flex!important;
+    justify-content:flex-end!important;
+    width:100%!important;
+    min-height:44px!important;
+    margin:0!important;
   }
 
   .kp-site-nav .wp-block-navigation__responsive-container-open{
@@ -12,11 +24,20 @@
     min-height:44px!important;
     padding:0!important;
     border-width:1px!important;
-    box-shadow:0 8px 20px rgba(0,0,0,.34)!important;
+    box-shadow:none!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container-open::after{
+    content:""!important;
+    display:none!important;
   }
 
   .kp-site-nav .wp-block-navigation__responsive-container-open svg{
-    width:19px!important;
-    height:19px!important;
+    width:20px!important;
+    height:20px!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open{
+    position:fixed!important;
   }
 }
