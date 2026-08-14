@@ -14,6 +14,8 @@ add_action( 'after_setup_theme', function () {
     add_editor_style( 'style.css' );
 } );
 
+// Run late so the final theme polish can deliberately override the content
+// plugin's legacy frontend CSS without relying on brittle load-order luck.
 add_action( 'wp_enqueue_scripts', function () {
     $theme = wp_get_theme();
     wp_enqueue_style(
@@ -38,7 +40,7 @@ add_action( 'wp_enqueue_scripts', function () {
         wp_enqueue_style(
             'koblenzer-puppenspiele-site-finish',
             get_theme_file_uri( 'assets/site-finish.css' ),
-            array( 'koblenzer-puppenspiele-theme' ),
+            array( 'koblenzer-puppenspiele-theme', 'koblenzer-puppenspiele-theater-polish' ),
             (string) filemtime( $finish_css )
         );
     }
@@ -53,7 +55,7 @@ add_action( 'wp_enqueue_scripts', function () {
             true
         );
     }
-} );
+}, 100 );
 
 add_action( 'init', function () {
     register_block_pattern_category(
