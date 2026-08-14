@@ -2,6 +2,9 @@ name: Inventory staging WordPress
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/inventory-staging.yml'
 
 permissions:
   contents: read
