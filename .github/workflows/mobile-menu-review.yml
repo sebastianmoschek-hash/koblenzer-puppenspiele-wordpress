@@ -1,0 +1,71 @@
+name: Mobile menu visual review
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/**'
+      - '.github/workflows/mobile-menu-review.yml'
+
+concurrency:
+  group: koblenzer-puppenspiele-mobile-menu-review
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Capture menu closed and open at phone widths
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p mobile-menu-review
+          cat > /tmp/mobile-menu-review.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs/promises';
+          const browser = await chromium.launch({ headless: true });
+          const base = 'https://neu.koblenzer-puppenspiele.de/';
+          const report = [];
+          for (const viewport of [{name:'390x844',width:390,height:844},{name:'412x915',width:412,height:915}]) {
+            const context = await browser.newContext({ viewport: {width:viewport.width,height:viewport.height}, deviceScaleFactor: 1 });
+            const page = await context.newPage();
+            await page.goto(base, {waitUntil:'domcontentloaded', timeout:45000});
+            await page.waitForLoadState('networkidle', {timeout:10000}).catch(()=>{});
+            await page.waitForTimeout(800);
+            const button = page.locator('.wp-block-navigation__responsive-container-open').first();
+            const closed = await button.evaluate(el => {
+              const r = el.getBoundingClientRect(); const s = getComputedStyle(el); const p = getComputedStyle(el.closest('.kp-site-nav'));
+              return {button:{x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height,position:s.position,display:s.display}, nav:{position:p.position,right:p.right,bottom:p.bottom,top:p.top,left:p.left,width:p.width,height:p.height}, viewport:{width:innerWidth,height:innerHeight}};
+            });
+            await page.screenshot({path:`mobile-menu-review/${viewport.name}-closed.png`,fullPage:false});
+            await button.click();
+            await page.waitForTimeout(400);
+            const menu = page.locator('.wp-block-navigation__responsive-container.is-menu-open, .wp-block-navigation__responsive-container.has-modal-open').first();
+            const opened = await menu.evaluate(el => {const r=el.getBoundingClientRect();const s=getComputedStyle(el);return {visible:!!(r.width&&r.height),x:r.x,y:r.y,width:r.width,height:r.height,position:s.position,inset:s.inset,zIndex:s.zIndex};}).catch(()=>({visible:false}));
+            await page.screenshot({path:`mobile-menu-review/${viewport.name}-open.png`,fullPage:false});
+            report.push({viewport:viewport.name,closed,opened});
+            await context.close();
+          }
+          await browser.close();
+          await fs.writeFile('mobile-menu-review/report.json', JSON.stringify(report,null,2));
+          EOF
+          node /tmp/mobile-menu-review.mjs
+
+      - name: Upload mobile menu review
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-menu-review
+          path: mobile-menu-review/
+          retention-days: 7
