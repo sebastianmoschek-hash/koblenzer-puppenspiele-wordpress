@@ -15,10 +15,10 @@ final class KP_Final_Polish {
             position: fixed !important;
             left: auto !important;
             right: max(14px, env(safe-area-inset-right)) !important;
-            top: 58% !important;
+            top: calc(58% - 26px) !important;
             bottom: auto !important;
             width: auto !important;
-            transform: translateY(-50%) !important;
+            transform: none !important;
             z-index: 9999 !important;
           }
 
@@ -60,6 +60,17 @@ final class KP_Final_Polish {
           .kp-site-nav .wp-block-navigation__responsive-container-open:active {
             opacity: 1;
             transform: scale(1);
+          }
+
+          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open,
+          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            min-width: 100vw !important;
+            height: 100dvh !important;
+            min-height: 100dvh !important;
+            transform: none !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-close,
