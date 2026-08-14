@@ -139,6 +139,8 @@ jobs:
           fi
 
       - name: Verify staging website, routes and expected content
+        id: route_verify
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -150,7 +152,7 @@ jobs:
             body=$(mktemp)
             echo "Checking $url"
             curl --fail --silent --show-error --location \
-              --retry 3 --retry-delay 5 --max-time 90 \
+              --retry 4 --retry-all-errors --retry-delay 4 --max-time 90 \
               "$url" --output "$body"
             test -s "$body"
             if grep -qiE 'kritischen Fehler|critical error|fatal error|parse error' "$body"; then
@@ -177,6 +179,7 @@ jobs:
           echo 'All staging routes respond and expected core content is present.'
 
       - name: Install browser for visual QA
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
@@ -184,8 +187,10 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Render live staging in desktop tablet and mobile browsers
-        shell: bash
+        if: always()
+        id: visual_render
         continue-on-error: true
+        shell: bash
         env:
           VISUAL_QA_BASE_URL: https://neu.koblenzer-puppenspiele.de
         run: |
@@ -216,3 +221,21 @@ jobs:
           "
 
           echo 'Visual QA published at https://neu.koblenzer-puppenspiele.de/visual-qa/'
+
+      - name: Final deployment quality gate
+        if: always()
+        shell: bash
+        env:
+          ROUTE_OUTCOME: ${{ steps.route_verify.outcome }}
+          VISUAL_OUTCOME: ${{ steps.visual_render.outcome }}
+        run: |
+          set -euo pipefail
+          echo "Route verification: $ROUTE_OUTCOME"
+          echo "Visual render: $VISUAL_OUTCOME"
+          if [ "$ROUTE_OUTCOME" != 'success' ]; then
+            echo 'ERROR: Route/content verification failed. Visual QA was still generated for diagnosis.'
+            exit 1
+          fi
+          if [ "$VISUAL_OUTCOME" != 'success' ]; then
+            echo 'WARNING: Visual QA detected at least one issue; screenshots were still published for review.'
+          fi
