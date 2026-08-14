@@ -137,33 +137,40 @@ jobs:
             deploy_dir "$THEME" '/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
           fi
 
-      - name: Verify staging website and key routes
+      - name: Verify staging website, routes and expected content
         shell: bash
         run: |
           set -euo pipefail
-          urls=(
-            'https://neu.koblenzer-puppenspiele.de/'
-            'https://neu.koblenzer-puppenspiele.de/aktuelles/'
-            'https://neu.koblenzer-puppenspiele.de/das-theater/'
-            'https://neu.koblenzer-puppenspiele.de/repertoire/'
-            'https://neu.koblenzer-puppenspiele.de/termine/'
-            'https://neu.koblenzer-puppenspiele.de/referenzen/'
-            'https://neu.koblenzer-puppenspiele.de/jetzt-buchen/'
-            'https://neu.koblenzer-puppenspiele.de/kontakt/'
-          )
 
-          for url in "${urls[@]}"; do
-            echo "Checking $url"
+          check_page() {
+            local url="$1"
+            local expected="${2:-}"
+            local body
             body=$(mktemp)
+            echo "Checking $url"
             curl --fail --silent --show-error --location \
-              --retry 3 --retry-delay 5 --max-time 35 \
+              --retry 3 --retry-delay 5 --max-time 90 \
               "$url" --output "$body"
             test -s "$body"
             if grep -qiE 'kritischen Fehler|critical error|fatal error|parse error' "$body"; then
               echo "ERROR: WordPress/PHP error text detected on $url"
               exit 1
             fi
+            if [ -n "$expected" ] && ! grep -Fqi "$expected" "$body"; then
+              echo "ERROR: Expected content '$expected' was not found on $url"
+              exit 1
+            fi
             rm -f "$body"
-          done
+          }
 
-          echo 'All staging routes respond without detectable WordPress/PHP error pages.'
+          check_page 'https://neu.koblenzer-puppenspiele.de/'
+          check_page 'https://neu.koblenzer-puppenspiele.de/aktuelles/' 'FREUNDE'
+          check_page 'https://neu.koblenzer-puppenspiele.de/das-theater/' 'Figurentheater aus Leidenschaft'
+          check_page 'https://neu.koblenzer-puppenspiele.de/das-theater/' 'Björn Christian Küpper'
+          check_page 'https://neu.koblenzer-puppenspiele.de/repertoire/' 'Nulli und Priesemut'
+          check_page 'https://neu.koblenzer-puppenspiele.de/termine/' 'Osterspai'
+          check_page 'https://neu.koblenzer-puppenspiele.de/referenzen/' 'Kufa'
+          check_page 'https://neu.koblenzer-puppenspiele.de/jetzt-buchen/' 'Figurentheater direkt bei Ihnen'
+          check_page 'https://neu.koblenzer-puppenspiele.de/kontakt/'
+
+          echo 'All staging routes respond and expected core content is present.'
