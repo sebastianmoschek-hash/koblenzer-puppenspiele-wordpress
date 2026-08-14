@@ -1,0 +1,22 @@
+/* Final mobile QA polish: keep the floating menu accessible while reducing content overlap. */
+@media (max-width:420px){
+  .kp-site-nav{
+    right:max(6px,env(safe-area-inset-right))!important;
+    bottom:max(6px,env(safe-area-inset-bottom))!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container-open{
+    width:44px!important;
+    min-width:44px!important;
+    height:44px!important;
+    min-height:44px!important;
+    padding:0!important;
+    border-width:1px!important;
+    box-shadow:0 8px 20px rgba(0,0,0,.34)!important;
+  }
+
+  .kp-site-nav .wp-block-navigation__responsive-container-open svg{
+    width:19px!important;
+    height:19px!important;
+  }
+}
