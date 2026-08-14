@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-14T12:43:53.473Z
+Erzeugt: 2026-08-14T12:58:51.523Z
 Geprüfte Ansichten: 40
-Auffällige Ansichten: 23
+Auffällige Ansichten: 21
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -13,10 +13,9 @@ Auffällige Ansichten: 23
 ## desktop-1600 / das-theater
 - 6 defekte Bilder
 - 4 auffällig schmale Textspalten
-- 3 sehr hohe Karten
-  - Schmale Spalte: 42px, 19 Zeilen – „1995 von Björn Christian Küpper in Cochem gegründet, arbeiten die Koblenzer Puppenspiele seit 2010 professionell unter ihrem heutigen Namen.“
-  - Schmale Spalte: 42px, 18 Zeilen – „Das Repertoire reicht von Märchen und Kinderbuchinterpretationen über traditionelle Kasperspiele und Sagen bis zu Uraufführungen und Stoffen der Weltliteratur.“
-  - Schmale Spalte: 42px, 25 Zeilen – „Neben anderen Spielformen pflegt das Ensemble besonders die Kunst des Marionettentheaters im Guckkasten. Die Koblenzer Puppenspiele sind Mitglied der UNIMA und “
+  - Schmale Spalte: 123px, 8 Zeilen – „1995 von Björn Christian Küpper in Cochem gegründet, arbeiten die Koblenzer Puppenspiele seit 2010 professionell unter ihrem heutigen Namen.“
+  - Schmale Spalte: 123px, 9 Zeilen – „Das Repertoire reicht von Märchen und Kinderbuchinterpretationen über traditionelle Kasperspiele und Sagen bis zu Uraufführungen und Stoffen der Weltliteratur.“
+  - Schmale Spalte: 123px, 12 Zeilen – „Neben anderen Spielformen pflegt das Ensemble besonders die Kunst des Marionettentheaters im Guckkasten. Die Koblenzer Puppenspiele sind Mitglied der UNIMA und “
   - Schmale Spalte: 118px, 6 Zeilen – „Seit 2009 Puppenspieler und unter anderem als Nulli und Räuber Hotzenplotz zu erleben.“
 
 ## desktop-1600 / repertoire
@@ -42,12 +41,11 @@ Auffällige Ansichten: 23
 - Automatische Layoutchecks: OK
 
 ## laptop-1366 / das-theater
-- 7 defekte Bilder
+- 4 defekte Bilder
 - 4 auffällig schmale Textspalten
-- 3 sehr hohe Karten
-  - Schmale Spalte: 42px, 19 Zeilen – „1995 von Björn Christian Küpper in Cochem gegründet, arbeiten die Koblenzer Puppenspiele seit 2010 professionell unter ihrem heutigen Namen.“
-  - Schmale Spalte: 42px, 18 Zeilen – „Das Repertoire reicht von Märchen und Kinderbuchinterpretationen über traditionelle Kasperspiele und Sagen bis zu Uraufführungen und Stoffen der Weltliteratur.“
-  - Schmale Spalte: 42px, 25 Zeilen – „Neben anderen Spielformen pflegt das Ensemble besonders die Kunst des Marionettentheaters im Guckkasten. Die Koblenzer Puppenspiele sind Mitglied der UNIMA und “
+  - Schmale Spalte: 123px, 8 Zeilen – „1995 von Björn Christian Küpper in Cochem gegründet, arbeiten die Koblenzer Puppenspiele seit 2010 professionell unter ihrem heutigen Namen.“
+  - Schmale Spalte: 123px, 9 Zeilen – „Das Repertoire reicht von Märchen und Kinderbuchinterpretationen über traditionelle Kasperspiele und Sagen bis zu Uraufführungen und Stoffen der Weltliteratur.“
+  - Schmale Spalte: 123px, 12 Zeilen – „Neben anderen Spielformen pflegt das Ensemble besonders die Kunst des Marionettentheaters im Guckkasten. Die Koblenzer Puppenspiele sind Mitglied der UNIMA und “
   - Schmale Spalte: 118px, 6 Zeilen – „Seit 2009 Puppenspieler und unter anderem als Nulli und Räuber Hotzenplotz zu erleben.“
 
 ## laptop-1366 / repertoire
@@ -73,12 +71,12 @@ Auffällige Ansichten: 23
 - Automatische Layoutchecks: OK
 
 ## tablet-820 / das-theater
-- 7 defekte Bilder
+- 5 defekte Bilder
 - 6 auffällig schmale Textspalten
 - 3 sehr hohe Karten
-  - Schmale Spalte: 42px, 19 Zeilen – „1995 von Björn Christian Küpper in Cochem gegründet, arbeiten die Koblenzer Puppenspiele seit 2010 professionell unter ihrem heutigen Namen.“
-  - Schmale Spalte: 42px, 18 Zeilen – „Das Repertoire reicht von Märchen und Kinderbuchinterpretationen über traditionelle Kasperspiele und Sagen bis zu Uraufführungen und Stoffen der Weltliteratur.“
-  - Schmale Spalte: 42px, 25 Zeilen – „Neben anderen Spielformen pflegt das Ensemble besonders die Kunst des Marionettentheaters im Guckkasten. Die Koblenzer Puppenspiele sind Mitglied der UNIMA und “
+  - Schmale Spalte: 123px, 8 Zeilen – „1995 von Björn Christian Küpper in Cochem gegründet, arbeiten die Koblenzer Puppenspiele seit 2010 professionell unter ihrem heutigen Namen.“
+  - Schmale Spalte: 123px, 9 Zeilen – „Das Repertoire reicht von Märchen und Kinderbuchinterpretationen über traditionelle Kasperspiele und Sagen bis zu Uraufführungen und Stoffen der Weltliteratur.“
+  - Schmale Spalte: 123px, 12 Zeilen – „Neben anderen Spielformen pflegt das Ensemble besonders die Kunst des Marionettentheaters im Guckkasten. Die Koblenzer Puppenspiele sind Mitglied der UNIMA und “
   - Schmale Spalte: 77px, 7 Zeilen – „Gründer der Koblenzer Puppenspiele und seit seiner Kindheit dem Figurentheater verbunden.“
 
 ## tablet-820 / repertoire
@@ -104,12 +102,8 @@ Auffällige Ansichten: 23
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / das-theater
-- 6 defekte Bilder
-- 3 auffällig schmale Textspalten
-- 4 sehr hohe Karten
-  - Schmale Spalte: 38px, 19 Zeilen – „1995 von Björn Christian Küpper in Cochem gegründet, arbeiten die Koblenzer Puppenspiele seit 2010 professionell unter ihrem heutigen Namen.“
-  - Schmale Spalte: 38px, 18 Zeilen – „Das Repertoire reicht von Märchen und Kinderbuchinterpretationen über traditionelle Kasperspiele und Sagen bis zu Uraufführungen und Stoffen der Weltliteratur.“
-  - Schmale Spalte: 38px, 25 Zeilen – „Neben anderen Spielformen pflegt das Ensemble besonders die Kunst des Marionettentheaters im Guckkasten. Die Koblenzer Puppenspiele sind Mitglied der UNIMA und “
+- 5 defekte Bilder
+- 1 sehr hohe Karten
 
 ## mobile-390 / repertoire
 - 1 defekte Bilder
@@ -123,7 +117,7 @@ Auffällige Ansichten: 23
 - 3 sehr hohe Karten
 
 ## mobile-390 / jetzt-buchen
-- Horizontaler Overflow 18px
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / kontakt
 - Automatische Layoutchecks: OK
@@ -135,12 +129,8 @@ Auffällige Ansichten: 23
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / das-theater
-- 7 defekte Bilder
-- 3 auffällig schmale Textspalten
-- 3 sehr hohe Karten
-  - Schmale Spalte: 38px, 19 Zeilen – „1995 von Björn Christian Küpper in Cochem gegründet, arbeiten die Koblenzer Puppenspiele seit 2010 professionell unter ihrem heutigen Namen.“
-  - Schmale Spalte: 38px, 18 Zeilen – „Das Repertoire reicht von Märchen und Kinderbuchinterpretationen über traditionelle Kasperspiele und Sagen bis zu Uraufführungen und Stoffen der Weltliteratur.“
-  - Schmale Spalte: 38px, 25 Zeilen – „Neben anderen Spielformen pflegt das Ensemble besonders die Kunst des Marionettentheaters im Guckkasten. Die Koblenzer Puppenspiele sind Mitglied der UNIMA und “
+- 6 defekte Bilder
+- 1 sehr hohe Karten
 
 ## mobile-412 / repertoire
 - 1 defekte Bilder
@@ -155,14 +145,14 @@ Auffällige Ansichten: 23
 - 1 defekte Bilder
 - 1 mögliche Fixed-Überdeckungen
 - 3 sehr hohe Karten
-  - Fixed-Überdeckung (18%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Evm“
+  - Fixed-Überdeckung (13%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Evm“
 
 ## mobile-412 / jetzt-buchen
-- Horizontaler Overflow 18px
+- Automatische Layoutchecks: OK
 
 ## mobile-412 / kontakt
 - 1 mögliche Fixed-Überdeckungen
-  - Fixed-Überdeckung (28%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Diese Angaben sparen Rückfragen“
+  - Fixed-Überdeckung (23%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Diese Angaben sparen Rückfragen“
 
 ## Interaktionen
 
