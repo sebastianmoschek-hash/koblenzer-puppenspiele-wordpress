@@ -70,24 +70,24 @@ jobs:
           PLUGIN='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
           THEME='wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
 
-          cat > "$RUNNER_TEMP/lftp.conf" <<EOF
-          set ftp:ssl-force true
-          set ftp:ssl-protect-data true
-          set ssl:verify-certificate true
-          set net:max-retries 2
-          set net:timeout 20
-          set net:reconnect-interval-base 5
-          open -u "$FTP_USERNAME","$FTP_PASSWORD" "ftp://$FTP_SERVER"
-          EOF
+          deploy_dir() {
+            local source_dir="$1"
+            local target_dir="$2"
+
+            lftp \
+              -u "$FTP_USERNAME","$FTP_PASSWORD" \
+              "ftp://$FTP_SERVER" \
+              -e "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 2; set net:timeout 20; mirror -R --verbose --only-newer --parallel=2 '$source_dir' '$target_dir'; bye"
+          }
 
           if [ -d "$PLUGIN" ]; then
             echo 'Deploying plugin…'
-            lftp -f "$RUNNER_TEMP/lftp.conf" -e "mirror -R --verbose --only-newer --parallel=2 '$PLUGIN' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'; bye"
+            deploy_dir "$PLUGIN" '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
           fi
 
           if [ -d "$THEME" ]; then
             echo 'Deploying theme…'
-            lftp -f "$RUNNER_TEMP/lftp.conf" -e "mirror -R --verbose --only-newer --parallel=2 '$THEME' '/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'; bye"
+            deploy_dir "$THEME" '/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
           fi
 
       - name: Verify staging website responds
