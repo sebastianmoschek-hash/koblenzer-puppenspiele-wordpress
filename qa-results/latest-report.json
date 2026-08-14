@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-14T14:23:56.952Z",
+  "generatedAt": "2026-08-14T14:27:39.865Z",
   "baseUrl": "https://neu.koblenzer-puppenspiele.de",
   "results": [
     {
@@ -324,7 +324,9 @@
       "title": "Das Theater – puppenspiele",
       "screenshot": "desktop-1600-das-theater.jpg",
       "errorTextDetected": false,
-      "flags": [],
+      "flags": [
+        "2 defekte Bilder"
+      ],
       "diagnostics": {
         "viewportWidth": 1600,
         "viewportHeight": 900,
@@ -332,7 +334,38 @@
         "scrollWidth": 1600,
         "horizontalOverflowPx": 0,
         "overflowOffenders": [],
-        "brokenImages": [],
+        "brokenImages": [
+          {
+            "alt": "Helmut Schmidt",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/helmut_schmidt.png",
+            "naturalWidth": 800,
+            "naturalHeight": 802,
+            "complete": false,
+            "x": 1053,
+            "y": 1523,
+            "top": 1523,
+            "right": 1143,
+            "bottom": 1613,
+            "left": 1053,
+            "width": 90,
+            "height": 90
+          },
+          {
+            "alt": "Stefanie Czapla",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/stefanie_czapla.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 1251,
+            "y": 1523,
+            "top": 1523,
+            "right": 1341,
+            "bottom": 1613,
+            "left": 1251,
+            "width": 90,
+            "height": 90
+          }
+        ],
         "dominantImages": [],
         "headings": [
           {
@@ -4109,14 +4142,45 @@
       "title": "Kontakt – puppenspiele",
       "screenshot": "desktop-1600-kontakt.jpg",
       "errorTextDetected": false,
-      "flags": [],
+      "flags": [
+        "1 sehr hohe Karten"
+      ],
       "diagnostics": {
         "viewportWidth": 1600,
         "viewportHeight": 900,
-        "pageHeight": 1450,
+        "pageHeight": 2444,
         "scrollWidth": 1600,
         "horizontalOverflowPx": 0,
-        "overflowOffenders": [],
+        "overflowOffenders": [
+          {
+            "tag": "label",
+            "className": "",
+            "id": "",
+            "text": "Website",
+            "x": -10000,
+            "y": 927,
+            "top": 927,
+            "right": -9928,
+            "bottom": 995,
+            "left": -10000,
+            "width": 72,
+            "height": 67
+          },
+          {
+            "tag": "input",
+            "className": "",
+            "id": "",
+            "text": "",
+            "x": -10000,
+            "y": 954,
+            "top": 954,
+            "right": -9969,
+            "bottom": 1013,
+            "left": -10000,
+            "width": 31,
+            "height": 59
+          }
+        ],
         "brokenImages": [],
         "dominantImages": [],
         "headings": [
@@ -4150,31 +4214,17 @@
           },
           {
             "tag": "h3",
-            "text": "Schreiben Sie uns",
+            "text": "Lieber per E-Mail?",
             "fontSize": 21.6,
             "lineHeight": "23.328px",
             "x": 462,
-            "y": 943,
-            "top": 943,
-            "right": 772,
-            "bottom": 966,
+            "y": 973,
+            "top": 973,
+            "right": 678,
+            "bottom": 997,
             "left": 462,
-            "width": 310,
+            "width": 216,
             "height": 23
-          },
-          {
-            "tag": "h3",
-            "text": "Diese Angaben sparen Rückfragen",
-            "fontSize": 21.6,
-            "lineHeight": "23.328px",
-            "x": 828,
-            "y": 943,
-            "top": 943,
-            "right": 1138,
-            "bottom": 989,
-            "left": 828,
-            "width": 310,
-            "height": 47
           },
           {
             "tag": "h3",
@@ -4182,10 +4232,10 @@
             "fontSize": 36,
             "lineHeight": "38.16px",
             "x": 280,
-            "y": 1321,
-            "top": 1321,
+            "y": 2315,
+            "top": 2315,
             "right": 600,
-            "bottom": 1359,
+            "bottom": 2353,
             "left": 280,
             "width": 320,
             "height": 38
@@ -4197,7 +4247,21 @@
         "excessiveGaps": [],
         "fixedElements": [],
         "fixedOverlaps": [],
-        "veryTallCards": [],
+        "veryTallCards": [
+          {
+            "tag": "form",
+            "className": "kp-contact-form",
+            "text": "Website Name * E-Mail * Telefon optional Einrichtung / Organisation optional Spielort optional Anlas",
+            "x": 732,
+            "y": 889,
+            "top": 889,
+            "right": 1160,
+            "bottom": 2185,
+            "left": 732,
+            "width": 428,
+            "height": 1296
+          }
+        ],
         "mainChildren": [
           {
             "tag": "h1",
@@ -4215,15 +4279,15 @@
           {
             "tag": "div",
             "className": "entry-content alignwide wp-block-post-content has-global-padding is-layout-constrained wp-block-post-content-is-layout-constrained",
-            "text": "KONTAKT Vorhang auf für Ihre Anfrage Für Gastspielanfragen nennen Sie uns bitte möglichst Ort, Anlass, ungefähre Persone",
+            "text": "KONTAKT Vorhang auf für Ihre Anfrage Ob Gastspiel, Kita, Schule, Kulturveranstaltung oder eine allgemeine Frage: Schreib",
             "x": 280,
             "y": 664,
             "top": 664,
             "right": 1320,
-            "bottom": 1206,
+            "bottom": 2201,
             "left": 280,
             "width": 1040,
-            "height": 542
+            "height": 1537
           }
         ]
       }
@@ -4551,7 +4615,7 @@
       "screenshot": "laptop-1366-das-theater.jpg",
       "errorTextDetected": false,
       "flags": [
-        "1 defekte Bilder"
+        "4 defekte Bilder"
       ],
       "diagnostics": {
         "viewportWidth": 1366,
@@ -4562,10 +4626,55 @@
         "overflowOffenders": [],
         "brokenImages": [
           {
+            "alt": "Martin Wolfram",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/martin_wolfram.png",
+            "naturalWidth": 800,
+            "naturalHeight": 792,
+            "complete": false,
+            "x": 539,
+            "y": 1514,
+            "top": 1514,
+            "right": 629,
+            "bottom": 1604,
+            "left": 539,
+            "width": 90,
+            "height": 90
+          },
+          {
+            "alt": "Gordian Schneider",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/gordian_schneider.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 737,
+            "y": 1514,
+            "top": 1514,
+            "right": 827,
+            "bottom": 1604,
+            "left": 737,
+            "width": 90,
+            "height": 90
+          },
+          {
+            "alt": "Helmut Schmidt",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/helmut_schmidt.png",
+            "naturalWidth": 0,
+            "naturalHeight": 0,
+            "complete": false,
+            "x": 936,
+            "y": 1514,
+            "top": 1514,
+            "right": 1026,
+            "bottom": 1604,
+            "left": 936,
+            "width": 90,
+            "height": 90
+          },
+          {
             "alt": "Stefanie Czapla",
             "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/stefanie_czapla.png",
-            "naturalWidth": 800,
-            "naturalHeight": 777,
+            "naturalWidth": 0,
+            "naturalHeight": 0,
             "complete": false,
             "x": 1134,
             "y": 1514,
@@ -8353,14 +8462,45 @@
       "title": "Kontakt – puppenspiele",
       "screenshot": "laptop-1366-kontakt.jpg",
       "errorTextDetected": false,
-      "flags": [],
+      "flags": [
+        "1 sehr hohe Karten"
+      ],
       "diagnostics": {
         "viewportWidth": 1366,
         "viewportHeight": 768,
-        "pageHeight": 1446,
+        "pageHeight": 2441,
         "scrollWidth": 1366,
         "horizontalOverflowPx": 0,
-        "overflowOffenders": [],
+        "overflowOffenders": [
+          {
+            "tag": "label",
+            "className": "",
+            "id": "",
+            "text": "Website",
+            "x": -10000,
+            "y": 923,
+            "top": 923,
+            "right": -9928,
+            "bottom": 991,
+            "left": -10000,
+            "width": 72,
+            "height": 67
+          },
+          {
+            "tag": "input",
+            "className": "",
+            "id": "",
+            "text": "",
+            "x": -10000,
+            "y": 950,
+            "top": 950,
+            "right": -9969,
+            "bottom": 1009,
+            "left": -10000,
+            "width": 31,
+            "height": 59
+          }
+        ],
         "brokenImages": [],
         "dominantImages": [],
         "headings": [
@@ -8394,31 +8534,17 @@
           },
           {
             "tag": "h3",
-            "text": "Schreiben Sie uns",
+            "text": "Lieber per E-Mail?",
             "fontSize": 21.6,
             "lineHeight": "23.328px",
             "x": 345,
-            "y": 939,
-            "top": 939,
-            "right": 655,
-            "bottom": 962,
+            "y": 969,
+            "top": 969,
+            "right": 561,
+            "bottom": 993,
             "left": 345,
-            "width": 310,
+            "width": 216,
             "height": 23
-          },
-          {
-            "tag": "h3",
-            "text": "Diese Angaben sparen Rückfragen",
-            "fontSize": 21.6,
-            "lineHeight": "23.328px",
-            "x": 711,
-            "y": 939,
-            "top": 939,
-            "right": 1021,
-            "bottom": 986,
-            "left": 711,
-            "width": 310,
-            "height": 47
           },
           {
             "tag": "h3",
@@ -8426,10 +8552,10 @@
             "fontSize": 36,
             "lineHeight": "38.16px",
             "x": 163,
-            "y": 1317,
-            "top": 1317,
+            "y": 2311,
+            "top": 2311,
             "right": 483,
-            "bottom": 1355,
+            "bottom": 2349,
             "left": 163,
             "width": 320,
             "height": 38
@@ -8441,7 +8567,21 @@
         "excessiveGaps": [],
         "fixedElements": [],
         "fixedOverlaps": [],
-        "veryTallCards": [],
+        "veryTallCards": [
+          {
+            "tag": "form",
+            "className": "kp-contact-form",
+            "text": "Website Name * E-Mail * Telefon optional Einrichtung / Organisation optional Spielort optional Anlas",
+            "x": 615,
+            "y": 885,
+            "top": 885,
+            "right": 1043,
+            "bottom": 2181,
+            "left": 615,
+            "width": 428,
+            "height": 1296
+          }
+        ],
         "mainChildren": [
           {
             "tag": "h1",
@@ -8459,15 +8599,15 @@
           {
             "tag": "div",
             "className": "entry-content alignwide wp-block-post-content has-global-padding is-layout-constrained wp-block-post-content-is-layout-constrained",
-            "text": "KONTAKT Vorhang auf für Ihre Anfrage Für Gastspielanfragen nennen Sie uns bitte möglichst Ort, Anlass, ungefähre Persone",
+            "text": "KONTAKT Vorhang auf für Ihre Anfrage Ob Gastspiel, Kita, Schule, Kulturveranstaltung oder eine allgemeine Frage: Schreib",
             "x": 163,
             "y": 662,
             "top": 662,
             "right": 1203,
-            "bottom": 1203,
+            "bottom": 2197,
             "left": 163,
             "width": 1040,
-            "height": 541
+            "height": 1535
           }
         ]
       }
@@ -8794,9 +8934,7 @@
       "title": "Das Theater – puppenspiele",
       "screenshot": "tablet-820-das-theater.jpg",
       "errorTextDetected": false,
-      "flags": [
-        "1 defekte Bilder"
-      ],
+      "flags": [],
       "diagnostics": {
         "viewportWidth": 820,
         "viewportHeight": 1180,
@@ -8804,23 +8942,7 @@
         "scrollWidth": 820,
         "horizontalOverflowPx": 0,
         "overflowOffenders": [],
-        "brokenImages": [
-          {
-            "alt": "Stefanie Czapla",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/stefanie_czapla.png",
-            "naturalWidth": 800,
-            "naturalHeight": 777,
-            "complete": false,
-            "x": 631,
-            "y": 2289,
-            "top": 2289,
-            "right": 721,
-            "bottom": 2379,
-            "left": 631,
-            "width": 90,
-            "height": 90
-          }
-        ],
+        "brokenImages": [],
         "dominantImages": [],
         "headings": [
           {
@@ -12666,14 +12788,45 @@
       "title": "Kontakt – puppenspiele",
       "screenshot": "tablet-820-kontakt.jpg",
       "errorTextDetected": false,
-      "flags": [],
+      "flags": [
+        "2 sehr hohe Karten"
+      ],
       "diagnostics": {
         "viewportWidth": 820,
         "viewportHeight": 1180,
-        "pageHeight": 1409,
+        "pageHeight": 2872,
         "scrollWidth": 820,
         "horizontalOverflowPx": 0,
-        "overflowOffenders": [],
+        "overflowOffenders": [
+          {
+            "tag": "label",
+            "className": "",
+            "id": "",
+            "text": "Website",
+            "x": -10000,
+            "y": 1079,
+            "top": 1079,
+            "right": -9935,
+            "bottom": 1141,
+            "left": -10000,
+            "width": 65,
+            "height": 63
+          },
+          {
+            "tag": "input",
+            "className": "",
+            "id": "",
+            "text": "",
+            "x": -10000,
+            "y": 1104,
+            "top": 1104,
+            "right": -9969,
+            "bottom": 1160,
+            "left": -10000,
+            "width": 31,
+            "height": 56
+          }
+        ],
         "brokenImages": [],
         "dominantImages": [],
         "headings": [
@@ -12707,28 +12860,14 @@
           },
           {
             "tag": "h3",
-            "text": "Schreiben Sie uns",
+            "text": "Lieber per E-Mail?",
             "fontSize": 21.6,
             "lineHeight": "23.328px",
             "x": 72,
-            "y": 795,
-            "top": 795,
+            "y": 852,
+            "top": 852,
             "right": 748,
-            "bottom": 818,
-            "left": 72,
-            "width": 676,
-            "height": 23
-          },
-          {
-            "tag": "h3",
-            "text": "Diese Angaben sparen Rückfragen",
-            "fontSize": 21.6,
-            "lineHeight": "23.328px",
-            "x": 72,
-            "y": 1004,
-            "top": 1004,
-            "right": 748,
-            "bottom": 1027,
+            "bottom": 875,
             "left": 72,
             "width": 676,
             "height": 23
@@ -12739,10 +12878,10 @@
             "fontSize": 31.743,
             "lineHeight": "33.6476px",
             "x": 0,
-            "y": 1287,
-            "top": 1287,
+            "y": 2750,
+            "top": 2750,
             "right": 291,
-            "bottom": 1320,
+            "bottom": 2784,
             "left": 0,
             "width": 291,
             "height": 34
@@ -12754,7 +12893,34 @@
         "excessiveGaps": [],
         "fixedElements": [],
         "fixedOverlaps": [],
-        "veryTallCards": [],
+        "veryTallCards": [
+          {
+            "tag": "section",
+            "className": "kp-finish kp-contact-page",
+            "text": "KONTAKT Vorhang auf für Ihre Anfrage Ob Gastspiel, Kita, Schule, Kulturveranstaltung oder eine allge",
+            "x": 50,
+            "y": 585,
+            "top": 585,
+            "right": 770,
+            "bottom": 2636,
+            "left": 50,
+            "width": 720,
+            "height": 2051
+          },
+          {
+            "tag": "div",
+            "className": "kp-contact-layout",
+            "text": "DIREKTER KONTAKT Lieber per E-Mail? koblenzer-puppenspiele@gmx.de Für eine schnelle Einschätzung sin",
+            "x": 50,
+            "y": 770,
+            "top": 770,
+            "right": 770,
+            "bottom": 2620,
+            "left": 50,
+            "width": 720,
+            "height": 1850
+          }
+        ],
         "mainChildren": [
           {
             "tag": "h1",
@@ -12772,15 +12938,15 @@
           {
             "tag": "div",
             "className": "entry-content alignwide wp-block-post-content has-global-padding is-layout-constrained wp-block-post-content-is-layout-constrained",
-            "text": "KONTAKT Vorhang auf für Ihre Anfrage Für Gastspielanfragen nennen Sie uns bitte möglichst Ort, Anlass, ungefähre Persone",
+            "text": "KONTAKT Vorhang auf für Ihre Anfrage Ob Gastspiel, Kita, Schule, Kulturveranstaltung oder eine allgemeine Frage: Schreib",
             "x": 0,
             "y": 585,
             "top": 585,
             "right": 820,
-            "bottom": 1172,
+            "bottom": 2636,
             "left": 0,
             "width": 820,
-            "height": 587
+            "height": 2051
           }
         ]
       }
@@ -13138,7 +13304,7 @@
       "screenshot": "mobile-390-das-theater.jpg",
       "errorTextDetected": false,
       "flags": [
-        "2 defekte Bilder",
+        "3 defekte Bilder",
         "1 sehr hohe Karten"
       ],
       "diagnostics": {
@@ -13150,10 +13316,25 @@
         "overflowOffenders": [],
         "brokenImages": [
           {
+            "alt": "Gordian Schneider",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/gordian_schneider.png",
+            "naturalWidth": 640,
+            "naturalHeight": 627,
+            "complete": false,
+            "x": 35,
+            "y": 1913,
+            "top": 1913,
+            "right": 109,
+            "bottom": 1987,
+            "left": 35,
+            "width": 74,
+            "height": 74
+          },
+          {
             "alt": "Helmut Schmidt",
             "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/helmut_schmidt.png",
-            "naturalWidth": 800,
-            "naturalHeight": 802,
+            "naturalWidth": 0,
+            "naturalHeight": 0,
             "complete": false,
             "x": 158,
             "y": 1913,
@@ -17086,14 +17267,45 @@
       "title": "Kontakt – puppenspiele",
       "screenshot": "mobile-390-kontakt.jpg",
       "errorTextDetected": false,
-      "flags": [],
+      "flags": [
+        "3 sehr hohe Karten"
+      ],
       "diagnostics": {
         "viewportWidth": 390,
         "viewportHeight": 844,
-        "pageHeight": 1248,
+        "pageHeight": 2563,
         "scrollWidth": 390,
         "horizontalOverflowPx": 0,
-        "overflowOffenders": [],
+        "overflowOffenders": [
+          {
+            "tag": "label",
+            "className": "",
+            "id": "",
+            "text": "Website",
+            "x": -10000,
+            "y": 884,
+            "top": 884,
+            "right": -9948,
+            "bottom": 936,
+            "left": -10000,
+            "width": 52,
+            "height": 53
+          },
+          {
+            "tag": "input",
+            "className": "",
+            "id": "",
+            "text": "",
+            "x": -10000,
+            "y": 904,
+            "top": 904,
+            "right": -9969,
+            "bottom": 954,
+            "left": -10000,
+            "width": 31,
+            "height": 50
+          }
+        ],
         "brokenImages": [],
         "dominantImages": [],
         "headings": [
@@ -17127,28 +17339,14 @@
           },
           {
             "tag": "h3",
-            "text": "Schreiben Sie uns",
+            "text": "Lieber per E-Mail?",
             "fontSize": 21.6,
             "lineHeight": "23.328px",
             "x": 17,
-            "y": 633,
-            "top": 633,
+            "y": 679,
+            "top": 679,
             "right": 373,
-            "bottom": 656,
-            "left": 17,
-            "width": 356,
-            "height": 23
-          },
-          {
-            "tag": "h3",
-            "text": "Diese Angaben sparen Rückfragen",
-            "fontSize": 21.6,
-            "lineHeight": "23.328px",
-            "x": 17,
-            "y": 838,
-            "top": 838,
-            "right": 373,
-            "bottom": 862,
+            "bottom": 702,
             "left": 17,
             "width": 356,
             "height": 23
@@ -17159,17 +17357,34 @@
             "fontSize": 23.4053,
             "lineHeight": "24.8096px",
             "x": 0,
-            "y": 1093,
-            "top": 1093,
+            "y": 2408,
+            "top": 2408,
             "right": 233,
-            "bottom": 1118,
+            "bottom": 2433,
             "left": 0,
             "width": 233,
             "height": 25
           }
         ],
         "largeHeadings": [],
-        "tinyText": [],
+        "tinyText": [
+          {
+            "tag": "p",
+            "text": "* Pflichtfelder · Die Angaben werden durch dieses Formular nicht in WordPress gespeichert.",
+            "textLength": 90,
+            "fontSize": 11.3748,
+            "lineHeight": 18.1997,
+            "estimatedLines": 2,
+            "x": 17,
+            "y": 2164,
+            "top": 2164,
+            "right": 373,
+            "bottom": 2201,
+            "left": 17,
+            "width": 356,
+            "height": 36
+          }
+        ],
         "narrowTextColumns": [],
         "excessiveGaps": [],
         "fixedElements": [
@@ -17189,7 +17404,47 @@
           }
         ],
         "fixedOverlaps": [],
-        "veryTallCards": [],
+        "veryTallCards": [
+          {
+            "tag": "section",
+            "className": "kp-finish kp-contact-page",
+            "text": "KONTAKT Vorhang auf für Ihre Anfrage Ob Gastspiel, Kita, Schule, Kulturveranstaltung oder eine allge",
+            "x": 0,
+            "y": 342,
+            "top": 342,
+            "right": 390,
+            "bottom": 2300,
+            "left": 0,
+            "width": 390,
+            "height": 1958
+          },
+          {
+            "tag": "div",
+            "className": "kp-contact-layout",
+            "text": "DIREKTER KONTAKT Lieber per E-Mail? koblenzer-puppenspiele@gmx.de Für eine schnelle Einschätzung sin",
+            "x": 0,
+            "y": 608,
+            "top": 608,
+            "right": 390,
+            "bottom": 2284,
+            "left": 0,
+            "width": 390,
+            "height": 1675
+          },
+          {
+            "tag": "form",
+            "className": "kp-contact-form",
+            "text": "Website Name * E-Mail * Telefon optional Einrichtung / Organisation optional Spielort optional Anlas",
+            "x": 0,
+            "y": 864,
+            "top": 864,
+            "right": 390,
+            "bottom": 2284,
+            "left": 0,
+            "width": 390,
+            "height": 1420
+          }
+        ],
         "mainChildren": [
           {
             "tag": "h1",
@@ -17207,15 +17462,15 @@
           {
             "tag": "div",
             "className": "entry-content alignwide wp-block-post-content has-global-padding is-layout-constrained wp-block-post-content-is-layout-constrained",
-            "text": "KONTAKT Vorhang auf für Ihre Anfrage Für Gastspielanfragen nennen Sie uns bitte möglichst Ort, Anlass, ungefähre Persone",
+            "text": "KONTAKT Vorhang auf für Ihre Anfrage Ob Gastspiel, Kita, Schule, Kulturveranstaltung oder eine allgemeine Frage: Schreib",
             "x": 0,
             "y": 342,
             "top": 342,
             "right": 390,
-            "bottom": 985,
+            "bottom": 2300,
             "left": 0,
             "width": 390,
-            "height": 643
+            "height": 1958
           }
         ]
       }
@@ -17572,9 +17827,7 @@
       "title": "Das Theater – puppenspiele",
       "screenshot": "mobile-412-das-theater.jpg",
       "errorTextDetected": false,
-      "flags": [
-        "4 defekte Bilder"
-      ],
+      "flags": [],
       "diagnostics": {
         "viewportWidth": 412,
         "viewportHeight": 915,
@@ -17582,68 +17835,7 @@
         "scrollWidth": 412,
         "horizontalOverflowPx": 0,
         "overflowOffenders": [],
-        "brokenImages": [
-          {
-            "alt": "Martin Wolfram",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/martin_wolfram.png",
-            "naturalWidth": 800,
-            "naturalHeight": 792,
-            "complete": false,
-            "x": 299,
-            "y": 1734,
-            "top": 1734,
-            "right": 373,
-            "bottom": 1808,
-            "left": 299,
-            "width": 74,
-            "height": 74
-          },
-          {
-            "alt": "Gordian Schneider",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/gordian_schneider.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 39,
-            "y": 1887,
-            "top": 1887,
-            "right": 113,
-            "bottom": 1961,
-            "left": 39,
-            "width": 74,
-            "height": 74
-          },
-          {
-            "alt": "Helmut Schmidt",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/helmut_schmidt.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 169,
-            "y": 1887,
-            "top": 1887,
-            "right": 243,
-            "bottom": 1961,
-            "left": 169,
-            "width": 74,
-            "height": 74
-          },
-          {
-            "alt": "Stefanie Czapla",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/stefanie_czapla.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 299,
-            "y": 1887,
-            "top": 1887,
-            "right": 373,
-            "bottom": 1961,
-            "left": 299,
-            "width": 74,
-            "height": 74
-          }
-        ],
+        "brokenImages": [],
         "dominantImages": [],
         "headings": [
           {
@@ -21544,15 +21736,44 @@
       "screenshot": "mobile-412-kontakt.jpg",
       "errorTextDetected": false,
       "flags": [
-        "1 mögliche Fixed-Überdeckungen"
+        "3 sehr hohe Karten"
       ],
       "diagnostics": {
         "viewportWidth": 412,
         "viewportHeight": 915,
-        "pageHeight": 1268,
+        "pageHeight": 2565,
         "scrollWidth": 412,
         "horizontalOverflowPx": 0,
-        "overflowOffenders": [],
+        "overflowOffenders": [
+          {
+            "tag": "label",
+            "className": "",
+            "id": "",
+            "text": "Website",
+            "x": -10000,
+            "y": 876,
+            "top": 876,
+            "right": -9947,
+            "bottom": 929,
+            "left": -10000,
+            "width": 53,
+            "height": 53
+          },
+          {
+            "tag": "input",
+            "className": "",
+            "id": "",
+            "text": "",
+            "x": -10000,
+            "y": 897,
+            "top": 897,
+            "right": -9969,
+            "bottom": 947,
+            "left": -10000,
+            "width": 31,
+            "height": 51
+          }
+        ],
         "brokenImages": [],
         "dominantImages": [],
         "headings": [
@@ -21586,28 +21807,14 @@
           },
           {
             "tag": "h3",
-            "text": "Schreiben Sie uns",
+            "text": "Lieber per E-Mail?",
             "fontSize": 21.6,
             "lineHeight": "23.328px",
             "x": 17,
-            "y": 650,
-            "top": 650,
+            "y": 670,
+            "top": 670,
             "right": 395,
-            "bottom": 673,
-            "left": 17,
-            "width": 378,
-            "height": 23
-          },
-          {
-            "tag": "h3",
-            "text": "Diese Angaben sparen Rückfragen",
-            "fontSize": 21.6,
-            "lineHeight": "23.328px",
-            "x": 17,
-            "y": 857,
-            "top": 857,
-            "right": 395,
-            "bottom": 880,
+            "bottom": 693,
             "left": 17,
             "width": 378,
             "height": 23
@@ -21618,17 +21825,34 @@
             "fontSize": 23.8319,
             "lineHeight": "25.2618px",
             "x": 0,
-            "y": 1112,
-            "top": 1112,
+            "y": 2409,
+            "top": 2409,
             "right": 236,
-            "bottom": 1138,
+            "bottom": 2434,
             "left": 0,
             "width": 236,
             "height": 25
           }
         ],
         "largeHeadings": [],
-        "tinyText": [],
+        "tinyText": [
+          {
+            "tag": "p",
+            "text": "* Pflichtfelder · Die Angaben werden durch dieses Formular nicht in WordPress gespeichert.",
+            "textLength": 90,
+            "fontSize": 11.5178,
+            "lineHeight": 18.4284,
+            "estimatedLines": 2,
+            "x": 17,
+            "y": 2165,
+            "top": 2165,
+            "right": 395,
+            "bottom": 2202,
+            "left": 17,
+            "width": 378,
+            "height": 37
+          }
+        ],
         "narrowTextColumns": [],
         "excessiveGaps": [],
         "fixedElements": [
@@ -21647,14 +21871,48 @@
             "height": 44
           }
         ],
-        "fixedOverlaps": [
+        "fixedOverlaps": [],
+        "veryTallCards": [
           {
-            "fixed": "is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat",
-            "target": "Diese Angaben sparen Rückfragen",
-            "overlapRatio": 0.22
+            "tag": "section",
+            "className": "kp-finish kp-contact-page",
+            "text": "KONTAKT Vorhang auf für Ihre Anfrage Ob Gastspiel, Kita, Schule, Kulturveranstaltung oder eine allge",
+            "x": 0,
+            "y": 355,
+            "top": 355,
+            "right": 412,
+            "bottom": 2301,
+            "left": 0,
+            "width": 412,
+            "height": 1946
+          },
+          {
+            "tag": "div",
+            "className": "kp-contact-layout",
+            "text": "DIREKTER KONTAKT Lieber per E-Mail? koblenzer-puppenspiele@gmx.de Für eine schnelle Einschätzung sin",
+            "x": 0,
+            "y": 599,
+            "top": 599,
+            "right": 412,
+            "bottom": 2285,
+            "left": 0,
+            "width": 412,
+            "height": 1686
+          },
+          {
+            "tag": "form",
+            "className": "kp-contact-form",
+            "text": "Website Name * E-Mail * Telefon optional Einrichtung / Organisation optional Spielort optional Anlas",
+            "x": 0,
+            "y": 856,
+            "top": 856,
+            "right": 412,
+            "bottom": 2285,
+            "left": 0,
+            "width": 412,
+            "height": 1429
           }
         ],
-        "veryTallCards": [],
         "mainChildren": [
           {
             "tag": "h1",
@@ -21672,15 +21930,15 @@
           {
             "tag": "div",
             "className": "entry-content alignwide wp-block-post-content has-global-padding is-layout-constrained wp-block-post-content-is-layout-constrained",
-            "text": "KONTAKT Vorhang auf für Ihre Anfrage Für Gastspielanfragen nennen Sie uns bitte möglichst Ort, Anlass, ungefähre Persone",
+            "text": "KONTAKT Vorhang auf für Ihre Anfrage Ob Gastspiel, Kita, Schule, Kulturveranstaltung oder eine allgemeine Frage: Schreib",
             "x": 0,
             "y": 355,
             "top": 355,
             "right": 412,
-            "bottom": 1004,
+            "bottom": 2301,
             "left": 0,
             "width": 412,
-            "height": 649
+            "height": 1946
           }
         ]
       }

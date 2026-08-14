@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-14T14:23:56.952Z
+Erzeugt: 2026-08-14T14:27:39.865Z
 Geprüfte Ansichten: 40
-Auffällige Ansichten: 20
+Auffällige Ansichten: 23
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -11,7 +11,7 @@ Auffällige Ansichten: 20
 - Automatische Layoutchecks: OK
 
 ## desktop-1600 / das-theater
-- Automatische Layoutchecks: OK
+- 2 defekte Bilder
 
 ## desktop-1600 / repertoire
 - 2 defekte Bilder
@@ -27,7 +27,7 @@ Auffällige Ansichten: 20
 - Automatische Layoutchecks: OK
 
 ## desktop-1600 / kontakt
-- Automatische Layoutchecks: OK
+- 1 sehr hohe Karten
 
 ## laptop-1366 / startseite
 - Automatische Layoutchecks: OK
@@ -36,7 +36,7 @@ Auffällige Ansichten: 20
 - Automatische Layoutchecks: OK
 
 ## laptop-1366 / das-theater
-- 1 defekte Bilder
+- 4 defekte Bilder
 
 ## laptop-1366 / repertoire
 - 2 defekte Bilder
@@ -52,7 +52,7 @@ Auffällige Ansichten: 20
 - Automatische Layoutchecks: OK
 
 ## laptop-1366 / kontakt
-- Automatische Layoutchecks: OK
+- 1 sehr hohe Karten
 
 ## tablet-820 / startseite
 - Automatische Layoutchecks: OK
@@ -61,7 +61,7 @@ Auffällige Ansichten: 20
 - Automatische Layoutchecks: OK
 
 ## tablet-820 / das-theater
-- 1 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## tablet-820 / repertoire
 - 4 defekte Bilder
@@ -77,7 +77,7 @@ Auffällige Ansichten: 20
 - Automatische Layoutchecks: OK
 
 ## tablet-820 / kontakt
-- Automatische Layoutchecks: OK
+- 2 sehr hohe Karten
 
 ## mobile-390 / startseite
 - Automatische Layoutchecks: OK
@@ -86,7 +86,7 @@ Auffällige Ansichten: 20
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / das-theater
-- 2 defekte Bilder
+- 3 defekte Bilder
 - 1 sehr hohe Karten
 
 ## mobile-390 / repertoire
@@ -104,7 +104,7 @@ Auffällige Ansichten: 20
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / kontakt
-- Automatische Layoutchecks: OK
+- 3 sehr hohe Karten
 
 ## mobile-412 / startseite
 - Automatische Layoutchecks: OK
@@ -113,7 +113,7 @@ Auffällige Ansichten: 20
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / das-theater
-- 4 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## mobile-412 / repertoire
 - 1 defekte Bilder
@@ -132,8 +132,7 @@ Auffällige Ansichten: 20
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / kontakt
-- 1 mögliche Fixed-Überdeckungen
-  - Fixed-Überdeckung (22%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Diese Angaben sparen Rückfragen“
+- 3 sehr hohe Karten
 
 ## Interaktionen
 
