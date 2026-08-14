@@ -1,4 +1,4 @@
-/* Final phone navigation: true floating menu button with comfortable safe-area spacing. */
+/* Final phone navigation: anchor directly to the viewport with simple values. */
 @media (max-width:420px){
   .kp-navigation-bar{
     height:0!important;
@@ -10,24 +10,34 @@
 
   .kp-site-nav{
     position:fixed!important;
-    right:max(18px,env(safe-area-inset-right))!important;
-    bottom:max(24px,calc(env(safe-area-inset-bottom) + 14px))!important;
+    right:18px!important;
+    bottom:24px!important;
+    top:auto!important;
+    left:auto!important;
     z-index:9999!important;
     display:block!important;
-    width:auto!important;
-    min-height:0!important;
+    width:52px!important;
+    min-width:52px!important;
+    max-width:52px!important;
+    height:52px!important;
+    min-height:52px!important;
     margin:0!important;
+    padding:0!important;
+    transform:none!important;
   }
 
   .kp-site-nav .wp-block-navigation__responsive-container-open{
+    position:static!important;
     display:inline-flex!important;
     align-items:center!important;
     justify-content:center!important;
     width:52px!important;
     min-width:52px!important;
+    max-width:52px!important;
     height:52px!important;
     min-height:52px!important;
     padding:0!important;
+    margin:0!important;
     border:1px solid rgba(255,255,255,.24)!important;
     border-radius:999px!important;
     background:var(--kp-orange)!important;
@@ -45,13 +55,21 @@
     height:21px!important;
   }
 
-  /* The opened WordPress navigation must escape the floating button box. */
   .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open{
     position:fixed!important;
+    top:0!important;
+    right:0!important;
+    bottom:0!important;
+    left:0!important;
     inset:0!important;
-    width:100vw!important;
-    height:100dvh!important;
+    box-sizing:border-box!important;
+    width:auto!important;
+    min-width:0!important;
     max-width:none!important;
+    height:100dvh!important;
+    min-height:100dvh!important;
+    margin:0!important;
+    transform:none!important;
     z-index:10000!important;
   }
 }
