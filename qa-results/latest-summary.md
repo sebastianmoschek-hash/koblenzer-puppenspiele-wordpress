@@ -1,6 +1,6 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-14T22:42:35.973Z
+Erzeugt: 2026-08-14T22:49:10.481Z
 Geprüfte Ansichten: 50
 Auffällige Ansichten: 1
 
@@ -135,7 +135,7 @@ Auffällige Ansichten: 1
 
 ## mobile-412 / repertoire
 - 1 mögliche Fixed-Überdeckungen
-  - Fixed-Überdeckung (19%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Zum Glück gibt’s FREUNDE“
+  - Fixed-Überdeckung (46%): „wp-block-navigation__responsive-container-open“ über „Buchen“
 
 ## mobile-412 / termine
 - Automatische Layoutchecks: OK
