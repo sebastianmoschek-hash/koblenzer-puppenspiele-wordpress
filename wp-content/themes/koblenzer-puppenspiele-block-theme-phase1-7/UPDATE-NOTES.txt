@@ -1,0 +1,5 @@
+Phase 2.3
+- Moderne Seite Das Theater.
+- Drei Ensemblekarten und kompakter Bereich Außerdem unverzichtbar.
+- Eigene Ensemble-Detailseiten.
+- Responsive Smartphone-Darstellung.

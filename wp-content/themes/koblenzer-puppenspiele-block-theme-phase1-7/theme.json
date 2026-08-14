@@ -1,0 +1,269 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/theme.json",
+  "version": 3,
+  "settings": {
+    "appearanceTools": true,
+    "useRootPaddingAwareAlignments": true,
+    "layout": {
+      "contentSize": "720px",
+      "wideSize": "1040px"
+    },
+    "color": {
+      "custom": true,
+      "customDuotone": true,
+      "customGradient": true,
+      "defaultPalette": false,
+      "palette": [
+        {
+          "slug": "black",
+          "name": "Schwarz",
+          "color": "#080706"
+        },
+        {
+          "slug": "brown",
+          "name": "Dunkelbraun",
+          "color": "#17110e"
+        },
+        {
+          "slug": "brown-2",
+          "name": "Warmes Braun",
+          "color": "#241813"
+        },
+        {
+          "slug": "orange",
+          "name": "Puppenspiele Orange",
+          "color": "#f07a22"
+        },
+        {
+          "slug": "orange-dark",
+          "name": "Dunkles Orange",
+          "color": "#c95c10"
+        },
+        {
+          "slug": "cream",
+          "name": "Creme",
+          "color": "#f7f1eb"
+        },
+        {
+          "slug": "muted",
+          "name": "Beige",
+          "color": "#c9bcb1"
+        },
+        {
+          "slug": "white",
+          "name": "Weiß",
+          "color": "#ffffff"
+        }
+      ]
+    },
+    "spacing": {
+      "blockGap": true,
+      "margin": true,
+      "padding": true,
+      "units": [
+        "px",
+        "rem",
+        "em",
+        "%",
+        "vw",
+        "vh"
+      ],
+      "spacingSizes": [
+        {
+          "slug": "20",
+          "name": "XS",
+          "size": "0.45rem"
+        },
+        {
+          "slug": "30",
+          "name": "S",
+          "size": "0.75rem"
+        },
+        {
+          "slug": "40",
+          "name": "M",
+          "size": "1rem"
+        },
+        {
+          "slug": "50",
+          "name": "L",
+          "size": "1.4rem"
+        },
+        {
+          "slug": "60",
+          "name": "XL",
+          "size": "2rem"
+        },
+        {
+          "slug": "70",
+          "name": "XXL",
+          "size": "2.75rem"
+        }
+      ]
+    },
+    "typography": {
+      "fluid": true,
+      "customFontSize": true,
+      "lineHeight": true,
+      "fontFamilies": [
+        {
+          "slug": "sans",
+          "name": "Klare Sans",
+          "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        },
+        {
+          "slug": "serif",
+          "name": "Theater Serif",
+          "fontFamily": "Georgia, 'Times New Roman', serif"
+        }
+      ],
+      "fontSizes": [
+        {
+          "slug": "small",
+          "name": "Klein",
+          "size": "0.875rem"
+        },
+        {
+          "slug": "medium",
+          "name": "Normal",
+          "size": "1rem"
+        },
+        {
+          "slug": "large",
+          "name": "Groß",
+          "size": "1.08rem"
+        },
+        {
+          "slug": "x-large",
+          "name": "Sehr groß",
+          "size": "1.55rem"
+        },
+        {
+          "slug": "hero",
+          "name": "Hero",
+          "size": "clamp(2.25rem, 3.4vw, 3.55rem)"
+        }
+      ]
+    },
+    "border": {
+      "color": true,
+      "radius": true,
+      "style": true,
+      "width": true
+    },
+    "dimensions": {
+      "minHeight": true
+    },
+    "position": {
+      "sticky": true
+    }
+  },
+  "styles": {
+    "color": {
+      "background": "var:preset|color|black",
+      "text": "var:preset|color|cream"
+    },
+    "spacing": {
+      "blockGap": "1.5rem"
+    },
+    "typography": {
+      "fontFamily": "var:preset|font-family|sans",
+      "fontSize": "var:preset|font-size|medium",
+      "lineHeight": "1.6"
+    },
+    "elements": {
+      "heading": {
+        "color": {
+          "text": "var:preset|color|white"
+        },
+        "typography": {
+          "fontFamily": "var:preset|font-family|serif",
+          "fontWeight": "700",
+          "lineHeight": "1.06"
+        }
+      },
+      "link": {
+        "color": {
+          "text": "var:preset|color|orange"
+        },
+        ":hover": {
+          "color": {
+            "text": "#ff9a51"
+          }
+        }
+      },
+      "button": {
+        "border": {
+          "radius": "999px"
+        },
+        "color": {
+          "background": "var:preset|color|orange",
+          "text": "var:preset|color|white"
+        },
+        "spacing": {
+          "padding": {
+            "top": "0.65rem",
+            "right": "1.05rem",
+            "bottom": "0.65rem",
+            "left": "1.05rem"
+          }
+        },
+        "typography": {
+          "fontWeight": "800"
+        }
+      }
+    },
+    "blocks": {
+      "core/button": {
+        "border": {
+          "radius": "999px"
+        }
+      },
+      "core/post-content": {
+        "spacing": {
+          "blockGap": "1.5rem"
+        }
+      },
+      "core/navigation": {
+        "typography": {
+          "fontWeight": "700"
+        }
+      }
+    }
+  },
+  "templateParts": [
+    {
+      "name": "header",
+      "title": "Header",
+      "area": "header"
+    },
+    {
+      "name": "footer",
+      "title": "Footer",
+      "area": "footer"
+    }
+  ],
+  "customTemplates": [
+    {
+      "name": "landing",
+      "title": "Landingpage ohne Seitentitel",
+      "postTypes": [
+        "page"
+      ]
+    },
+    {
+      "name": "page-referenzen",
+      "title": "Referenzen",
+      "postTypes": [
+        "page"
+      ]
+    },
+    {
+      "name": "page-das-theater",
+      "title": "Das Theater",
+      "postTypes": [
+        "page"
+      ]
+    }
+  ]
+}
