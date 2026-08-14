@@ -1,4 +1,4 @@
-/* Final phone navigation: anchor directly to the viewport with simple values. */
+/* Final phone navigation: pin the actual trigger to the viewport, not the WordPress wrapper. */
 @media (max-width:420px){
   .kp-navigation-bar{
     height:0!important;
@@ -9,25 +9,26 @@
   }
 
   .kp-site-nav{
-    position:fixed!important;
-    right:18px!important;
-    bottom:24px!important;
-    top:auto!important;
-    left:auto!important;
-    z-index:9999!important;
+    position:static!important;
+    z-index:auto!important;
     display:block!important;
-    width:52px!important;
-    min-width:52px!important;
-    max-width:52px!important;
-    height:52px!important;
-    min-height:52px!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:auto!important;
+    min-height:0!important;
     margin:0!important;
     padding:0!important;
     transform:none!important;
   }
 
   .kp-site-nav .wp-block-navigation__responsive-container-open{
-    position:static!important;
+    position:fixed!important;
+    right:18px!important;
+    bottom:24px!important;
+    top:auto!important;
+    left:auto!important;
+    z-index:9999!important;
     display:inline-flex!important;
     align-items:center!important;
     justify-content:center!important;
@@ -43,6 +44,7 @@
     background:var(--kp-orange)!important;
     color:#fff!important;
     box-shadow:0 10px 26px rgba(0,0,0,.4)!important;
+    transform:none!important;
   }
 
   .kp-site-nav .wp-block-navigation__responsive-container-open::after{
