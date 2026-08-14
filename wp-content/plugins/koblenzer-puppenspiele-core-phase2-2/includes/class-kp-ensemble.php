@@ -132,7 +132,7 @@ class KP_Ensemble {
         <section class="kp-ensemble-section">
           <p class="kp-kicker">Die Menschen dahinter</p><h2>Das Ensemble</h2>
           <div class="kp-ensemble-grid">
-          <?php foreach($main as $id): $img=get_the_post_thumbnail_url($id,'large'); ?>
+          <?php foreach($main as $id): $img=get_the_post_thumbnail_url($id,'full'); ?>
             <article class="kp-person-card">
               <a href="<?php echo esc_url( add_query_arg( [ 'post_type' => self::POST_TYPE, 'p' => $id ], home_url( '/' ) ) ); ?>">
                 <div class="kp-person-image"><?php if($img):?><img src="<?php echo esc_url($img);?>" alt="<?php echo esc_attr(get_the_title($id));?>"><?php endif;?></div>
@@ -144,7 +144,7 @@ class KP_Ensemble {
           <?php endforeach;?>
           </div>
           <?php if($helpers):?><div class="kp-helpers"><h3>Außerdem unverzichtbar …</h3><div class="kp-helper-grid">
-          <?php foreach($helpers as $id): $img=get_the_post_thumbnail_url($id,'medium'); $url=get_post_meta($id,'_kp_ensemble_url',true);?>
+          <?php foreach($helpers as $id): $img=get_the_post_thumbnail_url($id,'full'); $url=get_post_meta($id,'_kp_ensemble_url',true);?>
             <article class="kp-helper"><?php if($url):?><a href="<?php echo esc_url($url);?>" target="_blank" rel="noopener"><?php endif;?>
               <?php if($img):?><img src="<?php echo esc_url($img);?>" alt="<?php echo esc_attr(get_the_title($id));?>"><?php endif;?>
               <strong><?php echo esc_html(get_the_title($id));?></strong><small><?php echo esc_html(get_post_meta($id,'_kp_ensemble_role',true));?></small>
