@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-14T22:10:26.595Z
+Erzeugt: 2026-08-14T22:26:37.532Z
 Geprüfte Ansichten: 50
-Auffällige Ansichten: 0
+Auffällige Ansichten: 1
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -134,7 +134,8 @@ Auffällige Ansichten: 0
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / repertoire
-- Automatische Layoutchecks: OK
+- 1 mögliche Fixed-Überdeckungen
+  - Fixed-Überdeckung (19%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Zum Glück gibt’s FREUNDE“
 
 ## mobile-412 / termine
 - Automatische Layoutchecks: OK
