@@ -1,0 +1,82 @@
+/*
+ * Compatibility overrides for legacy frontend.css shipped by the content plugin.
+ * Loaded last on purpose. Keep this file small and specific.
+ */
+
+.kp-theater-story .kp-theater-copy .kp-theater-fact{
+  display:flex!important;
+  grid-template-columns:none!important;
+  align-items:flex-start!important;
+}
+.kp-theater-story .kp-theater-copy .kp-theater-fact>p{
+  display:block!important;
+  flex:1 1 auto!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:none!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+}
+
+.kp-ensemble-section .kp-ensemble-grid .kp-person-card>a{
+  display:flex!important;
+  grid-template-columns:none!important;
+  align-items:center!important;
+}
+.kp-ensemble-section .kp-ensemble-grid .kp-person-image{
+  flex:0 0 min(44%,170px)!important;
+  width:min(44%,170px)!important;
+  min-width:150px!important;
+  max-width:170px!important;
+}
+.kp-ensemble-section .kp-ensemble-grid .kp-person-copy{
+  flex:1 1 0!important;
+  width:auto!important;
+  min-width:0!important;
+}
+.kp-ensemble-section .kp-ensemble-grid .kp-person-copy p{
+  width:auto!important;
+  min-width:0!important;
+  max-width:none!important;
+  word-break:normal!important;
+  overflow-wrap:normal!important;
+}
+
+@media(max-width:900px){
+  .kp-theater-story .kp-theater-copy{
+    grid-template-columns:1fr!important;
+  }
+  .kp-ensemble-section .kp-ensemble-grid{
+    grid-template-columns:1fr!important;
+  }
+  .kp-ensemble-section .kp-ensemble-grid .kp-person-card>a{
+    min-height:0!important;
+  }
+  .kp-ensemble-section .kp-ensemble-grid .kp-person-image{
+    flex-basis:170px!important;
+    width:170px!important;
+    min-width:170px!important;
+    max-width:170px!important;
+  }
+}
+
+@media(max-width:600px){
+  .kp-ensemble-section .kp-ensemble-grid .kp-person-image{
+    flex-basis:112px!important;
+    width:112px!important;
+    min-width:112px!important;
+    max-width:112px!important;
+  }
+}
+
+@media(max-width:420px){
+  .kp-ensemble-section .kp-ensemble-grid .kp-person-image{
+    flex-basis:102px!important;
+    width:102px!important;
+    min-width:102px!important;
+    max-width:102px!important;
+  }
+}
