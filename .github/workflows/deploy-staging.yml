@@ -1,0 +1,108 @@
+name: Deploy staging WordPress
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
+      - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/**'
+      - '.github/workflows/deploy-staging.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: koblenzer-puppenspiele-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify deployable WordPress code exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLUGIN='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
+          THEME='wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
+
+          found=0
+          if [ -d "$PLUGIN" ]; then
+            echo "Plugin found: $PLUGIN"
+            found=1
+          fi
+          if [ -d "$THEME" ]; then
+            echo "Theme found: $THEME"
+            found=1
+          fi
+
+          if [ "$found" -ne 1 ]; then
+            echo 'ERROR: Neither the expected plugin nor theme directory exists in this repository.'
+            echo 'Nothing will be uploaded.'
+            exit 1
+          fi
+
+      - name: Install secure FTP client
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+      - name: Deploy plugin and theme to staging via explicit FTPS
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          : "${FTP_SERVER:?FTP_SERVER secret is missing}"
+          : "${FTP_USERNAME:?FTP_USERNAME secret is missing}"
+          : "${FTP_PASSWORD:?FTP_PASSWORD secret is missing}"
+
+          PLUGIN='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
+          THEME='wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
+
+          cat > "$RUNNER_TEMP/lftp.conf" <<EOF
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate true
+          set net:max-retries 2
+          set net:timeout 20
+          set net:reconnect-interval-base 5
+          open -u "$FTP_USERNAME","$FTP_PASSWORD" "ftp://$FTP_SERVER"
+          EOF
+
+          if [ -d "$PLUGIN" ]; then
+            echo 'Deploying plugin…'
+            lftp -f "$RUNNER_TEMP/lftp.conf" -e "mirror -R --verbose --only-newer --parallel=2 '$PLUGIN' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'; bye"
+          fi
+
+          if [ -d "$THEME" ]; then
+            echo 'Deploying theme…'
+            lftp -f "$RUNNER_TEMP/lftp.conf" -e "mirror -R --verbose --only-newer --parallel=2 '$THEME' '/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'; bye"
+          fi
+
+      - name: Verify staging website responds
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --retry 3 --retry-delay 5 \
+            --max-time 30 \
+            'https://neu.koblenzer-puppenspiele.de/' \
+            --output /tmp/staging-home.html
+
+          if [ ! -s /tmp/staging-home.html ]; then
+            echo 'ERROR: Staging homepage returned an empty response.'
+            exit 1
+          fi
+
+          echo 'Staging homepage responds successfully.'
