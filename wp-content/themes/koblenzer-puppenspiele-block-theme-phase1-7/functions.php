@@ -55,6 +55,16 @@ add_action( 'wp_enqueue_scripts', function () {
         );
     }
 
+    $mobile_nav_css = get_theme_file_path( 'assets/mobile-nav-qa.css' );
+    if ( file_exists( $mobile_nav_css ) ) {
+        wp_enqueue_style(
+            'koblenzer-puppenspiele-mobile-nav-qa',
+            get_theme_file_uri( 'assets/mobile-nav-qa.css' ),
+            array( 'koblenzer-puppenspiele-compat-overrides' ),
+            (string) filemtime( $mobile_nav_css )
+        );
+    }
+
     $image_fallback = get_theme_file_path( 'assets/image-fallback.js' );
     if ( file_exists( $image_fallback ) ) {
         wp_enqueue_script(
