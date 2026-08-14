@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Koblenzer Puppenspiele – Inhalte
  * Description: Einfache Verwaltung für Termine, Repertoire, Referenzen und Ensemble der Koblenzer Puppenspiele.
- * Version: 3.4.0
+ * Version: 3.4.1
  * Author: Koblenzer Puppenspiele
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KP_CORE_VERSION', '3.4.0' );
+define( 'KP_CORE_VERSION', '3.4.1' );
 define( 'KP_CORE_FILE', __FILE__ );
 define( 'KP_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KP_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -24,6 +24,7 @@ require_once KP_CORE_DIR . 'includes/class-kp-referenzen.php';
 require_once KP_CORE_DIR . 'includes/class-kp-ensemble.php';
 require_once KP_CORE_DIR . 'includes/class-kp-site-finish.php';
 require_once KP_CORE_DIR . 'includes/class-kp-contact.php';
+require_once KP_CORE_DIR . 'includes/class-kp-legal.php';
 
 add_action( 'plugins_loaded', static function () {
     KP_Termine::instance();
@@ -32,6 +33,7 @@ add_action( 'plugins_loaded', static function () {
     KP_Ensemble::init();
     KP_Site_Finish::init();
     KP_Contact::init();
+    KP_Legal::init();
 } );
 
 add_action( 'init', static function () {
@@ -45,5 +47,6 @@ register_activation_hook( __FILE__, static function () {
     KP_Ensemble::register_post_type();
     KP_Referenzen::ensure_references_page();
     KP_Site_Finish::ensure_pages();
+    KP_Legal::ensure_pages();
     flush_rewrite_rules();
 } );
