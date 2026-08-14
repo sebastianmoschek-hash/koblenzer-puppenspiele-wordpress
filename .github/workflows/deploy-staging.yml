@@ -6,7 +6,6 @@ on:
     paths:
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
       - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/**'
-      - 'visual-qa/**'
       - '.github/workflows/deploy-staging.yml'
   workflow_dispatch:
 
@@ -15,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   deploy:
@@ -221,6 +220,30 @@ jobs:
           "
 
           echo 'Visual QA published at https://neu.koblenzer-puppenspiele.de/visual-qa/'
+
+      - name: Persist latest QA diagnostics in GitHub
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f visual-qa/output/report.json ]; then
+            echo 'No QA report to persist.'
+            exit 0
+          fi
+          mkdir -p qa-results
+          cp visual-qa/output/report.json qa-results/latest-report.json
+          if [ -f visual-qa/output/summary.md ]; then
+            cp visual-qa/output/summary.md qa-results/latest-summary.md
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add qa-results/latest-report.json qa-results/latest-summary.md 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo 'QA diagnostics unchanged.'
+          else
+            git commit -m 'qa: update latest browser diagnostics [skip ci]'
+            git push
+          fi
 
       - name: Final deployment quality gate
         if: always()
