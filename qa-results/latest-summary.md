@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-14T17:15:20.894Z
+Erzeugt: 2026-08-14T18:17:30.221Z
 Geprüfte Ansichten: 50
-Auffällige Ansichten: 4
+Auffällige Ansichten: 0
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -113,12 +113,10 @@ Auffällige Ansichten: 4
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / jetzt-buchen
-- 1 mögliche Fixed-Überdeckungen
-  - Fixed-Überdeckung (25%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Repertoire ansehen →“
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / kontakt
-- 1 mögliche Fixed-Überdeckungen
-  - Fixed-Überdeckung (22%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Hinweise zur Buchung →“
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / impressum
 - Automatische Layoutchecks: OK
@@ -130,15 +128,13 @@ Auffällige Ansichten: 4
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / aktuelles
-- 1 mögliche Fixed-Überdeckungen
-  - Fixed-Überdeckung (29%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Aktuelle Termine →“
+- Automatische Layoutchecks: OK
 
 ## mobile-412 / das-theater
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / repertoire
-- 1 mögliche Fixed-Überdeckungen
-  - Fixed-Überdeckung (36%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Mehr erfahren“
+- Automatische Layoutchecks: OK
 
 ## mobile-412 / termine
 - Automatische Layoutchecks: OK
