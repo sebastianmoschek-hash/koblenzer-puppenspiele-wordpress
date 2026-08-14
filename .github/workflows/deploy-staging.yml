@@ -6,6 +6,7 @@ on:
     paths:
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
       - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/**'
+      - 'visual-qa/**'
       - '.github/workflows/deploy-staging.yml'
   workflow_dispatch:
 
@@ -19,7 +20,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 25
     env:
       FTP_SERVER: srv26.dsbsrv.de
 
@@ -174,3 +175,44 @@ jobs:
           check_page 'https://neu.koblenzer-puppenspiele.de/kontakt/'
 
           echo 'All staging routes respond and expected core content is present.'
+
+      - name: Install browser for visual QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Render live staging in desktop tablet and mobile browsers
+        shell: bash
+        continue-on-error: true
+        env:
+          VISUAL_QA_BASE_URL: https://neu.koblenzer-puppenspiele.de
+        run: |
+          node visual-qa/capture.mjs
+
+      - name: Publish visual QA screenshots to staging
+        if: always()
+        env:
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -d visual-qa/output ]; then
+            echo 'No visual QA output directory was generated.'
+            exit 0
+          fi
+
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            mirror -R --delete --verbose --parallel=2 'visual-qa/output' '/visual-qa';
+            bye
+          "
+
+          echo 'Visual QA published at https://neu.koblenzer-puppenspiele.de/visual-qa/'
