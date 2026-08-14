@@ -25,7 +25,7 @@ final class KP_Legal {
     }
 
     private static function original_imprint_html() {
-        $cache=get_transient('kp_original_imprint_html');
+        $cache=get_transient('kp_original_imprint_html_v2');
         if(is_string($cache)&&$cache!=='') return $cache;
         $response=wp_remote_get(self::ORIGINAL_IMPRINT,array('timeout'=>12,'redirection'=>3));
         if(is_wp_error($response)||200!==(int)wp_remote_retrieve_response_code($response)) return '';
@@ -33,13 +33,13 @@ final class KP_Legal {
         if(!$html) return '';
         if(class_exists('DOMDocument')){
             $previous=libxml_use_internal_errors(true); $doc=new DOMDocument(); $doc->loadHTML('<?xml encoding="utf-8" ?>'.$html); $xpath=new DOMXPath($doc);
-            foreach($xpath->query('//script|//style|//nav|//header|//footer|//form|//noscript') as $node){$node->parentNode->removeChild($node);}
+            foreach($xpath->query('//script|//style|//nav|//header|//footer|//form|//noscript|//img|//svg|//iframe') as $node){$node->parentNode->removeChild($node);}
             $picked=null; foreach(array('//*[@id="wsite-content"]','//*[contains(concat(" ", normalize-space(@class), " "), " wsite-section-content ")]','//main','//body') as $query){$nodes=$xpath->query($query);if($nodes&&$nodes->length){$picked=$nodes->item(0);break;}}
             if($picked){$inner='';foreach($picked->childNodes as $child){$inner.=$doc->saveHTML($child);} $html=$inner;}
             libxml_clear_errors();libxml_use_internal_errors($previous);
         }
         $html=wp_kses_post($html);
-        if(strlen(wp_strip_all_tags($html))>80){set_transient('kp_original_imprint_html',$html,12*HOUR_IN_SECONDS);return $html;}
+        if(strlen(wp_strip_all_tags($html))>80){set_transient('kp_original_imprint_html_v2',$html,12*HOUR_IN_SECONDS);return $html;}
         return '';
     }
 
