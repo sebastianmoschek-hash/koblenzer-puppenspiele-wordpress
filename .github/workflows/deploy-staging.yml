@@ -20,6 +20,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      FTP_SERVER: srv26.dsbsrv.de
 
     steps:
       - name: Check out repository
@@ -56,13 +58,11 @@ jobs:
 
       - name: Diagnose explicit FTPS connection safely
         env:
-          FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
-          : "${FTP_SERVER:?FTP_SERVER secret is missing}"
           : "${FTP_USERNAME:?FTP_USERNAME secret is missing}"
           : "${LFTP_PASSWORD:?FTP_PASSWORD secret is missing}"
 
@@ -93,7 +93,6 @@ jobs:
 
       - name: Deploy plugin and theme to staging via explicit FTPS
         env:
-          FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         shell: bash
