@@ -10,20 +10,27 @@ final class KP_Final_Polish {
     public static function css() {
         ?>
         <style id="kp-final-polish">
-        @media (max-width: 520px) {
+        @media (max-width: 781px) {
+          /* Keep the navigation wrapper untransformed so WordPress can open its
+             responsive overlay against the viewport. Only the trigger floats. */
           .kp-site-nav {
+            position: static !important;
+            left: auto !important;
+            right: auto !important;
+            top: auto !important;
+            bottom: auto !important;
+            width: 100% !important;
+            min-height: 0 !important;
+            transform: none !important;
+            z-index: auto !important;
+          }
+
+          .kp-site-nav .wp-block-navigation__responsive-container-open {
             position: fixed !important;
             left: auto !important;
             right: max(14px, env(safe-area-inset-right)) !important;
-            top: calc(58% - 26px) !important;
+            top: 58dvh !important;
             bottom: auto !important;
-            width: auto !important;
-            transform: none !important;
-            z-index: 9999 !important;
-          }
-
-          .kp-site-nav .wp-block-navigation__responsive-container-open,
-          .kp-site-nav .wp-block-navigation__responsive-container-close {
             width: 52px !important;
             min-width: 52px !important;
             height: 52px !important;
@@ -35,7 +42,9 @@ final class KP_Final_Polish {
             justify-content: center !important;
             box-shadow: 0 10px 28px rgba(0,0,0,.28) !important;
             opacity: .98;
+            transform: translateY(-50%) scale(1) !important;
             transition: opacity .18s ease, transform .18s ease, box-shadow .18s ease;
+            z-index: 10002 !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container-open::after {
@@ -51,7 +60,7 @@ final class KP_Final_Polish {
 
           body.kp-menu-scrolling .kp-site-nav .wp-block-navigation__responsive-container-open {
             opacity: .72;
-            transform: scale(.94);
+            transform: translateY(-50%) scale(.94) !important;
             box-shadow: 0 7px 20px rgba(0,0,0,.2) !important;
           }
 
@@ -59,7 +68,7 @@ final class KP_Final_Polish {
           .kp-site-nav .wp-block-navigation__responsive-container-open:hover,
           .kp-site-nav .wp-block-navigation__responsive-container-open:active {
             opacity: 1;
-            transform: scale(1);
+            transform: translateY(-50%) scale(1) !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open,
@@ -71,15 +80,31 @@ final class KP_Final_Polish {
             height: 100dvh !important;
             min-height: 100dvh !important;
             transform: none !important;
+            z-index: 10000 !important;
+          }
+
+          .kp-site-nav .wp-block-navigation__responsive-container-close {
+            width: 52px !important;
+            min-width: 52px !important;
+            height: 52px !important;
+            min-height: 52px !important;
+            padding: 0 !important;
+            border-radius: 50% !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 10px 28px rgba(0,0,0,.28) !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-close,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-container-close {
             position: fixed !important;
+            left: auto !important;
             right: max(14px, env(safe-area-inset-right)) !important;
-            top: 58% !important;
+            top: 58dvh !important;
+            bottom: auto !important;
             transform: translateY(-50%) !important;
-            z-index: 10001 !important;
+            z-index: 10003 !important;
           }
 
           .kp-contact-form,
@@ -92,7 +117,7 @@ final class KP_Final_Polish {
           }
         }
 
-        @media (max-width: 520px) and (prefers-reduced-motion: reduce) {
+        @media (max-width: 781px) and (prefers-reduced-motion: reduce) {
           .kp-site-nav .wp-block-navigation__responsive-container-open,
           .kp-site-nav .wp-block-navigation__responsive-container-close {
             transition: none !important;
@@ -106,7 +131,7 @@ final class KP_Final_Polish {
         ?>
         <script id="kp-mobile-menu-polish">
         (() => {
-          if (!window.matchMedia('(max-width: 520px)').matches) return;
+          if (!window.matchMedia('(max-width: 781px)').matches) return;
           let timer = null;
           const body = document.body;
           const settle = () => {
