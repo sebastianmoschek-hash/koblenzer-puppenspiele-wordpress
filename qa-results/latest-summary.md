@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-14T15:35:49.276Z
+Erzeugt: 2026-08-14T15:40:20.665Z
 Geprüfte Ansichten: 50
-Auffällige Ansichten: 6
+Auffällige Ansichten: 4
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -29,7 +29,7 @@ Auffällige Ansichten: 6
 - Automatische Layoutchecks: OK
 
 ## desktop-1600 / impressum
-- 1 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## desktop-1600 / datenschutz
 - Automatische Layoutchecks: OK
@@ -59,7 +59,7 @@ Auffällige Ansichten: 6
 - Automatische Layoutchecks: OK
 
 ## laptop-1366 / impressum
-- 1 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## laptop-1366 / datenschutz
 - Automatische Layoutchecks: OK
@@ -89,7 +89,7 @@ Auffällige Ansichten: 6
 - Automatische Layoutchecks: OK
 
 ## tablet-820 / impressum
-- 1 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## tablet-820 / datenschutz
 - Automatische Layoutchecks: OK
@@ -113,13 +113,15 @@ Auffällige Ansichten: 6
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / jetzt-buchen
-- Automatische Layoutchecks: OK
+- 1 mögliche Fixed-Überdeckungen
+  - Fixed-Überdeckung (25%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Repertoire ansehen →“
 
 ## mobile-390 / kontakt
-- Automatische Layoutchecks: OK
+- 1 mögliche Fixed-Überdeckungen
+  - Fixed-Überdeckung (22%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Hinweise zur Buchung →“
 
 ## mobile-390 / impressum
-- 1 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / datenschutz
 - Automatische Layoutchecks: OK
@@ -128,14 +130,15 @@ Auffällige Ansichten: 6
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / aktuelles
-- Automatische Layoutchecks: OK
+- 1 mögliche Fixed-Überdeckungen
+  - Fixed-Überdeckung (29%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Aktuelle Termine →“
 
 ## mobile-412 / das-theater
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / repertoire
 - 1 mögliche Fixed-Überdeckungen
-  - Fixed-Überdeckung (56%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Buchen“
+  - Fixed-Überdeckung (29%): „is-responsive items-justified-center alignwide kp-site-nav wp-block-navigation is-content-justificat“ über „Mehr erfahren“
 
 ## mobile-412 / termine
 - Automatische Layoutchecks: OK
@@ -150,7 +153,7 @@ Auffällige Ansichten: 6
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / impressum
-- 1 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## mobile-412 / datenschutz
 - Automatische Layoutchecks: OK
