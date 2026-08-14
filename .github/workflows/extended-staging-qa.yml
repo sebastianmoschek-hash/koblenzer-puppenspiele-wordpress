@@ -1,0 +1,113 @@
+name: Extended staging QA
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'qa-results/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: extended-staging-qa
+  cancel-in-progress: true
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Crawl internal pages and verify contact form
+        env:
+          BASE_URL: https://neu.koblenzer-puppenspiele.de
+          EXPECTED_EMAIL: koblenzer-puppenspiele@gmx.de
+        run: |
+          python - <<'PY'
+          import os, re, sys, urllib.request, urllib.parse
+          from html.parser import HTMLParser
+          from collections import deque
+
+          base = os.environ['BASE_URL'].rstrip('/')
+          expected_email = os.environ['EXPECTED_EMAIL']
+          origin = urllib.parse.urlsplit(base)
+          start_paths = ['/', '/aktuelles/', '/das-theater/', '/repertoire/', '/termine/', '/referenzen/', '/jetzt-buchen/', '/kontakt/', '/impressum/', '/datenschutz/']
+          ignored_prefixes = ('/wp-admin', '/wp-login', '/feed', '/comments/feed', '/visual-qa')
+          ignored_ext = ('.jpg','.jpeg','.png','.webp','.gif','.svg','.pdf','.zip','.css','.js','.ico','.woff','.woff2','.ttf','.xml')
+
+          class Links(HTMLParser):
+              def __init__(self):
+                  super().__init__(); self.hrefs=[]; self.imgs=[]; self.forms=[]; self.inputs=[]; self.text=[]
+              def handle_starttag(self, tag, attrs):
+                  a=dict(attrs)
+                  if tag=='a' and a.get('href'): self.hrefs.append(a['href'])
+                  if tag=='img' and a.get('src'): self.imgs.append(a['src'])
+                  if tag=='form': self.forms.append(a)
+                  if tag in ('input','textarea','button'): self.inputs.append((tag,a))
+              def handle_data(self, data): self.text.append(data)
+
+          def normalize(url, current):
+              url = urllib.parse.urljoin(current, url)
+              s = urllib.parse.urlsplit(url)
+              if s.scheme not in ('http','https') or s.netloc != origin.netloc: return None
+              path = s.path or '/'
+              if path.startswith(ignored_prefixes) or path.lower().endswith(ignored_ext): return None
+              if '/page/' in path or s.query: return None
+              return urllib.parse.urlunsplit((origin.scheme, origin.netloc, path, '', ''))
+
+          def fetch(url):
+              req=urllib.request.Request(url, headers={'User-Agent':'Koblenzer-Puppenspiele-Staging-QA/1.0'})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  status=r.status; ctype=r.headers.get('Content-Type',''); body=r.read(2_500_000)
+              return status, ctype, body
+
+          q=deque(base+p for p in start_paths); seen=set(); failures=[]; pages=[]; contact_checked=False
+          while q and len(seen)<180:
+              url=q.popleft()
+              if url in seen: continue
+              seen.add(url)
+              try:
+                  status, ctype, raw=fetch(url)
+              except Exception as e:
+                  failures.append(f'{url} -> {e}'); continue
+              if status >= 400:
+                  failures.append(f'{url} -> HTTP {status}'); continue
+              if 'text/html' not in ctype: continue
+              html=raw.decode('utf-8','replace')
+              low=html.lower()
+              if re.search(r'critical error|fatal error|parse error|kritischen fehler|seite nicht gefunden', low):
+                  failures.append(f'{url} -> WordPress/error text detected')
+              p=Links(); p.feed(html); pages.append(url)
+              for href in p.hrefs:
+                  n=normalize(href,url)
+                  if n and n not in seen: q.append(n)
+              for src in p.imgs:
+                  u=urllib.parse.urljoin(url,src); s=urllib.parse.urlsplit(u)
+                  if s.netloc != origin.netloc: continue
+                  try:
+                      req=urllib.request.Request(u,method='HEAD',headers={'User-Agent':'Koblenzer-Puppenspiele-Staging-QA/1.0'})
+                      with urllib.request.urlopen(req,timeout=20) as r:
+                          if r.status >= 400: failures.append(f'Image {u} -> HTTP {r.status}')
+                  except Exception as e: failures.append(f'Image {u} -> {e}')
+              if urllib.parse.urlsplit(url).path.rstrip('/') == '/kontakt':
+                  contact_checked=True
+                  bodytext=' '.join(p.text)
+                  if expected_email not in html: failures.append('Kontakt: official email not rendered')
+                  if 'method="post"' not in low and "method='post'" not in low: failures.append('Kontakt: POST form missing')
+                  for name in ('name','email','message','privacy','kp_contact_nonce','kp_contact_submit'):
+                      if not any(a.get('name')==name for _,a in p.inputs): failures.append(f'Kontakt: field {name} missing')
+                  if '/datenschutz/' not in html: failures.append('Kontakt: privacy link missing')
+
+          required_fragments = ('/repertoire/', '/ensemble/')
+          for frag in required_fragments:
+              if not any(frag in urllib.parse.urlsplit(u).path for u in pages):
+                  failures.append(f'No crawled detail page found for {frag}')
+          if not contact_checked: failures.append('Contact page was not checked')
+          print(f'Crawled {len(pages)} HTML pages / {len(seen)} URLs')
+          if failures:
+              print('FAILURES:')
+              for f in failures[:100]: print('-',f)
+              sys.exit(1)
+          print('Extended staging crawl, internal links, images, detail pages and contact-form structure: OK')
+          PY
