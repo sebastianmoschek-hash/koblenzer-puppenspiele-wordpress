@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-14T15:17:42.363Z",
+  "generatedAt": "2026-08-14T15:20:57.066Z",
   "baseUrl": "https://neu.koblenzer-puppenspiele.de",
   "results": [
     {
@@ -325,7 +325,7 @@
       "screenshot": "desktop-1600-das-theater.jpg",
       "errorTextDetected": false,
       "flags": [
-        "7 defekte Bilder"
+        "4 defekte Bilder"
       ],
       "diagnostics": {
         "viewportWidth": 1600,
@@ -336,55 +336,10 @@
         "overflowOffenders": [],
         "brokenImages": [
           {
-            "alt": "Björn Christian Küpper",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/bjoern_christian_kuepper.png",
-            "naturalWidth": 800,
-            "naturalHeight": 793,
-            "complete": false,
-            "x": 239,
-            "y": 1175,
-            "top": 1175,
-            "right": 396,
-            "bottom": 1333,
-            "left": 239,
-            "width": 157,
-            "height": 157
-          },
-          {
-            "alt": "Sebastian Moschek",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/sebastian_moschek.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 1034,
-            "y": 1175,
-            "top": 1175,
-            "right": 1191,
-            "bottom": 1333,
-            "left": 1034,
-            "width": 157,
-            "height": 157
-          },
-          {
-            "alt": "Ursula Birgid Küpper",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/ursula_birgid_kuepper.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 259,
-            "y": 1523,
-            "top": 1523,
-            "right": 349,
-            "bottom": 1613,
-            "left": 259,
-            "width": 90,
-            "height": 90
-          },
-          {
             "alt": "Martin Wolfram",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/martin_wolfram.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/martin_wolfram.png",
+            "naturalWidth": 800,
+            "naturalHeight": 792,
             "complete": false,
             "x": 656,
             "y": 1523,
@@ -397,7 +352,7 @@
           },
           {
             "alt": "Gordian Schneider",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/gordian_schneider.png",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/gordian_schneider.png",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -412,7 +367,7 @@
           },
           {
             "alt": "Helmut Schmidt",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/helmut_schmidt.png",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/helmut_schmidt.png",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -427,7 +382,7 @@
           },
           {
             "alt": "Stefanie Czapla",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/stefanie_czapla.png",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/stefanie_czapla.png",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -774,7 +729,7 @@
         "brokenImages": [
           {
             "alt": "Die Höllenfahrt des Dr. Faust – Titelbild",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/faust_repertoire.jpg",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-repertoire/faust_repertoire.jpg",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -789,7 +744,7 @@
           },
           {
             "alt": "Ein Baum für den Weihnachtsmann – Titelbild",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/ein_baum_fuer_den_weihnachtsmann_repertoire-1020x1024.jpg",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-repertoire/ein_baum_fuer_den_weihnachtsmann_repertoire.jpg",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -4223,7 +4178,7 @@
       "diagnostics": {
         "viewportWidth": 1600,
         "viewportHeight": 900,
-        "pageHeight": 2444,
+        "pageHeight": 2379,
         "scrollWidth": 1600,
         "horizontalOverflowPx": 0,
         "overflowOffenders": [
@@ -4307,10 +4262,10 @@
             "fontSize": 36,
             "lineHeight": "38.16px",
             "x": 280,
-            "y": 2315,
-            "top": 2315,
+            "y": 2250,
+            "top": 2250,
             "right": 600,
-            "bottom": 2353,
+            "bottom": 2288,
             "left": 280,
             "width": 320,
             "height": 38
@@ -4331,10 +4286,10 @@
             "y": 889,
             "top": 889,
             "right": 1160,
-            "bottom": 2185,
+            "bottom": 2119,
             "left": 732,
             "width": 428,
-            "height": 1296
+            "height": 1230
           }
         ],
         "mainChildren": [
@@ -4359,10 +4314,10 @@
             "y": 664,
             "top": 664,
             "right": 1320,
-            "bottom": 2201,
+            "bottom": 2135,
             "left": 280,
             "width": 1040,
-            "height": 1537
+            "height": 1471
           }
         ]
       }
@@ -4690,7 +4645,7 @@
       "screenshot": "laptop-1366-das-theater.jpg",
       "errorTextDetected": false,
       "flags": [
-        "7 defekte Bilder"
+        "2 defekte Bilder"
       ],
       "diagnostics": {
         "viewportWidth": 1366,
@@ -4701,85 +4656,10 @@
         "overflowOffenders": [],
         "brokenImages": [
           {
-            "alt": "Sarah Jüngling",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/sarah_juengling.png",
-            "naturalWidth": 800,
-            "naturalHeight": 831,
-            "complete": false,
-            "x": 519,
-            "y": 1166,
-            "top": 1166,
-            "right": 676,
-            "bottom": 1324,
-            "left": 519,
-            "width": 157,
-            "height": 157
-          },
-          {
-            "alt": "Sebastian Moschek",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/sebastian_moschek.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 917,
-            "y": 1166,
-            "top": 1166,
-            "right": 1074,
-            "bottom": 1324,
-            "left": 917,
-            "width": 157,
-            "height": 157
-          },
-          {
-            "alt": "Ursula Birgid Küpper",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/ursula_birgid_kuepper.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 142,
-            "y": 1514,
-            "top": 1514,
-            "right": 232,
-            "bottom": 1604,
-            "left": 142,
-            "width": 90,
-            "height": 90
-          },
-          {
-            "alt": "Martin Wolfram",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/martin_wolfram.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 539,
-            "y": 1514,
-            "top": 1514,
-            "right": 629,
-            "bottom": 1604,
-            "left": 539,
-            "width": 90,
-            "height": 90
-          },
-          {
-            "alt": "Gordian Schneider",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/gordian_schneider.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 737,
-            "y": 1514,
-            "top": 1514,
-            "right": 827,
-            "bottom": 1604,
-            "left": 737,
-            "width": 90,
-            "height": 90
-          },
-          {
             "alt": "Helmut Schmidt",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/helmut_schmidt.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/helmut_schmidt.png",
+            "naturalWidth": 800,
+            "naturalHeight": 802,
             "complete": false,
             "x": 936,
             "y": 1514,
@@ -4792,7 +4672,7 @@
           },
           {
             "alt": "Stefanie Czapla",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/stefanie_czapla.png",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/stefanie_czapla.png",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -5139,7 +5019,7 @@
         "brokenImages": [
           {
             "alt": "Die Höllenfahrt des Dr. Faust – Titelbild",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/faust_repertoire.jpg",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-repertoire/faust_repertoire.jpg",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -5154,7 +5034,7 @@
           },
           {
             "alt": "Ein Baum für den Weihnachtsmann – Titelbild",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/ein_baum_fuer_den_weihnachtsmann_repertoire-1020x1024.jpg",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-repertoire/ein_baum_fuer_den_weihnachtsmann_repertoire.jpg",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -8588,7 +8468,7 @@
       "diagnostics": {
         "viewportWidth": 1366,
         "viewportHeight": 768,
-        "pageHeight": 2441,
+        "pageHeight": 2375,
         "scrollWidth": 1366,
         "horizontalOverflowPx": 0,
         "overflowOffenders": [
@@ -8672,10 +8552,10 @@
             "fontSize": 36,
             "lineHeight": "38.16px",
             "x": 163,
-            "y": 2311,
-            "top": 2311,
+            "y": 2246,
+            "top": 2246,
             "right": 483,
-            "bottom": 2349,
+            "bottom": 2284,
             "left": 163,
             "width": 320,
             "height": 38
@@ -8696,10 +8576,10 @@
             "y": 885,
             "top": 885,
             "right": 1043,
-            "bottom": 2181,
+            "bottom": 2115,
             "left": 615,
             "width": 428,
-            "height": 1296
+            "height": 1230
           }
         ],
         "mainChildren": [
@@ -8724,10 +8604,10 @@
             "y": 662,
             "top": 662,
             "right": 1203,
-            "bottom": 2197,
+            "bottom": 2131,
             "left": 163,
             "width": 1040,
-            "height": 1535
+            "height": 1469
           }
         ]
       }
@@ -9055,7 +8935,7 @@
       "screenshot": "tablet-820-das-theater.jpg",
       "errorTextDetected": false,
       "flags": [
-        "6 defekte Bilder"
+        "5 defekte Bilder"
       ],
       "diagnostics": {
         "viewportWidth": 820,
@@ -9066,25 +8946,10 @@
         "overflowOffenders": [],
         "brokenImages": [
           {
-            "alt": "Sebastian Moschek",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/sebastian_moschek.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 41,
-            "y": 1781,
-            "top": 1781,
-            "right": 211,
-            "bottom": 1951,
-            "left": 41,
-            "width": 170,
-            "height": 170
-          },
-          {
             "alt": "Ursula Birgid Küpper",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/ursula_birgid_kuepper.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/ursula_birgid_kuepper.png",
+            "naturalWidth": 800,
+            "naturalHeight": 778,
             "complete": false,
             "x": 99,
             "y": 2110,
@@ -9097,7 +8962,7 @@
           },
           {
             "alt": "Martin Wolfram",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/martin_wolfram.png",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/martin_wolfram.png",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -9112,7 +8977,7 @@
           },
           {
             "alt": "Gordian Schneider",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/gordian_schneider.png",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/gordian_schneider.png",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -9127,7 +8992,7 @@
           },
           {
             "alt": "Helmut Schmidt",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/helmut_schmidt.png",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/helmut_schmidt.png",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -9142,7 +9007,7 @@
           },
           {
             "alt": "Stefanie Czapla",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/stefanie_czapla.png",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/stefanie_czapla.png",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -9489,7 +9354,7 @@
         "brokenImages": [
           {
             "alt": "Weihnachten bei Tiger und Bär – Titelbild",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/weihnachten_bei_tiger_und_baer_repertoire-1015x1024.jpg",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-repertoire/weihnachten_bei_tiger_und_baer_repertoire.jpg",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -9504,7 +9369,7 @@
           },
           {
             "alt": "Frau Holle – Titelbild",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/holle_repertoire.jpg",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-repertoire/holle_repertoire.jpg",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -9519,7 +9384,7 @@
           },
           {
             "alt": "Die Höllenfahrt des Dr. Faust – Titelbild",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/faust_repertoire.jpg",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-repertoire/faust_repertoire.jpg",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -9534,7 +9399,7 @@
           },
           {
             "alt": "Ein Baum für den Weihnachtsmann – Titelbild",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/ein_baum_fuer_den_weihnachtsmann_repertoire-1020x1024.jpg",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-repertoire/ein_baum_fuer_den_weihnachtsmann_repertoire.jpg",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -13007,7 +12872,7 @@
       "diagnostics": {
         "viewportWidth": 820,
         "viewportHeight": 1180,
-        "pageHeight": 2872,
+        "pageHeight": 2781,
         "scrollWidth": 820,
         "horizontalOverflowPx": 0,
         "overflowOffenders": [
@@ -13091,10 +12956,10 @@
             "fontSize": 31.743,
             "lineHeight": "33.6476px",
             "x": 0,
-            "y": 2750,
-            "top": 2750,
+            "y": 2659,
+            "top": 2659,
             "right": 291,
-            "bottom": 2784,
+            "bottom": 2693,
             "left": 0,
             "width": 291,
             "height": 34
@@ -13115,23 +12980,23 @@
             "y": 585,
             "top": 585,
             "right": 770,
-            "bottom": 2636,
+            "bottom": 2545,
             "left": 50,
             "width": 720,
-            "height": 2051
+            "height": 1960
           },
           {
             "tag": "div",
             "className": "kp-contact-layout",
-            "text": "DIREKTER KONTAKT Lieber per E-Mail? koblenzer-puppenspiele@gmx.de Für eine schnelle Einschätzung sin",
+            "text": "DIREKTER KONTAKT Lieber per E-Mail? 018koblenzer-puppenspiele@gmx.deHaftung Für eine schnelle Einsch",
             "x": 50,
             "y": 770,
             "top": 770,
             "right": 770,
-            "bottom": 2620,
+            "bottom": 2529,
             "left": 50,
             "width": 720,
-            "height": 1850
+            "height": 1759
           }
         ],
         "mainChildren": [
@@ -13156,10 +13021,10 @@
             "y": 585,
             "top": 585,
             "right": 820,
-            "bottom": 2636,
+            "bottom": 2545,
             "left": 0,
             "width": 820,
-            "height": 2051
+            "height": 1960
           }
         ]
       }
@@ -13517,7 +13382,6 @@
       "screenshot": "mobile-390-das-theater.jpg",
       "errorTextDetected": false,
       "flags": [
-        "7 defekte Bilder",
         "1 sehr hohe Karten"
       ],
       "diagnostics": {
@@ -13527,113 +13391,7 @@
         "scrollWidth": 390,
         "horizontalOverflowPx": 0,
         "overflowOffenders": [],
-        "brokenImages": [
-          {
-            "alt": "Sarah Jüngling",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/sarah_juengling.png",
-            "naturalWidth": 800,
-            "naturalHeight": 831,
-            "complete": false,
-            "x": 37,
-            "y": 1292,
-            "top": 1292,
-            "right": 139,
-            "bottom": 1394,
-            "left": 37,
-            "width": 102,
-            "height": 102
-          },
-          {
-            "alt": "Sebastian Moschek",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/sebastian_moschek.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 37,
-            "y": 1502,
-            "top": 1502,
-            "right": 139,
-            "bottom": 1604,
-            "left": 37,
-            "width": 102,
-            "height": 102
-          },
-          {
-            "alt": "Ursula Birgid Küpper",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/ursula_birgid_kuepper.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 35,
-            "y": 1747,
-            "top": 1747,
-            "right": 109,
-            "bottom": 1821,
-            "left": 35,
-            "width": 74,
-            "height": 74
-          },
-          {
-            "alt": "Martin Wolfram",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/martin_wolfram.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 281,
-            "y": 1747,
-            "top": 1747,
-            "right": 355,
-            "bottom": 1821,
-            "left": 281,
-            "width": 74,
-            "height": 74
-          },
-          {
-            "alt": "Gordian Schneider",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/gordian_schneider.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 35,
-            "y": 1913,
-            "top": 1913,
-            "right": 109,
-            "bottom": 1987,
-            "left": 35,
-            "width": 74,
-            "height": 74
-          },
-          {
-            "alt": "Helmut Schmidt",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/helmut_schmidt.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 158,
-            "y": 1913,
-            "top": 1913,
-            "right": 232,
-            "bottom": 1987,
-            "left": 158,
-            "width": 74,
-            "height": 74
-          },
-          {
-            "alt": "Stefanie Czapla",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/stefanie_czapla.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 281,
-            "y": 1913,
-            "top": 1913,
-            "right": 355,
-            "bottom": 1987,
-            "left": 281,
-            "width": 74,
-            "height": 74
-          }
-        ],
+        "brokenImages": [],
         "dominantImages": [],
         "headings": [
           {
@@ -13996,7 +13754,7 @@
         "brokenImages": [
           {
             "alt": "Ein Baum für den Weihnachtsmann – Titelbild",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/ein_baum_fuer_den_weihnachtsmann_repertoire-1020x1024.jpg",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-repertoire/ein_baum_fuer_den_weihnachtsmann_repertoire.jpg",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -16526,7 +16284,7 @@
         "brokenImages": [
           {
             "alt": "Yellow",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/referenzen_yellow.jpg",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-referenzen/referenzen_yellow.jpg",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -17546,7 +17304,7 @@
       "diagnostics": {
         "viewportWidth": 390,
         "viewportHeight": 844,
-        "pageHeight": 2563,
+        "pageHeight": 2486,
         "scrollWidth": 390,
         "horizontalOverflowPx": 0,
         "overflowOffenders": [
@@ -17630,10 +17388,10 @@
             "fontSize": 23.4053,
             "lineHeight": "24.8096px",
             "x": 0,
-            "y": 2408,
-            "top": 2408,
+            "y": 2331,
+            "top": 2331,
             "right": 233,
-            "bottom": 2433,
+            "bottom": 2356,
             "left": 0,
             "width": 233,
             "height": 25
@@ -17649,10 +17407,10 @@
             "lineHeight": 18.1997,
             "estimatedLines": 2,
             "x": 17,
-            "y": 2164,
-            "top": 2164,
+            "y": 2087,
+            "top": 2087,
             "right": 373,
-            "bottom": 2201,
+            "bottom": 2124,
             "left": 17,
             "width": 356,
             "height": 36
@@ -17686,23 +17444,23 @@
             "y": 342,
             "top": 342,
             "right": 390,
-            "bottom": 2300,
+            "bottom": 2223,
             "left": 0,
             "width": 390,
-            "height": 1958
+            "height": 1881
           },
           {
             "tag": "div",
             "className": "kp-contact-layout",
-            "text": "DIREKTER KONTAKT Lieber per E-Mail? koblenzer-puppenspiele@gmx.de Für eine schnelle Einschätzung sin",
+            "text": "DIREKTER KONTAKT Lieber per E-Mail? 018koblenzer-puppenspiele@gmx.deHaftung Für eine schnelle Einsch",
             "x": 0,
             "y": 608,
             "top": 608,
             "right": 390,
-            "bottom": 2284,
+            "bottom": 2207,
             "left": 0,
             "width": 390,
-            "height": 1675
+            "height": 1599
           },
           {
             "tag": "form",
@@ -17712,10 +17470,10 @@
             "y": 864,
             "top": 864,
             "right": 390,
-            "bottom": 2284,
+            "bottom": 2207,
             "left": 0,
             "width": 390,
-            "height": 1420
+            "height": 1343
           }
         ],
         "mainChildren": [
@@ -17740,10 +17498,10 @@
             "y": 342,
             "top": 342,
             "right": 390,
-            "bottom": 2300,
+            "bottom": 2223,
             "left": 0,
             "width": 390,
-            "height": 1958
+            "height": 1881
           }
         ]
       }
@@ -18101,7 +17859,7 @@
       "screenshot": "mobile-412-das-theater.jpg",
       "errorTextDetected": false,
       "flags": [
-        "7 defekte Bilder"
+        "4 defekte Bilder"
       ],
       "diagnostics": {
         "viewportWidth": 412,
@@ -18112,40 +17870,10 @@
         "overflowOffenders": [],
         "brokenImages": [
           {
-            "alt": "Sarah Jüngling",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/sarah_juengling.png",
-            "naturalWidth": 800,
-            "naturalHeight": 831,
-            "complete": false,
-            "x": 37,
-            "y": 1276,
-            "top": 1276,
-            "right": 139,
-            "bottom": 1378,
-            "left": 37,
-            "width": 102,
-            "height": 102
-          },
-          {
-            "alt": "Sebastian Moschek",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/sebastian_moschek.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 37,
-            "y": 1487,
-            "top": 1487,
-            "right": 139,
-            "bottom": 1589,
-            "left": 37,
-            "width": 102,
-            "height": 102
-          },
-          {
             "alt": "Ursula Birgid Küpper",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/ursula_birgid_kuepper.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/ursula_birgid_kuepper.png",
+            "naturalWidth": 800,
+            "naturalHeight": 778,
             "complete": false,
             "x": 39,
             "y": 1734,
@@ -18157,23 +17885,8 @@
             "height": 74
           },
           {
-            "alt": "Martin Wolfram",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/martin_wolfram.png",
-            "naturalWidth": 0,
-            "naturalHeight": 0,
-            "complete": false,
-            "x": 299,
-            "y": 1734,
-            "top": 1734,
-            "right": 373,
-            "bottom": 1808,
-            "left": 299,
-            "width": 74,
-            "height": 74
-          },
-          {
             "alt": "Gordian Schneider",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/gordian_schneider.png",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/gordian_schneider.png",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -18188,7 +17901,7 @@
           },
           {
             "alt": "Helmut Schmidt",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/helmut_schmidt.png",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/helmut_schmidt.png",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -18203,7 +17916,7 @@
           },
           {
             "alt": "Stefanie Czapla",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/stefanie_czapla.png",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-ensemble/stefanie_czapla.png",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -18566,7 +18279,7 @@
         "brokenImages": [
           {
             "alt": "Ein Baum für den Weihnachtsmann – Titelbild",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/ein_baum_fuer_den_weihnachtsmann_repertoire-1020x1024.jpg",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-repertoire/ein_baum_fuer_den_weihnachtsmann_repertoire.jpg",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -21102,7 +20815,7 @@
         "brokenImages": [
           {
             "alt": "Yellow",
-            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/uploads/2026/08/referenzen_yellow.jpg",
+            "src": "https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-referenzen/referenzen_yellow.jpg",
             "naturalWidth": 0,
             "naturalHeight": 0,
             "complete": false,
@@ -22122,7 +21835,7 @@
       "diagnostics": {
         "viewportWidth": 412,
         "viewportHeight": 915,
-        "pageHeight": 2565,
+        "pageHeight": 2487,
         "scrollWidth": 412,
         "horizontalOverflowPx": 0,
         "overflowOffenders": [
@@ -22206,10 +21919,10 @@
             "fontSize": 23.8319,
             "lineHeight": "25.2618px",
             "x": 0,
-            "y": 2409,
-            "top": 2409,
+            "y": 2331,
+            "top": 2331,
             "right": 236,
-            "bottom": 2434,
+            "bottom": 2357,
             "left": 0,
             "width": 236,
             "height": 25
@@ -22225,10 +21938,10 @@
             "lineHeight": 18.4284,
             "estimatedLines": 2,
             "x": 17,
-            "y": 2165,
-            "top": 2165,
+            "y": 2087,
+            "top": 2087,
             "right": 395,
-            "bottom": 2202,
+            "bottom": 2124,
             "left": 17,
             "width": 378,
             "height": 37
@@ -22262,23 +21975,23 @@
             "y": 355,
             "top": 355,
             "right": 412,
-            "bottom": 2301,
+            "bottom": 2223,
             "left": 0,
             "width": 412,
-            "height": 1946
+            "height": 1868
           },
           {
             "tag": "div",
             "className": "kp-contact-layout",
-            "text": "DIREKTER KONTAKT Lieber per E-Mail? koblenzer-puppenspiele@gmx.de Für eine schnelle Einschätzung sin",
+            "text": "DIREKTER KONTAKT Lieber per E-Mail? 018koblenzer-puppenspiele@gmx.deHaftung Für eine schnelle Einsch",
             "x": 0,
             "y": 599,
             "top": 599,
             "right": 412,
-            "bottom": 2285,
+            "bottom": 2207,
             "left": 0,
             "width": 412,
-            "height": 1686
+            "height": 1608
           },
           {
             "tag": "form",
@@ -22288,10 +22001,10 @@
             "y": 856,
             "top": 856,
             "right": 412,
-            "bottom": 2285,
+            "bottom": 2207,
             "left": 0,
             "width": 412,
-            "height": 1429
+            "height": 1351
           }
         ],
         "mainChildren": [
@@ -22316,10 +22029,10 @@
             "y": 355,
             "top": 355,
             "right": 412,
-            "bottom": 2301,
+            "bottom": 2223,
             "left": 0,
             "width": 412,
-            "height": 1946
+            "height": 1868
           }
         ]
       }
