@@ -11,7 +11,7 @@ on:
 
 concurrency:
   group: koblenzer-puppenspiele-staging
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -230,19 +230,27 @@ jobs:
             echo 'No QA report to persist.'
             exit 0
           fi
-          mkdir -p qa-results
-          cp visual-qa/output/report.json qa-results/latest-report.json
+
+          cp visual-qa/output/report.json /tmp/kp-latest-report.json
           if [ -f visual-qa/output/summary.md ]; then
-            cp visual-qa/output/summary.md qa-results/latest-summary.md
+            cp visual-qa/output/summary.md /tmp/kp-latest-summary.md
           fi
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p qa-results
+          cp /tmp/kp-latest-report.json qa-results/latest-report.json
+          if [ -f /tmp/kp-latest-summary.md ]; then
+            cp /tmp/kp-latest-summary.md qa-results/latest-summary.md
+          fi
           git add qa-results/latest-report.json qa-results/latest-summary.md 2>/dev/null || true
           if git diff --cached --quiet; then
             echo 'QA diagnostics unchanged.'
           else
             git commit -m 'qa: update latest browser diagnostics [skip ci]'
-            git push
+            git push origin HEAD:main
           fi
 
       - name: Final deployment quality gate
