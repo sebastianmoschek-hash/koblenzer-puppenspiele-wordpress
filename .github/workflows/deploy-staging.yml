@@ -69,12 +69,16 @@ jobs:
           echo "Testing explicit FTPS on port 21 against ${FTP_SERVER}…"
 
           set +e
-          OUTPUT=$(lftp \
-            --env-password \
-            --user "$FTP_USERNAME" \
-            -p 21 \
-            -e "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 1; set net:timeout 15; cls -1; bye" \
-            "$FTP_SERVER" 2>&1)
+          OUTPUT=$(lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 1;
+            set net:timeout 15;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            cls -1;
+            bye
+          " 2>&1)
           STATUS=$?
           set -e
 
@@ -103,12 +107,16 @@ jobs:
             local source_dir="$1"
             local target_dir="$2"
 
-            lftp \
-              --env-password \
-              --user "$FTP_USERNAME" \
-              -p 21 \
-              -e "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 2; set net:timeout 20; mirror -R --verbose --only-newer --parallel=2 '$source_dir' '$target_dir'; bye" \
-              "$FTP_SERVER"
+            lftp -c "
+              set ftp:ssl-force true;
+              set ftp:ssl-protect-data true;
+              set ssl:verify-certificate true;
+              set net:max-retries 2;
+              set net:timeout 20;
+              open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+              mirror -R --verbose --only-newer --parallel=2 '$source_dir' '$target_dir';
+              bye
+            "
           }
 
           if [ -d "$PLUGIN" ]; then
