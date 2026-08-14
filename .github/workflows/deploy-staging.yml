@@ -52,7 +52,39 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y lftp
+          sudo apt-get install -y lftp openssl
+
+      - name: Diagnose explicit FTPS connection safely
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FTP_SERVER:?FTP_SERVER secret is missing}"
+          : "${FTP_USERNAME:?FTP_USERNAME secret is missing}"
+          : "${FTP_PASSWORD:?FTP_PASSWORD secret is missing}"
+
+          echo "Testing explicit FTPS on port 21 against ${FTP_SERVER}…"
+
+          set +e
+          OUTPUT=$(lftp \
+            -u "$FTP_USERNAME","$FTP_PASSWORD" \
+            "ftp://$FTP_SERVER:21" \
+            -e "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 1; set net:timeout 15; cls -1; bye" 2>&1)
+          STATUS=$?
+          set -e
+
+          if [ "$STATUS" -ne 0 ]; then
+            SAFE_OUTPUT="${OUTPUT//$FTP_USERNAME/***}"
+            SAFE_OUTPUT="${SAFE_OUTPUT//$FTP_PASSWORD/***}"
+            SAFE_OUTPUT="${SAFE_OUTPUT//$'\n'/' | '}"
+            echo "::error title=FTPS connection failed::$SAFE_OUTPUT"
+            exit "$STATUS"
+          fi
+
+          echo 'FTPS authentication and directory listing succeeded.'
 
       - name: Deploy plugin and theme to staging via explicit FTPS
         env:
@@ -63,10 +95,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          : "${FTP_SERVER:?FTP_SERVER secret is missing}"
-          : "${FTP_USERNAME:?FTP_USERNAME secret is missing}"
-          : "${FTP_PASSWORD:?FTP_PASSWORD secret is missing}"
-
           PLUGIN='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
           THEME='wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
 
@@ -76,7 +104,7 @@ jobs:
 
             lftp \
               -u "$FTP_USERNAME","$FTP_PASSWORD" \
-              "ftp://$FTP_SERVER" \
+              "ftp://$FTP_SERVER:21" \
               -e "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 2; set net:timeout 20; mirror -R --verbose --only-newer --parallel=2 '$source_dir' '$target_dir'; bye"
           }
 
