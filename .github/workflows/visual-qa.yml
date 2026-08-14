@@ -1,0 +1,101 @@
+name: Visual QA staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'visual-qa/**'
+      - '.github/workflows/visual-qa.yml'
+
+concurrency:
+  group: koblenzer-puppenspiele-visual-qa
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  visual-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      FTP_SERVER: srv26.dsbsrv.de
+      VISUAL_QA_BASE_URL: https://neu.koblenzer-puppenspiele.de
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install browser and FTP client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y lftp
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Render live staging
+        id: visual_render
+        continue-on-error: true
+        shell: bash
+        run: node visual-qa/capture.mjs
+
+      - name: Publish screenshots and report
+        if: always()
+        env:
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -d visual-qa/output ]; then
+            echo 'No visual QA output directory was generated.'
+            exit 1
+          fi
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            mirror -R --delete --verbose --parallel=2 'visual-qa/output' '/visual-qa';
+            bye
+          "
+
+      - name: Persist latest QA diagnostics in GitHub
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f visual-qa/output/report.json ]; then
+            echo 'No QA report to persist.'
+            exit 0
+          fi
+          mkdir -p qa-results
+          cp visual-qa/output/report.json qa-results/latest-report.json
+          if [ -f visual-qa/output/summary.md ]; then
+            cp visual-qa/output/summary.md qa-results/latest-summary.md
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add qa-results/latest-report.json qa-results/latest-summary.md 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo 'QA diagnostics unchanged.'
+          else
+            git commit -m 'qa: update latest browser diagnostics [skip ci]'
+            git push
+          fi
+
+      - name: QA outcome
+        if: always()
+        shell: bash
+        env:
+          VISUAL_OUTCOME: ${{ steps.visual_render.outcome }}
+        run: |
+          echo "Visual render: $VISUAL_OUTCOME"
+          if [ "$VISUAL_OUTCOME" != 'success' ]; then
+            echo 'WARNING: Visual QA detected at least one issue. Report and screenshots were still published.'
+          fi
