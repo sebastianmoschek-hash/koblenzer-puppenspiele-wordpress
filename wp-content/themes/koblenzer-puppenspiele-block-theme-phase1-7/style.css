@@ -286,6 +286,21 @@ h2.wp-block-heading{
     right:max(12px,env(safe-area-inset-right));
     bottom:max(14px,env(safe-area-inset-bottom));
   }
+  .kp-site-nav .wp-block-navigation__responsive-container-open{
+    width:56px;
+    min-width:56px;
+    height:56px;
+    min-height:56px;
+    padding:0!important;
+  }
+  .kp-site-nav .wp-block-navigation__responsive-container-open::after{
+    display:none;
+    content:"";
+  }
+  .kp-site-nav .wp-block-navigation__responsive-container-open svg{
+    width:22px;
+    height:22px;
+  }
 }
 
 @media (prefers-reduced-motion:reduce){
