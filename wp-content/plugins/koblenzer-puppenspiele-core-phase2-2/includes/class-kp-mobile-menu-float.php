@@ -47,6 +47,16 @@ final class KP_Mobile_Menu_Float {
             pointer-events: auto !important;
           }
 
+          /* Scrolling may soften the button through opacity, but it must not change
+             its size. Keeping the geometry stable means the same thumb position is
+             also the exact close-X position after the menu opens. */
+          body.kp-menu-scrolling .kp-site-nav .wp-block-navigation__responsive-container-open,
+          body.kp-menu-scrolling .kp-site-nav .wp-block-navigation__responsive-container-open:focus-visible,
+          body.kp-menu-scrolling .kp-site-nav .wp-block-navigation__responsive-container-open:hover,
+          body.kp-menu-scrolling .kp-site-nav .wp-block-navigation__responsive-container-open:active {
+            transform: scale(1) !important;
+          }
+
           /* When the menu is opened from the floating state the same visible button
              becomes the X at exactly the same screen position. */
           body.kp-menu-floating.kp-menu-open .kp-site-nav .wp-block-navigation__responsive-container-open {
