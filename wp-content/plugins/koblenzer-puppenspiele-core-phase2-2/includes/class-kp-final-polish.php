@@ -315,7 +315,14 @@ final class KP_Final_Polish {
             menuContainer?.classList.contains('has-modal-open')
           );
 
-          const syncOpenState = () => body.classList.toggle('kp-menu-open', menuIsOpen());
+          const syncOpenState = () => {
+            const isOpen = menuIsOpen();
+            body.classList.toggle('kp-menu-open', isOpen);
+            if (openButton) {
+              openButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+              openButton.setAttribute('aria-label', isOpen ? 'Menü schließen' : 'Menü öffnen');
+            }
+          };
 
           const rememberButtonPosition = () => {
             if (!openButton) return;
