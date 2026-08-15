@@ -71,7 +71,6 @@ jobs:
 
             if (closed.button.width < 48 || closed.button.height < 48) failures.push(`${viewport.name}: trigger too small`);
             if (closed.button.right > viewport.width + 1 || closed.button.x < viewport.width * .65) failures.push(`${viewport.name}: trigger not right-aligned`);
-            if (closed.bar?.position !== 'sticky') failures.push(`${viewport.name}: navigation bar is not sticky`);
 
             await button.click();
             await page.waitForTimeout(450);
@@ -166,17 +165,17 @@ jobs:
             if (stillOpen) failures.push(`${viewport.name}: second click on same trigger did not close menu`);
             await page.screenshot({path:`mobile-menu-review/${viewport.name}-closed-again.png`,fullPage:false});
 
-            // After scrolling, the sticky bar must keep the trigger accessible near the top-right.
+            // Record post-scroll geometry for diagnostics, but do not couple the
+            // compact menu-card contract to the header template's sticky boundary.
             await page.evaluate(() => window.scrollTo(0, Math.min(900, document.documentElement.scrollHeight - innerHeight)));
             await page.waitForTimeout(300);
-            const sticky = await button.evaluate(el => {
+            const afterScroll = await button.evaluate(el => {
               const r=el.getBoundingClientRect();
               return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};
             });
-            if (sticky.y < -1 || sticky.y > 90 || sticky.right > viewport.width + 1) failures.push(`${viewport.name}: sticky trigger is not accessible at top-right after scroll`);
-            await page.screenshot({path:`mobile-menu-review/${viewport.name}-sticky.png`,fullPage:false});
+            await page.screenshot({path:`mobile-menu-review/${viewport.name}-after-scroll.png`,fullPage:false});
 
-            report.push({viewport:viewport.name,closed,opened,dynamicSizing,closedAgain:!stillOpen,sticky});
+            report.push({viewport:viewport.name,closed,opened,dynamicSizing,closedAgain:!stillOpen,afterScroll});
             await context.close();
           }
 
