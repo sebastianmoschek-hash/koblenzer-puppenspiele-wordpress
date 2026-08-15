@@ -97,7 +97,9 @@ final class KP_Final_Polish {
           }
 
           /* The current page remains visible. Only a soft scrim covers it while a
-             tall compact navigation card floats over the right side. */
+             compact navigation card floats over the right side. The card's height
+             follows the actual WordPress menu content, so added or removed links
+             automatically make the panel taller or shorter. */
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open {
             position: fixed !important;
@@ -124,14 +126,16 @@ final class KP_Final_Polish {
             left: auto !important;
             right: max(78px, calc(env(safe-area-inset-right) + 68px)) !important;
             top: max(12px, env(safe-area-inset-top)) !important;
-            bottom: max(12px, env(safe-area-inset-bottom)) !important;
+            bottom: auto !important;
             width: min(72vw, 330px) !important;
             max-width: calc(100vw - 96px) !important;
-            height: auto !important;
-            max-height: none !important;
+            height: fit-content !important;
+            min-height: 0 !important;
+            max-height: calc(100dvh - 24px) !important;
             margin: 0 !important;
             padding: 14px 16px !important;
-            overflow: visible !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
             border: 1px solid rgba(255,255,255,.14) !important;
             border-radius: 22px !important;
             background: rgba(23,17,14,.96) !important;
@@ -141,12 +145,13 @@ final class KP_Final_Polish {
             transform: none !important;
             animation: kp-menu-panel-in .22s cubic-bezier(.2,.75,.25,1) both;
             display: flex !important;
-            align-items: center !important;
+            align-items: flex-start !important;
           }
 
           body.admin-bar .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close,
           body.admin-bar .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-close {
             top: 58px !important;
+            max-height: calc(100dvh - 70px) !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-dialog,
@@ -184,8 +189,6 @@ final class KP_Final_Polish {
             text-align: left !important;
           }
 
-          /* WordPress' close control takes the exact screen position of the trigger
-             captured at open time, so tapping the same spot toggles the menu shut. */
           .kp-site-nav .wp-block-navigation__responsive-container-close {
             width: 52px !important;
             min-width: 52px !important;
@@ -200,6 +203,8 @@ final class KP_Final_Polish {
             pointer-events: auto !important;
           }
 
+          /* Keep WordPress' dedicated close control as an accessible fallback. The
+             visible orange menu trigger itself is also wired as a true toggle in JS. */
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-close,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-container-close {
             position: fixed !important;
@@ -265,6 +270,12 @@ final class KP_Final_Polish {
           const root = document.documentElement;
           const nav = document.querySelector('.kp-site-nav');
           const openButton = nav?.querySelector('.wp-block-navigation__responsive-container-open');
+          const menuContainer = nav?.querySelector('.wp-block-navigation__responsive-container');
+
+          const menuIsOpen = () => Boolean(
+            menuContainer?.classList.contains('is-menu-open') ||
+            menuContainer?.classList.contains('has-modal-open')
+          );
 
           const rememberButtonPosition = () => {
             if (!openButton) return;
@@ -274,7 +285,30 @@ final class KP_Final_Polish {
             root.style.setProperty('--kp-menu-button-right', `${Math.round(right)}px`);
           };
 
-          openButton?.addEventListener('click', rememberButtonPosition, { capture: true });
+          const closeMenu = () => {
+            const closeButton = menuContainer?.querySelector('.wp-block-navigation__responsive-container-close');
+            if (!closeButton) return false;
+            closeButton.click();
+            return true;
+          };
+
+          /* WordPress' native trigger only opens the responsive navigation. Turn the
+             same visible orange button into a proper open/close toggle on mobile. */
+          openButton?.addEventListener('click', (event) => {
+            if (menuIsOpen()) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              closeMenu();
+              return;
+            }
+            rememberButtonPosition();
+          }, { capture: true });
+
+          /* Tapping the dimmed area outside the card closes the menu as expected. */
+          menuContainer?.addEventListener('click', (event) => {
+            if (!menuIsOpen() || event.target !== menuContainer) return;
+            closeMenu();
+          });
 
           const settle = () => {
             window.clearTimeout(timer);
