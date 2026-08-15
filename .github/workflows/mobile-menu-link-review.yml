@@ -83,4 +83,3 @@ jobs:
           console.log('All tested mobile menu links navigated successfully.');
           EOF
           node mobile-menu-link-review.mjs
-EOF
