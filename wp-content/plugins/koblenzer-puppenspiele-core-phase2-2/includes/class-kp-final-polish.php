@@ -11,30 +11,54 @@ final class KP_Final_Polish {
         ?>
         <style id="kp-final-polish">
         @media (max-width: 781px) {
-          /* Keep the navigation wrapper untransformed so WordPress can position
-             its responsive layer against the viewport. Only the trigger floats. */
+          /* Mobile navigation lives directly below the header image. The bar stays
+             in the document flow first and then sticks near the top while scrolling. */
+          .kp-navigation-bar {
+            position: sticky !important;
+            top: max(8px, env(safe-area-inset-top)) !important;
+            z-index: 9998 !important;
+            height: 68px !important;
+            min-height: 68px !important;
+            padding: 8px 0 !important;
+            margin: 0 !important;
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            pointer-events: none;
+          }
+
+          body.admin-bar .kp-navigation-bar {
+            top: calc(46px + max(8px, env(safe-area-inset-top))) !important;
+          }
+
           .kp-site-nav {
-            position: static !important;
+            position: relative !important;
             left: auto !important;
             right: auto !important;
             top: auto !important;
             bottom: auto !important;
             width: 100% !important;
-            min-height: 0 !important;
+            min-height: 52px !important;
+            margin: 0 auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-end !important;
             transform: none !important;
             z-index: auto !important;
+            pointer-events: none;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container-open {
-            position: fixed !important;
+            position: relative !important;
             left: auto !important;
-            right: max(14px, env(safe-area-inset-right)) !important;
-            top: 58dvh !important;
+            right: auto !important;
+            top: auto !important;
             bottom: auto !important;
             width: 52px !important;
             min-width: 52px !important;
             height: 52px !important;
             min-height: 52px !important;
+            margin: 0 max(14px, env(safe-area-inset-right)) 0 auto !important;
             padding: 0 !important;
             border-radius: 50% !important;
             display: inline-flex !important;
@@ -42,9 +66,10 @@ final class KP_Final_Polish {
             justify-content: center !important;
             box-shadow: 0 10px 28px rgba(0,0,0,.28) !important;
             opacity: .98;
-            transform: translateY(-50%) scale(1) !important;
+            transform: scale(1) !important;
             transition: opacity .18s ease, transform .18s ease, box-shadow .18s ease;
             z-index: 10002 !important;
+            pointer-events: auto;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container-open::after {
@@ -60,7 +85,7 @@ final class KP_Final_Polish {
 
           body.kp-menu-scrolling .kp-site-nav .wp-block-navigation__responsive-container-open {
             opacity: .72;
-            transform: translateY(-50%) scale(.94) !important;
+            transform: scale(.94) !important;
             box-shadow: 0 7px 20px rgba(0,0,0,.2) !important;
           }
 
@@ -68,11 +93,11 @@ final class KP_Final_Polish {
           .kp-site-nav .wp-block-navigation__responsive-container-open:hover,
           .kp-site-nav .wp-block-navigation__responsive-container-open:active {
             opacity: 1;
-            transform: translateY(-50%) scale(1) !important;
+            transform: scale(1) !important;
           }
 
-          /* The page remains visible: the WordPress responsive layer is now only
-             a soft scrim; the actual navigation floats in a compact card. */
+          /* The current page remains visible. Only a soft scrim covers it while a
+             tall compact navigation card floats over the right side. */
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open {
             position: fixed !important;
@@ -83,13 +108,14 @@ final class KP_Final_Polish {
             min-height: 100dvh !important;
             display: block !important;
             padding: 0 !important;
-            background: rgba(8,7,6,.34) !important;
+            background: rgba(8,7,6,.30) !important;
             color: #fff !important;
             -webkit-backdrop-filter: blur(2px) !important;
             backdrop-filter: blur(2px) !important;
             transform: none !important;
             z-index: 10000 !important;
             animation: kp-menu-scrim-in .18s ease both;
+            pointer-events: auto;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close,
@@ -97,31 +123,40 @@ final class KP_Final_Polish {
             position: fixed !important;
             left: auto !important;
             right: max(78px, calc(env(safe-area-inset-right) + 68px)) !important;
-            top: 58dvh !important;
-            bottom: auto !important;
-            width: min(72vw, 320px) !important;
+            top: max(12px, env(safe-area-inset-top)) !important;
+            bottom: max(12px, env(safe-area-inset-bottom)) !important;
+            width: min(72vw, 330px) !important;
             max-width: calc(100vw - 96px) !important;
             height: auto !important;
-            max-height: min(78dvh, 680px) !important;
+            max-height: none !important;
             margin: 0 !important;
-            padding: 16px !important;
-            overflow: auto !important;
+            padding: 14px 16px !important;
+            overflow: visible !important;
             border: 1px solid rgba(255,255,255,.14) !important;
             border-radius: 22px !important;
             background: rgba(23,17,14,.96) !important;
             box-shadow: 0 18px 48px rgba(0,0,0,.45) !important;
             -webkit-backdrop-filter: blur(14px) !important;
             backdrop-filter: blur(14px) !important;
-            transform: translateY(-50%) !important;
+            transform: none !important;
             animation: kp-menu-panel-in .22s cubic-bezier(.2,.75,.25,1) both;
+            display: flex !important;
+            align-items: center !important;
+          }
+
+          body.admin-bar .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close,
+          body.admin-bar .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-close {
+            top: 58px !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-dialog,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-dialog {
+            width: 100% !important;
             min-height: 0 !important;
             height: auto !important;
             margin: 0 !important;
             display: block !important;
+            overflow: visible !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content,
@@ -129,6 +164,7 @@ final class KP_Final_Polish {
             display: block !important;
             min-height: 0 !important;
             padding: 0 !important;
+            overflow: visible !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content .wp-block-navigation__container,
@@ -136,17 +172,20 @@ final class KP_Final_Polish {
             display: flex !important;
             flex-direction: column !important;
             align-items: stretch !important;
-            gap: .12rem !important;
+            gap: .08rem !important;
             width: 100% !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item__content,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation-item__content {
-            padding: .62rem .75rem !important;
-            font-size: clamp(1.08rem, 4.5vw, 1.35rem) !important;
+            padding: .52rem .7rem !important;
+            font-size: clamp(1rem, 4.2vw, 1.28rem) !important;
+            line-height: 1.15 !important;
             text-align: left !important;
           }
 
+          /* WordPress' close control takes the exact screen position of the trigger
+             captured at open time, so tapping the same spot toggles the menu shut. */
           .kp-site-nav .wp-block-navigation__responsive-container-close {
             width: 52px !important;
             min-width: 52px !important;
@@ -158,16 +197,18 @@ final class KP_Final_Polish {
             align-items: center !important;
             justify-content: center !important;
             box-shadow: 0 10px 28px rgba(0,0,0,.28) !important;
+            pointer-events: auto !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-close,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-container-close {
             position: fixed !important;
             left: auto !important;
-            right: max(14px, env(safe-area-inset-right)) !important;
-            top: 58dvh !important;
+            right: var(--kp-menu-button-right, max(14px, env(safe-area-inset-right))) !important;
+            top: var(--kp-menu-button-top, 72px) !important;
             bottom: auto !important;
-            transform: translateY(-50%) !important;
+            margin: 0 !important;
+            transform: none !important;
             z-index: 10003 !important;
           }
 
@@ -177,8 +218,8 @@ final class KP_Final_Polish {
           }
 
           @keyframes kp-menu-panel-in {
-            from { opacity: 0; transform: translate(18px,-50%) scale(.97); }
-            to { opacity: 1; transform: translate(0,-50%) scale(1); }
+            from { opacity: 0; transform: translateX(18px) scale(.98); }
+            to { opacity: 1; transform: translateX(0) scale(1); }
           }
 
           .kp-contact-form,
@@ -188,6 +229,14 @@ final class KP_Final_Polish {
           .kp-referenz-card {
             max-width: 100%;
             box-sizing: border-box;
+          }
+        }
+
+        @media (max-width: 781px) and (max-height: 700px) {
+          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item__content,
+          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation-item__content {
+            padding: .38rem .62rem !important;
+            font-size: .98rem !important;
           }
         }
 
@@ -213,6 +262,20 @@ final class KP_Final_Polish {
           if (!window.matchMedia('(max-width: 781px)').matches) return;
           let timer = null;
           const body = document.body;
+          const root = document.documentElement;
+          const nav = document.querySelector('.kp-site-nav');
+          const openButton = nav?.querySelector('.wp-block-navigation__responsive-container-open');
+
+          const rememberButtonPosition = () => {
+            if (!openButton) return;
+            const rect = openButton.getBoundingClientRect();
+            const right = Math.max(0, window.innerWidth - rect.right);
+            root.style.setProperty('--kp-menu-button-top', `${Math.round(rect.top)}px`);
+            root.style.setProperty('--kp-menu-button-right', `${Math.round(right)}px`);
+          };
+
+          openButton?.addEventListener('click', rememberButtonPosition, { capture: true });
+
           const settle = () => {
             window.clearTimeout(timer);
             timer = window.setTimeout(() => body.classList.remove('kp-menu-scrolling'), 650);
