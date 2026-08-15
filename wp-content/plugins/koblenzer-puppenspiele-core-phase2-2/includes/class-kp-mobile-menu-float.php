@@ -4,11 +4,9 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * Final mobile navigation geometry.
  *
- * The trigger starts in its natural place directly below the header. As soon as
- * scrolling would move it above that comfortable position, only the round trigger
- * becomes fixed and follows the viewport. This keeps the navigation reachable
- * without pinning it to the top edge and without coupling movement to the Studio's
- * opacity settings.
+ * The trigger starts directly below the header and becomes a floating control while
+ * scrolling. The menu itself stays a compact content-driven glass card; it must not
+ * stretch to the full viewport just because the trigger is floating.
  */
 final class KP_Mobile_Menu_Float {
     public static function init() {
@@ -20,8 +18,7 @@ final class KP_Mobile_Menu_Float {
         ?>
         <style id="kp-mobile-menu-float">
         @media (max-width: 781px) {
-          /* The bar itself must scroll normally. The old sticky bar is what made the
-             trigger look permanently pinned to the top after Studio changes. */
+          /* The bar scrolls normally; only the round trigger floats. */
           .kp-navigation-bar {
             position: relative !important;
             top: auto !important;
@@ -33,9 +30,6 @@ final class KP_Mobile_Menu_Float {
             top: auto !important;
           }
 
-          /* Once the natural trigger reaches its floating point, only the trigger
-             follows the viewport. Its vertical point is measured from the real
-             below-header position and capped at a thumb-friendly 58% of the screen. */
           body.kp-menu-floating .kp-site-nav .wp-block-navigation__responsive-container-open {
             position: fixed !important;
             left: auto !important;
@@ -47,9 +41,7 @@ final class KP_Mobile_Menu_Float {
             pointer-events: auto !important;
           }
 
-          /* Scrolling may soften the button through opacity, but it must not change
-             its size. Keeping the geometry stable means the same thumb position is
-             also the exact close-X position after the menu opens. */
+          /* Scrolling may soften opacity, but geometry must remain unchanged. */
           body.kp-menu-scrolling .kp-site-nav .wp-block-navigation__responsive-container-open,
           body.kp-menu-scrolling .kp-site-nav .wp-block-navigation__responsive-container-open:focus-visible,
           body.kp-menu-scrolling .kp-site-nav .wp-block-navigation__responsive-container-open:hover,
@@ -57,34 +49,35 @@ final class KP_Mobile_Menu_Float {
             transform: scale(1) !important;
           }
 
-          /* When the menu is opened from the floating state the same visible button
-             becomes the X at exactly the same screen position. */
           body.kp-menu-floating.kp-menu-open .kp-site-nav .wp-block-navigation__responsive-container-open {
             right: var(--kp-menu-button-right, max(14px, env(safe-area-inset-right))) !important;
             top: var(--kp-menu-button-top, var(--kp-menu-float-top, 58dvh)) !important;
           }
 
-          /* Give the glass menu the vertical room the user asked for. It remains a
-             narrow floating panel over the page, but stretches upward/downward so
-             the navigation itself does not need an internal scrollbar. */
+          /* Compact menu card: it follows the links' real height and sits around the
+             visual centre of the phone. The Studio's width, opacity, blur and colour
+             controls remain untouched. A scrollbar is only a last-resort fallback if
+             somebody later adds more links than can physically fit on the screen. */
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-close {
-            top: max(12px, env(safe-area-inset-top)) !important;
-            bottom: max(12px, env(safe-area-inset-bottom)) !important;
-            height: auto !important;
+            top: calc(50dvh + var(--kp-studio-menu-offset-y, 0px)) !important;
+            bottom: auto !important;
+            height: fit-content !important;
             min-height: 0 !important;
-            max-height: none !important;
+            max-height: calc(100dvh - 24px) !important;
             overflow-x: hidden !important;
-            overflow-y: hidden !important;
-            display: flex !important;
-            align-items: stretch !important;
+            overflow-y: auto !important;
+            display: block !important;
+            align-items: initial !important;
+            transform: translateY(-50%) !important;
+            animation: none !important;
           }
 
           body.admin-bar .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close,
           body.admin-bar .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-close {
-            top: 58px !important;
-            bottom: max(12px, env(safe-area-inset-bottom)) !important;
-            max-height: none !important;
+            top: calc(50dvh + 23px + var(--kp-studio-menu-offset-y, 0px)) !important;
+            bottom: auto !important;
+            max-height: calc(100dvh - 70px) !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-dialog,
@@ -92,33 +85,51 @@ final class KP_Mobile_Menu_Float {
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-container-content {
             width: 100% !important;
-            height: 100% !important;
+            height: auto !important;
             min-height: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            overflow: hidden !important;
+            display: block !important;
+            align-items: initial !important;
+            overflow: visible !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content .wp-block-navigation__container,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-container-content .wp-block-navigation__container {
             width: 100% !important;
-            justify-content: center !important;
+            justify-content: flex-start !important;
           }
         }
 
-        /* Extra-small phone heights still keep all links visible rather than adding
-           a second scrolling surface inside the navigation card. */
-        @media (max-width: 781px) and (max-height: 540px) {
+        /* Short phones keep the same compact card, but tighten the menu items enough
+           to keep today's complete navigation visible without internal scrolling. */
+        @media (max-width: 781px) and (max-height: 700px) {
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-close {
-            top: max(6px, env(safe-area-inset-top)) !important;
-            bottom: max(6px, env(safe-area-inset-bottom)) !important;
-            padding: 7px 9px !important;
+            padding: 8px 9px 9px !important;
+            border-radius: 18px !important;
+          }
+
+          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content .wp-block-navigation__container,
+          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-container-content .wp-block-navigation__container {
+            gap: .04rem !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item__content,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation-item__content {
-            padding: .27rem .54rem !important;
+            padding: .40rem .58rem !important;
+            font-size: .94rem !important;
+            line-height: 1.08 !important;
+          }
+        }
+
+        @media (max-width: 781px) and (max-height: 540px) {
+          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close,
+          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-close {
+            padding: 6px 8px 7px !important;
+          }
+
+          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item__content,
+          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation-item__content {
+            padding: .26rem .52rem !important;
             font-size: .86rem !important;
             line-height: 1.03 !important;
           }
@@ -164,8 +175,6 @@ final class KP_Mobile_Menu_Float {
           const measure = () => {
             if (menuIsOpen()) return;
 
-            /* Measure the button in normal document flow, even when the page was
-               reloaded while already scrolled down. */
             body.classList.remove('kp-menu-floating');
             window.requestAnimationFrame(() => {
               const rect = button.getBoundingClientRect();
@@ -175,9 +184,6 @@ final class KP_Mobile_Menu_Float {
               const viewportBottomLimit = Math.max(safeTop(), window.innerHeight - rect.height - 18);
               const preferredLimit = Math.min(lowerLimit, viewportBottomLimit);
 
-              /* If the natural below-header position is already comfortable, keep
-                 exactly that height. If it sits very low, let it rise to 58vh first
-                 and then float there. No jump occurs when the floating state begins. */
               floatTop = Math.max(safeTop(), Math.min(anchorY, preferredLimit));
               root.style.setProperty('--kp-menu-float-top', `${Math.round(floatTop)}px`);
               applyFloatingState();
@@ -198,8 +204,6 @@ final class KP_Mobile_Menu_Float {
           window.addEventListener('resize', onResize, { passive: true });
           window.addEventListener('orientationchange', onResize, { passive: true });
 
-          /* Images/fonts can slightly change the header height after initial paint.
-             Measure once immediately and once again after the page has settled. */
           measure();
           window.addEventListener('load', measure, { once: true });
           window.setTimeout(measure, 500);
