@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-15T11:19:34.646Z
+Erzeugt: 2026-08-15T11:23:55.390Z
 Geprüfte Ansichten: 50
-Auffällige Ansichten: 1
+Auffällige Ansichten: 0
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -14,7 +14,7 @@ Auffällige Ansichten: 1
 - Automatische Layoutchecks: OK
 
 ## desktop-1600 / repertoire
-- 1 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## desktop-1600 / termine
 - Automatische Layoutchecks: OK
