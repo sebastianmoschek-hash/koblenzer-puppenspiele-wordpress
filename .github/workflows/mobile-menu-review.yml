@@ -26,7 +26,7 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
-      - name: Capture menu closed and open at phone widths
+      - name: Verify mobile menu geometry and interaction
         shell: bash
         run: |
           set -euo pipefail
@@ -34,35 +34,118 @@ jobs:
           cat > mobile-menu-review-run.mjs <<'EOF'
           import { chromium } from 'playwright';
           import fs from 'node:fs/promises';
+
           const browser = await chromium.launch({ headless: true });
           const base = 'https://neu.koblenzer-puppenspiele.de/';
           const report = [];
-          for (const viewport of [{name:'390x844',width:390,height:844},{name:'412x915',width:412,height:915}]) {
+          const failures = [];
+          const near = (a,b,tolerance=2) => Math.abs(a-b) <= tolerance;
+
+          for (const viewport of [
+            {name:'390x844',width:390,height:844},
+            {name:'412x915',width:412,height:915},
+            {name:'390x667-short',width:390,height:667},
+          ]) {
             const context = await browser.newContext({ viewport: {width:viewport.width,height:viewport.height}, deviceScaleFactor: 1 });
             const page = await context.newPage();
             await page.goto(base, {waitUntil:'domcontentloaded', timeout:45000});
             await page.waitForLoadState('networkidle', {timeout:10000}).catch(()=>{});
             await page.waitForTimeout(800);
+
             const button = page.locator('.wp-block-navigation__responsive-container-open').first();
+            const navBar = page.locator('.kp-navigation-bar').first();
             const closed = await button.evaluate(el => {
-              const r = el.getBoundingClientRect(); const s = getComputedStyle(el); const p = getComputedStyle(el.closest('.kp-site-nav'));
-              return {button:{x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height,position:s.position,display:s.display}, nav:{position:p.position,right:p.right,bottom:p.bottom,top:p.top,left:p.left,width:p.width,height:p.height}, viewport:{width:innerWidth,height:innerHeight}};
+              const r = el.getBoundingClientRect();
+              const s = getComputedStyle(el);
+              const nav = el.closest('.kp-site-nav');
+              const p = nav ? getComputedStyle(nav) : null;
+              const bar = el.closest('.kp-navigation-bar');
+              const bs = bar ? getComputedStyle(bar) : null;
+              return {
+                button:{x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height,position:s.position,display:s.display},
+                nav:p?{position:p.position,right:p.right,bottom:p.bottom,top:p.top,left:p.left,width:p.width,height:p.height}:null,
+                bar:bs?{position:bs.position,top:bs.top}:null,
+                viewport:{width:innerWidth,height:innerHeight}
+              };
             });
             await page.screenshot({path:`mobile-menu-review/${viewport.name}-closed.png`,fullPage:false});
+
+            if (closed.button.width < 48 || closed.button.height < 48) failures.push(`${viewport.name}: trigger too small`);
+            if (closed.button.right > viewport.width + 1 || closed.button.x < viewport.width * .65) failures.push(`${viewport.name}: trigger not right-aligned`);
+            if (closed.bar?.position !== 'sticky') failures.push(`${viewport.name}: navigation bar is not sticky`);
+
             await button.click();
             await page.waitForTimeout(400);
             const menu = page.locator('.wp-block-navigation__responsive-container.is-menu-open, .wp-block-navigation__responsive-container.has-modal-open').first();
-            const opened = await menu.evaluate(el => {const r=el.getBoundingClientRect();const s=getComputedStyle(el);return {visible:!!(r.width&&r.height),x:r.x,y:r.y,width:r.width,height:r.height,position:s.position,inset:s.inset,zIndex:s.zIndex};}).catch(()=>({visible:false}));
+            const panel = menu.locator('.wp-block-navigation__responsive-close').first();
+            const items = menu.locator('.wp-block-navigation-item__content');
+
+            const opened = await page.evaluate(() => {
+              const trigger = document.querySelector('.kp-site-nav .wp-block-navigation__responsive-container-open');
+              const menu = document.querySelector('.kp-site-nav .wp-block-navigation__responsive-container.is-menu-open, .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open');
+              const panel = menu?.querySelector('.wp-block-navigation__responsive-close');
+              const links = [...(menu?.querySelectorAll('.wp-block-navigation-item__content') || [])];
+              const data = el => {
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height,position:s.position,display:s.display,visibility:s.visibility,overflowY:s.overflowY,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight};
+              };
+              return {
+                bodyMenuOpen: document.body.classList.contains('kp-menu-open'),
+                trigger:data(trigger),
+                menu:data(menu),
+                panel:data(panel),
+                itemCount:links.length,
+                items:links.map(data),
+                viewport:{width:innerWidth,height:innerHeight}
+              };
+            });
+
             await page.screenshot({path:`mobile-menu-review/${viewport.name}-open.png`,fullPage:false});
-            report.push({viewport:viewport.name,closed,opened});
+
+            if (!opened.bodyMenuOpen) failures.push(`${viewport.name}: body open-state class missing`);
+            if (!opened.trigger || !near(opened.trigger.x, closed.button.x) || !near(opened.trigger.y, closed.button.y)) failures.push(`${viewport.name}: close X moved away from original trigger position`);
+            if (opened.trigger?.position !== 'fixed') failures.push(`${viewport.name}: open-state trigger is not fixed`);
+            if (!opened.panel || opened.panel.height < viewport.height * .82) failures.push(`${viewport.name}: floating panel does not use nearly full viewport height`);
+            if (opened.panel?.width >= viewport.width * .9) failures.push(`${viewport.name}: panel is effectively full-screen width`);
+            if (opened.panel && opened.panel.scrollHeight > opened.panel.clientHeight + 2) failures.push(`${viewport.name}: panel has internal vertical overflow`);
+            if (opened.panel && ['auto','scroll'].includes(opened.panel.overflowY)) failures.push(`${viewport.name}: panel enables internal vertical scrolling`);
+            if (opened.itemCount !== 8) failures.push(`${viewport.name}: expected 8 menu items, got ${opened.itemCount}`);
+            if (opened.panel && opened.items.some(item => item.top < opened.panel.y - 1 || item.bottom > opened.panel.bottom + 1)) failures.push(`${viewport.name}: a menu item is clipped outside the panel`);
+
+            // The exact same orange control must close the navigation again.
+            await button.click();
+            await page.waitForTimeout(350);
+            const stillOpen = await page.locator('.wp-block-navigation__responsive-container.is-menu-open, .wp-block-navigation__responsive-container.has-modal-open').first().isVisible().catch(()=>false);
+            if (stillOpen) failures.push(`${viewport.name}: second click on same trigger did not close menu`);
+            await page.screenshot({path:`mobile-menu-review/${viewport.name}-closed-again.png`,fullPage:false});
+
+            // After scrolling, the sticky bar must keep the trigger accessible near the top-right.
+            await page.evaluate(() => window.scrollTo(0, Math.min(900, document.documentElement.scrollHeight - innerHeight)));
+            await page.waitForTimeout(300);
+            const sticky = await button.evaluate(el => {
+              const r=el.getBoundingClientRect();
+              return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};
+            });
+            if (sticky.y < -1 || sticky.y > 90 || sticky.right > viewport.width + 1) failures.push(`${viewport.name}: sticky trigger is not accessible at top-right after scroll`);
+            await page.screenshot({path:`mobile-menu-review/${viewport.name}-sticky.png`,fullPage:false});
+
+            report.push({viewport:viewport.name,closed,opened,closedAgain:!stillOpen,sticky});
             await context.close();
           }
+
           await browser.close();
-          await fs.writeFile('mobile-menu-review/report.json', JSON.stringify(report,null,2));
+          await fs.writeFile('mobile-menu-review/report.json', JSON.stringify({report,failures},null,2));
+          if (failures.length) {
+            console.error(failures.join('\n'));
+            process.exit(1);
+          }
           EOF
           node mobile-menu-review-run.mjs
 
       - name: Upload mobile menu review
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mobile-menu-review
