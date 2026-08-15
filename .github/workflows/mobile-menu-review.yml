@@ -75,7 +75,8 @@ jobs:
 
             await button.click();
             await page.waitForTimeout(450);
-            const opened = await page.evaluate(() => {
+
+            const readOpened = () => page.evaluate(() => {
               const trigger = document.querySelector('.kp-site-nav .wp-block-navigation__responsive-container-open');
               const menu = document.querySelector('.kp-site-nav .wp-block-navigation__responsive-container.is-menu-open, .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open');
               const panel = menu?.querySelector('.wp-block-navigation__responsive-close');
@@ -88,8 +89,8 @@ jobs:
                   x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height,
                   position:s.position,display:s.display,visibility:s.visibility,
                   overflowY:s.overflowY,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight,
-                  backgroundImage:s.backgroundImage,
-                  backdropFilter:s.backdropFilter || s.webkitBackdropFilter || ''
+                  backgroundColor:s.backgroundColor,backgroundImage:s.backgroundImage,
+                  borderColor:s.borderColor,backdropFilter:s.backdropFilter || s.webkitBackdropFilter || ''
                 };
               };
               return {
@@ -102,20 +103,61 @@ jobs:
                 viewport:{width:innerWidth,height:innerHeight}
               };
             });
+
+            const opened = await readOpened();
             await page.screenshot({path:`mobile-menu-review/${viewport.name}-open.png`,fullPage:false});
 
             if (!opened.bodyMenuOpen) failures.push(`${viewport.name}: body open-state class missing`);
             if (!opened.trigger || !near(opened.trigger.x, closed.button.x) || !near(opened.trigger.y, closed.button.y)) failures.push(`${viewport.name}: close X moved away from original trigger position`);
             if (opened.trigger?.position !== 'fixed') failures.push(`${viewport.name}: open-state trigger is not fixed`);
             if (!opened.panel) failures.push(`${viewport.name}: floating glass panel missing`);
-            if (opened.panel && opened.panel.height < viewport.height * .82) failures.push(`${viewport.name}: panel does not use nearly full viewport height`);
             if (opened.panel?.width >= viewport.width * .9) failures.push(`${viewport.name}: panel is effectively full-screen width`);
-            if (opened.itemCount !== 8) failures.push(`${viewport.name}: expected 8 menu items, got ${opened.itemCount}`);
-            if (opened.panel && opened.panel.scrollHeight > opened.panel.clientHeight + 2) failures.push(`${viewport.name}: panel has internal vertical overflow`);
-            if (opened.panel && ['auto','scroll'].includes(opened.panel.overflowY)) failures.push(`${viewport.name}: panel enables internal vertical scrolling`);
-            if (opened.panel && opened.items.some(item => item.y < opened.panel.y - 1 || item.bottom > opened.panel.bottom + 1)) failures.push(`${viewport.name}: a menu item is clipped outside the panel`);
+            if (opened.itemCount < 1) failures.push(`${viewport.name}: navigation has no menu items`);
+
+            if (opened.panel && opened.items.length) {
+              const first = opened.items[0];
+              const last = opened.items[opened.items.length - 1];
+              const topPadding = first.y - opened.panel.y;
+              const bottomPadding = opened.panel.bottom - last.bottom;
+              const overflowed = opened.panel.scrollHeight > opened.panel.clientHeight + 2;
+
+              if (topPadding > 34) failures.push(`${viewport.name}: excessive empty space above first menu item (${Math.round(topPadding)}px)`);
+              if (!overflowed && bottomPadding > 34) failures.push(`${viewport.name}: excessive empty space below last menu item (${Math.round(bottomPadding)}px)`);
+              if (first.y < opened.panel.y - 1) failures.push(`${viewport.name}: first menu item is clipped above panel`);
+              if (!overflowed && last.bottom > opened.panel.bottom + 1) failures.push(`${viewport.name}: last menu item is clipped below panel`);
+              if (overflowed && opened.panel.bottom < viewport.height - 18) failures.push(`${viewport.name}: panel scrolls before using available screen height`);
+            }
+
             if (opened.panel && opened.panel.backgroundImage === 'none') failures.push(`${viewport.name}: glass panel has no layered translucent background`);
             if (opened.panel && !String(opened.panel.backdropFilter).includes('blur')) failures.push(`${viewport.name}: glass panel backdrop blur missing`);
+
+            // Simulate a WordPress editor adding one destination. The card should
+            // grow automatically, then return to its original height after removal.
+            let dynamicSizing = null;
+            if (opened.panel && opened.items.length && opened.panel.scrollHeight <= opened.panel.clientHeight + 2) {
+              dynamicSizing = await page.evaluate(async () => {
+                const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+                const menu = document.querySelector('.kp-site-nav .wp-block-navigation__responsive-container.is-menu-open, .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open');
+                const panel = menu?.querySelector('.wp-block-navigation__responsive-close');
+                const list = menu?.querySelector('.wp-block-navigation__container');
+                const source = list?.lastElementChild;
+                if (!panel || !list || !source) return null;
+                const before = panel.getBoundingClientRect().height;
+                const clone = source.cloneNode(true);
+                clone.setAttribute('data-kp-qa-clone','1');
+                const link = clone.querySelector('.wp-block-navigation-item__content');
+                if (link) link.textContent = 'Zusätzliche Seite';
+                list.appendChild(clone);
+                await delay(100);
+                const grown = panel.getBoundingClientRect().height;
+                clone.remove();
+                await delay(100);
+                const restored = panel.getBoundingClientRect().height;
+                return {before,grown,restored};
+              });
+              if (!dynamicSizing || dynamicSizing.grown < dynamicSizing.before + 20) failures.push(`${viewport.name}: panel did not grow when a menu item was added`);
+              if (dynamicSizing && Math.abs(dynamicSizing.restored - dynamicSizing.before) > 3) failures.push(`${viewport.name}: panel did not shrink after menu item removal`);
+            }
 
             // The exact same orange control must close the navigation again.
             await button.click();
@@ -134,7 +176,7 @@ jobs:
             if (sticky.y < -1 || sticky.y > 90 || sticky.right > viewport.width + 1) failures.push(`${viewport.name}: sticky trigger is not accessible at top-right after scroll`);
             await page.screenshot({path:`mobile-menu-review/${viewport.name}-sticky.png`,fullPage:false});
 
-            report.push({viewport:viewport.name,closed,opened,closedAgain:!stillOpen,sticky});
+            report.push({viewport:viewport.name,closed,opened,dynamicSizing,closedAgain:!stillOpen,sticky});
             await context.close();
           }
 
