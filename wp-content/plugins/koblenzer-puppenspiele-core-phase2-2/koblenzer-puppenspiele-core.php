@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Koblenzer Puppenspiele – Inhalte & Design
  * Description: Einfache Verwaltung für Inhalte sowie ein mobiles Website Studio für Farben, Layout, Header und Navigation.
- * Version: 3.5.0
+ * Version: 3.5.1
  * Author: Koblenzer Puppenspiele
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KP_CORE_VERSION', '3.5.0' );
+define( 'KP_CORE_VERSION', '3.5.1' );
 define( 'KP_CORE_FILE', __FILE__ );
 define( 'KP_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KP_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -46,6 +46,31 @@ add_action( 'plugins_loaded', static function () {
     KP_Mobile_Menu_Links::init();
     KP_Website_Studio::init();
     KP_Website_Studio_Frontend::init();
+} );
+
+/* On the simplified Puppenspiele dashboard, the existing "Website gestalten"
+ * card should lead to the friendly Studio instead of dropping non-technical
+ * editors straight into WordPress' advanced Site Editor. The advanced editor
+ * remains available from the Studio under "Profi-Modus". */
+add_action( 'admin_footer-toplevel_page_kp-puppenspiele', static function () {
+    if ( ! current_user_can( 'edit_theme_options' ) ) {
+        return;
+    }
+    $studio_url = admin_url( 'admin.php?page=kp-website-studio' );
+    ?>
+    <script id="kp-studio-dashboard-shortcut">
+    (() => {
+      const cards = [...document.querySelectorAll('.kp-admin-card')];
+      const card = cards.find((item) => item.querySelector('strong')?.textContent.trim() === 'Website gestalten');
+      if (!card) return;
+      card.href = <?php echo wp_json_encode( $studio_url ); ?>;
+      const title = card.querySelector('strong');
+      const help = card.querySelector('small');
+      if (title) title.textContent = 'Website Studio';
+      if (help) help.textContent = 'Farben, Menü, Header und Layout – einfach mit Reglern';
+    })();
+    </script>
+    <?php
 } );
 
 add_action( 'init', static function () {
