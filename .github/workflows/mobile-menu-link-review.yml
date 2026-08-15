@@ -1,0 +1,86 @@
+name: Mobile menu link review
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy staging WordPress"]
+    types: [completed]
+
+concurrency:
+  group: koblenzer-puppenspiele-mobile-menu-link-review
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Verify mobile menu links navigate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > mobile-menu-link-review.mjs <<'EOF'
+          import { chromium } from 'playwright';
+
+          const browser = await chromium.launch({ headless: true });
+          const base = 'https://neu.koblenzer-puppenspiele.de/';
+          const failures = [];
+
+          for (const viewport of [
+            {name:'390x844', width:390, height:844},
+            {name:'412x915', width:412, height:915},
+          ]) {
+            const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } });
+            const page = await context.newPage();
+
+            for (const target of [
+              {label:'Aktuelles', path:'/aktuelles/'},
+              {label:'Repertoire', path:'/repertoire/'},
+              {label:'Kontakt', path:'/kontakt/'},
+            ]) {
+              await page.goto(base, { waitUntil:'domcontentloaded', timeout:45000 });
+              await page.waitForLoadState('networkidle', { timeout:10000 }).catch(()=>{});
+
+              const button = page.locator('.wp-block-navigation__responsive-container-open').first();
+              await button.click();
+              await page.waitForTimeout(250);
+
+              const link = page.locator('a.wp-block-navigation-item__content', { hasText: target.label }).first();
+              if (!(await link.isVisible().catch(()=>false))) {
+                failures.push(`${viewport.name}: ${target.label} is not visible/clickable`);
+                continue;
+              }
+
+              try {
+                await Promise.all([
+                  page.waitForURL(url => url.pathname === target.path, { timeout:7000 }),
+                  link.click({ timeout:5000 }),
+                ]);
+              } catch (error) {
+                failures.push(`${viewport.name}: ${target.label} did not navigate to ${target.path}`);
+              }
+            }
+
+            await context.close();
+          }
+
+          await browser.close();
+          if (failures.length) {
+            console.error(failures.join('\n'));
+            process.exit(1);
+          }
+          console.log('All tested mobile menu links navigated successfully.');
+          EOF
+          node mobile-menu-link-review.mjs
+EOF
