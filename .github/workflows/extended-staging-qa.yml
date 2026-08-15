@@ -1,11 +1,10 @@
 name: Extended staging QA
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - 'qa-results/**'
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy staging WordPress"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -16,6 +15,7 @@ concurrency:
 
 jobs:
   crawl:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
