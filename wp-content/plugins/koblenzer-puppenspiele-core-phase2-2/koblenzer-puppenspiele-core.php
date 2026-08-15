@@ -27,6 +27,7 @@ require_once KP_CORE_DIR . 'includes/class-kp-contact.php';
 require_once KP_CORE_DIR . 'includes/class-kp-legal.php';
 require_once KP_CORE_DIR . 'includes/class-kp-bundled-images.php';
 require_once KP_CORE_DIR . 'includes/class-kp-final-polish.php';
+require_once KP_CORE_DIR . 'includes/class-kp-mobile-menu-glass.php';
 
 add_action( 'plugins_loaded', static function () {
     KP_Bundled_Images::init();
@@ -38,6 +39,7 @@ add_action( 'plugins_loaded', static function () {
     KP_Contact::init();
     KP_Legal::init();
     KP_Final_Polish::init();
+    KP_Mobile_Menu_Glass::init();
 } );
 
 add_action( 'init', static function () {
