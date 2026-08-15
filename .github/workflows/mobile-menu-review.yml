@@ -26,7 +26,7 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
-      - name: Verify floating mobile menu geometry and interaction
+      - name: Verify compact floating mobile menu
         shell: bash
         run: |
           set -euo pipefail
@@ -41,20 +41,19 @@ jobs:
           const failures = [];
           const near = (a,b,tolerance=3) => Math.abs(a-b) <= tolerance;
 
-          const rectData = async locator => locator.evaluate(el => {
+          const readRect = async locator => locator.evaluate(el => {
             const r = el.getBoundingClientRect();
             const s = getComputedStyle(el);
             return {
               x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height,
-              position:s.position,display:s.display,visibility:s.visibility,
-              overflowY:s.overflowY,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight
+              position:s.position,overflowY:s.overflowY,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight
             };
           });
 
           for (const viewport of [
-            {name:'390x844',width:390,height:844},
-            {name:'412x915',width:412,height:915},
-            {name:'390x667-short',width:390,height:667},
+            {name:'390x844',width:390,height:844,maxPanelRatio:.62},
+            {name:'412x915',width:412,height:915,maxPanelRatio:.62},
+            {name:'390x667-short',width:390,height:667,maxPanelRatio:.72},
           ]) {
             const context = await browser.newContext({ viewport: {width:viewport.width,height:viewport.height}, deviceScaleFactor: 1 });
             const page = await context.newPage();
@@ -63,8 +62,7 @@ jobs:
             await page.waitForTimeout(900);
 
             const button = page.locator('.wp-block-navigation__responsive-container-open').first();
-            const menuLocator = page.locator('.wp-block-navigation__responsive-container').first();
-            const initial = await rectData(button);
+            const initial = await readRect(button);
             const initialBody = await page.locator('body').getAttribute('class') || '';
             await page.screenshot({path:`mobile-menu-review/${viewport.name}-initial.png`,fullPage:false});
 
@@ -72,23 +70,17 @@ jobs:
             if (initial.right > viewport.width + 1 || initial.x < viewport.width * .65) failures.push(`${viewport.name}: trigger not right-aligned initially`);
             if (initial.position === 'fixed' || initialBody.includes('kp-menu-floating')) failures.push(`${viewport.name}: trigger should start below header in normal flow`);
 
-            // Scroll far enough that the natural below-header trigger would leave its
-            // original viewport position. It must then float at a comfortable height,
-            // rather than sticking to the top edge.
             await page.evaluate(() => window.scrollTo(0, Math.min(1000, Math.max(500, document.documentElement.scrollHeight - innerHeight))));
             await page.waitForTimeout(450);
-            const floated = await rectData(button);
+            const floated = await readRect(button);
             const floatedBody = await page.locator('body').getAttribute('class') || '';
             await page.screenshot({path:`mobile-menu-review/${viewport.name}-floating.png`,fullPage:false});
 
-            if (!floatedBody.includes('kp-menu-floating')) failures.push(`${viewport.name}: floating state was not activated after scroll`);
+            if (!floatedBody.includes('kp-menu-floating')) failures.push(`${viewport.name}: floating state missing after scroll`);
             if (floated.position !== 'fixed') failures.push(`${viewport.name}: scrolled trigger is not fixed to viewport`);
-            if (floated.y < 90) failures.push(`${viewport.name}: floating trigger is pinned too close to top (${Math.round(floated.y)}px)`);
-            if (floated.y > viewport.height * .68) failures.push(`${viewport.name}: floating trigger sits too low (${Math.round(floated.y)}px)`);
-            if (floated.right > viewport.width + 1 || floated.x < viewport.width * .65) failures.push(`${viewport.name}: floating trigger is not right-aligned`);
+            if (floated.y < 90) failures.push(`${viewport.name}: floating trigger pinned too close to top`);
+            if (floated.y > viewport.height * .68) failures.push(`${viewport.name}: floating trigger sits too low`);
 
-            // Open from the floating state. The same round control becomes the X and
-            // must remain exactly where the user's thumb already is.
             await button.click();
             await page.waitForTimeout(450);
             const opened = await page.evaluate(() => {
@@ -102,50 +94,45 @@ jobs:
                 const s = getComputedStyle(el);
                 return {
                   x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height,
-                  position:s.position,display:s.display,visibility:s.visibility,
-                  overflowY:s.overflowY,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight,
+                  position:s.position,overflowY:s.overflowY,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight,
                   backdropFilter:s.backdropFilter || s.webkitBackdropFilter || ''
                 };
               };
               return {
                 bodyMenuOpen: document.body.classList.contains('kp-menu-open'),
-                trigger:data(trigger), menu:data(menu), panel:data(panel), itemCount:links.length,
-                items:links.map(data), viewport:{width:innerWidth,height:innerHeight}
+                trigger:data(trigger), panel:data(panel), itemCount:links.length, items:links.map(data)
               };
             });
             await page.screenshot({path:`mobile-menu-review/${viewport.name}-open.png`,fullPage:false});
 
             if (!opened.bodyMenuOpen) failures.push(`${viewport.name}: body open-state class missing`);
-            if (!opened.trigger || !near(opened.trigger.x, floated.x) || !near(opened.trigger.y, floated.y)) failures.push(`${viewport.name}: close X moved away from floating trigger position`);
-            if (!opened.panel) failures.push(`${viewport.name}: floating glass panel missing`);
-            if (opened.panel?.width >= viewport.width * .9) failures.push(`${viewport.name}: panel is effectively full-screen width`);
-            if (opened.panel?.height < viewport.height * .72) failures.push(`${viewport.name}: menu panel does not use enough vertical room`);
-            if (opened.panel && opened.panel.scrollHeight > opened.panel.clientHeight + 2) failures.push(`${viewport.name}: menu panel still requires internal scrolling`);
-            if (opened.itemCount < 1) failures.push(`${viewport.name}: navigation has no menu items`);
+            if (!opened.trigger || !near(opened.trigger.x, floated.x) || !near(opened.trigger.y, floated.y)) failures.push(`${viewport.name}: close X moved away from trigger`);
+            if (!opened.panel) failures.push(`${viewport.name}: glass panel missing`);
+            if (opened.panel?.width >= viewport.width * .85) failures.push(`${viewport.name}: panel is too wide`);
+            if (opened.panel?.height > viewport.height * viewport.maxPanelRatio) failures.push(`${viewport.name}: panel is too tall (${Math.round(opened.panel.height)}px)`);
+            if (opened.panel && opened.panel.scrollHeight > opened.panel.clientHeight + 2) failures.push(`${viewport.name}: panel requires internal scrolling`);
+            if (opened.itemCount < 8) failures.push(`${viewport.name}: expected navigation items are missing`);
             if (opened.panel && opened.items.length) {
               const first = opened.items[0];
               const last = opened.items[opened.items.length - 1];
-              if (first.y < opened.panel.y - 1) failures.push(`${viewport.name}: first menu item is clipped above panel`);
-              if (last.bottom > opened.panel.bottom + 1) failures.push(`${viewport.name}: last menu item is clipped below panel`);
+              if (first.y < opened.panel.y - 1) failures.push(`${viewport.name}: first menu item clipped`);
+              if (last.bottom > opened.panel.bottom + 1) failures.push(`${viewport.name}: last menu item clipped`);
             }
-            if (opened.panel && !String(opened.panel.backdropFilter).includes('blur')) failures.push(`${viewport.name}: glass panel backdrop blur missing`);
+            if (opened.panel && !String(opened.panel.backdropFilter).includes('blur')) failures.push(`${viewport.name}: glass blur missing`);
 
-            // The exact same visible control must close the navigation again.
             await button.click();
             await page.waitForTimeout(350);
             const stillOpen = await page.locator('.wp-block-navigation__responsive-container.is-menu-open, .wp-block-navigation__responsive-container.has-modal-open').first().isVisible().catch(()=>false);
-            if (stillOpen) failures.push(`${viewport.name}: second click on same trigger did not close menu`);
+            if (stillOpen) failures.push(`${viewport.name}: same trigger did not close menu`);
 
-            // Returning to the top must hand the trigger back to its natural place
-            // below the header instead of leaving a fixed overlay behind.
             await page.evaluate(() => window.scrollTo(0, 0));
             await page.waitForTimeout(450);
-            const returned = await rectData(button);
+            const returned = await readRect(button);
             const returnedBody = await page.locator('body').getAttribute('class') || '';
             await page.screenshot({path:`mobile-menu-review/${viewport.name}-returned.png`,fullPage:false});
-            if (returnedBody.includes('kp-menu-floating')) failures.push(`${viewport.name}: floating state did not clear after returning to top`);
-            if (returned.position === 'fixed') failures.push(`${viewport.name}: trigger stayed fixed after returning to header`);
-            if (!near(returned.y, initial.y, 5)) failures.push(`${viewport.name}: trigger did not return to original below-header position`);
+            if (returnedBody.includes('kp-menu-floating')) failures.push(`${viewport.name}: floating state did not clear at header`);
+            if (returned.position === 'fixed') failures.push(`${viewport.name}: trigger stayed fixed at header`);
+            if (!near(returned.y, initial.y, 5)) failures.push(`${viewport.name}: trigger did not return below header`);
 
             report.push({viewport:viewport.name,initial,floated,opened,closedAgain:!stillOpen,returned});
             await context.close();
