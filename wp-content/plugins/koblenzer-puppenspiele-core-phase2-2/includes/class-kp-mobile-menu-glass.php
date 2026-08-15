@@ -4,9 +4,10 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * Final visual layer for the mobile WordPress navigation.
  *
- * KP_Final_Polish owns the interaction/state handling. This class deliberately
- * runs later and only changes the visual geometry so the menu behaves like a
- * compact glass card whose height follows the actual navigation items.
+ * KP_Final_Polish owns the interaction/state handling. This layer keeps the
+ * navigation visually compact in width, but deliberately uses nearly all of the
+ * available viewport height so every destination remains visible without an
+ * internal scroll area.
  */
 final class KP_Mobile_Menu_Glass {
     public static function init() {
@@ -17,35 +18,31 @@ final class KP_Mobile_Menu_Glass {
         ?>
         <style id="kp-mobile-menu-glass">
         @media (max-width: 781px) {
-          /* Keep WordPress' modal layer for focus handling/outside-click closing,
-             but make it visually disappear. Only the glass card is perceived. */
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open {
-            background: rgba(8,7,6,.035) !important;
-            -webkit-backdrop-filter: none !important;
-            backdrop-filter: none !important;
+            background: rgba(8,7,6,.30) !important;
+            -webkit-backdrop-filter: blur(2px) !important;
+            backdrop-filter: blur(2px) !important;
           }
 
-          /* Compact glass card. Its height is content-driven; new or removed
-             WordPress navigation items automatically grow/shrink the card. */
+          /* Narrow floating glass card, almost full viewport height. */
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-close {
             box-sizing: border-box !important;
             position: fixed !important;
             left: auto !important;
             right: max(78px, calc(env(safe-area-inset-right) + 68px)) !important;
-            top: max(12px, calc(var(--kp-menu-button-top, 72px) - 8px)) !important;
-            bottom: auto !important;
+            top: max(12px, env(safe-area-inset-top)) !important;
+            bottom: max(12px, env(safe-area-inset-bottom)) !important;
             width: min(74vw, 320px) !important;
             max-width: calc(100vw - 96px) !important;
-            height: fit-content !important;
+            height: auto !important;
             min-height: 0 !important;
-            max-height: calc(100dvh - var(--kp-menu-button-top, 72px) - 4px) !important;
+            max-height: none !important;
             margin: 0 !important;
-            padding: 10px 11px 12px !important;
-            overflow-x: hidden !important;
-            overflow-y: auto !important;
-            overscroll-behavior: contain;
+            padding: 12px 11px !important;
+            overflow: hidden !important;
+            overscroll-behavior: none !important;
             border: 1px solid rgba(240,122,34,.28) !important;
             border-radius: 21px !important;
             background:
@@ -59,8 +56,8 @@ final class KP_Mobile_Menu_Glass {
               inset 0 1px 0 rgba(255,255,255,.11) !important;
             -webkit-backdrop-filter: blur(22px) saturate(1.18) !important;
             backdrop-filter: blur(22px) saturate(1.18) !important;
-            display: block !important;
-            align-items: initial !important;
+            display: flex !important;
+            align-items: stretch !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close::after,
@@ -77,32 +74,22 @@ final class KP_Mobile_Menu_Glass {
 
           body.admin-bar .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close,
           body.admin-bar .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-close {
-            top: max(58px, calc(var(--kp-menu-button-top, 72px) - 8px)) !important;
-            max-height: calc(100dvh - 70px) !important;
+            top: 58px !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-dialog,
-          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-dialog {
-            box-sizing: border-box !important;
-            width: 100% !important;
-            min-height: 0 !important;
-            height: auto !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            display: block !important;
-            overflow: visible !important;
-          }
-
+          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-dialog,
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-container-content {
             box-sizing: border-box !important;
-            display: block !important;
             width: 100% !important;
-            min-height: 0 !important;
-            height: auto !important;
+            min-height: 100% !important;
+            height: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
-            overflow: visible !important;
+            display: flex !important;
+            align-items: center !important;
+            overflow: hidden !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content .wp-block-navigation__container,
@@ -111,8 +98,8 @@ final class KP_Mobile_Menu_Glass {
             display: flex !important;
             flex-direction: column !important;
             align-items: stretch !important;
-            justify-content: flex-start !important;
-            gap: .13rem !important;
+            justify-content: center !important;
+            gap: .12rem !important;
             width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -141,16 +128,6 @@ final class KP_Mobile_Menu_Glass {
             text-align: left !important;
             text-decoration: none !important;
             text-shadow: 0 1px 8px rgba(0,0,0,.28);
-            transition: background-color .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease !important;
-          }
-
-          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item:not(.kp-nav-booking) .wp-block-navigation-item__content:hover,
-          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item:not(.kp-nav-booking) .wp-block-navigation-item__content:focus-visible,
-          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation-item:not(.kp-nav-booking) .wp-block-navigation-item__content:hover,
-          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation-item:not(.kp-nav-booking) .wp-block-navigation-item__content:focus-visible {
-            background: rgba(255,255,255,.075) !important;
-            border-color: rgba(255,255,255,.10) !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,.04) !important;
           }
 
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item.current-menu-item:not(.kp-nav-booking) .wp-block-navigation-item__content,
@@ -160,8 +137,6 @@ final class KP_Mobile_Menu_Glass {
             box-shadow: inset 3px 0 0 #f07a22 !important;
           }
 
-          /* Booking remains the clear orange action, but with the same rounded
-             premium-card language instead of a hard rectangular stripe. */
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item.kp-nav-booking .wp-block-navigation-item__content,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation-item.kp-nav-booking .wp-block-navigation-item__content {
             margin: .14rem 0 !important;
@@ -170,52 +145,29 @@ final class KP_Mobile_Menu_Glass {
             background: linear-gradient(135deg, #f58326, #e66d16) !important;
             color: #fff !important;
             box-shadow: 0 8px 20px rgba(240,122,34,.22), inset 0 1px 0 rgba(255,255,255,.18) !important;
-            text-shadow: 0 1px 4px rgba(75,29,0,.22) !important;
-          }
-
-          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item.kp-nav-booking .wp-block-navigation-item__content:hover,
-          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item.kp-nav-booking .wp-block-navigation-item__content:focus-visible,
-          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation-item.kp-nav-booking .wp-block-navigation-item__content:hover,
-          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation-item.kp-nav-booking .wp-block-navigation-item__content:focus-visible {
-            transform: translateY(-1px) !important;
-            background: linear-gradient(135deg, #ff8c31, #eb7219) !important;
-            box-shadow: 0 10px 24px rgba(240,122,34,.28), inset 0 1px 0 rgba(255,255,255,.2) !important;
-          }
-
-          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close::-webkit-scrollbar,
-          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-close::-webkit-scrollbar {
-            width: 5px;
-          }
-
-          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close::-webkit-scrollbar-thumb,
-          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-close::-webkit-scrollbar-thumb {
-            border-radius: 999px;
-            background: rgba(240,122,34,.34);
           }
         }
 
+        /* Short displays stay non-scrolling: tighten the eight destinations instead. */
         @media (max-width: 781px) and (max-height: 700px) {
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-close,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-close {
-            top: max(8px, calc(var(--kp-menu-button-top, 64px) - 6px)) !important;
-            bottom: auto !important;
-            max-height: calc(100dvh - var(--kp-menu-button-top, 64px) - 2px) !important;
-            padding: 8px 9px 9px !important;
+            top: max(8px, env(safe-area-inset-top)) !important;
+            bottom: max(8px, env(safe-area-inset-bottom)) !important;
+            padding: 8px 9px !important;
             border-radius: 18px !important;
           }
 
-          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item__content,
-          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation-item__content {
-            padding: .40rem .58rem !important;
-            font-size: .94rem !important;
-            line-height: 1.08 !important;
+          .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__responsive-container-content .wp-block-navigation__container,
+          .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation__responsive-container-content .wp-block-navigation__container {
+            gap: 0 !important;
           }
-        }
 
-        @media (max-width: 781px) and (prefers-reduced-motion: reduce) {
           .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item__content,
           .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open .wp-block-navigation-item__content {
-            transition: none !important;
+            padding: .36rem .56rem !important;
+            font-size: .92rem !important;
+            line-height: 1.06 !important;
           }
         }
         </style>
