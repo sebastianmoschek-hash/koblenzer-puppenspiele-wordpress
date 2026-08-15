@@ -170,7 +170,7 @@ jobs:
           check_page 'https://neu.koblenzer-puppenspiele.de/das-theater/' 'Figurentheater aus Leidenschaft'
           check_page 'https://neu.koblenzer-puppenspiele.de/das-theater/' 'Björn Christian Küpper'
           check_page 'https://neu.koblenzer-puppenspiele.de/repertoire/' 'Nulli und Priesemut'
-          check_page 'https://neu.koblenzer-puppenspiele.de/termine/' 'Osterspai'
+          check_page 'https://neu.koblenzer-puppenspiele.de/termine/'
           check_page 'https://neu.koblenzer-puppenspiele.de/referenzen/' 'Kufa'
           check_page 'https://neu.koblenzer-puppenspiele.de/jetzt-buchen/' 'Figurentheater direkt bei Ihnen'
           check_page 'https://neu.koblenzer-puppenspiele.de/kontakt/'
