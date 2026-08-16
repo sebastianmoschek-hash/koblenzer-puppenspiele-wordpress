@@ -9,6 +9,19 @@
   const panel = document.querySelector('.kp-fe-panel');
   const hint = document.querySelector('.kp-fe-hint');
 
+  const style = document.createElement('style');
+  style.id = 'kp-fe-inline-word-style';
+  style.textContent = `
+    .kp-fe-inline-tools{position:fixed;top:calc(var(--wp-admin--admin-bar--height,0px) + 54px);right:12px;z-index:100079;display:flex;align-items:center;gap:7px;max-width:calc(100vw - 24px);padding:6px 7px 6px 10px;border:1px solid rgba(240,122,34,.34);border-radius:999px;background:rgba(23,17,14,.94);box-shadow:0 10px 30px rgba(0,0,0,.28);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);color:#f8eee7;font:700 11px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;opacity:0;pointer-events:none;transform:translateY(-5px);transition:.14s ease}
+    .kp-fe-inline-tools.is-visible{opacity:1;pointer-events:auto;transform:translateY(0)}
+    .kp-fe-inline-tools>span{white-space:nowrap;opacity:.82}
+    .kp-fe-inline-tools button{min-height:30px;padding:5px 9px;border:1px solid rgba(240,122,34,.6);border-radius:999px;background:rgba(240,122,34,.14);color:#fff;font:800 11px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;white-space:nowrap}
+    .kp-fe-inline-tools button:hover,.kp-fe-inline-tools button:focus{background:#f07a22;outline:none}
+    body.kp-fe-editing [contenteditable="true"]{caret-color:#f07a22;-webkit-user-select:text;user-select:text}
+    @media(max-width:782px){.kp-fe-inline-tools{top:calc(var(--wp-admin--admin-bar--height,0px) + 48px);right:8px}.kp-fe-inline-tools>span{display:none}.kp-fe-inline-tools button{min-height:34px;padding:6px 11px}}
+  `;
+  document.head.appendChild(style);
+
   const tools = document.createElement('div');
   tools.className = 'kp-fe-inline-tools';
   tools.setAttribute('aria-hidden', 'true');
@@ -39,8 +52,7 @@
     if (!(target instanceof Element)) return null;
     const direct = target.closest('[contenteditable="true"]');
     if (direct) return direct;
-    const selected = document.querySelector('.kp-fe-selected[contenteditable="true"]');
-    return selected || null;
+    return document.querySelector('.kp-fe-selected[contenteditable="true"]');
   }
 
   function caretAtPoint(el, x, y) {
@@ -72,9 +84,9 @@
     hideDesignPanel();
     showTools();
 
-    // The base editor intentionally enables contentEditable first. We then
-    // restore normal editor behaviour: caret where the owner actually tapped,
-    // instead of selecting/replacing the complete text block.
+    // The base editor enables contentEditable and records changes. We only
+    // simplify the interaction here: caret at the tapped position, no giant
+    // design panel unless the owner explicitly asks for it.
     requestAnimationFrame(() => {
       if (!activeText || !activeText.isConnected) return;
       try { activeText.focus({ preventScroll: true }); } catch (e) { activeText.focus(); }
@@ -91,8 +103,9 @@
     panel.setAttribute('aria-hidden', 'false');
   });
 
-  // Keep pasted copy clean. Formatting remains controlled by the website,
-  // while ordinary text can be pasted as naturally as in a word processor.
+  // Paste plain text so foreign Word/website formatting cannot accidentally
+  // damage the responsive design. The base editor still receives an input event
+  // and therefore stores the changed text normally.
   document.addEventListener('paste', (event) => {
     const editable = event.target instanceof Element ? event.target.closest('[contenteditable="true"]') : null;
     if (!editable || editable !== activeText) return;
@@ -109,11 +122,14 @@
     range.collapse(true);
     selection.removeAllRanges();
     selection.addRange(range);
-    editable.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    const inputEvent = typeof InputEvent === 'function'
+      ? new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text })
+      : new Event('input', { bubbles: true });
+    editable.dispatchEvent(inputEvent);
   }, true);
 
-  // Registered after the base editor. Its capture listener runs first and
-  // enables contentEditable; this listener then simplifies the visible UX.
+  // Registered after the base editor. Its document capture listener runs first
+  // and enables contentEditable; this listener then switches to the simple UX.
   document.addEventListener('click', (event) => {
     if (event.target instanceof Element && event.target.closest('.kp-fe-inline-tools')) return;
 
@@ -153,7 +169,6 @@
   }, true);
 
   window.addEventListener('scroll', () => {
-    // The compact controls stay fixed and never cover the text being edited.
     if (activeText && !activeText.isConnected) {
       activeText = null;
       hideTools();
