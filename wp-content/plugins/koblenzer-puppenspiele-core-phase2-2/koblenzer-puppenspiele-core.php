@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Koblenzer Puppenspiele – Inhalte & Design
- * Description: Einfache Verwaltung für Inhalte sowie ein mobiles Website Studio für Farben, Layout, Header und Navigation.
- * Version: 3.5.4
+ * Description: Einfache Verwaltung für Inhalte sowie ein mobiles Website Studio und direkte visuelle Bearbeitung auf der Website.
+ * Version: 4.0.0
  * Author: Koblenzer Puppenspiele
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KP_CORE_VERSION', '3.5.4' );
+define( 'KP_CORE_VERSION', '4.0.0' );
 define( 'KP_CORE_FILE', __FILE__ );
 define( 'KP_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KP_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -34,6 +34,7 @@ require_once KP_CORE_DIR . 'includes/class-kp-website-studio.php';
 require_once KP_CORE_DIR . 'includes/class-kp-website-studio-frontend.php';
 require_once KP_CORE_DIR . 'includes/class-kp-owner-experience.php';
 require_once KP_CORE_DIR . 'includes/class-kp-responsive-sizes.php';
+require_once KP_CORE_DIR . 'includes/class-kp-frontend-editor.php';
 
 add_action( 'plugins_loaded', static function () {
     KP_Bundled_Images::init();
@@ -52,7 +53,20 @@ add_action( 'plugins_loaded', static function () {
     KP_Website_Studio_Frontend::init();
     KP_Owner_Experience::init();
     KP_Responsive_Sizes::init();
+    KP_Frontend_Editor::init();
 } );
+
+/* The small runtime also runs for normal visitors so saved visual changes in
+ * dynamic shortcode areas and saved section order are applied. In edit mode
+ * KP_Frontend_Editor additionally loads the editor UI and WordPress media picker. */
+add_action( 'wp_enqueue_scripts', static function () {
+    wp_enqueue_script( 'kp-frontend-editor', KP_CORE_URL . 'assets/frontend-editor.js', array(), KP_CORE_VERSION, true );
+}, 40 );
+
+/* Make the page-specific editor config available before footer scripts execute.
+ * KP_Frontend_Editor also refreshes the config late in wp_footer; repeating this
+ * assignment is harmless and keeps the runtime reliable with different themes. */
+add_action( 'wp_footer', array( 'KP_Frontend_Editor', 'frontend_bootstrap' ), 5 );
 
 /* On the simplified Puppenspiele dashboard, the existing "Website gestalten"
  * card should lead to the friendly Studio instead of dropping non-technical
