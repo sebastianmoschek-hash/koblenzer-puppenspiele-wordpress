@@ -7,6 +7,15 @@
   const originalFetch = window.fetch.bind(window);
 
   window.fetch = async (...args) => {
+    try {
+      const options = args[1] || {};
+      const body = options.body;
+      if (body instanceof FormData && body.get('action') === 'kp_frontend_editor_save') {
+        if (!body.has('page_key')) body.append('page_key', cfg.pageKey || '');
+        if (!body.has('page_path')) body.append('page_path', window.location.pathname || '/');
+      }
+    } catch (e) {}
+
     const response = await originalFetch(...args);
     try {
       const options = args[1] || {};
