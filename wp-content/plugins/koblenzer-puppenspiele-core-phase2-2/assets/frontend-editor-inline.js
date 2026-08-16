@@ -34,6 +34,7 @@
   document.body.appendChild(tools);
 
   const designButton = tools.querySelector('.kp-fe-inline-design');
+  designButton.setAttribute('aria-pressed', 'false');
 
   if (hint) {
     hint.textContent = 'Text antippen und direkt schreiben · Bilder, Termine und Stücke antippen · Gestaltung nur bei Bedarf über „Aa Gestaltung“.';
@@ -52,7 +53,7 @@
   }
 
   function isEditorUi(target) {
-    return target instanceof Element && !!target.closest('.kp-fe-toolbar,.kp-fe-panel,.kp-fe-modal-backdrop,.kp-fe-quick,.kp-fe-inline-tools,#wpadminbar');
+    return target instanceof Element && !!target.closest('.kp-fe-toolbar,.kp-fe-panel,.kp-fe-modal-backdrop,.kp-fe-quick,#wpadminbar');
   }
 
   function showTools() {
@@ -138,14 +139,6 @@
     });
   }
 
-  designButton.setAttribute('aria-pressed', 'false');
-  designButton.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!activeElement) return;
-    setDesignOpen(!body.classList.contains('kp-fe-inline-design-open'));
-  });
-
   panel.addEventListener('click', (event) => {
     if (!(event.target instanceof Element) || !event.target.closest('.kp-fe-panel-close')) return;
     queueMicrotask(() => leaveDirectTextMode(false));
@@ -184,6 +177,15 @@
   // away from the base selector so the cursor can move normally without
   // reopening/resetting the large design panel.
   window.addEventListener('click', (event) => {
+    if (event.target instanceof Element && event.target.closest('.kp-fe-inline-tools')) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.target.closest('.kp-fe-inline-design') && activeElement) {
+        setDesignOpen(!body.classList.contains('kp-fe-inline-design-open'));
+      }
+      return;
+    }
+
     if (isEditorUi(event.target)) return;
 
     const el = editableElementFromNode(event.target);
