@@ -1,0 +1,30 @@
+name: Frontend editor review
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor.php'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor.js'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor.css'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php'
+      - '.github/workflows/frontend-editor-review.yml'
+
+concurrency:
+  group: koblenzer-puppenspiele-frontend-editor-review
+  cancel-in-progress: true
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: PHP syntax
+        run: php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor.php
+      - name: JavaScript syntax
+        run: node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor.js
+      - name: Main plugin syntax
+        run: php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php
