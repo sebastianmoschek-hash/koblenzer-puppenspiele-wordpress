@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Koblenzer Puppenspiele – Inhalte & Design
  * Description: Einfache Verwaltung für Inhalte sowie ein mobiles Website Studio und direkte visuelle Bearbeitung auf der Website.
- * Version: 4.1.0
+ * Version: 4.1.1
  * Author: Koblenzer Puppenspiele
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KP_CORE_VERSION', '4.1.0' );
+define( 'KP_CORE_VERSION', '4.1.1' );
 define( 'KP_CORE_FILE', __FILE__ );
 define( 'KP_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KP_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -60,8 +60,8 @@ add_action( 'plugins_loaded', static function () {
 
 /* The small runtime also runs for normal visitors so saved visual changes in
  * dynamic shortcode areas and saved section order are applied. The compatibility
- * helper provides stable leaf keys, reliable page identity and an extra text
- * persistence path. The inline helper keeps ordinary text editing Word-like. */
+ * helper provides stable leaf keys, reliable page identity and a second content
+ * persistence path for edited text, links and images. */
 add_action( 'wp_enqueue_scripts', static function () {
     wp_enqueue_script( 'kp-frontend-editor-compat', KP_CORE_URL . 'assets/frontend-editor-compat.js', array(), KP_CORE_VERSION, true );
     wp_enqueue_script( 'kp-frontend-editor', KP_CORE_URL . 'assets/frontend-editor.js', array( 'kp-frontend-editor-compat' ), KP_CORE_VERSION, true );
