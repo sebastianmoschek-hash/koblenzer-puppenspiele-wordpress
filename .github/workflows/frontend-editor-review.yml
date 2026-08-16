@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor.php'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor.js'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-inline.js'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js'
@@ -24,12 +25,51 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
       - name: PHP syntax
-        run: php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor.php
+        run: |
+          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor.php
+          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php
+          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php
+
       - name: JavaScript syntax
         run: |
           node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor.js
           node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-inline.js
           node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
-      - name: Main plugin syntax
-        run: php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php
+
+      - name: Page identity regression test
+        shell: bash
+        run: |
+          php <<'PHP'
+          <?php
+          define('ABSPATH', __DIR__ . '/');
+          function sanitize_text_field($v){ return trim(strip_tags((string)$v)); }
+          function wp_unslash($v){ return $v; }
+          function absint($v){ return abs((int)$v); }
+          function current_user_can($cap, $id = null){ return true; }
+          function wp_parse_url($url, $component = -1){ return parse_url($url, $component); }
+          require 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php';
+          $method = new ReflectionMethod('KP_Frontend_Editor_Save_Guard', 'requested_page_key');
+          $method->setAccessible(true);
+
+          $_POST = array('page_key' => 'post-123');
+          if ($method->invoke(null) !== 'post-123') { fwrite(STDERR, "post key failed\n"); exit(1); }
+
+          $path = '/aktuelles/';
+          $key = 'path-' . substr(hash('sha256', $path), 0, 16);
+          $_POST = array('page_key' => $key, 'page_path' => $path);
+          if ($method->invoke(null) !== $key) { fwrite(STDERR, "path key failed\n"); exit(1); }
+
+          $_POST = array('page_key' => 'path-0000000000000000', 'page_path' => $path);
+          if ($method->invoke(null) !== '') { fwrite(STDERR, "mismatched path accepted\n"); exit(1); }
+          echo "Page identity persistence contract OK\n";
+          PHP
+
+      - name: Persistence safety contract
+        run: |
+          grep -q "stored_page !== \\$page" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php
+          grep -q "'verified' => true" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php
+          grep -q "dirtyTextKeys" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
+          grep -q "body.set('payload'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
+          grep -q "body.append('page_key'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
