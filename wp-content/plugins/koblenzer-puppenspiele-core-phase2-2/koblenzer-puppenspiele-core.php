@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Koblenzer Puppenspiele – Inhalte & Design
  * Description: Einfache Verwaltung für Inhalte sowie ein mobiles Website Studio und direkte visuelle Bearbeitung auf der Website.
- * Version: 4.0.6
+ * Version: 4.1.0
  * Author: Koblenzer Puppenspiele
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KP_CORE_VERSION', '4.0.6' );
+define( 'KP_CORE_VERSION', '4.1.0' );
 define( 'KP_CORE_FILE', __FILE__ );
 define( 'KP_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KP_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -35,6 +35,7 @@ require_once KP_CORE_DIR . 'includes/class-kp-website-studio-frontend.php';
 require_once KP_CORE_DIR . 'includes/class-kp-owner-experience.php';
 require_once KP_CORE_DIR . 'includes/class-kp-responsive-sizes.php';
 require_once KP_CORE_DIR . 'includes/class-kp-frontend-editor.php';
+require_once KP_CORE_DIR . 'includes/class-kp-frontend-editor-save-guard.php';
 
 add_action( 'plugins_loaded', static function () {
     KP_Bundled_Images::init();
@@ -54,41 +55,13 @@ add_action( 'plugins_loaded', static function () {
     KP_Owner_Experience::init();
     KP_Responsive_Sizes::init();
     KP_Frontend_Editor::init();
+    KP_Frontend_Editor_Save_Guard::init();
 } );
-
-/* The direct editor saves through admin-ajax.php. Without restoring the page
- * identity first, WordPress would store page-specific changes under the AJAX
- * request itself instead of under the page the owner is editing. The small
- * compatibility script sends the original page key/path with every save. */
-add_action( 'wp_ajax_kp_frontend_editor_save', static function () {
-    $page_key = isset( $_POST['page_key'] ) ? sanitize_text_field( wp_unslash( $_POST['page_key'] ) ) : '';
-
-    if ( preg_match( '/^post-(\d+)$/', $page_key, $match ) ) {
-        $post_id = absint( $match[1] );
-        if ( $post_id ) {
-            global $wp_query;
-            if ( ! ( $wp_query instanceof WP_Query ) ) {
-                $wp_query = new WP_Query();
-            }
-            $wp_query->queried_object_id = $post_id;
-            $wp_query->queried_object    = get_post( $post_id );
-            return;
-        }
-    }
-
-    $page_path = isset( $_POST['page_path'] ) ? wp_unslash( $_POST['page_path'] ) : '';
-    $page_path = is_string( $page_path ) ? (string) wp_parse_url( $page_path, PHP_URL_PATH ) : '';
-    if ( $page_path ) {
-        $_SERVER['REQUEST_URI'] = $page_path;
-    }
-}, 1 );
 
 /* The small runtime also runs for normal visitors so saved visual changes in
  * dynamic shortcode areas and saved section order are applied. The compatibility
- * helper preserves every existing appointment status and transmits the page
- * identity for reliable saves. The inline helper loads after the base editor and
- * turns ordinary text clicks into Word-like editing without opening the large
- * design panel automatically. */
+ * helper provides stable leaf keys, reliable page identity and an extra text
+ * persistence path. The inline helper keeps ordinary text editing Word-like. */
 add_action( 'wp_enqueue_scripts', static function () {
     wp_enqueue_script( 'kp-frontend-editor-compat', KP_CORE_URL . 'assets/frontend-editor-compat.js', array(), KP_CORE_VERSION, true );
     wp_enqueue_script( 'kp-frontend-editor', KP_CORE_URL . 'assets/frontend-editor.js', array( 'kp-frontend-editor-compat' ), KP_CORE_VERSION, true );
