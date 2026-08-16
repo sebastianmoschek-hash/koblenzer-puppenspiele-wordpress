@@ -3,9 +3,9 @@
   const cfg = window.KPFrontendEditor;
   if (!cfg) return;
 
-  // Give every visible text leaf a stable DOM key as an additional persistence
-  // path. Native block keys remain the primary mechanism; this fallback makes
-  // text edits resilient even when a rendered block changes its generated key.
+  // Stable leaf keys provide a second persistence path for visible content.
+  // Native block keys stay primary, but text/link/image changes can still be
+  // restored when a rendered block's generated key changes later.
   function hashString(str) {
     let h = 5381;
     for (let i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
@@ -44,7 +44,7 @@
   assignStableLeafKeys();
 
   // For normal visitors the base runtime that loads immediately after this file
-  // now has the same DOM keys available and can apply persisted fallback values.
+  // can now apply any saved DOM fallback values using exactly the same keys.
   if (!cfg.editMode) return;
 
   let currentTerminStatus = '';
@@ -59,7 +59,47 @@
     return [...document.querySelectorAll('[data-kp-dom-key]')].find((el) => el.dataset.kpDomKey === key) || null;
   }
 
-  function mirrorDirtyTextIntoPayload(body) {
+  function findByBlockKey(key) {
+    return [...document.querySelectorAll('[data-kp-edit-key]')].find((el) => el.dataset.kpEditKey === key) || null;
+  }
+
+  function contentLeafForBlock(el) {
+    if (!el) return null;
+    const name = el.dataset.kpBlockName || '';
+    if (name === 'core/button' || name === 'core/navigation-link') return el.matches('a') ? el : el.querySelector('a');
+    if (name === 'core/image') return el.matches('img') ? el : el.querySelector('img');
+    if (['core/paragraph','core/heading','core/list-item'].includes(name)) return el;
+    if (el.matches('h1,h2,h3,h4,p,a,img,li,button')) return el;
+    return null;
+  }
+
+  function contentFromLeaf(el) {
+    if (!el) return null;
+    if (el.tagName === 'IMG') {
+      return { type: 'image', src: el.currentSrc || el.src || '', alt: el.alt || '' };
+    }
+    if (el.tagName === 'A' || el.tagName === 'BUTTON') {
+      return { type: 'link', label: el.textContent || '', href: el.tagName === 'A' ? (el.getAttribute('href') || '') : '' };
+    }
+    return { type: 'html', value: el.innerHTML };
+  }
+
+  function ensurePayloadScope(payload, scope) {
+    if (!payload[scope] || typeof payload[scope] !== 'object') payload[scope] = {};
+    if (!payload[scope].dom || typeof payload[scope].dom !== 'object') payload[scope].dom = {};
+    return payload[scope];
+  }
+
+  function writeDomFallback(payload, el, content) {
+    if (!el || !el.dataset.kpDomKey || !content) return;
+    const scope = scopeFor(el);
+    const target = ensurePayloadScope(payload, scope);
+    const key = el.dataset.kpDomKey;
+    if (!target.dom[key] || typeof target.dom[key] !== 'object') target.dom[key] = {};
+    target.dom[key].content = content;
+  }
+
+  function mirrorVisibleContentIntoPayload(body) {
     if (!(body instanceof FormData) || body.get('action') !== 'kp_frontend_editor_save') return;
     const raw = body.get('payload');
     if (typeof raw !== 'string' || !raw) return;
@@ -67,25 +107,35 @@
     let payload;
     try { payload = JSON.parse(raw); } catch (e) { return; }
     if (!payload || typeof payload !== 'object') return;
-    if (!payload.global || typeof payload.global !== 'object') payload.global = {};
-    if (!payload.page || typeof payload.page !== 'object') payload.page = {};
-    if (!payload.global.dom || typeof payload.global.dom !== 'object') payload.global.dom = {};
-    if (!payload.page.dom || typeof payload.page.dom !== 'object') payload.page.dom = {};
+    ensurePayloadScope(payload, 'global');
+    ensurePayloadScope(payload, 'page');
 
+    // Exact text snapshot for all elements that actually received keyboard input.
+    // This explicitly includes Backspace/Delete and an entirely empty text value.
     dirtyTextKeys.forEach((key) => {
       const el = findByDomKey(key);
-      if (!el) return;
-      const scope = scopeFor(el);
-      const target = scope === 'global' ? payload.global : payload.page;
-      if (!target.dom[key] || typeof target.dom[key] !== 'object') target.dom[key] = {};
-      target.dom[key].content = { type: 'html', value: el.innerHTML };
+      if (el) writeDomFallback(payload, el, { type: 'html', value: el.innerHTML });
+    });
+
+    // Any block that already has a content override is mirrored to its stable
+    // visible leaf as well. This covers edited buttons/links/images in addition
+    // to text, without freezing untouched page content.
+    ['global','page'].forEach((scope) => {
+      const blocks = payload[scope] && payload[scope].blocks;
+      if (!blocks || typeof blocks !== 'object') return;
+      Object.entries(blocks).forEach(([key, item]) => {
+        if (!item || typeof item !== 'object' || !item.content) return;
+        const block = findByBlockKey(key);
+        const leaf = contentLeafForBlock(block);
+        if (!leaf || !leaf.dataset.kpDomKey) return;
+        writeDomFallback(payload, leaf, contentFromLeaf(leaf));
+      });
     });
 
     body.set('payload', JSON.stringify(payload));
   }
 
-  // Track every actual text input, including Backspace/Delete and mobile IME
-  // composition. Empty text is intentionally valid and must remain persistable.
+  // Track every actual text input, including mobile keyboard composition.
   document.addEventListener('input', (event) => {
     const el = event.target instanceof Element ? event.target.closest('[contenteditable="true"][data-kp-dom-key]') : null;
     if (el && !el.closest('.kp-fe-modal,.kp-fe-panel,.kp-fe-toolbar')) dirtyTextKeys.add(el.dataset.kpDomKey);
@@ -96,7 +146,7 @@
       const options = args[1] || {};
       const body = options.body;
       if (body instanceof FormData && body.get('action') === 'kp_frontend_editor_save') {
-        mirrorDirtyTextIntoPayload(body);
+        mirrorVisibleContentIntoPayload(body);
         if (!body.has('page_key')) body.append('page_key', cfg.pageKey || '');
         if (!body.has('page_path')) body.append('page_path', window.location.pathname || '/');
       }
