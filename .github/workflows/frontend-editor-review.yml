@@ -5,12 +5,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor.php'
-      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php'
-      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor.js'
-      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-inline.js'
-      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js'
-      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor.css'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-v2.php'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.css'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php'
       - '.github/workflows/frontend-editor-review.yml'
 
@@ -19,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  syntax:
+  syntax-and-contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -28,48 +25,32 @@ jobs:
 
       - name: PHP syntax
         run: |
-          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor.php
-          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php
+          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-v2.php
           php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php
 
       - name: JavaScript syntax
+        run: node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js
+
+      - name: Durable save contract
         run: |
-          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor.js
-          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-inline.js
-          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
+          grep -Fq "page_key:cfg.pageKey" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js
+          grep -Fq '$all[ $page_key ] = $page;' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-v2.php
+          grep -Fq "valid_page_key" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-v2.php
 
-      - name: Page identity regression test
-        shell: bash
+      - name: Mobile direct-edit contract
         run: |
-          php <<'PHP'
-          <?php
-          define('ABSPATH', __DIR__ . '/');
-          function sanitize_text_field($v){ return trim(strip_tags((string)$v)); }
-          function wp_unslash($v){ return $v; }
-          function absint($v){ return abs((int)$v); }
-          function current_user_can($cap, $id = null){ return true; }
-          function wp_parse_url($url, $component = -1){ return parse_url($url, $component); }
-          require 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php';
-          $method = new ReflectionMethod('KP_Frontend_Editor_Save_Guard', 'requested_page_key');
-          $method->setAccessible(true);
+          grep -Fq "contentEditable='true'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js
+          grep -Fq "assignFallbackKeys" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js
+          if grep -Fq "closest('[data-kp-edit-key]')" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js; then echo 'Ancestor block exclusion returned'; exit 1; fi
+          grep -Fq 'max-height:34dvh' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.css
+          grep -Fq 'Mehr Angaben' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js
 
-          $_POST = array('page_key' => 'post-123');
-          if ($method->invoke(null) !== 'post-123') { fwrite(STDERR, "post key failed\n"); exit(1); }
-
-          $path = '/aktuelles/';
-          $key = 'path-' . substr(hash('sha256', $path), 0, 16);
-          $_POST = array('page_key' => $key, 'page_path' => $path);
-          if ($method->invoke(null) !== $key) { fwrite(STDERR, "path key failed\n"); exit(1); }
-
-          $_POST = array('page_key' => 'path-0000000000000000', 'page_path' => $path);
-          if ($method->invoke(null) !== '') { fwrite(STDERR, "mismatched path accepted\n"); exit(1); }
-          echo "Page identity persistence contract OK\n";
-          PHP
-
-      - name: Persistence safety contract
+      - name: Appointment status safety
         run: |
-          grep -Fq 'stored_page !== $page' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php
-          grep -Fq "'verified' => true" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php
-          grep -Fq 'dirtyTextKeys' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
-          grep -Fq "body.set('payload'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
-          grep -Fq "body.append('page_key'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
+          grep -Fq "'planned' => 'In Planung'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-v2.php
+          grep -Fq "'box_office' => 'Eintritt Tageskasse'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-v2.php
+
+      - name: Only v2 is activated
+        run: |
+          grep -Fq 'KP_Frontend_Editor_V2::init();' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php
+          if grep -Fq 'KP_Frontend_Editor::init();' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php; then echo 'Old editor still active'; exit 1; fi
