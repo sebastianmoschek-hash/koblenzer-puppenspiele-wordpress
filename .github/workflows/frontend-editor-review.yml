@@ -7,6 +7,7 @@ on:
     paths:
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor.php'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor.js'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor.css'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php'
       - '.github/workflows/frontend-editor-review.yml'
@@ -25,6 +26,8 @@ jobs:
       - name: PHP syntax
         run: php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor.php
       - name: JavaScript syntax
-        run: node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor.js
+        run: |
+          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor.js
+          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
       - name: Main plugin syntax
         run: php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php
