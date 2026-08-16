@@ -4,10 +4,14 @@
   const cfg = window.KPFrontendEditor;
   if (!cfg || !cfg.editMode) return;
 
-  let activeText = null;
-  let designOpen = false;
+  const body = document.body;
   const panel = document.querySelector('.kp-fe-panel');
   const hint = document.querySelector('.kp-fe-hint');
+  if (!body || !panel) return;
+
+  const TEXT_BLOCKS = new Set(['core/paragraph', 'core/heading', 'core/list-item']);
+  let activeText = null;
+  let activeElement = null;
 
   const style = document.createElement('style');
   style.id = 'kp-fe-inline-word-style';
@@ -16,8 +20,9 @@
     .kp-fe-inline-tools.is-visible{opacity:1;pointer-events:auto;transform:translateY(0)}
     .kp-fe-inline-tools>span{white-space:nowrap;opacity:.82}
     .kp-fe-inline-tools button{min-height:30px;padding:5px 9px;border:1px solid rgba(240,122,34,.6);border-radius:999px;background:rgba(240,122,34,.14);color:#fff;font:800 11px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;white-space:nowrap}
-    .kp-fe-inline-tools button:hover,.kp-fe-inline-tools button:focus{background:#f07a22;outline:none}
-    body.kp-fe-editing [contenteditable="true"]{caret-color:#f07a22;-webkit-user-select:text;user-select:text}
+    .kp-fe-inline-tools button:hover,.kp-fe-inline-tools button:focus,.kp-fe-inline-tools button.is-active{background:#f07a22;outline:none}
+    body.kp-fe-editing [contenteditable="true"]{caret-color:#f07a22;-webkit-user-select:text;user-select:text;cursor:text!important}
+    body.kp-fe-editing.kp-fe-inline-text:not(.kp-fe-inline-design-open) .kp-fe-panel.is-open{visibility:hidden!important;opacity:0!important;pointer-events:none!important}
     @media(max-width:782px){.kp-fe-inline-tools{top:calc(var(--wp-admin--admin-bar--height,0px) + 48px);right:8px}.kp-fe-inline-tools>span{display:none}.kp-fe-inline-tools button{min-height:34px;padding:6px 11px}}
   `;
   document.head.appendChild(style);
@@ -28,13 +33,26 @@
   tools.innerHTML = '<span>✎ Direkt schreiben</span><button type="button" class="kp-fe-inline-design" title="Schrift, Farbe und Abstände ändern">Aa Gestaltung</button>';
   document.body.appendChild(tools);
 
+  const designButton = tools.querySelector('.kp-fe-inline-design');
+
   if (hint) {
     hint.textContent = 'Text antippen und direkt schreiben · Bilder, Termine und Stücke antippen · Gestaltung nur bei Bedarf über „Aa Gestaltung“.';
   }
 
-  function hideTools() {
-    tools.classList.remove('is-visible');
-    tools.setAttribute('aria-hidden', 'true');
+  function editableElementFromNode(node) {
+    if (!(node instanceof Element)) return null;
+    return node.closest('[data-kp-edit-key],[data-kp-dom-key]');
+  }
+
+  function textTarget(el) {
+    if (!el) return null;
+    const name = el.dataset.kpBlockName || '';
+    if (TEXT_BLOCKS.has(name) || el.matches('h1,h2,h3,h4,p,li')) return el;
+    return null;
+  }
+
+  function isEditorUi(target) {
+    return target instanceof Element && !!target.closest('.kp-fe-toolbar,.kp-fe-panel,.kp-fe-modal-backdrop,.kp-fe-quick,.kp-fe-inline-tools,#wpadminbar');
   }
 
   function showTools() {
@@ -42,78 +60,109 @@
     tools.setAttribute('aria-hidden', 'false');
   }
 
-  function hideDesignPanel() {
-    if (!panel || designOpen) return;
-    panel.classList.remove('is-open');
-    panel.setAttribute('aria-hidden', 'true');
+  function hideTools() {
+    tools.classList.remove('is-visible');
+    tools.setAttribute('aria-hidden', 'true');
   }
 
-  function activatedTextFromClick(target) {
-    if (!(target instanceof Element)) return null;
-    const direct = target.closest('[contenteditable="true"]');
-    if (direct) return direct;
-    return document.querySelector('.kp-fe-selected[contenteditable="true"]');
+  function setDesignOpen(open) {
+    body.classList.toggle('kp-fe-inline-design-open', !!open);
+    designButton.classList.toggle('is-active', !!open);
+    designButton.setAttribute('aria-pressed', open ? 'true' : 'false');
+
+    if (open) {
+      panel.classList.add('is-open');
+      panel.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function enterDirectTextMode(el) {
+    activeElement = el;
+    body.classList.add('kp-fe-inline-text');
+    setDesignOpen(false);
+    showTools();
+  }
+
+  function leaveDirectTextMode(closeSelection = false) {
+    body.classList.remove('kp-fe-inline-text', 'kp-fe-inline-design-open');
+    designButton.classList.remove('is-active');
+    designButton.setAttribute('aria-pressed', 'false');
+    hideTools();
+
+    if (closeSelection) {
+      document.querySelectorAll('[contenteditable="true"]').forEach((editable) => {
+        editable.contentEditable = 'false';
+        editable.blur();
+      });
+      document.querySelectorAll('.kp-fe-selected').forEach((selected) => selected.classList.remove('kp-fe-selected'));
+      panel.classList.remove('is-open');
+      panel.setAttribute('aria-hidden', 'true');
+    }
+
+    activeText = null;
+    activeElement = null;
   }
 
   function caretAtPoint(el, x, y) {
-    if (!el) return;
+    if (!el || !el.isContentEditable) return;
     let range = null;
 
     if (document.caretPositionFromPoint) {
       const pos = document.caretPositionFromPoint(x, y);
-      if (pos && el.contains(pos.offsetNode)) {
+      if (pos && (pos.offsetNode === el || el.contains(pos.offsetNode))) {
         range = document.createRange();
         range.setStart(pos.offsetNode, pos.offset);
         range.collapse(true);
       }
     } else if (document.caretRangeFromPoint) {
       const candidate = document.caretRangeFromPoint(x, y);
-      if (candidate && el.contains(candidate.startContainer)) range = candidate;
+      if (candidate && (candidate.startContainer === el || el.contains(candidate.startContainer))) {
+        range = candidate;
+        range.collapse(true);
+      }
     }
 
-    if (range) {
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
+    if (!range) return;
+    const selection = window.getSelection();
+    if (!selection) return;
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
-  function activateWordLikeEditing(el, event) {
-    activeText = el;
-    designOpen = false;
-    hideDesignPanel();
-    showTools();
-
-    // The base editor enables contentEditable and records changes. We only
-    // simplify the interaction here: caret at the tapped position, no giant
-    // design panel unless the owner explicitly asks for it.
+  function focusAtPoint(el, event) {
     requestAnimationFrame(() => {
-      if (!activeText || !activeText.isConnected) return;
-      try { activeText.focus({ preventScroll: true }); } catch (e) { activeText.focus(); }
-      if ((event.detail || 1) === 1) caretAtPoint(activeText, event.clientX, event.clientY);
+      if (!el || !el.isConnected || !el.isContentEditable) return;
+      activeText = el;
+      try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+      caretAtPoint(el, event.clientX, event.clientY);
     });
   }
 
-  tools.querySelector('.kp-fe-inline-design').addEventListener('click', (event) => {
+  designButton.setAttribute('aria-pressed', 'false');
+  designButton.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (!activeText || !panel) return;
-    designOpen = true;
-    panel.classList.add('is-open');
-    panel.setAttribute('aria-hidden', 'false');
+    if (!activeElement) return;
+    setDesignOpen(!body.classList.contains('kp-fe-inline-design-open'));
   });
 
-  // Paste plain text so foreign Word/website formatting cannot accidentally
-  // damage the responsive design. The base editor still receives an input event
-  // and therefore stores the changed text normally.
+  panel.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element) || !event.target.closest('.kp-fe-panel-close')) return;
+    queueMicrotask(() => leaveDirectTextMode(false));
+  });
+
+  // Keep pasted content clean: only text, no foreign Word/website formatting.
   document.addEventListener('paste', (event) => {
     const editable = event.target instanceof Element ? event.target.closest('[contenteditable="true"]') : null;
     if (!editable || editable !== activeText) return;
+
     const text = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
     if (!text) return;
+
     event.preventDefault();
     const selection = window.getSelection();
-    if (!selection.rangeCount) return;
+    if (!selection || !selection.rangeCount) return;
+
     const range = selection.getRangeAt(0);
     range.deleteContents();
     const node = document.createTextNode(text);
@@ -122,56 +171,63 @@
     range.collapse(true);
     selection.removeAllRanges();
     selection.addRange(range);
+
     const inputEvent = typeof InputEvent === 'function'
       ? new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text })
       : new Event('input', { bubbles: true });
     editable.dispatchEvent(inputEvent);
   }, true);
 
-  // Registered after the base editor. Its document capture listener runs first
-  // and enables contentEditable; this listener then switches to the simple UX.
-  document.addEventListener('click', (event) => {
-    if (event.target instanceof Element && event.target.closest('.kp-fe-inline-tools')) return;
+  // This listener sits on window, one level before the base editor's document
+  // capture listener. First tap is allowed through so the base editor enables
+  // contentEditable and wires saving. Later taps inside the same text are kept
+  // away from the base selector so the cursor can move normally without
+  // reopening/resetting the large design panel.
+  window.addEventListener('click', (event) => {
+    if (isEditorUi(event.target)) return;
 
-    if (event.target instanceof Element && event.target.closest('.kp-fe-panel-close')) {
-      designOpen = false;
-      setTimeout(hideTools, 0);
+    const el = editableElementFromNode(event.target);
+
+    if (!el) {
+      if (activeElement || document.querySelector('[contenteditable="true"]')) {
+        leaveDirectTextMode(true);
+      }
       return;
     }
 
-    if (event.target instanceof Element && event.target.closest('.kp-fe-save,.kp-fe-undo')) {
-      hideTools();
+    const target = textTarget(el);
+    if (!target) {
+      leaveDirectTextMode(false);
       return;
     }
 
-    if (event.target instanceof Element && event.target.closest('.kp-fe-device')) {
-      if (activeText && !designOpen) requestAnimationFrame(hideDesignPanel);
+    enterDirectTextMode(el);
+
+    if (target.isContentEditable) {
+      if (event.target instanceof Element && event.target.closest('a')) event.preventDefault();
+      event.stopPropagation();
+      focusAtPoint(target, event);
       return;
     }
 
-    if (event.target instanceof Element && event.target.closest('.kp-fe-panel,.kp-fe-modal-backdrop,.kp-fe-quick,#wpadminbar')) return;
-    if (event.target instanceof Element && event.target.closest('.kp-termin-card,.kp-repertoire-card')) {
-      activeText = null;
-      designOpen = false;
-      hideTools();
-      return;
-    }
-
-    const editable = activatedTextFromClick(event.target);
-    if (editable) {
-      activateWordLikeEditing(editable, event);
-      return;
-    }
-
-    activeText = null;
-    designOpen = false;
-    hideTools();
+    // First tap: base editor will make this element contentEditable and attach
+    // its input recorder. The direct-mode CSS is already active, so its panel
+    // never flashes open. Then place the caret exactly where the owner tapped.
+    focusAtPoint(target, event);
   }, true);
 
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !document.querySelector('[contenteditable="true"]')) return;
+    event.preventDefault();
+    leaveDirectTextMode(true);
+  }, true);
+
+  document.querySelector('.kp-fe-toolbar')?.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest('.kp-fe-save,.kp-fe-undo')) leaveDirectTextMode(false);
+  });
+
   window.addEventListener('scroll', () => {
-    if (activeText && !activeText.isConnected) {
-      activeText = null;
-      hideTools();
-    }
+    if (activeText && !activeText.isConnected) leaveDirectTextMode(false);
   }, { passive: true });
 })();
