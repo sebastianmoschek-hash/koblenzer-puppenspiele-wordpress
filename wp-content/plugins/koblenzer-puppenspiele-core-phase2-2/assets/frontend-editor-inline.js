@@ -139,6 +139,20 @@
     });
   }
 
+  function syncActiveTextBeforeSave() {
+    const editable = document.querySelector('[contenteditable="true"]');
+    if (!editable) return;
+
+    // The base editor stores text changes from its input listener. Mobile
+    // keyboards and composition/deletion sequences can leave the visible DOM
+    // one event ahead of that stored draft. Force one final synchronous input
+    // snapshot before the Save button's own click handler serializes the draft.
+    const inputEvent = typeof InputEvent === 'function'
+      ? new InputEvent('input', { bubbles: true, inputType: 'insertReplacementText', data: null })
+      : new Event('input', { bubbles: true });
+    editable.dispatchEvent(inputEvent);
+  }
+
   panel.addEventListener('click', (event) => {
     if (!(event.target instanceof Element) || !event.target.closest('.kp-fe-panel-close')) return;
     queueMicrotask(() => leaveDirectTextMode(false));
@@ -177,6 +191,14 @@
   // away from the base selector so the cursor can move normally without
   // reopening/resetting the large design panel.
   window.addEventListener('click', (event) => {
+    // Save must first capture the exact DOM currently visible to the owner.
+    // Do not stop propagation: the base Save handler should run immediately
+    // afterwards with the freshly synchronized draft.
+    if (event.target instanceof Element && event.target.closest('.kp-fe-save')) {
+      syncActiveTextBeforeSave();
+      return;
+    }
+
     if (event.target instanceof Element && event.target.closest('.kp-fe-inline-tools')) {
       event.preventDefault();
       event.stopPropagation();
