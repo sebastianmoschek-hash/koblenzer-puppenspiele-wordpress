@@ -68,8 +68,8 @@ jobs:
 
       - name: Persistence safety contract
         run: |
-          grep -q "stored_page !== \\$page" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php
-          grep -q "'verified' => true" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php
-          grep -q "dirtyTextKeys" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
-          grep -q "body.set('payload'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
-          grep -q "body.append('page_key'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
+          grep -Fq 'stored_page !== $page' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php
+          grep -Fq "'verified' => true" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php
+          grep -Fq 'dirtyTextKeys' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
+          grep -Fq "body.set('payload'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
+          grep -Fq "body.append('page_key'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-compat.js
