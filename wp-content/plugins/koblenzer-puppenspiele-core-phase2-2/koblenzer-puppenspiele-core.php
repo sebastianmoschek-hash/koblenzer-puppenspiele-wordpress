@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Koblenzer Puppenspiele – Inhalte & Design
  * Description: Einfache Verwaltung für Inhalte sowie ein mobiles Website Studio und direkte visuelle Bearbeitung auf der Website.
- * Version: 4.2.1
+ * Version: 4.3.0
  * Author: Koblenzer Puppenspiele
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KP_CORE_VERSION', '4.2.1' );
+define( 'KP_CORE_VERSION', '4.3.0' );
 define( 'KP_CORE_FILE', __FILE__ );
 define( 'KP_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KP_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -36,6 +36,7 @@ require_once KP_CORE_DIR . 'includes/class-kp-owner-experience.php';
 require_once KP_CORE_DIR . 'includes/class-kp-responsive-sizes.php';
 require_once KP_CORE_DIR . 'includes/class-kp-frontend-editor-v2.php';
 require_once KP_CORE_DIR . 'includes/class-kp-owner-direct-edit-cta.php';
+require_once KP_CORE_DIR . 'includes/class-kp-owner-edit-focus.php';
 
 add_action( 'plugins_loaded', static function () {
     KP_Bundled_Images::init();
@@ -56,6 +57,7 @@ add_action( 'plugins_loaded', static function () {
     KP_Responsive_Sizes::init();
     KP_Frontend_Editor_V2::init();
     KP_Owner_Direct_Edit_CTA::init();
+    KP_Owner_Edit_Focus::init();
 } );
 
 /* On the simplified Puppenspiele dashboard, the existing "Website gestalten"
