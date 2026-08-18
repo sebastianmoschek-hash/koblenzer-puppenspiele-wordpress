@@ -4,11 +4,13 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * Keeps the owner-facing front-end editing experience intentionally small:
  * one entry button, then Preview / Undo / Save in edit mode.
- * Also commits Android contenteditable text before the v2 save handler runs.
+ * Also keeps site navigation usable while edit mode stays active and commits
+ * Android contenteditable text before the v2 save handler runs.
  */
 final class KP_Owner_Edit_Focus {
     public static function init() {
         add_action( 'admin_bar_menu', array( __CLASS__, 'clean_admin_bar' ), 999 );
+        add_action( 'wp_head', array( __CLASS__, 'navigation_bridge' ), 2 );
         add_action( 'wp_footer', array( __CLASS__, 'render_frontend_controls' ), 999 );
     }
 
@@ -30,8 +32,8 @@ final class KP_Owner_Edit_Focus {
     public static function clean_admin_bar( $bar ) {
         if ( is_admin() || ! self::can_edit() ) { return; }
 
-        // The owner should not have several competing ways to edit the same page.
-        // Keep account/site access, remove the technical/default editing shortcuts.
+        // One obvious owner entry is enough. Keep account/site access, remove
+        // WordPress' competing edit/customize shortcuts on the live website.
         foreach ( array(
             'wp-logo', 'updates', 'comments', 'new-content', 'edit', 'customize',
             'site-editor', 'edit-site', 'kp-quick-edit', 'kp-quick-termin',
@@ -39,6 +41,59 @@ final class KP_Owner_Edit_Focus {
         ) as $node_id ) {
             $bar->remove_node( $node_id );
         }
+    }
+
+    /**
+     * Register before the v2 footer script. This lets real site navigation win
+     * over the editor's generic "tap a link to edit it" handler.
+     *
+     * Main navigation always navigates. Repertoire title/image links and links
+     * from news/current cards into repertoire pages navigate as well. The
+     * kp_edit flag is carried to the destination so editing continues there.
+     */
+    public static function navigation_bridge() {
+        if ( ! self::edit_mode() ) { return; }
+        ?>
+        <script id="kp-owner-edit-navigation-bridge">
+        (()=>{
+          'use strict';
+          const editParam='kp_edit';
+
+          function internalUrl(anchor){
+            const raw=anchor.getAttribute('href')||'';
+            if(!raw||raw.startsWith('#')||/^(mailto:|tel:|sms:|javascript:)/i.test(raw))return null;
+            let url;
+            try{url=new URL(raw,window.location.href);}catch(e){return null;}
+            if(!/^https?:$/i.test(url.protocol)||url.origin!==window.location.origin)return null;
+            return url;
+          }
+
+          function isNavigationLink(anchor,url){
+            if(anchor.closest('nav,.wp-block-navigation,.wp-block-navigation__responsive-container,.kp-navigation-bar,.kp-site-nav'))return true;
+            if(anchor.closest('.kp-repertoire-card'))return true;
+            const path=(url.pathname||'/').replace(/\/{2,}/g,'/');
+            if(/^\/repertoire\//.test(path))return true;
+            if(anchor.closest('.kp-finish-card,.kp-current,.kp-aktuelles')){
+              return /^\/(repertoire|termine|jetzt-buchen|kontakt|aktuelles|das-theater|referenzen)(\/|$)/.test(path);
+            }
+            return false;
+          }
+
+          document.addEventListener('click',(event)=>{
+            const anchor=event.target.closest&&event.target.closest('a[href]');
+            if(!anchor)return;
+            if(anchor.closest('#wpadminbar,.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop'))return;
+            const url=internalUrl(anchor);
+            if(!url||!isNavigationLink(anchor,url))return;
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            url.searchParams.set(editParam,'1');
+            window.location.href=url.toString();
+          },true);
+        })();
+        </script>
+        <?php
     }
 
     public static function render_frontend_controls() {
@@ -62,7 +117,7 @@ final class KP_Owner_Edit_Focus {
           }
         </style>
         <?php if ( ! self::edit_mode() ) : ?>
-          <a class="kp-owner-single-edit" href="<?php echo esc_url( $edit_url ); ?>"><span class="dashicons dashicons-edit"></span>Bearbeiten</a>
+          <a class="kp-owner-single-edit" href="<?php echo esc_url( $edit_url ); ?>"><span class="dashicons dashicons-edit"></span>Website bearbeiten</a>
         <?php endif; ?>
         <script id="kp-owner-edit-focus-js">
         (()=>{
@@ -75,9 +130,11 @@ final class KP_Owner_Edit_Focus {
               const label=exit.querySelector('span:not(.dashicons)');
               if(icon){icon.classList.remove('dashicons-no-alt');icon.classList.add('dashicons-visibility');}
               if(label)label.textContent='Vorschau';
-              exit.setAttribute('title','Vorschau ohne Bearbeitungsrahmen');
+              exit.setAttribute('title','Besucheransicht ohne Bearbeitungsrahmen');
               exit.setAttribute('aria-label','Vorschau');
             }
+            const hint=document.querySelector('.kp-fe2-hint');
+            if(hint)hint.textContent='Inhalt antippen = bearbeiten · Menü und Stücktitel = öffnen';
           }
 
           // Android keyboards can keep the final contenteditable change in an IME
