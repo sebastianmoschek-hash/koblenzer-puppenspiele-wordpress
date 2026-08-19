@@ -5,7 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * Focused owner-facing front-end editing:
  * - one entry button on the live site
  * - Preview / Undo / Save on phones
- * - navigation stays usable while edit mode remains active
+ * - real navigation stays usable while content links remain editable
  * - Android contenteditable changes are committed before saving
  * - success is shown only after WordPress reads the saved data back
  */
@@ -50,8 +50,9 @@ final class KP_Owner_Edit_Focus {
     }
 
     /**
-     * Real site navigation wins over the editor's generic tap-to-edit link handler.
-     * The edit flag is carried to internal destination pages.
+     * In direct-edit mode only the real site navigation should navigate.
+     * Content links, cards and buttons belong to the editor and must never
+     * unexpectedly leave the page. The edit flag is carried through the menu.
      */
     public static function navigation_bridge() {
         if ( ! self::edit_mode() ) { return; }
@@ -67,22 +68,16 @@ final class KP_Owner_Edit_Focus {
             if(!/^https?:$/i.test(url.protocol)||url.origin!==window.location.origin)return null;
             return url;
           }
-          function isNavigationLink(anchor,url){
-            if(anchor.closest('nav,.wp-block-navigation,.wp-block-navigation__responsive-container,.kp-navigation-bar,.kp-site-nav'))return true;
-            if(anchor.closest('.kp-repertoire-card'))return true;
-            const path=(url.pathname||'/').replace(/\/{2,}/g,'/');
-            if(/^\/repertoire\//.test(path))return true;
-            if(anchor.closest('.kp-finish-card,.kp-current,.kp-aktuelles')){
-              return /^\/(repertoire|termine|jetzt-buchen|kontakt|aktuelles|das-theater|referenzen)(\/|$)/.test(path);
-            }
-            return false;
+          function isNavigationLink(anchor){
+            return !!anchor.closest('nav,.wp-block-navigation,.wp-block-navigation__responsive-container,.kp-navigation-bar,.kp-site-nav');
           }
           document.addEventListener('click',(event)=>{
             const anchor=event.target.closest&&event.target.closest('a[href]');
             if(!anchor)return;
-            if(anchor.closest('#wpadminbar,.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-owner-single-edit'))return;
+            if(anchor.closest('#wpadminbar,.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,.kp-owner-single-edit'))return;
+            if(!isNavigationLink(anchor))return;
             const url=internalUrl(anchor);
-            if(!url||!isNavigationLink(anchor,url))return;
+            if(!url)return;
             event.preventDefault();
             event.stopImmediatePropagation();
             url.searchParams.set('kp_edit','1');
@@ -244,7 +239,7 @@ final class KP_Owner_Edit_Focus {
               exit.setAttribute('aria-label','Vorschau');
             }
             const hint=document.querySelector('.kp-fe2-hint');
-            if(hint)hint.textContent='Inhalt antippen = bearbeiten · Menü und Stücktitel = öffnen';
+            if(hint)hint.textContent='Text, Bild oder Button antippen = bearbeiten · Hauptmenü = Seite wechseln';
           }
           function commitActiveInlineText(){
             const el=document.querySelector('.kp-fe2-inline-text[contenteditable="true"]');
