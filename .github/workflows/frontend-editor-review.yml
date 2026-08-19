@@ -8,6 +8,9 @@ on:
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
       - '.github/workflows/frontend-editor-review.yml'
 
+permissions:
+  contents: write
+
 concurrency:
   group: koblenzer-puppenspiele-frontend-editor-review
   cancel-in-progress: true
@@ -81,5 +84,41 @@ jobs:
           grep -Fq 'kp_webapp_manifest' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
           grep -Fq 'kp_webapp_sw' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
           grep -Fq 'serviceWorker.register' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js
-          grep -Fq 'display' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
+          grep -Fq "'display'          => 'standalone'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
           test -s wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/kp-app-icon.svg
+
+      - name: Persist successful frontend-owner verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          generated=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          cat > /tmp/frontend-editor-latest.md <<EOF
+          # Frontend-Owner-Editor – letzter Code-Test
+
+          Erzeugt: $generated
+
+          - PHP-Syntax aller Plugin-Dateien: OK
+          - JavaScript-Syntax Direkteditor/Web-App: OK
+          - Verifiziertes Speichern mit Datenbank-Rückprüfung: vorhanden
+          - Direktbearbeitung für Texte/Bilder/Karten: vorhanden
+          - Design direkt auf der Website: vorhanden
+          - Navigation direkt auf der Website: vorhanden
+          - Neue Termine/Stücke/Seiten direkt auf der Website: vorhanden
+          - Anzeigegrößen Handy/Tablet/Laptop/Desktop direkt auf der Website: vorhanden
+          - PWA-Manifest/Service-Worker-Vertrag: vorhanden
+          - Normale Schnellpflege ohne Backend-Sprung: geprüft
+          EOF
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p qa-results
+          cp /tmp/frontend-editor-latest.md qa-results/frontend-editor-latest.md
+          git add qa-results/frontend-editor-latest.md
+          if git diff --cached --quiet; then
+            echo 'Frontend editor report unchanged.'
+          else
+            git commit -m 'qa: update frontend owner editor status [skip ci]'
+            git push origin HEAD:main
+          fi
