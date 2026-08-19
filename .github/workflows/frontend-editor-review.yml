@@ -56,6 +56,13 @@ jobs:
           grep -Fq '✏️&nbsp; Bearbeiten' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php
           grep -Fq "'kp-frontend-edit-v2'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php
 
+      - name: Content links stay editable
+        run: |
+          grep -Fq "return !!anchor.closest('nav,.wp-block-navigation,.wp-block-navigation__responsive-container,.kp-navigation-bar,.kp-site-nav');" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php
+          grep -Fq 'Text, Bild oder Button antippen = bearbeiten' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php
+          if grep -Fq "anchor.closest('.kp-repertoire-card')" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php; then echo 'Repertoire links are still forced to navigate'; exit 1; fi
+          if grep -Fq "^\\/repertoire\\/" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php; then echo 'Content repertoire paths are still forced to navigate'; exit 1; fi
+
       - name: Mobile direct-edit contract
         run: |
           grep -Fq "contentEditable='true'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js
