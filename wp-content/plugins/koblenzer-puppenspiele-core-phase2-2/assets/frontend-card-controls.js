@@ -12,7 +12,7 @@
   };
 
   function cardPermalink(card) {
-    return card?.querySelector('h3 a')?.href || card?.querySelector('.kp-repertoire-image')?.href || '';
+    return card?.querySelector('h3 a')?.getAttribute('href') || card?.querySelector('.kp-repertoire-image')?.getAttribute('href') || '';
   }
 
   function applyButtonOverrides() {
@@ -23,11 +23,11 @@
       const book = [...card.querySelectorAll('.kp-repertoire-card-actions .kp-termine-button')].find(a => !a.classList.contains('kp-termine-button-outline'));
       if (more) {
         if (ov.more_label) more.textContent = ov.more_label;
-        if (ov.more_url) more.href = ov.more_url;
+        if (ov.more_url) more.setAttribute('href', ov.more_url);
       }
       if (book) {
         if (ov.book_label) book.textContent = ov.book_label;
-        if (ov.book_url) book.href = ov.book_url;
+        if (ov.book_url) book.setAttribute('href', ov.book_url);
       }
     });
   }
@@ -35,7 +35,7 @@
 
   if (!cfg.editMode) return;
 
-  const base = window.KPFrontendEditor || {};
+  const base = window.KPFrontendEditorV2 || {};
   let sheet = null;
 
   function notice(text, type = '') {
@@ -70,7 +70,7 @@
   }
 
   async function resolveRecord(card) {
-    return post('kp_frontend_editor_record', {type:'repertoire', signature:recordSignature(card)});
+    return post('kp_fe_v2_record', {type:'repertoire', signature:recordSignature(card)});
   }
 
   function closeSheet() {
@@ -88,8 +88,8 @@
       sheet.innerHTML = `<div class="kp-fe-card-sheet" role="dialog" aria-modal="true" aria-label="Button bearbeiten">
         <div class="kp-fe-card-sheet-head"><div><strong>Button bearbeiten</strong><small>${role === 'more' ? '„Mehr erfahren“-Button' : '„Buchen“-Button'} von ${esc(record.title)}</small></div><button type="button" class="kp-fe-card-sheet-close" aria-label="Schließen">×</button></div>
         <label>Beschriftung<input type="text" class="kp-fe-card-label" value="${esc(anchor.textContent.trim())}"></label>
-        <label>Link-Ziel<input type="url" class="kp-fe-card-url" value="${esc(anchor.getAttribute('href') || '')}"></label>
-        <p class="kp-fe-card-help">Im Bearbeitungsmodus öffnet der Button keine Seite. Hier änderst du Text und Ziel direkt.</p>
+        <label>Link-Ziel<input type="text" inputmode="url" class="kp-fe-card-url" value="${esc(anchor.getAttribute('href') || '')}"></label>
+        <p class="kp-fe-card-help">Hier änderst du den Button direkt. Im Bearbeitungsmodus öffnet er keine andere Seite.</p>
         <div class="kp-fe-card-sheet-actions"><button type="button" class="kp-fe-card-cancel">Abbrechen</button><button type="button" class="kp-fe-card-save">Speichern</button></div>
       </div>`;
       document.body.appendChild(sheet);
@@ -101,27 +101,35 @@
         const btn = sheet.querySelector('.kp-fe-card-save');
         const label = sheet.querySelector('.kp-fe-card-label').value.trim();
         const url = sheet.querySelector('.kp-fe-card-url').value.trim();
-        btn.disabled = true; btn.textContent = 'Speichert …';
+        btn.disabled = true;
+        btn.textContent = 'Speichert …';
         try {
           const data = await post('kp_frontend_card_button_save', {id:String(record.id), role, label, url});
           anchor.textContent = data.label;
-          anchor.href = data.url;
+          anchor.setAttribute('href', data.url);
           const key = pathKey(cardPermalink(card));
           cfg.overrides[key] = cfg.overrides[key] || {};
           cfg.overrides[key][role + '_label'] = data.label;
           cfg.overrides[key][role + '_url'] = data.url;
-          closeSheet(); notice('Button gespeichert ✓', 'ok');
+          closeSheet();
+          notice('Button gespeichert ✓', 'ok');
         } catch (err) {
           notice(err.message || 'Button konnte nicht gespeichert werden.', 'error');
-          btn.disabled = false; btn.textContent = 'Speichern';
+          btn.disabled = false;
+          btn.textContent = 'Speichern';
         }
       };
       setTimeout(() => sheet.querySelector('.kp-fe-card-label')?.focus(), 60);
-    } catch (err) { notice(err.message || 'Stück konnte nicht gefunden werden.', 'error'); }
+    } catch (err) {
+      notice(err.message || 'Stück konnte nicht gefunden werden.', 'error');
+    }
   }
 
   async function replaceImage(card) {
-    if (!window.wp || !wp.media) { notice('Mediathek konnte nicht geöffnet werden.', 'error'); return; }
+    if (!window.wp?.media) {
+      notice('Mediathek konnte nicht geöffnet werden.', 'error');
+      return;
+    }
     notice('Bildauswahl wird geöffnet …');
     try {
       const record = await resolveRecord(card);
@@ -134,53 +142,75 @@
           if (img) {
             img.src = data.src || attachment.url;
             img.alt = attachment.alt || attachment.title || record.title || '';
-            img.removeAttribute('srcset'); img.removeAttribute('sizes');
+            img.removeAttribute('srcset');
+            img.removeAttribute('sizes');
           }
           notice('Bild gespeichert ✓', 'ok');
-        } catch (err) { notice(err.message || 'Bild konnte nicht gespeichert werden.', 'error'); }
+        } catch (err) {
+          notice(err.message || 'Bild konnte nicht gespeichert werden.', 'error');
+        }
       });
       frame.open();
-    } catch (err) { notice(err.message || 'Stück konnte nicht gefunden werden.', 'error'); }
+    } catch (err) {
+      notice(err.message || 'Stück konnte nicht gefunden werden.', 'error');
+    }
   }
 
-  /* Run before the older document-level editor listener. On repertoire cards,
-     links never navigate while editing. Image/button taps get their own direct
-     controls; title/text/facts continue to the existing full record editor. */
+  function temporarilyShieldLink(anchor) {
+    if (!anchor || anchor.dataset.kpFeCardShielded === '1') return;
+    const href = anchor.getAttribute('href');
+    if (!href) return;
+    anchor.dataset.kpFeCardShielded = '1';
+    anchor.dataset.kpFeCardHref = href;
+    anchor.setAttribute('href', '#');
+    setTimeout(() => {
+      if (!anchor.isConnected) return;
+      const original = anchor.dataset.kpFeCardHref;
+      if (original) anchor.setAttribute('href', original);
+      delete anchor.dataset.kpFeCardHref;
+      delete anchor.dataset.kpFeCardShielded;
+    }, 0);
+  }
+
+  /* This listener runs on window capture, before the owner's navigation bridge
+     on document capture. That prevents Android/Chrome from leaving the page for
+     editable card controls while still allowing the v2 full record editor to
+     handle title/text/facts. */
   window.addEventListener('click', (e) => {
-    if (e.target.closest('.kp-fe-toolbar,.kp-fe-panel,.kp-fe-modal-backdrop,.kp-fe-quick,.kp-fe-card-sheet-backdrop,#wpadminbar')) return;
+    if (e.target.closest('.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,#wpadminbar')) return;
     const card = e.target.closest('.kp-repertoire-card');
     if (!card) return;
 
-    const link = e.target.closest('a');
-    if (link) e.preventDefault();
-
     const image = e.target.closest('.kp-repertoire-image');
     if (image) {
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
       replaceImage(card);
       return;
     }
 
     const action = e.target.closest('.kp-repertoire-card-actions .kp-termine-button');
     if (action) {
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
       editButton(card, action, action.classList.contains('kp-termine-button-outline') ? 'more' : 'book');
+      return;
     }
+
+    const link = e.target.closest('a[href]');
+    if (link) {
+      e.preventDefault();
+      temporarilyShieldLink(link);
+    }
+    // No stopPropagation here: editor v2 now receives the tap and opens the
+    // complete repertoire form for title/text/facts instead of navigating.
   }, true);
 
-  /* A small usability hint that matches the fine-grained card behavior. */
-  const hint = document.querySelector('.kp-fe-hint');
-  if (hint) hint.textContent = 'Text antippen = bearbeiten · Bild antippen = austauschen · Button antippen = Button ändern';
-
-  /* Compatibility: preserve the two appointment statuses that existed before
-     the first direct-editor modal was introduced. */
-  function ensureTerminStatuses(root = document) {
-    root.querySelectorAll?.('.kp-fe-modal select[data-f="status"]').forEach(select => {
-      if (!select.querySelector('option[value="planned"]')) select.insertAdjacentHTML('beforeend', '<option value="planned">In Planung</option>');
-      if (!select.querySelector('option[value="box_office"]')) select.insertAdjacentHTML('beforeend', '<option value="box_office">Eintritt Tageskasse</option>');
-    });
+  function setHint() {
+    const hint = document.querySelector('.kp-fe2-hint');
+    if (hint) hint.textContent = 'Text antippen = bearbeiten · Bild antippen = austauschen · Button antippen = ändern';
   }
-  const observer = new MutationObserver(() => ensureTerminStatuses());
-  observer.observe(document.body, {childList:true, subtree:true});
-  ensureTerminStatuses();
+  setHint();
+  document.addEventListener('DOMContentLoaded', setHint);
+  window.addEventListener('load', () => setTimeout(setHint, 0));
 })();
