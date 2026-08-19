@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Koblenzer Puppenspiele – Inhalte & Design
- * Description: Einfache Verwaltung für Inhalte sowie ein mobiles Website Studio und direkte visuelle Bearbeitung auf der Website.
- * Version: 4.3.4
+ * Description: Einfache Verwaltung für Inhalte, direkte visuelle Bearbeitung und installierbare Besitzer-Web-App direkt auf der Website.
+ * Version: 4.4.0
  * Author: Koblenzer Puppenspiele
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KP_CORE_VERSION', '4.3.4' );
+define( 'KP_CORE_VERSION', '4.4.0' );
 define( 'KP_CORE_FILE', __FILE__ );
 define( 'KP_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KP_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -39,6 +39,7 @@ require_once KP_CORE_DIR . 'includes/class-kp-owner-direct-edit-cta.php';
 require_once KP_CORE_DIR . 'includes/class-kp-owner-edit-focus.php';
 require_once KP_CORE_DIR . 'includes/class-kp-owner-edit-reliability.php';
 require_once KP_CORE_DIR . 'includes/class-kp-frontend-card-controls.php';
+require_once KP_CORE_DIR . 'includes/class-kp-owner-web-app.php';
 
 add_action( 'plugins_loaded', static function () {
     KP_Bundled_Images::init();
@@ -62,12 +63,12 @@ add_action( 'plugins_loaded', static function () {
     KP_Owner_Edit_Focus::init();
     KP_Owner_Edit_Reliability::init();
     KP_Frontend_Card_Controls::init();
+    KP_Owner_Web_App::init();
 } );
 
-/* On the simplified Puppenspiele dashboard, the existing "Website gestalten"
- * card should lead to the friendly Studio instead of dropping non-technical
- * editors straight into WordPress' advanced Site Editor. The advanced editor
- * remains available from the Studio under "Profi-Modus". */
+/* The old dashboard remains a technical fallback. Normal owner work now starts
+ * on the visible website; this admin shortcut is deliberately kept only for
+ * emergency/professional access if WordPress itself ever needs maintenance. */
 add_action( 'admin_footer-toplevel_page_kp-puppenspiele', static function () {
     if ( ! current_user_can( 'edit_theme_options' ) ) {
         return;
@@ -83,7 +84,7 @@ add_action( 'admin_footer-toplevel_page_kp-puppenspiele', static function () {
       const title = card.querySelector('strong');
       const help = card.querySelector('small');
       if (title) title.textContent = 'Website Studio';
-      if (help) help.textContent = 'Farben, Menü, Header und Layout – einfach mit Reglern';
+      if (help) help.textContent = 'Technische Reserve – die normale Gestaltung läuft direkt auf der Website';
     })();
     </script>
     <?php
