@@ -2,15 +2,13 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 /**
- * Fine-grained controls for structured repertoire cards in the direct editor.
- * Images remain real featured images; card button overrides remain tied to the
- * repertoire record rather than fragile DOM positions.
+ * Fine-grained controls for structured repertoire cards in direct editor v2.
+ * Images remain real featured images; button overrides remain attached to the
+ * repertoire record instead of depending on fragile DOM positions.
  */
 final class KP_Frontend_Card_Controls {
-    const NONCE_ACTION = 'kp_frontend_editor';
-
     public static function init() {
-        add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue' ), 65 );
+        add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue' ), 66 );
         add_action( 'wp_ajax_kp_frontend_card_image_save', array( __CLASS__, 'save_image' ) );
         add_action( 'wp_ajax_kp_frontend_card_button_save', array( __CLASS__, 'save_button' ) );
     }
@@ -57,17 +55,17 @@ final class KP_Frontend_Card_Controls {
         wp_enqueue_script(
             'kp-frontend-card-controls',
             KP_CORE_URL . 'assets/frontend-card-controls.js',
-            array( 'kp-frontend-editor' ),
+            array( 'kp-frontend-editor-v2' ),
             KP_CORE_VERSION,
             true
         );
         if ( self::edit_mode() ) {
-            wp_enqueue_style( 'kp-frontend-card-controls', KP_CORE_URL . 'assets/frontend-card-controls.css', array(), KP_CORE_VERSION );
+            wp_enqueue_style( 'kp-frontend-card-controls', KP_CORE_URL . 'assets/frontend-card-controls.css', array( 'kp-frontend-editor-v2' ), KP_CORE_VERSION );
         }
         wp_localize_script( 'kp-frontend-card-controls', 'KPFrontendCardControls', array(
             'editMode'  => self::edit_mode(),
             'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
-            'nonce'     => self::edit_mode() ? wp_create_nonce( self::NONCE_ACTION ) : '',
+            'nonce'     => self::edit_mode() ? wp_create_nonce( KP_Frontend_Editor_V2::NONCE_ACTION ) : '',
             'overrides' => self::button_overrides(),
         ) );
     }
@@ -78,7 +76,7 @@ final class KP_Frontend_Card_Controls {
 
     public static function save_image() {
         if ( ! self::can_edit() ) { wp_send_json_error( array( 'message' => 'Keine Berechtigung.' ), 403 ); }
-        check_ajax_referer( self::NONCE_ACTION, 'nonce' );
+        check_ajax_referer( KP_Frontend_Editor_V2::NONCE_ACTION, 'nonce' );
         $id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0;
         $attachment_id = isset( $_POST['attachment_id'] ) ? absint( $_POST['attachment_id'] ) : 0;
         if ( ! self::validate_record( $id ) || ! $attachment_id || ! wp_attachment_is_image( $attachment_id ) ) {
@@ -91,7 +89,7 @@ final class KP_Frontend_Card_Controls {
 
     public static function save_button() {
         if ( ! self::can_edit() ) { wp_send_json_error( array( 'message' => 'Keine Berechtigung.' ), 403 ); }
-        check_ajax_referer( self::NONCE_ACTION, 'nonce' );
+        check_ajax_referer( KP_Frontend_Editor_V2::NONCE_ACTION, 'nonce' );
         $id   = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0;
         $role = isset( $_POST['role'] ) ? sanitize_key( wp_unslash( $_POST['role'] ) ) : '';
         if ( ! self::validate_record( $id ) || ! in_array( $role, array( 'more', 'book' ), true ) ) {
