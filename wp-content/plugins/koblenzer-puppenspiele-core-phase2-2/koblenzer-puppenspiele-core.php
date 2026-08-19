@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Koblenzer Puppenspiele – Inhalte & Design
  * Description: Einfache Verwaltung für Inhalte, direkte visuelle Bearbeitung und installierbare Besitzer-Web-App direkt auf der Website.
- * Version: 4.4.3
+ * Version: 4.4.4
  * Author: Koblenzer Puppenspiele
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KP_CORE_VERSION', '4.4.3' );
+define( 'KP_CORE_VERSION', '4.4.4' );
 define( 'KP_CORE_FILE', __FILE__ );
 define( 'KP_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KP_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -43,6 +43,7 @@ require_once KP_CORE_DIR . 'includes/class-kp-owner-web-app.php';
 require_once KP_CORE_DIR . 'includes/class-kp-owner-responsive-web.php';
 require_once KP_CORE_DIR . 'includes/class-kp-design-presets.php';
 require_once KP_CORE_DIR . 'includes/class-kp-google-calendar-import.php';
+require_once KP_CORE_DIR . 'includes/class-kp-ticket-display.php';
 
 add_action( 'plugins_loaded', static function () {
     KP_Bundled_Images::init();
@@ -70,6 +71,7 @@ add_action( 'plugins_loaded', static function () {
     KP_Owner_Responsive_Web::init();
     KP_Design_Presets::init();
     KP_Google_Calendar_Import::init();
+    KP_Ticket_Display::init();
 } );
 
 /* The old dashboard remains a technical fallback. Normal owner work now starts
