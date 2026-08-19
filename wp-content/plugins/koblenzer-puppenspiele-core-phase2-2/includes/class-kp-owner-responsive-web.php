@@ -88,6 +88,12 @@ final class KP_Owner_Responsive_Web {
 
     public static function enqueue() {
         if ( is_admin() || ! self::can_edit() ) { return; }
+        wp_enqueue_style(
+            'kp-owner-responsive-web',
+            KP_CORE_URL . 'assets/owner-responsive-web.css',
+            array( 'kp-owner-web-app' ),
+            KP_CORE_VERSION
+        );
         wp_enqueue_script(
             'kp-owner-responsive-web',
             KP_CORE_URL . 'assets/owner-responsive-web.js',
