@@ -7,11 +7,16 @@ on:
     paths:
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-v2.php'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-reliability.php'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-card-controls.php'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.css'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-card-controls.js'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-card-controls.css'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.css'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/kp-app-icon.svg'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php'
       - '.github/workflows/frontend-editor-review.yml'
 
@@ -31,22 +36,26 @@ jobs:
         run: |
           php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-v2.php
           php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php
+          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-reliability.php
           php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-card-controls.php
+          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
           php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php
 
       - name: JavaScript syntax
         run: |
           node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js
           node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-card-controls.js
+          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js
 
       - name: Durable save contract
         run: |
           grep -Fq "page_key:cfg.pageKey" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js
           grep -Fq "remove_action( 'wp_ajax_kp_fe_v2_save'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php
           grep -Fq "add_action( 'wp_ajax_kp_fe_v2_save'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php
-          grep -Fq '$all[ $page_key ] = $page;' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php
-          grep -Fq '$stored_page !== $page' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php
-          grep -Fq 'Dauerhaft gespeichert ✓' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php
+          grep -Fq '$all[ $page_key ] = $page;' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-reliability.php
+          grep -Fq '$stored_page !== $page' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-reliability.php
+          grep -Fq 'Dauerhaft gespeichert ✓' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-reliability.php
+          grep -Fq 'kp_text_patches' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-reliability.php
 
       - name: Mobile owner controls contract
         run: |
@@ -87,10 +96,31 @@ jobs:
         run: |
           grep -Fq "'planned' => 'In Planung'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-v2.php
           grep -Fq "'box_office' => 'Eintritt Tageskasse'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-v2.php
+          grep -Fq "'planned', 'box_office'" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
+
+      - name: Frontend-only owner web app contract
+        run: |
+          grep -Fq "kp_webapp_manifest" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
+          grep -Fq "kp_webapp_sw" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
+          grep -Fq "wp_ajax_kp_owner_design_save" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
+          grep -Fq "wp_ajax_kp_owner_nav_save" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
+          grep -Fq "wp_ajax_kp_owner_record_create" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
+          grep -Fq "wp_ajax_kp_owner_page_create" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
+          grep -Fq "array( 'kp-frontend-editor-v2' )" wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
+          grep -Fq 'Werkzeuge' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js
+          grep -Fq 'Neuer Termin' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js
+          grep -Fq 'Neues Stück' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js
+          grep -Fq 'Neue Seite' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js
+          grep -Fq 'Navigation speichern' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js
+          grep -Fq 'Design speichern' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js
+          grep -Fq 'serviceWorker.register' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js
+          grep -Fq 'body.kp-fe2-editing .kp-fe2-record-footer a' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.css
+          test -s wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/kp-app-icon.svg
 
       - name: Only v2 is activated
         run: |
           grep -Fq 'KP_Frontend_Editor_V2::init();' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php
           grep -Fq 'KP_Owner_Edit_Focus::init();' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php
           grep -Fq 'KP_Frontend_Card_Controls::init();' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php
+          grep -Fq 'KP_Owner_Web_App::init();' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php
           if grep -Fq 'KP_Frontend_Editor::init();' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php; then echo 'Old editor still active'; exit 1; fi
