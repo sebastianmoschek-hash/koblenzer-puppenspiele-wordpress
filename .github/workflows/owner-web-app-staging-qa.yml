@@ -1,0 +1,100 @@
+name: Owner web app staging QA
+
+on:
+  workflow_run:
+    workflows: ['Deploy staging WordPress']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: koblenzer-puppenspiele-owner-web-app-qa
+  cancel-in-progress: true
+
+jobs:
+  staging-owner-web-app:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check out latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Verify public PWA and owner assets on staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://neu.koblenzer-puppenspiele.de'
+          PLUGIN='/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets'
+
+          curl --fail --silent --show-error --location --retry 4 --retry-all-errors --retry-delay 3 "$BASE/" -o /tmp/home.html
+          curl --fail --silent --show-error --location --retry 4 --retry-all-errors --retry-delay 3 "$BASE/?kp_webapp_manifest=1" -o /tmp/manifest.json
+          curl --fail --silent --show-error --location --retry 4 --retry-all-errors --retry-delay 3 "$BASE/?kp_webapp_sw=1" -o /tmp/sw.js
+          curl --fail --silent --show-error --location "$BASE$PLUGIN/owner-web-app.js" -o /tmp/owner-web-app.js
+          curl --fail --silent --show-error --location "$BASE$PLUGIN/owner-responsive-web.js" -o /tmp/owner-responsive-web.js
+          curl --fail --silent --show-error --location "$BASE$PLUGIN/owner-web-app.css" -o /tmp/owner-web-app.css
+          curl --fail --silent --show-error --location "$BASE$PLUGIN/owner-responsive-web.css" -o /tmp/owner-responsive-web.css
+          curl --fail --silent --show-error --location "$BASE$PLUGIN/kp-app-icon.svg" -o /tmp/kp-app-icon.svg
+
+          if grep -qiE 'kritischen Fehler|critical error|fatal error|parse error' /tmp/home.html; then
+            echo 'WordPress error text detected on staging homepage.'
+            exit 1
+          fi
+
+          grep -Fq 'kp_webapp_manifest=1' /tmp/home.html
+          grep -Fq 'owner-web-app.js' /tmp/home.html
+          grep -Fq 'owner-responsive-web.js' /tmp/home.html
+
+          jq -e '.name == "Koblenzer Puppenspiele"' /tmp/manifest.json >/dev/null
+          jq -e '.short_name == "Puppenspiele"' /tmp/manifest.json >/dev/null
+          jq -e '.display == "standalone"' /tmp/manifest.json >/dev/null
+          jq -e '.icons | length >= 1' /tmp/manifest.json >/dev/null
+          grep -Fq 'self.addEventListener' /tmp/sw.js
+          grep -Fq "'fetch'" /tmp/sw.js
+          grep -Fq 'KP_CACHE' /tmp/sw.js
+          grep -Fq '<svg' /tmp/kp-app-icon.svg
+
+          node --check /tmp/owner-web-app.js
+          node --check /tmp/owner-responsive-web.js
+          test -s /tmp/owner-web-app.css
+          test -s /tmp/owner-responsive-web.css
+
+      - name: Persist owner web app QA result
+        shell: bash
+        run: |
+          set -euo pipefail
+          generated=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          cat > /tmp/owner-web-app-latest.md <<EOF
+          # Owner Web App – letzter Staging-Test
+
+          Erzeugt: $generated
+
+          - Staging-Startseite erreichbar: OK
+          - PWA-Manifest ausgeliefert und gültig: OK
+          - Service Worker ausgeliefert: OK
+          - Owner-Web-App JavaScript: Syntax OK
+          - Responsive-Frontend JavaScript: Syntax OK
+          - Owner-Web-App Styles: ausgeliefert
+          - Responsive-Frontend Styles: ausgeliefert
+          - App-Icon: ausgeliefert
+          - Manifest/Owner-Assets auf der echten Staging-Seite eingebunden: OK
+          - WordPress/PHP-Fehlertext auf Startseite: keiner erkannt
+          EOF
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p qa-results
+          cp /tmp/owner-web-app-latest.md qa-results/owner-web-app-latest.md
+          git add qa-results/owner-web-app-latest.md
+          if git diff --cached --quiet; then
+            echo 'Owner web app QA report unchanged.'
+          else
+            git commit -m 'qa: update owner web app staging status [skip ci]'
+            git push origin HEAD:main
+          fi
