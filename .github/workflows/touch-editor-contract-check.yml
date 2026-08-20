@@ -1,0 +1,46 @@
+name: Touch editor contract check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-*.js'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-*.php'
+      - '.github/workflows/touch-editor-contract-check.yml'
+
+jobs:
+  touch-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gestures.js
+          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js
+          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js
+          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js
+
+      - name: PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-gestures.php
+          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-free-layout.php
+
+      - name: Menu save and undo contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRIDGE=wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js
+          grep -Fq "window.addEventListener('click'" "$BRIDGE"
+          grep -Fq 'interceptMenuTap' "$BRIDGE"
+          grep -Fq 'flushLatestGestureState' "$BRIDGE"
+          grep -Fq 'undoLastGesture' "$BRIDGE"
+          grep -Fq 'Position dauerhaft gespeichert' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-free-layout.php
+          grep -Fq 'Position dauerhaft gespeichert' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-gestures.php
