@@ -1,0 +1,1 @@
+Trigger fresh visual staging QA after explicit-save stabilization and read-only hydration.
