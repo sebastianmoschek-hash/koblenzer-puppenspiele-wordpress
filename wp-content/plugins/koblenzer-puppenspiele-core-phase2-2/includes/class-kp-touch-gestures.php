@@ -73,6 +73,9 @@ final class KP_Touch_Gestures {
 
         $css = KP_CORE_DIR . 'assets/touch-gestures.css';
         $js  = KP_CORE_DIR . 'assets/touch-gestures.js';
+        $safety_css = KP_CORE_DIR . 'assets/touch-gesture-safety.css';
+        $safety_js  = KP_CORE_DIR . 'assets/touch-gesture-safety.js';
+
         wp_enqueue_style(
             'kp-touch-gestures',
             KP_CORE_URL . 'assets/touch-gestures.css',
@@ -96,6 +99,23 @@ final class KP_Touch_Gestures {
             'page'      => self::clean_scope( $page ),
             'holdMs'    => 460,
         ) );
+
+        /* Loaded after the gesture runtime. Besides the touch-only slider lock,
+         this layer guarantees that the floating WordPress navigation can never
+         become a descendant of a gesture-created transformed containing block. */
+        wp_enqueue_style(
+            'kp-touch-gesture-safety',
+            KP_CORE_URL . 'assets/touch-gesture-safety.css',
+            array( 'kp-touch-gestures' ),
+            file_exists( $safety_css ) ? (string) filemtime( $safety_css ) : KP_CORE_VERSION
+        );
+        wp_enqueue_script(
+            'kp-touch-gesture-safety',
+            KP_CORE_URL . 'assets/touch-gesture-safety.js',
+            array( 'kp-touch-gestures' ),
+            file_exists( $safety_js ) ? (string) filemtime( $safety_js ) : KP_CORE_VERSION,
+            true
+        );
     }
 
     public static function ajax_save() {
