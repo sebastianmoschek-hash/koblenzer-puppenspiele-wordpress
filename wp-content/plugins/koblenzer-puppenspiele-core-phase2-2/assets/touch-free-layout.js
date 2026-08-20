@@ -20,6 +20,22 @@
   let lastFreeActionAt = 0;
   let lastOtherActionAt = 0;
   const history = [];
+  const historyStorageKey = `kpFreeLayoutUndo:${location.pathname}`;
+
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(historyStorageKey) || 'null');
+    if (stored && Date.now() - Number(stored.savedAt || 0) < 30 * 60 * 1000 && Array.isArray(stored.entries)) {
+      stored.entries.slice(-24).forEach(entry => history.push({...entry, el:null}));
+      lastFreeActionAt = Number(history.at(-1)?.at || 0);
+    }
+  } catch (_) {}
+
+  function persistHistory() {
+    try {
+      const entries = history.slice(-24).map(({el, ...entry}) => entry);
+      sessionStorage.setItem(historyStorageKey, JSON.stringify({savedAt:Date.now(), entries}));
+    } catch (_) {}
+  }
 
   function device() {
     const width = window.innerWidth;
@@ -299,6 +315,18 @@
     history.push(entry);
     if (history.length > 24) history.shift();
     lastFreeActionAt = entry.at;
+    persistHistory();
+  }
+
+  function elementForHistoryEntry(entry) {
+    if (entry.el?.isConnected) return entry.el;
+    if (entry.kind === 'menu-button') return document.querySelector(menuButtonSelector);
+    if (entry.kind === 'menu-panel') return document.querySelector(menuPanelSelector);
+    if (entry.kind === 'header-image') {
+      const index = Math.max(0, Number(String(entry.key || '').match(/(\d+)$/)?.[1] || 1) - 1);
+      return document.querySelectorAll(headerSelector)[index] || document.querySelector(headerSelector);
+    }
+    try { return document.querySelector(`[data-kp-free-layout-key="${CSS.escape(entry.key)}"]`); } catch (_) { return null; }
   }
 
   function labelFor(kind, pinch = false) {
@@ -437,26 +465,28 @@
   window.addEventListener('change', () => { lastOtherActionAt = Date.now(); }, true);
 
   window.addEventListener('click', event => {
-    if (Date.now() < suppressUntil) {
+    const undoButton = event.target.closest?.('.kp-fe2-undo');
+    if (undoButton && history.length && lastFreeActionAt >= lastOtherActionAt) {
+      const entry = history.pop();
       event.preventDefault();
       event.stopImmediatePropagation();
+
+      const data = scopeData(entry.scope);
+      data[entry.key] = data[entry.key] || {};
+      data[entry.key][entry.device] = {...entry.before};
+      const el = elementForHistoryEntry(entry);
+      if (el) apply(el, entry.before, entry.kind);
+      lastFreeActionAt = Number(history.at(-1)?.at || 0);
+      persistHistory();
+      hud('Verschieben / Zoomen rückgängig ✓', 800);
+      save().catch(() => null);
       return;
     }
 
-    const undoButton = event.target.closest?.('.kp-fe2-undo');
-    if (!undoButton || !history.length || lastFreeActionAt < lastOtherActionAt) return;
-
-    const entry = history.pop();
-    event.preventDefault();
-    event.stopImmediatePropagation();
-
-    const data = scopeData(entry.scope);
-    data[entry.key] = data[entry.key] || {};
-    data[entry.key][entry.device] = {...entry.before};
-    if (entry.el?.isConnected) apply(entry.el, entry.before, entry.kind);
-    lastFreeActionAt = Number(history.at(-1)?.at || 0);
-    hud('Verschieben / Zoomen rückgängig ✓', 800);
-    save().catch(() => null);
+    if (Date.now() < suppressUntil) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
   }, true);
 
   window.KPFreeLayoutRuntime = {
