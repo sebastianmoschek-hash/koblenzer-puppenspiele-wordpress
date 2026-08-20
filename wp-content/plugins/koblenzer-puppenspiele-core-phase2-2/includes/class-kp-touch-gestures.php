@@ -141,6 +141,21 @@ final class KP_Touch_Gestures {
         else { unset( $pages[ $page_key ] ); }
         update_option( self::PAGES_OPTION, $pages, false );
 
-        wp_send_json_success( array( 'message' => 'Position gespeichert ✓' ) );
+        $saved_global = self::clean_scope( get_option( self::GLOBAL_OPTION, array() ) );
+        $saved_pages = get_option( self::PAGES_OPTION, array() );
+        if ( ! is_array( $saved_pages ) ) { $saved_pages = array(); }
+        $saved_page = isset( $saved_pages[ $page_key ] ) && is_array( $saved_pages[ $page_key ] )
+            ? self::clean_scope( $saved_pages[ $page_key ] )
+            : array();
+
+        if ( $saved_global !== $global || $saved_page !== $page ) {
+            wp_send_json_error( array( 'message' => 'Die Änderung wurde von WordPress nicht dauerhaft übernommen.' ), 500 );
+        }
+
+        wp_send_json_success( array(
+            'message' => 'Position dauerhaft gespeichert ✓',
+            'global'  => $saved_global,
+            'page'    => $saved_page,
+        ) );
     }
 }
