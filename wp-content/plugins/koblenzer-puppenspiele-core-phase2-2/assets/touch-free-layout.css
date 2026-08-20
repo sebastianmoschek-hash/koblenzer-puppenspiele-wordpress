@@ -1,0 +1,37 @@
+/* Extended touch gestures: browser-callout suppression + fixed-safe menu movement. */
+body.kp-touch-gestures-enabled img,
+body.kp-touch-gestures-enabled [data-kp-gesture-key]:not(.kp-fe2-inline-text),
+body.kp-touch-gestures-enabled [data-kp-free-layout-key] {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body.kp-touch-gestures-enabled img {
+  -webkit-user-drag: none !important;
+}
+
+body.kp-touch-gestures-enabled .kp-free-layout-active {
+  outline: 3px solid #f07a22 !important;
+  outline-offset: 5px !important;
+  box-shadow: 0 0 0 7px rgba(240,122,34,.16), 0 18px 42px rgba(0,0,0,.28) !important;
+  z-index: 10020 !important;
+}
+
+body.kp-touch-gestures-enabled .kp-free-layout-active.kp-free-layout-pinching {
+  outline-color: #ffb47c !important;
+}
+
+/* The floating navigation itself stays fixed. Only the trigger/panel element is
+   transformed; no navigation ancestor receives a containing-block transform. */
+body.kp-touch-gestures-enabled .kp-site-nav .wp-block-navigation__responsive-container-open.kp-free-layout-active,
+body.kp-touch-gestures-enabled .kp-site-nav .wp-block-navigation__responsive-close.kp-free-layout-active {
+  will-change: transform;
+}
+
+/* Inline text editing must retain normal selection/caret behaviour. */
+body.kp-touch-gestures-enabled .kp-fe2-inline-text {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+}
