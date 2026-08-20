@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Koblenzer Puppenspiele – Inhalte & Design
  * Description: Einfache Verwaltung für Inhalte, direkte visuelle Bearbeitung und installierbare Besitzer-Web-App direkt auf der Website.
- * Version: 4.4.7
+ * Version: 4.4.8
  * Author: Koblenzer Puppenspiele
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KP_CORE_VERSION', '4.4.7' );
+define( 'KP_CORE_VERSION', '4.4.8' );
 define( 'KP_CORE_FILE', __FILE__ );
 define( 'KP_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KP_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -46,6 +46,8 @@ require_once KP_CORE_DIR . 'includes/class-kp-google-calendar-import.php';
 require_once KP_CORE_DIR . 'includes/class-kp-calendar-owner-ui.php';
 require_once KP_CORE_DIR . 'includes/class-kp-ticket-display.php';
 require_once KP_CORE_DIR . 'includes/class-kp-social-menu-extensions.php';
+require_once KP_CORE_DIR . 'includes/class-kp-image-position.php';
+require_once KP_CORE_DIR . 'includes/class-kp-owner-web-app-extensions.php';
 
 add_action( 'plugins_loaded', static function () {
     KP_Bundled_Images::init();
@@ -76,6 +78,8 @@ add_action( 'plugins_loaded', static function () {
     KP_Calendar_Owner_UI::init();
     KP_Ticket_Display::init();
     KP_Social_Menu_Extensions::init();
+    KP_Image_Position::init();
+    KP_Owner_Web_App_Extensions::init();
 } );
 
 /* The old dashboard remains a technical fallback. Normal owner work now starts
