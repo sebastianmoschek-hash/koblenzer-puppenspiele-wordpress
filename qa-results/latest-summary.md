@@ -1,14 +1,16 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-20T23:23:09.983Z
+Erzeugt: 2026-08-20T23:33:29.260Z
 Geprüfte Ansichten: 50
-Auffällige Ansichten: 0
+Auffällige Ansichten: 3
 
 ## desktop-1600 / startseite
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## desktop-1600 / aktuelles
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## desktop-1600 / das-theater
 - Automatische Layoutchecks: OK
@@ -17,7 +19,8 @@ Auffällige Ansichten: 0
 - Automatische Layoutchecks: OK
 
 ## desktop-1600 / termine
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## desktop-1600 / referenzen
 - Automatische Layoutchecks: OK
