@@ -68,8 +68,9 @@ final class KP_Touch_Free_Layout {
         $page_key = self::page_key();
         $page = isset( $pages[ $page_key ] ) && is_array( $pages[ $page_key ] ) ? $pages[ $page_key ] : array();
 
-        $css = KP_CORE_DIR . 'assets/touch-free-layout.css';
-        $js  = KP_CORE_DIR . 'assets/touch-free-layout.js';
+        $css    = KP_CORE_DIR . 'assets/touch-free-layout.css';
+        $js     = KP_CORE_DIR . 'assets/touch-free-layout.js';
+        $bridge = KP_CORE_DIR . 'assets/touch-editor-bridge.js';
         wp_enqueue_style(
             'kp-touch-free-layout',
             KP_CORE_URL . 'assets/touch-free-layout.css',
@@ -93,6 +94,17 @@ final class KP_Touch_Free_Layout {
             'page'     => self::clean_scope( $page ),
             'holdMs'   => 460,
         ) );
+
+        /* Loaded after both gesture runtimes and the direct editor. It prevents
+         the editor from stealing short taps on the mobile menu and makes the
+         main orange Save button wait for all drag/pinch AJAX writes. */
+        wp_enqueue_script(
+            'kp-touch-editor-bridge',
+            KP_CORE_URL . 'assets/touch-editor-bridge.js',
+            array( 'kp-touch-free-layout' ),
+            file_exists( $bridge ) ? (string) filemtime( $bridge ) : KP_CORE_VERSION,
+            true
+        );
     }
 
     public static function ajax_save() {
