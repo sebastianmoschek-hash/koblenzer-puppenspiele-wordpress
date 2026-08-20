@@ -1,8 +1,9 @@
 /* Safety fixes for touch gestures: preserve floating navigation and hard-lock sliders. */
 
 /* A translated/scaled ancestor changes the containing block for position:fixed.
-   Navigation geometry is therefore never gesture-transformable. Images inside the
-   header remain independent gesture targets and are intentionally not covered. */
+   Navigation geometry is therefore never gesture-transformable through the
+   generic individual translate/scale properties. The dedicated free-layout
+   layer moves only the fixed button/panel with the normal transform property. */
 .kp-navigation-bar,
 .kp-site-nav,
 .kp-site-nav .wp-block-navigation,
@@ -26,23 +27,21 @@
   background: transparent;
 }
 .kp-touch-range-hardlock.is-armed {
-  touch-action: none;
   background: rgba(240,122,34,.11);
   box-shadow: 0 0 0 2px rgba(240,122,34,.34);
 }
 
-/* The native range itself is inert on a touch-first device. This is the crucial
-   second safety layer: even if an overlay is temporarily mispositioned during a
-   layout change, a stray tap cannot alter the value. */
+/* The native range itself is inert on touch. The transparent guard follows the
+   finger from touchstart and changes the value only after the hold delay. */
 @media (hover: none), (pointer: coarse) {
-  body.kp-touch-gestures-enabled input[type="range"][data-kp-touch-hardlocked="1"] {
+  body.kp-touch-gestures-enabled input[type="range"][data-kp-touch-hardlocked] {
     pointer-events: none !important;
   }
 }
 
 /* Hybrid laptops/desktops keep normal mouse/trackpad slider behaviour. */
 @media (hover: hover) and (pointer: fine) {
-  body.kp-touch-gestures-enabled input[type="range"][data-kp-touch-hardlocked="1"] {
+  body.kp-touch-gestures-enabled input[type="range"][data-kp-touch-hardlocked] {
     pointer-events: auto !important;
   }
   .kp-touch-range-hardlock { display: none !important; }
