@@ -35,6 +35,25 @@
     };
   }
 
+  function writeVerifiedMirror(action, snapshot) {
+    if (action !== 'kp_touch_free_layout_save') return;
+    const pageKey = String(window.KPFreeLayout?.pageKey || '');
+    if (!pageKey) return;
+    try {
+      localStorage.setItem(`kpFreeLayoutMirror:${pageKey}`, JSON.stringify({
+        global: clone(snapshot.global),
+        page: clone(snapshot.page),
+        pageKey,
+        revision: '',
+        savedAt: Date.now()
+      }));
+    } catch (_) {}
+    if (window.KPFreeLayout) {
+      window.KPFreeLayout.global = clone(snapshot.global);
+      window.KPFreeLayout.page = clone(snapshot.page);
+    }
+  }
+
   function fakeDraftResponse(action) {
     const stable = committed[action] || {global:{}, page:{}};
     let cloneCount = 0;
@@ -101,10 +120,12 @@
       request.then(async response => {
         const json = await response.clone().json().catch(() => null);
         if (!response.ok || !json?.success) return;
-        committed[action] = {
+        const saved = {
           global: clone(json.data?.global || snapshot.global),
           page: clone(json.data?.page || snapshot.page)
         };
+        committed[action] = saved;
+        writeVerifiedMirror(action, saved);
         document.body.classList.remove('kp-touch-layout-dirty');
       }).catch(() => null);
       return request;
