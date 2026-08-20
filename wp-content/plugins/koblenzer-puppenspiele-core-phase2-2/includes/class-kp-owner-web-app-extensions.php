@@ -2,8 +2,7 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 /**
- * Owner web-app controls for settings that were previously only exposed in
- * the technical Website Studio backend.
+ * Owner web-app controls for menu position and social profiles.
  */
 final class KP_Owner_Web_App_Extensions {
     const NONCE_ACTION = 'kp_owner_web_app';
@@ -18,11 +17,17 @@ final class KP_Owner_Web_App_Extensions {
         return is_user_logged_in() && current_user_can( 'edit_theme_options' );
     }
 
-    private static function clean_instagram_url( $raw ) {
+    private static function clean_social_url( $platform, $raw ) {
         $url = esc_url_raw( trim( (string) $raw ) );
         if ( ! $url ) { return ''; }
         $host = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
-        return in_array( $host, array( 'instagram.com', 'www.instagram.com' ), true ) ? $url : '';
+        $allowed = array(
+            'instagram' => array( 'instagram.com', 'www.instagram.com' ),
+            'facebook'  => array( 'facebook.com', 'www.facebook.com', 'm.facebook.com' ),
+            'youtube'   => array( 'youtube.com', 'www.youtube.com', 'youtu.be' ),
+            'tiktok'    => array( 'tiktok.com', 'www.tiktok.com' ),
+        );
+        return isset( $allowed[ $platform ] ) && in_array( $host, $allowed[ $platform ], true ) ? $url : '';
     }
 
     private static function settings() {
@@ -31,6 +36,9 @@ final class KP_Owner_Web_App_Extensions {
         $defaults = class_exists( 'KP_Social_Menu_Extensions' ) ? KP_Social_Menu_Extensions::defaults() : array(
             'menu_offset_x' => 0,
             'instagram_url' => '',
+            'facebook_url' => '',
+            'youtube_url' => '',
+            'tiktok_url' => '',
             'instagram_label' => 'Instagram',
             'instagram_show_footer' => 1,
             'instagram_show_menu' => 1,
@@ -65,12 +73,14 @@ final class KP_Owner_Web_App_Extensions {
 
         $raw = isset( $_POST['settings'] ) ? json_decode( wp_unslash( $_POST['settings'] ), true ) : array();
         if ( ! is_array( $raw ) ) { $raw = array(); }
-
         $current = get_option( self::OPTION, array() );
         if ( ! is_array( $current ) ) { $current = array(); }
 
-        $current['menu_offset_x'] = max( -8, min( 140, isset( $raw['menu_offset_x'] ) ? (int) $raw['menu_offset_x'] : 0 ) );
-        $current['instagram_url'] = self::clean_instagram_url( $raw['instagram_url'] ?? '' );
+        $current['menu_offset_x'] = max( -140, min( 140, isset( $raw['menu_offset_x'] ) ? (int) $raw['menu_offset_x'] : 0 ) );
+        foreach ( array( 'instagram', 'facebook', 'youtube', 'tiktok' ) as $platform ) {
+            $key = $platform . '_url';
+            $current[ $key ] = self::clean_social_url( $platform, isset( $raw[ $key ] ) ? $raw[ $key ] : '' );
+        }
         $label = sanitize_text_field( (string) ( $raw['instagram_label'] ?? 'Instagram' ) );
         $current['instagram_label'] = $label ? mb_substr( $label, 0, 40 ) : 'Instagram';
         foreach ( array( 'instagram_show_footer', 'instagram_show_menu', 'instagram_show_topbar', 'instagram_show_home' ) as $key ) {
@@ -78,10 +88,9 @@ final class KP_Owner_Web_App_Extensions {
         }
 
         update_option( self::OPTION, $current, false );
-        $stored = self::settings();
         wp_send_json_success( array(
-            'message'  => 'Social- und Menüposition gespeichert ✓',
-            'settings' => $stored,
+            'message'  => 'Social und Menüposition gespeichert ✓',
+            'settings' => self::settings(),
         ) );
     }
 }
