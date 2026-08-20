@@ -45,8 +45,8 @@
     const backdrop=q('.kp-oa-backdrop');const box=q('.kp-oa-sheet',backdrop);if(!backdrop||!box)return;
     box.className='kp-oa-sheet is-social';
     box.innerHTML=`
-      <div class="kp-oa-head"><div><span class="kp-oa-kicker">Kanäle & Links</span><h2>Social Media</h2><p>Social-Profile zentral verwalten und festlegen, wo sie auf der Website erscheinen.</p></div><button class="kp-oa-close">×</button></div>
-      <div class="kp-oa-help"><strong>Bereit für mehrere Plattformen:</strong> Instagram ist nicht mehr als Sonderfall im Design versteckt. Weitere Kanäle können hier unabhängig ergänzt werden.</div>
+      <div class="kp-oa-head"><div><span class="kp-oa-kicker">Kanäle & Links</span><h2>Social & Instagram</h2><p>Social-Profile zentral verwalten und festlegen, wo sie auf der Website erscheinen.</p></div><button class="kp-oa-close">×</button></div>
+      <div class="kp-oa-help"><strong>Meta-/Instagram-Kontoverbindung:</strong> vorbereitet, aber derzeit nicht verbunden. Aktuell werden ausschließlich öffentliche Profil-Links gespeichert; es wird keine Meta-Verbindung vorgetäuscht.</div>
       <div class="kp-oa-social-platforms">
         <label class="kp-oa-field"><span>Instagram</span><input type="url" data-social="instagram_url" value="${esc(draft.instagram_url||'')}" placeholder="https://www.instagram.com/…"></label>
         <label class="kp-oa-field"><span>Facebook</span><input type="url" data-social="facebook_url" value="${esc(draft.facebook_url||'')}" placeholder="https://www.facebook.com/…"></label>
@@ -66,7 +66,7 @@
 
   function installHub(){
     const grid=q('.kp-oa-sheet .kp-oa-action-grid');if(!grid||q('[data-action="social"]',grid))return;
-    const button=document.createElement('button');button.type='button';button.dataset.action='social';button.innerHTML='<span>◎</span><strong>Social Media</strong><small>Instagram, Facebook, YouTube, TikTok</small>';
+    const button=document.createElement('button');button.type='button';button.dataset.action='social';button.innerHTML='<span>◎</span><strong>Social & Instagram</strong><small>Instagram, Facebook, YouTube, TikTok</small>';
     const install=q('[data-action="install"]',grid);if(install)grid.insertBefore(button,install);else grid.appendChild(button);
     button.addEventListener('click',openSocial);
   }
@@ -77,7 +77,7 @@
     const wrap=document.createElement('div');wrap.className='kp-oa-menu-x-extension';
     const value=Number(draft.menu_offset_x||0);
     wrap.innerHTML=`<h3>Position des Menü-Buttons</h3>
-      <label class="kp-oa-control"><span><strong>Feinposition links / rechts</strong><output>${esc(value)}px</output></span><input type="range" min="-140" max="140" step="2" value="${esc(value)}" data-menu-x><small>Gedrückt halten und ziehen. Minus = weiter rechts · Plus = weiter links. Für große Änderungen kannst du den Menübutton direkt lange drücken und verschieben.</small></label>
+      <label class="kp-oa-control"><span><strong>Feinposition links / rechts</strong><output>${esc(value)}px</output></span><input type="range" min="-140" max="140" step="2" value="${esc(value)}" data-menu-x><small>0 = bisherige Position · Minus = weiter rechts · Plus = weiter links. Menübutton und geöffnetes Kompaktmenü werden gemeinsam verschoben.</small></label>
       <button type="button" class="kp-oa-secondary" data-menu-reset>Menüposition zurücksetzen</button>`;
     menuPane.appendChild(wrap);
 
