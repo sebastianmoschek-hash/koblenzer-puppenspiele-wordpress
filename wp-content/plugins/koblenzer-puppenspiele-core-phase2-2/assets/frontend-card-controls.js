@@ -177,6 +177,11 @@
      editable card controls while still allowing the v2 full record editor to
      handle title/text/facts. */
   window.addEventListener('click', (e) => {
+    if (window.KPTouchGestureRuntime?.suppressClick?.()) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
     if (e.target.closest('.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,#wpadminbar')) return;
     const card = e.target.closest('.kp-repertoire-card');
     if (!card) return;
