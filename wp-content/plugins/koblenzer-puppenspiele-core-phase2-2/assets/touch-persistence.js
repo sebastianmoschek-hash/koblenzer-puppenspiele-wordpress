@@ -7,7 +7,6 @@
   const clone = value => JSON.parse(JSON.stringify(value || {}));
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
   const mirrorKey = `kpFreeLayoutMirror:${cfg.pageKey}`;
-  const hydrateKey = `kpFreeLayoutHydrated:${cfg.pageKey}`;
   const headerSelector = '.kp-header-stage img,.kp-header-photo img';
   const menuButtonSelector = '.kp-site-nav .wp-block-navigation__responsive-container-open';
   const menuPanelSelector = '.kp-site-nav .wp-block-navigation__responsive-close';
@@ -97,31 +96,11 @@
     });
   }
 
-  function sameLayout(a, b) {
-    return JSON.stringify(a || {}) === JSON.stringify(b || {});
-  }
-
-  function maybeHydrateEditor(payload) {
-    if (!cfg.canEdit || !window.KPFreeLayout) return false;
+  function hydrateEditorInPlace(payload) {
+    if (!cfg.canEdit || !window.KPFreeLayout) return;
     const live = normalized(payload);
-    const embedded = {
-      global: clone(window.KPFreeLayout.global),
-      page: clone(window.KPFreeLayout.page)
-    };
-    if (sameLayout(live.global, embedded.global) && sameLayout(live.page, embedded.page)) return false;
-
     window.KPFreeLayout.global = clone(live.global);
     window.KPFreeLayout.page = clone(live.page);
-    const revision = live.revision || String(Date.now());
-    try {
-      if (sessionStorage.getItem(hydrateKey) === revision) return false;
-      sessionStorage.setItem(hydrateKey, revision);
-    } catch (_) {}
-
-    const url = new URL(location.href);
-    url.searchParams.set('kp_layout_rev', revision);
-    location.replace(url.toString());
-    return true;
   }
 
   async function loadLive() {
@@ -133,7 +112,7 @@
     if (!response.ok || !json?.success) return;
     const live = saveMirror(json.data || {});
     authoritative = live;
-    if (maybeHydrateEditor(live)) return;
+    hydrateEditorInPlace(live);
     applyAuthoritative();
   }
 
@@ -146,7 +125,7 @@
     if (action === 'kp_touch_free_layout_save') {
       responsePromise.then(async response => {
         const json = await response.clone().json().catch(() => null);
-        if (!response.ok || !json?.success) return;
+        if (!response.ok || !json?.success || json?.data?.draft) return;
         const saved = saveMirror({
           global: json.data?.global || window.KPFreeLayout?.global || {},
           page: json.data?.page || window.KPFreeLayout?.page || {},
