@@ -1,0 +1,65 @@
+name: Apply touch toolbar shield hotfix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/hotfix-touch-toolbar-shield.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Keep post-drag click shield away from editor toolbar
+        shell: python
+        run: |
+          from pathlib import Path
+
+          files = {
+              Path('wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gestures.js'): (
+                  "if(Date.now()<suppressUntil){event.preventDefault();event.stopImmediatePropagation();}",
+                  "if(Date.now()<suppressUntil&&!target?.closest(uiSelector)){event.preventDefault();event.stopImmediatePropagation();}"
+              ),
+              Path('wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js'): (
+                  "if (Date.now() < suppressUntil) {\n      event.preventDefault();\n      event.stopImmediatePropagation();\n    }",
+                  "if (Date.now() < suppressUntil && !target?.closest(uiSelector)) {\n      event.preventDefault();\n      event.stopImmediatePropagation();\n    }"
+              ),
+          }
+
+          for path, (old, new) in files.items():
+              text = path.read_text()
+              if new in text:
+                  print(f'{path}: already patched')
+                  continue
+              if old not in text:
+                  raise SystemExit(f'Expected click-shield block not found in {path}')
+              path.write_text(text.replace(old, new, 1))
+              print(f'{path}: patched')
+      - name: Verify JavaScript syntax and patch contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gestures.js
+          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js
+          grep -Fq '!target?.closest(uiSelector)' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gestures.js
+          grep -Fq '!target?.closest(uiSelector)' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js
+      - name: Commit hotfix to staging main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gestures.js wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js
+          if git diff --cached --quiet; then
+            echo 'Hotfix already present.'
+            exit 0
+          fi
+          git commit -m 'fix: keep post-drag click shield off editor toolbar'
+          git pull --rebase origin main
+          git push origin HEAD:main
