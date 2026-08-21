@@ -8,6 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  */
 final class KP_Social_Menu_Extensions {
     const OPTION = 'kp_website_studio';
+    const INSTAGRAM_URL = 'https://www.instagram.com/koblenzer_puppenspiele/';
 
     public static function init() {
         add_action( 'init', array( __CLASS__, 'seed_instagram_profile_once' ), 35 );
@@ -18,14 +19,17 @@ final class KP_Social_Menu_Extensions {
     }
 
     public static function seed_instagram_profile_once() {
-        if ( get_option( 'kp_instagram_profile_seeded_v1', false ) ) { return; }
+        /* v2 repairs installations where the earlier seed marker was already set
+         * before the real profile URL was supplied. We only fill a missing URL;
+         * a profile explicitly chosen later by the owner is never overwritten. */
+        if ( get_option( 'kp_instagram_profile_seeded_v2', false ) ) { return; }
         $saved = get_option( self::OPTION, array() );
         if ( ! is_array( $saved ) ) { $saved = array(); }
         if ( empty( $saved['instagram_url'] ) ) {
-            $saved['instagram_url'] = 'https://www.instagram.com/koblenzer_puppenspiele/';
+            $saved['instagram_url'] = self::INSTAGRAM_URL;
             update_option( self::OPTION, $saved, false );
         }
-        update_option( 'kp_instagram_profile_seeded_v1', '1', false );
+        update_option( 'kp_instagram_profile_seeded_v2', '1', false );
     }
 
     public static function defaults() {
