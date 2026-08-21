@@ -15,6 +15,20 @@
     document.querySelector('.kp-fe2-save')?.classList.add('is-dirty');
   }
 
+  function liveInput() {
+    return document.querySelector('[data-kp-menu-x] input[type="range"]');
+  }
+
+  function syncLiveValue() {
+    const input = liveInput();
+    if (input) draft = Number(input.value) || 0;
+    return draft;
+  }
+
+  function hasChanges() {
+    return dirty || Number(syncLiveValue()) !== Number(cfg.value || 0);
+  }
+
   function inject() {
     const pane = document.querySelector('.kp-oa-tab[data-pane="menu"]');
     if (!pane || pane.querySelector('[data-kp-menu-x]')) return;
@@ -51,12 +65,15 @@
   }
 
   async function flush() {
-    if (!dirty) return {draft:false, value:draft};
+    // Read the visible slider at Save time so touch/browser event quirks cannot
+    // make the orange unified Save silently skip the horizontal position.
+    syncLiveValue();
+    if (!hasChanges()) return {draft:false, value:draft};
     const fd = new FormData();
     fd.append('action', 'kp_owner_menu_x_save');
     fd.append('nonce', cfg.nonce || '');
     fd.append('value', String(draft));
-    const response = await fetch(cfg.ajaxUrl, {method:'POST', credentials:'same-origin', body:fd});
+    const response = await fetch(cfg.ajaxUrl, {method:'POST', credentials:'same-origin', cache:'no-store', body:fd});
     const json = await response.json().catch(() => null);
     if (!response.ok || !json?.success) throw new Error(json?.data?.message || 'Horizontale Menüposition konnte nicht gespeichert werden.');
     cfg.value = Number(json.data?.value ?? draft);
@@ -81,8 +98,8 @@
   new MutationObserver(inject).observe(document.documentElement, {childList:true, subtree:true});
   window.KPOwnerMenuXRuntime = {
     flush,
-    isDirty: () => dirty,
-    value: () => draft
+    isDirty: () => hasChanges(),
+    value: () => syncLiveValue()
   };
   apply(draft);
 })();
