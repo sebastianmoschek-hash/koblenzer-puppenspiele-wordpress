@@ -23,7 +23,7 @@ jobs:
           p = Path('.github/workflows/owner-web-app-staging-qa.yml')
           s = p.read_text()
           old = "          check 'Responsive Web im HTML eingebunden' grep -Fq 'owner-responsive-web.js' /tmp/home.html\n"
-          new = "          echo 'INFO: Responsive Web ist absichtlich nur im eingeloggten Owner-Modus eingebunden.' | tee -a \"$LOG\"\n          check 'Instagram-Profil kanonisch auf Staging verlinkt' grep -Fq 'https://www.instagram.com/koblenzer_puppenspiele/' /tmp/home.html\n"
+          new = "          echo 'INFO: Responsive Web ist absichtlich nur im eingeloggten Owner-Modus eingebunden.' | tee -a \"$LOG\"\n          check 'Instagram-Profil kanonisch auf Staging verlinkt' grep -Fq 'https://www.instagram.com/koblenzer_puppenspiele/' /tmp/home.html\n          check 'Staging Touch-Gesten enthalten Toolbar-Hotfix' grep -Fq '!target?.closest(uiSelector)' /tmp/touch-gestures.js\n          check 'Staging Free-Layout enthält Toolbar-Hotfix' grep -Fq '!target?.closest(uiSelector)' /tmp/touch-free-layout.js\n"
           if new in s:
               print('QA checks already refined')
           elif old in s:
@@ -41,6 +41,6 @@ jobs:
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m 'qa: verify canonical Instagram link and owner-only responsive asset correctly'
+          git commit -m 'qa: verify Instagram and deployed touch toolbar hotfix'
           git pull --rebase origin main
           git push origin HEAD:main
