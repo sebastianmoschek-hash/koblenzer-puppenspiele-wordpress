@@ -22,7 +22,7 @@ async function bootstrap() {
       <div class="kp-fe2-hint"></div>
       <div class="kp-fe2-toast"></div>
     </div>
-    <button data-action="design" id="open-design">Design</button>
+    <button data-action="design" id="open-design" style="position:absolute;left:12px;top:80px">Design</button>
     <div class="kp-oa-sheet is-design">
       <button class="kp-oa-design-save">Design speichern</button>
       <button class="kp-oa-design-reset">Design zurücksetzen</button>
@@ -130,7 +130,6 @@ async function clickSaveAndWait() {
 try {
   await bootstrap();
 
-  // 1) Normaler Drag: lokal sichtbar, KEIN Auto-Save beim Loslassen.
   await drag('#generic', 44, 26);
   let state = await page.evaluate(() => ({
     translate: document.querySelector('#generic')?.style.translate || '',
@@ -141,7 +140,6 @@ try {
   if (!state.translate || state.translate === '0px 0px') fail(`Generic-Drag bewegt das Element nicht: ${state.translate}`);
   if (state.writes.length !== 0) fail(`Generic-Drag speichert automatisch: ${state.writes.join(', ')}`);
 
-  // 2) Direkt nach dem Drag muss die orange Speichern-Taste funktionieren.
   await clickSaveAndWait();
   state = await page.evaluate(() => ({
     dirty: window.KPTouchGestureRuntime?.isDirty?.(),
@@ -152,7 +150,6 @@ try {
   if (state.writes.filter(x => x === 'kp_touch_gesture_save').length !== 1) fail(`Orange Speichern schreibt Generic nicht exakt einmal: ${state.writes.join(', ')}`);
   if (state.nativeSaveClicks !== 1) fail(`Normaler Editor-Save wurde nach Generic-Drag ${state.nativeSaveClicks}x statt 1x weitergereicht.`);
 
-  // 3) Rückgängig bleibt lokal und speichert nicht selbständig.
   const beforeSecondDrag = await page.locator('#generic').evaluate(el => el.style.translate);
   const writesBeforeUndo = await page.evaluate(() => window.__writes.length);
   await drag('#generic', 30, 0);
@@ -167,7 +164,6 @@ try {
   if (!state.dirty) fail('Rückgängig markiert den lokalen Entwurf nicht als ungespeichert.');
   await clickSaveAndWait();
 
-  // 4) Zwei-Finger-Zoom: Skala ändert sich lokal, aber noch kein Netzwerk-Schreibzugriff.
   const writesBeforePinch = await page.evaluate(() => window.__writes.length);
   const scaleBefore = await page.locator('#generic').evaluate(el => el.style.scale || '1');
   const pinchSupported = await pinch('#generic');
@@ -183,7 +179,6 @@ try {
   if (pinchState.writes !== writesBeforePinch) fail('Zwei-Finger-Zoom speichert automatisch.');
   await clickSaveAndWait();
 
-  // 5) Die komplette mobile Menükarte wird als eine Einheit verschoben, ohne Auto-Save.
   const menuBefore = await page.locator('.wp-block-navigation__responsive-close').evaluate(el => el.style.transform);
   const writesBeforeMenu = await page.evaluate(() => window.__writes.length);
   const nativeBeforeMenuSave = await page.evaluate(() => window.__nativeSaveClicks);
@@ -197,7 +192,6 @@ try {
   if (!menuState.transform || menuState.transform === menuBefore) fail(`Menükarte bewegt sich nicht als Einheit: ${menuState.transform}`);
   if (menuState.writes !== writesBeforeMenu) fail('Menü-Drag speichert automatisch.');
 
-  // 6) Auch unmittelbar nach Menü-Drag muss orange Speichern den Free-Layout-Entwurf sichern.
   await clickSaveAndWait();
   const menuSaveState = await page.evaluate(() => ({
     writes: [...window.__writes],
@@ -210,7 +204,6 @@ try {
   if (menuSaveState.freeDirty || menuSaveState.genericDirty) fail('Nach orange Speichern bleibt ein Touch-Entwurf dirty.');
   if (menuSaveState.nativeSaveClicks !== nativeBeforeMenuSave + 1) fail('Normaler Editor-Save wird nach Menü-Drag nicht genau einmal weitergereicht.');
 
-  // 7) Handy-/Tablet-Regler wird sichtbar injiziert, verschiebt live und speichert erst beim Design-Speichern.
   await page.locator('#open-design').click();
   await page.waitForTimeout(40);
   const slider = page.locator('[data-kp-menu-x] input[type="range"]');
