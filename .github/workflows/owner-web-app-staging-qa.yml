@@ -29,96 +29,112 @@ jobs:
           ref: main
 
       - name: Verify public PWA and owner assets on staging
+        id: asset_verify
+        continue-on-error: true
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           BASE='https://neu.koblenzer-puppenspiele.de'
           PLUGIN='/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets'
+          LOG=/tmp/owner-web-app-check.log
+          : > "$LOG"
+          failures=0
 
-          curl --fail --silent --show-error --location --retry 4 --retry-all-errors --retry-delay 3 "$BASE/" -o /tmp/home.html
-          curl --fail --silent --show-error --location --retry 4 --retry-all-errors --retry-delay 3 "$BASE/?kp_webapp_manifest=1" -o /tmp/manifest.json
-          curl --fail --silent --show-error --location --retry 4 --retry-all-errors --retry-delay 3 "$BASE/?kp_webapp_sw=1" -o /tmp/sw.js
-          curl --fail --silent --show-error --location "$BASE$PLUGIN/owner-web-app.js" -o /tmp/owner-web-app.js
-          curl --fail --silent --show-error --location "$BASE$PLUGIN/owner-responsive-web.js" -o /tmp/owner-responsive-web.js
-          curl --fail --silent --show-error --location "$BASE$PLUGIN/owner-web-app.css" -o /tmp/owner-web-app.css
-          curl --fail --silent --show-error --location "$BASE$PLUGIN/owner-responsive-web.css" -o /tmp/owner-responsive-web.css
-          curl --fail --silent --show-error --location "$BASE$PLUGIN/kp-app-icon.svg" -o /tmp/kp-app-icon.svg
+          check() {
+            local label="$1"
+            shift
+            if "$@" >>"$LOG" 2>&1; then
+              echo "OK: $label" | tee -a "$LOG"
+            else
+              echo "FEHLER: $label" | tee -a "$LOG"
+              failures=$((failures + 1))
+            fi
+          }
 
-          # Touch/editor assets are checked from the actual staging host as well.
-          # This prevents a stale deployment or cache from passing merely because
-          # the repository source itself is correct.
-          curl --fail --silent --show-error --location "$BASE$PLUGIN/touch-gestures.js" -o /tmp/touch-gestures.js
-          curl --fail --silent --show-error --location "$BASE$PLUGIN/touch-free-layout.js" -o /tmp/touch-free-layout.js
-          curl --fail --silent --show-error --location "$BASE$PLUGIN/touch-editor-bridge.js" -o /tmp/touch-editor-bridge.js
-          curl --fail --silent --show-error --location "$BASE$PLUGIN/touch-persistence.js" -o /tmp/touch-persistence.js
-          curl --fail --silent --show-error --location "$BASE$PLUGIN/owner-menu-x.js" -o /tmp/owner-menu-x.js
+          fetch_asset() {
+            local rel="$1"
+            local out="$2"
+            curl --fail --silent --show-error --location --retry 4 --retry-all-errors --retry-delay 3 "$BASE$rel" -o "$out"
+          }
 
-          if grep -qiE 'kritischen Fehler|critical error|fatal error|parse error' /tmp/home.html; then
-            echo 'WordPress error text detected on staging homepage.'
-            exit 1
+          check 'Staging-Startseite abrufbar' fetch_asset '/' /tmp/home.html
+          check 'PWA-Manifest abrufbar' fetch_asset '/?kp_webapp_manifest=1' /tmp/manifest.json
+          check 'Service Worker abrufbar' fetch_asset '/?kp_webapp_sw=1' /tmp/sw.js
+          check 'Owner Web App JS abrufbar' fetch_asset "$PLUGIN/owner-web-app.js" /tmp/owner-web-app.js
+          check 'Responsive Web JS abrufbar' fetch_asset "$PLUGIN/owner-responsive-web.js" /tmp/owner-responsive-web.js
+          check 'Owner Web App CSS abrufbar' fetch_asset "$PLUGIN/owner-web-app.css" /tmp/owner-web-app.css
+          check 'Responsive Web CSS abrufbar' fetch_asset "$PLUGIN/owner-responsive-web.css" /tmp/owner-responsive-web.css
+          check 'App-Icon abrufbar' fetch_asset "$PLUGIN/kp-app-icon.svg" /tmp/kp-app-icon.svg
+          check 'Touch-Gesten abrufbar' fetch_asset "$PLUGIN/touch-gestures.js" /tmp/touch-gestures.js
+          check 'Free-Layout abrufbar' fetch_asset "$PLUGIN/touch-free-layout.js" /tmp/touch-free-layout.js
+          check 'Editor-Bridge abrufbar' fetch_asset "$PLUGIN/touch-editor-bridge.js" /tmp/touch-editor-bridge.js
+          check 'Touch-Persistenz abrufbar' fetch_asset "$PLUGIN/touch-persistence.js" /tmp/touch-persistence.js
+          check 'Menü-X-Regler abrufbar' fetch_asset "$PLUGIN/owner-menu-x.js" /tmp/owner-menu-x.js
+
+          if [ -s /tmp/home.html ]; then
+            if grep -qiE 'kritischen Fehler|critical error|fatal error|parse error' /tmp/home.html; then
+              echo 'FEHLER: WordPress-/PHP-Fehlertext auf der Startseite' | tee -a "$LOG"
+              failures=$((failures + 1))
+            else
+              echo 'OK: kein WordPress-/PHP-Fehlertext' | tee -a "$LOG"
+            fi
+            check 'Manifest im HTML eingebunden' grep -Fq 'kp_webapp_manifest=1' /tmp/home.html
+            check 'Owner Web App im HTML eingebunden' grep -Fq 'owner-web-app.js' /tmp/home.html
+            check 'Responsive Web im HTML eingebunden' grep -Fq 'owner-responsive-web.js' /tmp/home.html
           fi
 
-          grep -Fq 'kp_webapp_manifest=1' /tmp/home.html
-          grep -Fq 'owner-web-app.js' /tmp/home.html
-          grep -Fq 'owner-responsive-web.js' /tmp/home.html
+          [ -s /tmp/manifest.json ] && check 'Manifest-Name korrekt' jq -e '.name == "Koblenzer Puppenspiele"' /tmp/manifest.json
+          [ -s /tmp/manifest.json ] && check 'Manifest-Kurzname korrekt' jq -e '.short_name == "Puppenspiele"' /tmp/manifest.json
+          [ -s /tmp/manifest.json ] && check 'Manifest standalone' jq -e '.display == "standalone"' /tmp/manifest.json
+          [ -s /tmp/manifest.json ] && check 'Manifest enthält Icon' jq -e '.icons | length >= 1' /tmp/manifest.json
+          [ -s /tmp/sw.js ] && check 'Service Worker Event-Listener vorhanden' grep -Fq 'self.addEventListener' /tmp/sw.js
+          [ -s /tmp/sw.js ] && check 'Service Worker fetch vorhanden' grep -Fq "'fetch'" /tmp/sw.js
+          [ -s /tmp/sw.js ] && check 'Service Worker Cache vorhanden' grep -Fq 'KP_CACHE' /tmp/sw.js
+          [ -s /tmp/kp-app-icon.svg ] && check 'SVG-App-Icon gültig' grep -Fq '<svg' /tmp/kp-app-icon.svg
 
-          jq -e '.name == "Koblenzer Puppenspiele"' /tmp/manifest.json >/dev/null
-          jq -e '.short_name == "Puppenspiele"' /tmp/manifest.json >/dev/null
-          jq -e '.display == "standalone"' /tmp/manifest.json >/dev/null
-          jq -e '.icons | length >= 1' /tmp/manifest.json >/dev/null
-          grep -Fq 'self.addEventListener' /tmp/sw.js
-          grep -Fq "'fetch'" /tmp/sw.js
-          grep -Fq 'KP_CACHE' /tmp/sw.js
-          grep -Fq '<svg' /tmp/kp-app-icon.svg
+          for js in owner-web-app owner-responsive-web touch-gestures touch-free-layout touch-editor-bridge touch-persistence owner-menu-x; do
+            [ -s "/tmp/$js.js" ] && check "$js JavaScript-Syntax" node --check "/tmp/$js.js"
+          done
+          [ -s /tmp/owner-web-app.css ] && check 'Owner-Web-App Styles nicht leer' test -s /tmp/owner-web-app.css
+          [ -s /tmp/owner-responsive-web.css ] && check 'Responsive-Web Styles nicht leer' test -s /tmp/owner-responsive-web.css
 
-          node --check /tmp/owner-web-app.js
-          node --check /tmp/owner-responsive-web.js
-          node --check /tmp/touch-gestures.js
-          node --check /tmp/touch-free-layout.js
-          node --check /tmp/touch-editor-bridge.js
-          node --check /tmp/touch-persistence.js
-          node --check /tmp/owner-menu-x.js
-          test -s /tmp/owner-web-app.css
-          test -s /tmp/owner-responsive-web.css
+          if [ -s /tmp/touch-gestures.js ]; then
+            check 'Touch-Gesten haben expliziten flush' grep -Fq 'async function flush()' /tmp/touch-gestures.js
+            if grep -Fq 'postSave();' /tmp/touch-gestures.js; then echo 'FEHLER: Touch-Gesten enthalten alten Auto-Save-Aufruf postSave();' | tee -a "$LOG"; failures=$((failures+1)); else echo 'OK: Touch-Gesten ohne alten postSave()-Auto-Save' | tee -a "$LOG"; fi
+          fi
+          if [ -s /tmp/touch-free-layout.js ]; then
+            check 'Free-Layout hat expliziten flush' grep -Fq 'async function flush()' /tmp/touch-free-layout.js
+            if grep -Fq 'postSave();' /tmp/touch-free-layout.js; then echo 'FEHLER: Free-Layout enthält alten Auto-Save-Aufruf postSave();' | tee -a "$LOG"; failures=$((failures+1)); else echo 'OK: Free-Layout ohne alten postSave()-Auto-Save' | tee -a "$LOG"; fi
+          fi
+          [ -s /tmp/touch-editor-bridge.js ] && check 'Editor-Bridge bündelt Touch-Entwürfe' grep -Fq 'flushTouchDrafts' /tmp/touch-editor-bridge.js
+          [ -s /tmp/touch-editor-bridge.js ] && check 'Orange Speichern-Taste ist Persistenzpfad' grep -Fq "target.closest('.kp-fe2-save')" /tmp/touch-editor-bridge.js
+          [ -s /tmp/touch-persistence.js ] && check 'Live-Persistenz schützt lokale Entwürfe' grep -Fq 'editorHasLocalTouchState' /tmp/touch-persistence.js
+          [ -s /tmp/touch-persistence.js ] && check 'Live-Persistenz hydriert Runtime' grep -Fq 'runtime?.hydrate' /tmp/touch-persistence.js
+          [ -s /tmp/owner-menu-x.js ] && check 'Menü-X-Regler vorhanden' grep -Fq 'Horizontale Position' /tmp/owner-menu-x.js
+          [ -s /tmp/owner-menu-x.js ] && check 'Menü-X-Regler benennt Links/Rechts' grep -Fq 'Links ↔ rechts verschieben' /tmp/owner-menu-x.js
 
-          # Explicit-save contract against the bytes served by staging.
-          grep -Fq 'async function flush()' /tmp/touch-gestures.js
-          grep -Fq 'async function flush()' /tmp/touch-free-layout.js
-          grep -Fq 'flushTouchDrafts' /tmp/touch-editor-bridge.js
-          grep -Fq "target.closest('.kp-fe2-save')" /tmp/touch-editor-bridge.js
-          ! grep -Fq 'postSave();' /tmp/touch-gestures.js
-          ! grep -Fq 'postSave();' /tmp/touch-free-layout.js
-          grep -Fq 'editorHasLocalTouchState' /tmp/touch-persistence.js
-          grep -Fq 'runtime?.hydrate' /tmp/touch-persistence.js
-          grep -Fq 'Horizontale Position' /tmp/owner-menu-x.js
-          grep -Fq 'Links ↔ rechts verschieben' /tmp/owner-menu-x.js
+          echo "FAILURES=$failures" | tee -a "$LOG"
+          test "$failures" -eq 0
 
       - name: Persist owner web app QA result
+        if: always()
         shell: bash
+        env:
+          VERIFY_OUTCOME: ${{ steps.asset_verify.outcome }}
         run: |
           set -euo pipefail
           generated=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-          cat > /tmp/owner-web-app-latest.md <<EOF
-          # Owner Web App – letzter Staging-Test
-
-          Erzeugt: $generated
-
-          - Staging-Startseite erreichbar: OK
-          - PWA-Manifest ausgeliefert und gültig: OK
-          - Service Worker ausgeliefert: OK
-          - Owner-Web-App JavaScript: Syntax OK
-          - Responsive-Frontend JavaScript: Syntax OK
-          - Touch-Gesten JavaScript auf Staging: Syntax/Explicit-Save-Vertrag OK
-          - Free-Layout JavaScript auf Staging: Syntax/Explicit-Save-Vertrag OK
-          - Touch-Editor-Bridge auf Staging: orange Speichern-Taste als Persistenzpfad geprüft
-          - Live-Persistenz auf Staging: lokale Entwürfe geschützt / Runtime-Hydration vorhanden
-          - Handy-/Tablet-Menüregler auf Staging: Links-/Rechts-Regler ausgeliefert
-          - Owner-Web-App Styles: ausgeliefert
-          - Responsive-Frontend Styles: ausgeliefert
-          - App-Icon: ausgeliefert
-          - Manifest/Owner-Assets auf der echten Staging-Seite eingebunden: OK
-          - WordPress/PHP-Fehlertext auf Startseite: keiner erkannt
-          EOF
+          {
+            echo '# Owner Web App – letzter Staging-Test'
+            echo
+            echo "Erzeugt: $generated"
+            echo
+            echo "Gesamtergebnis: $VERIFY_OUTCOME"
+            echo
+            echo '```text'
+            if [ -f /tmp/owner-web-app-check.log ]; then cat /tmp/owner-web-app-check.log; else echo 'Kein Prüflog erzeugt.'; fi
+            echo '```'
+          } > /tmp/owner-web-app-latest.md
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -133,3 +149,12 @@ jobs:
             git commit -m 'qa: update owner web app staging status [skip ci]'
             git push origin HEAD:main
           fi
+
+      - name: Final owner web app quality gate
+        if: always()
+        shell: bash
+        env:
+          VERIFY_OUTCOME: ${{ steps.asset_verify.outcome }}
+        run: |
+          set -euo pipefail
+          test "$VERIFY_OUTCOME" = 'success'
