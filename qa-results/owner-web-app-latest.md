@@ -1,6 +1,6 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-21T05:03:16Z
+Erzeugt: 2026-08-21T05:08:21Z
 
 Asset-/Deployment-Prüfung: failure
 Browser-Verhaltenstest: failure
@@ -60,13 +60,13 @@ FAILURES=1
 
 ## Touch-Verhalten im echten Chromium
 ```text
-file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:13
+file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:14
   throw new Error(message);
         ^
 
-Error: Orange Speichern sichert Free-Layout nicht: 
-    at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:13:9)
-    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:142:57
+Error: Generic-Entwurf bleibt nach orange Speichern dirty.
+    at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:14:9)
+    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:151:20
 
 Node.js v22.23.2
 ```
