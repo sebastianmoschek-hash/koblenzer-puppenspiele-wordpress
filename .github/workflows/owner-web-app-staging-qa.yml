@@ -55,7 +55,9 @@ jobs:
           fetch_asset() {
             local rel="$1"
             local out="$2"
-            curl --fail --silent --show-error --location --retry 4 --retry-all-errors --retry-delay 3 "$BASE$rel" -o "$out"
+            local sep='?'
+            [[ "$rel" == *'?'* ]] && sep='&'
+            curl --fail --silent --show-error --location --retry 4 --retry-all-errors --retry-delay 3 -H 'Cache-Control: no-cache' "$BASE$rel${sep}kp_qa=${GITHUB_SHA}-${GITHUB_RUN_ID}" -o "$out"
           }
 
           check 'Staging-Startseite abrufbar' fetch_asset '/' /tmp/home.html
@@ -81,7 +83,8 @@ jobs:
             fi
             check 'Manifest im HTML eingebunden' grep -Fq 'kp_webapp_manifest=1' /tmp/home.html
             check 'Owner Web App im HTML eingebunden' grep -Fq 'owner-web-app.js' /tmp/home.html
-            check 'Responsive Web im HTML eingebunden' grep -Fq 'owner-responsive-web.js' /tmp/home.html
+            echo 'INFO: Responsive Web ist absichtlich nur im eingeloggten Owner-Modus eingebunden.' | tee -a "$LOG"
+            check 'Instagram-Profil kanonisch auf Staging verlinkt' grep -Fq 'https://www.instagram.com/koblenzer_puppenspiele/' /tmp/home.html
           fi
 
           [ -s /tmp/manifest.json ] && check 'Manifest-Name korrekt' jq -e '.name == "Koblenzer Puppenspiele"' /tmp/manifest.json
@@ -101,10 +104,12 @@ jobs:
 
           if [ -s /tmp/touch-gestures.js ]; then
             check 'Touch-Gesten haben expliziten flush' grep -Fq 'async function flush()' /tmp/touch-gestures.js
+            check 'Touch-Gesten lassen Editor-Toolbar nach Drag durch' grep -Fq '!target?.closest(uiSelector)' /tmp/touch-gestures.js
             if grep -Fq 'postSave();' /tmp/touch-gestures.js; then echo 'FEHLER: Touch-Gesten enthalten alten Auto-Save-Aufruf postSave();' | tee -a "$LOG"; failures=$((failures+1)); else echo 'OK: Touch-Gesten ohne alten postSave()-Auto-Save' | tee -a "$LOG"; fi
           fi
           if [ -s /tmp/touch-free-layout.js ]; then
             check 'Free-Layout hat expliziten flush' grep -Fq 'async function flush()' /tmp/touch-free-layout.js
+            check 'Free-Layout lässt Editor-Toolbar nach Drag durch' grep -Fq '!target?.closest(uiSelector)' /tmp/touch-free-layout.js
             if grep -Fq 'postSave();' /tmp/touch-free-layout.js; then echo 'FEHLER: Free-Layout enthält alten Auto-Save-Aufruf postSave();' | tee -a "$LOG"; failures=$((failures+1)); else echo 'OK: Free-Layout ohne alten postSave()-Auto-Save' | tee -a "$LOG"; fi
           fi
           [ -s /tmp/touch-editor-bridge.js ] && check 'Editor-Bridge bündelt Touch-Entwürfe' grep -Fq 'flushTouchDrafts' /tmp/touch-editor-bridge.js
