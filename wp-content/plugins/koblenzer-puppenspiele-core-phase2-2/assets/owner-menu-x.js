@@ -18,14 +18,27 @@
   function inject() {
     const pane = document.querySelector('.kp-oa-tab[data-pane="menu"]');
     if (!pane || pane.querySelector('[data-kp-menu-x]')) return;
-    const heading = [...pane.querySelectorAll('h3')].find(h => /Handy\s*\/\s*Tablet/i.test(h.textContent || ''));
-    if (!heading) return;
+
+    const verticalInput = pane.querySelector('[data-design="menu_offset_y"]');
+    const verticalLabel = verticalInput?.closest('label');
+    if (!verticalLabel) return;
+
+    if (!pane.querySelector('[data-kp-menu-position-title]')) {
+      const title = document.createElement('h4');
+      title.dataset.kpMenuPositionTitle = '1';
+      title.textContent = 'Position des Menüs';
+      verticalLabel.insertAdjacentElement('beforebegin', title);
+      const hint = document.createElement('p');
+      hint.className = 'kp-oa-size-note';
+      hint.textContent = 'Vertikal = hoch/runter · Horizontal = links/rechts';
+      title.insertAdjacentElement('afterend', hint);
+    }
 
     const label = document.createElement('label');
     label.className = 'kp-oa-control';
     label.dataset.kpMenuX = '1';
     label.innerHTML = `<span><strong>Horizontale Position</strong><output>${draft} px</output></span><input type="range" min="-180" max="180" step="2" value="${draft}" data-unit="px"><small>Links ↔ rechts verschieben</small>`;
-    heading.insertAdjacentElement('afterend', label);
+    verticalLabel.insertAdjacentElement('afterend', label);
 
     const range = label.querySelector('input');
     const output = label.querySelector('output');
@@ -56,6 +69,7 @@
   document.addEventListener('click', event => {
     const target = event.target instanceof Element ? event.target : null;
     if (target?.closest('[data-action="design"]')) setTimeout(inject, 0);
+    if (target?.closest('[data-tab="menu"]')) setTimeout(inject, 0);
     if (target?.closest('.kp-oa-design-reset')) {
       draft = 0;
       apply(0);
