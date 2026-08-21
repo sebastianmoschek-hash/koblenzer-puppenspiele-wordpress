@@ -40,7 +40,32 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
+      - name: Deploy current plugin through staging-only FTP
+        id: staging_deploy
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee /tmp/owner-all-deploy.log) 2>&1
+          : "${FTP_SERVER:?STAGING_FTP_SERVER secret is missing}"
+          : "${FTP_USERNAME:?STAGING_FTP_USERNAME secret is missing}"
+          : "${LFTP_PASSWORD:?STAGING_FTP_PASSWORD secret is missing}"
+          plugin='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
+          test -d "$plugin"
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            mirror -R --verbose --only-newer --parallel=2 '$plugin' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2';
+            bye
+          "
+          echo 'PASS: current plugin mirrored to staging-only WordPress root.'
+
       - name: Verify staging plugin is current
+        if: always() && steps.staging_deploy.outcome == 'success'
         id: staging_ready
         continue-on-error: true
         shell: bash
@@ -49,14 +74,14 @@ jobs:
           exec > >(tee /tmp/owner-all-wait.log) 2>&1
           expected=$(sed -n 's/^ \* Version: //p' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php | head -1)
           test -n "$expected"
-          for attempt in $(seq 1 12); do
+          for attempt in $(seq 1 18); do
             if curl --fail --silent --show-error --location -H 'Cache-Control: no-cache' \
               "$STAGING_BASE/?kp_staging_bridge_health=1&kp_owner_all=${GITHUB_RUN_ID}-${attempt}" -o /tmp/bridge-health.json \
               && jq -e --arg version "$expected" '.success == true and .data.active == true and .data.version == $version' /tmp/bridge-health.json >/dev/null 2>&1; then
               echo "PASS: staging runs plugin $expected"
               exit 0
             fi
-            sleep 5
+            sleep 3
           done
           echo "ERROR: staging did not reach plugin $expected" >&2
           [ -s /tmp/bridge-health.json ] && cat /tmp/bridge-health.json >&2 || true
@@ -148,6 +173,7 @@ jobs:
       - name: Write auditable result
         if: always()
         env:
+          DEPLOY_OUTCOME: ${{ steps.staging_deploy.outcome }}
           READY_OUTCOME: ${{ steps.staging_ready.outcome }}
           SETUP_OUTCOME: ${{ steps.e2e_setup.outcome }}
           PERSISTENCE_OUTCOME: ${{ steps.persistence.outcome }}
@@ -159,9 +185,15 @@ jobs:
             echo '# Owner controls + Versionen – echter Staging-Test'
             echo
             echo "Erzeugt: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "Staging-only Direktdeploy: $DEPLOY_OUTCOME"
             echo "Staging-Deploy bereit: $READY_OUTCOME"
             echo "Staging-only E2E-Zugang: $SETUP_OUTCOME"
             echo "Persistenz-/Versionsprüfung: $PERSISTENCE_OUTCOME"
+            echo
+            echo '## Direktdeploy'
+            echo '```text'
+            if [ -s /tmp/owner-all-deploy.log ]; then tail -n 80 /tmp/owner-all-deploy.log; else echo 'Kein Direktdeploy-Log erzeugt.'; fi
+            echo '```'
             echo
             echo '## Browser-/DB-Test'
             echo '```text'
@@ -180,11 +212,13 @@ jobs:
       - name: Final all-control persistence gate
         if: always()
         env:
+          DEPLOY_OUTCOME: ${{ steps.staging_deploy.outcome }}
           READY_OUTCOME: ${{ steps.staging_ready.outcome }}
           SETUP_OUTCOME: ${{ steps.e2e_setup.outcome }}
           PERSISTENCE_OUTCOME: ${{ steps.persistence.outcome }}
         shell: bash
         run: |
+          test "$DEPLOY_OUTCOME" = 'success'
           test "$READY_OUTCOME" = 'success'
           test "$SETUP_OUTCOME" = 'success'
           test "$PERSISTENCE_OUTCOME" = 'success'
