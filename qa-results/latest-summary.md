@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-21T23:43:39.036Z
+Erzeugt: 2026-08-21T23:48:20.914Z
 Geprüfte Ansichten: 50
-Auffällige Ansichten: 13
+Auffällige Ansichten: 0
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -17,8 +17,7 @@ Auffällige Ansichten: 13
 - Automatische Layoutchecks: OK
 
 ## desktop-1600 / termine
-- HTTP 500
-- WordPress-/Fehlertext erkannt
+- Automatische Layoutchecks: OK
 
 ## desktop-1600 / referenzen
 - Automatische Layoutchecks: OK
@@ -48,11 +47,10 @@ Auffällige Ansichten: 13
 - Automatische Layoutchecks: OK
 
 ## laptop-1366 / termine
-- HTTP 500
-- WordPress-/Fehlertext erkannt
+- Automatische Layoutchecks: OK
 
 ## laptop-1366 / referenzen
-- 1 defekte Bilder
+- Automatische Layoutchecks: OK
 
 ## laptop-1366 / jetzt-buchen
 - Automatische Layoutchecks: OK
@@ -61,8 +59,7 @@ Auffällige Ansichten: 13
 - Automatische Layoutchecks: OK
 
 ## laptop-1366 / impressum
-- HTTP 500
-- WordPress-/Fehlertext erkannt
+- Automatische Layoutchecks: OK
 
 ## laptop-1366 / datenschutz
 - Automatische Layoutchecks: OK
@@ -71,15 +68,13 @@ Auffällige Ansichten: 13
 - Automatische Layoutchecks: OK
 
 ## tablet-820 / aktuelles
-- HTTP 500
-- WordPress-/Fehlertext erkannt
+- Automatische Layoutchecks: OK
 
 ## tablet-820 / das-theater
 - Automatische Layoutchecks: OK
 
 ## tablet-820 / repertoire
-- HTTP 500
-- WordPress-/Fehlertext erkannt
+- Automatische Layoutchecks: OK
 
 ## tablet-820 / termine
 - Automatische Layoutchecks: OK
@@ -88,8 +83,7 @@ Auffällige Ansichten: 13
 - Automatische Layoutchecks: OK
 
 ## tablet-820 / jetzt-buchen
-- HTTP 500
-- WordPress-/Fehlertext erkannt
+- Automatische Layoutchecks: OK
 
 ## tablet-820 / kontakt
 - Automatische Layoutchecks: OK
@@ -110,23 +104,19 @@ Auffällige Ansichten: 13
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / repertoire
-- HTTP 500
-- WordPress-/Fehlertext erkannt
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / termine
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / referenzen
-- HTTP 500
-- WordPress-/Fehlertext erkannt
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / jetzt-buchen
-- HTTP 500
-- WordPress-/Fehlertext erkannt
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / kontakt
-- HTTP 500
-- WordPress-/Fehlertext erkannt
+- Automatische Layoutchecks: OK
 
 ## mobile-390 / impressum
 - Automatische Layoutchecks: OK
@@ -135,8 +125,7 @@ Auffällige Ansichten: 13
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / startseite
-- HTTP 500
-- WordPress-/Fehlertext erkannt
+- Automatische Layoutchecks: OK
 
 ## mobile-412 / aktuelles
 - Automatische Layoutchecks: OK
@@ -145,8 +134,7 @@ Auffällige Ansichten: 13
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / repertoire
-- HTTP 500
-- WordPress-/Fehlertext erkannt
+- Automatische Layoutchecks: OK
 
 ## mobile-412 / termine
 - Automatische Layoutchecks: OK
