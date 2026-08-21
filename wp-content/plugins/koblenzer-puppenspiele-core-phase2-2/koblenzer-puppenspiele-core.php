@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Koblenzer Puppenspiele – Inhalte & Design
  * Description: Einfache Verwaltung für Inhalte, direkte visuelle Bearbeitung und installierbare Besitzer-Web-App direkt auf der Website.
- * Version: 4.5.26
+ * Version: 4.5.27
  * Author: Koblenzer Puppenspiele
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KP_CORE_VERSION', '4.5.26' );
+define( 'KP_CORE_VERSION', '4.5.27' );
 define( 'KP_CORE_FILE', __FILE__ );
 define( 'KP_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KP_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -64,7 +64,7 @@ require_once KP_CORE_DIR . 'includes/class-kp-owner-save-coordinator.php';
 add_action( 'plugins_loaded', static function () {
     KP_Bundled_Images::init();
     KP_Termine::instance();
-    KP_Repertoire::init();
+    KP_Repertoire::instance();
     KP_Referenzen::init();
     KP_Ensemble::init();
     KP_Site_Finish::init();
