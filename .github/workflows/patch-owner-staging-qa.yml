@@ -16,21 +16,29 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Correct owner-only asset assertion and add Instagram check
+      - name: Correct owner-only assertion, add Instagram/hotfix checks and bypass caches
         shell: python
         run: |
           from pathlib import Path
           p = Path('.github/workflows/owner-web-app-staging-qa.yml')
           s = p.read_text()
-          old = "          check 'Responsive Web im HTML eingebunden' grep -Fq 'owner-responsive-web.js' /tmp/home.html\n"
-          new = "          echo 'INFO: Responsive Web ist absichtlich nur im eingeloggten Owner-Modus eingebunden.' | tee -a \"$LOG\"\n          check 'Instagram-Profil kanonisch auf Staging verlinkt' grep -Fq 'https://www.instagram.com/koblenzer_puppenspiele/' /tmp/home.html\n          check 'Staging Touch-Gesten enthalten Toolbar-Hotfix' grep -Fq '!target?.closest(uiSelector)' /tmp/touch-gestures.js\n          check 'Staging Free-Layout enthält Toolbar-Hotfix' grep -Fq '!target?.closest(uiSelector)' /tmp/touch-free-layout.js\n"
-          if new in s:
-              print('QA checks already refined')
-          elif old in s:
-              p.write_text(s.replace(old, new, 1))
-              print('QA checks refined')
-          else:
-              raise SystemExit('Expected owner-responsive public assertion not found')
+
+          old_check = "          check 'Responsive Web im HTML eingebunden' grep -Fq 'owner-responsive-web.js' /tmp/home.html\n"
+          new_check = "          echo 'INFO: Responsive Web ist absichtlich nur im eingeloggten Owner-Modus eingebunden.' | tee -a \"$LOG\"\n          check 'Instagram-Profil kanonisch auf Staging verlinkt' grep -Fq 'https://www.instagram.com/koblenzer_puppenspiele/' /tmp/home.html\n          check 'Staging Touch-Gesten enthalten Toolbar-Hotfix' grep -Fq '!target?.closest(uiSelector)' /tmp/touch-gestures.js\n          check 'Staging Free-Layout enthält Toolbar-Hotfix' grep -Fq '!target?.closest(uiSelector)' /tmp/touch-free-layout.js\n"
+          if new_check not in s:
+              if old_check not in s:
+                  raise SystemExit('Expected owner-responsive public assertion not found')
+              s = s.replace(old_check, new_check, 1)
+
+          old_fetch = '            curl --fail --silent --show-error --location --retry 4 --retry-all-errors --retry-delay 3 "$BASE$rel" -o "$out"\n'
+          new_fetch = '            local sep="?"; [[ "$rel" == *"?"* ]] && sep="&"\n            curl --fail --silent --show-error --location --retry 4 --retry-all-errors --retry-delay 3 -H "Cache-Control: no-cache" "$BASE$rel${sep}kp_qa=${GITHUB_SHA}-${GITHUB_RUN_ID}" -o "$out"\n'
+          if new_fetch not in s:
+              if old_fetch not in s:
+                  raise SystemExit('Expected staging fetch command not found')
+              s = s.replace(old_fetch, new_fetch, 1)
+
+          p.write_text(s)
+          print('Owner staging QA refined and cache-busted')
       - name: Commit QA refinement
         shell: bash
         run: |
@@ -41,6 +49,6 @@ jobs:
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m 'qa: verify Instagram and deployed touch toolbar hotfix'
+          git commit -m 'qa: verify current staging touch bytes and Instagram link'
           git pull --rebase origin main
           git push origin HEAD:main
