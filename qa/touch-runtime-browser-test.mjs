@@ -123,7 +123,7 @@ try {
   await slider.evaluate(el=>{el.value='64';el.dispatchEvent(new Event('input',{bubbles:true}));});
   const live=await page.evaluate(()=>({css:document.documentElement.style.getPropertyValue('--kp-owner-menu-offset-x').trim(),writes:window.__writes.length}));
   if(live.css!=='64px'||live.writes!==writesBeforeSlider) fail(`Menüregler Live/Auto-Save fehlerhaft: ${JSON.stringify(live)}`);
-  await page.locator('.kp-oa-design-save').click(); await page.waitForTimeout(100);
+  await page.locator('.kp-oa-design-save').evaluate(el=>el.click()); await page.waitForTimeout(100);
   const sliderNewWrites=await page.evaluate(n=>window.__writes.slice(n),writesBeforeSlider);
   if(sliderNewWrites.filter(x=>x==='kp_owner_menu_x_save').length!==1) fail(`Menüregler wird beim Design-Speichern nicht genau einmal persistiert: ${sliderNewWrites.join(', ')}`);
 
