@@ -61,6 +61,7 @@ jobs:
           grep -Fq 'flush,' "$GENERIC"
           grep -Fq 'undo,' "$GENERIC"
           grep -Fq 'flush,' "$FREE"
+          grep -Fq 'hydrate,' "$FREE"
           grep -Fq 'undo,' "$FREE"
           grep -Fq "markDirty('Verschieben / Zoomen rückgängig ✓')" "$FREE"
           grep -Fq 'menuPanelSelector' "$FREE"
@@ -72,10 +73,13 @@ jobs:
           ! grep -Fq 'window.fetch = function' "$GATE"
           ! grep -Fq "'kp-touch-manual-save-gate'" "$MANUAL"
 
-          # Live persistence may not overwrite an active or dirty local draft.
+          # Live persistence may not overwrite an active/dirty draft and must
+          # hydrate the same in-memory data that Drag/Zoom actually uses.
           grep -Fq 'editorHasLocalTouchState' "$PERSIST"
           grep -Fq '.kp-free-layout-active,.kp-gesture-active' "$PERSIST"
           grep -Fq 'if (!force && editorHasLocalTouchState()) return;' "$PERSIST"
+          grep -Fq 'window.KPFreeLayoutRuntime' "$PERSIST"
+          grep -Fq 'runtime?.hydrate' "$PERSIST"
 
       - name: Menu slider and Instagram contracts
         shell: bash
