@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/owner-web-app-staging-qa.yml'
+      - 'qa/touch-runtime-browser-test.mjs'
   workflow_dispatch:
 
 permissions:
@@ -21,7 +22,7 @@ jobs:
   staging-owner-web-app:
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - name: Check out latest main
         uses: actions/checkout@v4
@@ -116,11 +117,36 @@ jobs:
           echo "FAILURES=$failures" | tee -a "$LOG"
           test "$failures" -eq 0
 
+      - name: Install browser for touch interaction QA
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Exercise deployed touch behavior in Chromium
+        if: always()
+        id: behavior_verify
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -uo pipefail
+          : > /tmp/touch-browser-check.log
+          if node qa/touch-runtime-browser-test.mjs > /tmp/touch-browser-check.log 2>&1; then
+            cat /tmp/touch-browser-check.log
+            exit 0
+          else
+            cat /tmp/touch-browser-check.log
+            exit 1
+          fi
+
       - name: Persist owner web app QA result
         if: always()
         shell: bash
         env:
           VERIFY_OUTCOME: ${{ steps.asset_verify.outcome }}
+          BEHAVIOR_OUTCOME: ${{ steps.behavior_verify.outcome }}
         run: |
           set -euo pipefail
           generated=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -129,10 +155,17 @@ jobs:
             echo
             echo "Erzeugt: $generated"
             echo
-            echo "Gesamtergebnis: $VERIFY_OUTCOME"
+            echo "Asset-/Deployment-Prüfung: $VERIFY_OUTCOME"
+            echo "Browser-Verhaltenstest: $BEHAVIOR_OUTCOME"
             echo
+            echo '## Ausgelieferte Staging-Dateien'
             echo '```text'
-            if [ -f /tmp/owner-web-app-check.log ]; then cat /tmp/owner-web-app-check.log; else echo 'Kein Prüflog erzeugt.'; fi
+            if [ -f /tmp/owner-web-app-check.log ]; then cat /tmp/owner-web-app-check.log; else echo 'Kein Asset-Prüflog erzeugt.'; fi
+            echo '```'
+            echo
+            echo '## Touch-Verhalten im echten Chromium'
+            echo '```text'
+            if [ -f /tmp/touch-browser-check.log ]; then cat /tmp/touch-browser-check.log; else echo 'Kein Browser-Prüflog erzeugt.'; fi
             echo '```'
           } > /tmp/owner-web-app-latest.md
 
@@ -155,6 +188,8 @@ jobs:
         shell: bash
         env:
           VERIFY_OUTCOME: ${{ steps.asset_verify.outcome }}
+          BEHAVIOR_OUTCOME: ${{ steps.behavior_verify.outcome }}
         run: |
           set -euo pipefail
           test "$VERIFY_OUTCOME" = 'success'
+          test "$BEHAVIOR_OUTCOME" = 'success'
