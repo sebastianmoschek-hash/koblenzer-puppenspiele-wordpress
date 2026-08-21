@@ -59,12 +59,51 @@
     return null;
   }
 
+  function sameJson(a, b) {
+    return JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
+  }
+
+  function liveDesignSettings() {
+    const cfg = window.KPOwnerWebApp;
+    const controls = [...document.querySelectorAll('[data-design]')];
+    if (!cfg || !controls.length) return null;
+    const settings = { ...(cfg.design || {}) };
+    controls.forEach(input => {
+      const key = input?.dataset?.design;
+      if (!key) return;
+      settings[key] = input.type === 'checkbox'
+        ? (input.checked ? 1 : 0)
+        : (input.type === 'range' ? Number(input.value) : input.value);
+    });
+    return settings;
+  }
+
+  async function persistLiveDesignFallback() {
+    const cfg = window.KPOwnerWebApp;
+    const settings = liveDesignSettings();
+    if (!cfg?.ajaxUrl || !cfg?.nonce || !settings || sameJson(settings, cfg.design || {})) return { draft:false };
+
+    const fd = new FormData();
+    fd.append('action', 'kp_owner_design_save');
+    fd.append('nonce', cfg.nonce);
+    fd.append('settings', JSON.stringify(settings));
+    const response = await fetch(cfg.ajaxUrl, { method:'POST', credentials:'same-origin', cache:'no-store', body:fd });
+    const json = await response.json().catch(() => null);
+    if (!response.ok || !json?.success) {
+      throw new Error(json?.data?.message || 'Design konnte nicht dauerhaft gespeichert werden.');
+    }
+    cfg.design = { ...(json.data?.settings || settings) };
+    return json.data || {};
+  }
+
   async function flushTouchDrafts() {
-    // First persist every specialist editor (Design, responsive sizes, menu X,
-    // image position). Then persist gesture/layout drafts. Only after all of
-    // these succeed may the main editor write and reload the page.
+    // First persist every specialist editor. Then independently compare the live
+    // design controls against WordPress and save them as a fallback. This makes
+    // the orange main Save resilient even if the owner coordinator was skipped.
     const owner = window.KPOwnerSaveRegistry;
     if (owner?.flushAll) await owner.flushAll();
+    await persistLiveDesignFallback();
+
     const generic = window.KPTouchGestureRuntime;
     const free = window.KPFreeLayoutRuntime;
     if (generic?.flush) await generic.flush();
