@@ -1,0 +1,41 @@
+name: Verify staging landing page is really live
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
+      - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/**'
+      - '.github/workflows/home-landing-staging-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live-homepage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wait until the REAL staging homepage contains the landing page
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://neu.koblenzer-puppenspiele.de/'
+          expected='Figurentheater, das Kinder begeistert und Veranstaltungen besonders macht.'
+          for attempt in $(seq 1 24); do
+            body=$(curl --silent --show-error --location --max-time 45 --header 'Cache-Control: no-cache' "${url}?kp_landing_qa=${GITHUB_SHA}-${attempt}" || true)
+            if printf '%s' "$body" | grep -Fq "$expected"; then
+              ctas=$(printf '%s' "$body" | grep -o 'Jetzt buchen' | wc -l | tr -d ' ')
+              echo "New landing page is live. Visible 'Jetzt buchen' occurrences: $ctas"
+              if [ "$ctas" -lt 4 ]; then
+                echo "ERROR: Landing page is visible but has too few recurring booking CTAs ($ctas)."
+                exit 1
+              fi
+              exit 0
+            fi
+            echo "Attempt $attempt: staging still serves the old homepage; waiting 15 seconds…"
+            sleep 15
+          done
+          echo 'ERROR: The repository landing page is NOT what staging is actually serving.'
+          exit 1
