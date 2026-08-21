@@ -39,20 +39,27 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Wait until current plugin is really deployed to staging
+        id: staging_ready
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee /tmp/owner-all-wait.log) 2>&1
           expected=$(sed -n 's/^ \* Version: //p' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php | head -1)
           test -n "$expected"
+          echo "Expected plugin: $expected"
           for attempt in $(seq 1 48); do
             if curl --fail --silent --show-error --location \
               -H 'Cache-Control: no-cache' \
               "$STAGING_BASE/?kp_staging_bridge_health=1&kp_owner_all=${GITHUB_RUN_ID}-${attempt}" \
               -o /tmp/bridge-health.json; then
+              echo "Attempt $attempt: $(cat /tmp/bridge-health.json | head -c 500)"
               if jq -e --arg version "$expected" '.success == true and .data.active == true and .data.version == $version' /tmp/bridge-health.json >/dev/null 2>&1; then
                 echo "Staging runs plugin $expected"
                 exit 0
               fi
+            else
+              echo "Attempt $attempt: health endpoint not ready"
             fi
             sleep 10
           done
@@ -61,13 +68,16 @@ jobs:
           exit 1
 
       - name: Install temporary staging-only E2E auth/state bridge
+        if: always() && steps.staging_ready.outcome == 'success'
         id: e2e_setup
+        continue-on-error: true
         env:
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee /tmp/owner-all-setup.log) 2>&1
           : "${FTP_USERNAME:?FTP_USERNAME secret is missing}"
           : "${LFTP_PASSWORD:?LFTP_PASSWORD secret is missing}"
           token=$(openssl rand -hex 32)
@@ -155,16 +165,20 @@ jobs:
             put /tmp/kp-e2e/kp-e2e-owner-all.php -o /wp-content/mu-plugins/kp-e2e-owner-all.php;
             bye
           "
+          echo 'E2E bridge uploaded.'
 
       - name: Exercise every owner design control, saved undo and 48-hour versions
+        if: always() && steps.e2e_setup.outcome == 'success'
         id: persistence
+        continue-on-error: true
         env:
           KP_E2E_BASE: https://neu.koblenzer-puppenspiele.de
           KP_E2E_TOKEN: ${{ steps.e2e_setup.outputs.token }}
         shell: bash
         run: |
-          set -euo pipefail
-          node qa/owner-all-persistence-e2e.mjs | tee /tmp/owner-all-persistence.log
+          set -uo pipefail
+          node qa/owner-all-persistence-e2e.mjs 2>&1 | tee /tmp/owner-all-persistence.log
+          exit ${PIPESTATUS[0]}
 
       - name: Remove temporary E2E bridge
         if: always()
@@ -190,7 +204,9 @@ jobs:
       - name: Write auditable result
         if: always()
         env:
-          OUTCOME: ${{ steps.persistence.outcome }}
+          READY_OUTCOME: ${{ steps.staging_ready.outcome }}
+          SETUP_OUTCOME: ${{ steps.e2e_setup.outcome }}
+          PERSISTENCE_OUTCOME: ${{ steps.persistence.outcome }}
         shell: bash
         run: |
           set -euo pipefail
@@ -199,8 +215,21 @@ jobs:
             echo '# Owner controls + Versionen – echter Staging-Test'
             echo
             echo "Erzeugt: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-            echo "Ergebnis: $OUTCOME"
+            echo "Staging-Deploy bereit: $READY_OUTCOME"
+            echo "E2E-Zugang: $SETUP_OUTCOME"
+            echo "Persistenz-/Versionsprüfung: $PERSISTENCE_OUTCOME"
             echo
+            echo '## Deploy/Bridge'
+            echo '```text'
+            if [ -s /tmp/owner-all-wait.log ]; then cat /tmp/owner-all-wait.log; else echo 'Kein Deploy-/Bridge-Log erzeugt.'; fi
+            echo '```'
+            echo
+            echo '## E2E-Setup'
+            echo '```text'
+            if [ -s /tmp/owner-all-setup.log ]; then cat /tmp/owner-all-setup.log; else echo 'Kein E2E-Setup-Log erzeugt.'; fi
+            echo '```'
+            echo
+            echo '## Echter Browser-/DB-Test'
             echo '```text'
             if [ -s /tmp/owner-all-persistence.log ]; then cat /tmp/owner-all-persistence.log; else echo 'Kein Testlog erzeugt.'; fi
             echo '```'
@@ -221,8 +250,12 @@ jobs:
       - name: Final all-control persistence gate
         if: always()
         env:
-          OUTCOME: ${{ steps.persistence.outcome }}
+          READY_OUTCOME: ${{ steps.staging_ready.outcome }}
+          SETUP_OUTCOME: ${{ steps.e2e_setup.outcome }}
+          PERSISTENCE_OUTCOME: ${{ steps.persistence.outcome }}
         shell: bash
         run: |
           set -euo pipefail
-          test "$OUTCOME" = 'success'
+          test "$READY_OUTCOME" = 'success'
+          test "$SETUP_OUTCOME" = 'success'
+          test "$PERSISTENCE_OUTCOME" = 'success'
