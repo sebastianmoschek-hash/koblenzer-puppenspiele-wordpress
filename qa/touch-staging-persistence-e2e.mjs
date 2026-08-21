@@ -10,6 +10,21 @@ const page = await context.newPage();
 const fail = message => { throw new Error(message); };
 const headerSelector = '.kp-header-stage img,.kp-header-photo img';
 let originalState = null;
+const saveNetwork = [];
+
+page.on('response', async response => {
+  try {
+    if (!response.url().includes('/wp-admin/admin-ajax.php')) return;
+    const request = response.request();
+    const post = request.postData() || '';
+    if (!/kp_touch_(?:free_layout|gesture)_save|kp_fe_v2_save/.test(post)) return;
+    const action = (post.match(/name="action"\r?\n\r?\n([^\r\n]+)/) || [])[1] || 'unknown';
+    const body = await response.text().catch(() => '');
+    saveNetwork.push({ action, status: response.status(), body: body.slice(0, 1200) });
+  } catch (error) {
+    saveNetwork.push({ action: 'network-log-error', status: 0, body: String(error?.message || error) });
+  }
+});
 
 async function ajax(action, extra = {}) {
   return page.evaluate(async ({ action, extra, token }) => {
@@ -52,9 +67,25 @@ async function drag(selector, dx, dy, hold = 560) {
 async function waitForRealReload(click) {
   const before = await page.evaluate(() => performance.timeOrigin);
   await click();
-  await page.waitForFunction(previous => performance.timeOrigin !== previous, before, { timeout: 15000 }).catch(() => null);
-  await page.waitForLoadState('domcontentloaded');
+  const reloaded = await page.waitForFunction(previous => performance.timeOrigin !== previous, before, { timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  await page.waitForLoadState('domcontentloaded').catch(() => null);
   await page.waitForTimeout(500);
+  return reloaded;
+}
+
+async function saveDiagnostics() {
+  const browserState = await page.evaluate(() => ({
+    freeDirty: Boolean(window.KPFreeLayoutRuntime?.isDirty?.()),
+    genericDirty: Boolean(window.KPTouchGestureRuntime?.isDirty?.()),
+    editorMode: Boolean(window.KPFrontendEditorV2?.editMode),
+    toast: document.querySelector('.kp-fe2-toast')?.textContent?.trim() || '',
+    saveText: document.querySelector('.kp-fe2-save')?.textContent?.trim() || '',
+    saveDisabled: Boolean(document.querySelector('.kp-fe2-save')?.disabled),
+    href: location.href,
+  })).catch(() => ({}));
+  return { browserState, saveNetwork };
 }
 
 try {
@@ -78,11 +109,15 @@ try {
   const serverBeforeSave = await state();
   if (!same(serverBeforeSave, originalState)) fail('Touch-Änderung wurde vor dem orangefarbenen Speichern automatisch in WordPress geschrieben.');
 
-  await waitForRealReload(() => page.locator('.kp-fe2-save').click());
+  saveNetwork.length = 0;
+  const reloaded = await waitForRealReload(() => page.locator('.kp-fe2-save').click());
   await page.waitForSelector(headerSelector, { timeout: 15000 });
 
   const serverAfterSave = await state();
-  if (same(serverAfterSave, originalState)) fail('Orange Speichern hat den Touch-Entwurf NICHT dauerhaft in WordPress geschrieben.');
+  if (same(serverAfterSave, originalState)) {
+    const diag = await saveDiagnostics();
+    fail(`Orange Speichern hat den Touch-Entwurf NICHT dauerhaft in WordPress geschrieben. reload=${reloaded}; diagnostics=${JSON.stringify(diag)}`);
+  }
 
   const persistedTransform = await page.locator(headerSelector).first().evaluate(el => getComputedStyle(el).transform);
   if (persistedTransform === beforeTransform) fail('Nach echtem Reload ist die gespeicherte Header-Position/Größe nicht sichtbar.');
