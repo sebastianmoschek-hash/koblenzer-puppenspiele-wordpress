@@ -21,6 +21,16 @@
     return 'desktop';
   }
 
+  function editorHasLocalTouchState() {
+    if (!cfg.canEdit) return false;
+    if (document.body?.classList.contains('kp-touch-layout-dirty')) return true;
+    if (document.body?.classList.contains('kp-gesture-in-progress')) return true;
+    if (document.querySelector('.kp-free-layout-active,.kp-gesture-active')) return true;
+    if (window.KPFreeLayoutRuntime?.isDirty?.()) return true;
+    if (window.KPTouchGestureRuntime?.isDirty?.()) return true;
+    return false;
+  }
+
   function normalized(payload) {
     return {
       global: clone(payload?.global),
@@ -73,8 +83,9 @@
     });
   }
 
-  function applyAuthoritative() {
+  function applyAuthoritative(force = false) {
     if (!authoritative) return;
+    if (!force && editorHasLocalTouchState()) return;
     ensureKnownKeys();
     document.querySelectorAll('[data-kp-free-layout-key]').forEach(el => {
       const key = el.dataset.kpFreeLayoutKey;
@@ -97,19 +108,20 @@
   }
 
   function hydrateEditorInPlace(payload) {
-    if (!cfg.canEdit || !window.KPFreeLayout) return;
+    if (!cfg.canEdit || !window.KPFreeLayout || editorHasLocalTouchState()) return;
     const live = normalized(payload);
     window.KPFreeLayout.global = clone(live.global);
     window.KPFreeLayout.page = clone(live.page);
   }
 
   async function loadLive() {
+    if (editorHasLocalTouchState()) return;
     const fd = new FormData();
     fd.append('action', 'kp_touch_free_layout_load');
     fd.append('page_key', cfg.pageKey);
     const response = await upstreamFetch(cfg.ajaxUrl, {method:'POST', credentials:'same-origin', cache:'no-store', body:fd});
     const json = await response.json().catch(() => null);
-    if (!response.ok || !json?.success) return;
+    if (!response.ok || !json?.success || editorHasLocalTouchState()) return;
     const live = saveMirror(json.data || {});
     authoritative = live;
     hydrateEditorInPlace(live);
@@ -137,7 +149,7 @@
           window.KPFreeLayout.global = clone(saved.global);
           window.KPFreeLayout.page = clone(saved.page);
         }
-        applyAuthoritative();
+        applyAuthoritative(true);
       }).catch(() => null);
     }
 
