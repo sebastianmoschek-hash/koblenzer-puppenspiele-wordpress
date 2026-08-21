@@ -60,6 +60,11 @@
   }
 
   async function flushTouchDrafts() {
+    // First persist every specialist editor (Design, responsive sizes, menu X,
+    // image position). Then persist gesture/layout drafts. Only after all of
+    // these succeed may the main editor write and reload the page.
+    const owner = window.KPOwnerSaveRegistry;
+    if (owner?.flushAll) await owner.flushAll();
     const generic = window.KPTouchGestureRuntime;
     const free = window.KPFreeLayoutRuntime;
     if (generic?.flush) await generic.flush();
@@ -91,7 +96,7 @@
     waitingForMainSave = true;
     saveButton.disabled = true;
     const originalHtml = saveButton.innerHTML;
-    saveButton.innerHTML = '<span class="dashicons dashicons-update"></span><span>Änderungen sichern…</span>';
+    saveButton.innerHTML = '<span class="dashicons dashicons-update"></span><span>Alles sichern…</span>';
 
     try {
       await flushTouchDrafts();
@@ -102,7 +107,7 @@
     } catch (error) {
       saveButton.disabled = false;
       saveButton.innerHTML = originalHtml;
-      editorToast(error?.message || 'Position oder Größe konnte nicht gespeichert werden.', 'error');
+      editorToast(error?.message || 'Eine Änderung konnte nicht dauerhaft gespeichert werden.', 'error');
     } finally {
       replayingMainSave = false;
       waitingForMainSave = false;
