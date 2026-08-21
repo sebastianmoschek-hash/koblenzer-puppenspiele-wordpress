@@ -147,7 +147,18 @@ async function closeDesignAndSave() {
   const reloaded = await waitReload(() => page.locator('.kp-fe2-save').click());
   automaticReloads.push(reloaded);
   if (!reloaded) {
-    await page.reload({ waitUntil:'domcontentloaded', timeout:30000 });
+    const diag = await page.evaluate(() => ({
+      toast: document.querySelector('.kp-fe2-toast')?.textContent || document.querySelector('.kp-oa-toast')?.textContent || '',
+      toastClass: document.querySelector('.kp-fe2-toast')?.className || document.querySelector('.kp-oa-toast')?.className || '',
+      responsive: !!window.KPOwnerResponsiveWeb,
+      responsiveRuntime: !!window.KPOwnerResponsiveRuntime,
+      responsiveDirty: window.KPOwnerResponsiveRuntime?.isDirty?.() ?? null,
+      responsiveSample: window.KPOwnerResponsiveRuntime?.settings?.()?.all_mobile ?? null,
+      responsiveCfgSample: window.KPOwnerResponsiveWeb?.settings?.all_mobile ?? null,
+      menuX: window.KPOwnerMenuXRuntime?.value?.() ?? null,
+      menuXCfg: window.KPOwnerMenuX?.value ?? null
+    }));
+    fail(`Orange Speichern löste keinen Reload aus. Diagnose=${JSON.stringify(diag)}`);
   }
   await page.waitForSelector('.kp-fe2-save', { timeout:15000 });
   return reloaded;
