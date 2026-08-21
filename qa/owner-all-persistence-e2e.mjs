@@ -147,9 +147,6 @@ async function closeDesignAndSave() {
   const reloaded = await waitReload(() => page.locator('.kp-fe2-save').click());
   automaticReloads.push(reloaded);
   if (!reloaded) {
-    // Continue the DB/UI persistence checks instead of hiding every later failure
-    // behind the reload symptom. The run still fails at the end if auto-reload
-    // never happened, but only after all persistence/history assertions ran.
     await page.reload({ waitUntil:'domcontentloaded', timeout:30000 });
   }
   await page.waitForSelector('.kp-fe2-save', { timeout:15000 });
@@ -170,9 +167,30 @@ async function mutateHeaderRadiusOnly() {
   return expected;
 }
 
+async function editorStartDiagnostic(response) {
+  return page.evaluate((status) => ({
+    status,
+    url: location.href,
+    title: document.title,
+    body: (document.body?.innerText || '').replace(/\s+/g,' ').slice(0,1200),
+    globals: {
+      fe2: !!window.KPFrontendEditorV2,
+      owner: !!window.KPOwnerWebApp,
+      responsive: !!window.KPOwnerResponsiveWeb,
+      registry: !!window.KPOwnerSaveRegistry
+    },
+    scripts: [...document.scripts].map(s => s.src).filter(Boolean).filter(src => /koblenzer-puppenspiele|frontend-editor|owner-/i.test(src)).slice(-20)
+  }), response?.status?.() ?? 0);
+}
+
 try {
-  await page.goto(`${base}/?kp_e2e_login=${encodeURIComponent(token)}`, { waitUntil:'domcontentloaded', timeout:30000 });
-  await page.waitForSelector('.kp-fe2-save', { timeout:15000 });
+  const loginResponse = await page.goto(`${base}/?kp_e2e_login=${encodeURIComponent(token)}`, { waitUntil:'domcontentloaded', timeout:30000 });
+  try {
+    await page.waitForSelector('.kp-fe2-save', { timeout:15000 });
+  } catch (error) {
+    const diag = await editorStartDiagnostic(loginResponse);
+    fail(`Frontend-Editor wurde nicht initialisiert. Diagnose=${JSON.stringify(diag)}`);
+  }
   await page.waitForSelector('.kp-oa-tools', { timeout:15000 });
   originalState = await state();
 
