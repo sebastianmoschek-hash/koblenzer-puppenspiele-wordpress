@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-21T23:26:05.637Z
+Erzeugt: 2026-08-21T23:34:57.701Z
 Geprüfte Ansichten: 50
-Auffällige Ansichten: 0
+Auffällige Ansichten: 5
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -32,13 +32,15 @@ Auffällige Ansichten: 0
 - Automatische Layoutchecks: OK
 
 ## desktop-1600 / datenschutz
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## laptop-1366 / startseite
 - Automatische Layoutchecks: OK
 
 ## laptop-1366 / aktuelles
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## laptop-1366 / das-theater
 - Automatische Layoutchecks: OK
@@ -59,7 +61,8 @@ Auffällige Ansichten: 0
 - Automatische Layoutchecks: OK
 
 ## laptop-1366 / impressum
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## laptop-1366 / datenschutz
 - Automatische Layoutchecks: OK
@@ -116,7 +119,8 @@ Auffällige Ansichten: 0
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / kontakt
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-390 / impressum
 - Automatische Layoutchecks: OK
@@ -137,7 +141,8 @@ Auffällige Ansichten: 0
 - Automatische Layoutchecks: OK
 
 ## mobile-412 / termine
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-412 / referenzen
 - Automatische Layoutchecks: OK
