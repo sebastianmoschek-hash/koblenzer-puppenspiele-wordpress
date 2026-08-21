@@ -2,7 +2,8 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 /**
- * Owner web-app controls for menu position and social profiles.
+ * Owner web-app controls for social profiles.
+ * Horizontal menu positioning is owned exclusively by KP_Owner_Menu_X.
  */
 final class KP_Owner_Web_App_Extensions {
     const NONCE_ACTION = 'kp_owner_web_app';
@@ -76,7 +77,8 @@ final class KP_Owner_Web_App_Extensions {
         $current = get_option( self::OPTION, array() );
         if ( ! is_array( $current ) ) { $current = array(); }
 
-        $current['menu_offset_x'] = max( -140, min( 140, isset( $raw['menu_offset_x'] ) ? (int) $raw['menu_offset_x'] : 0 ) );
+        // Deliberately do NOT touch menu_offset_x here. The dedicated menu-X
+        // control owns that setting so a stale Social form can never overwrite it.
         foreach ( array( 'instagram', 'facebook', 'youtube', 'tiktok' ) as $platform ) {
             $key = $platform . '_url';
             $current[ $key ] = self::clean_social_url( $platform, isset( $raw[ $key ] ) ? $raw[ $key ] : '' );
@@ -89,7 +91,7 @@ final class KP_Owner_Web_App_Extensions {
 
         update_option( self::OPTION, $current, false );
         wp_send_json_success( array(
-            'message'  => 'Social und Menüposition gespeichert ✓',
+            'message'  => 'Social gespeichert ✓',
             'settings' => self::settings(),
         ) );
     }
