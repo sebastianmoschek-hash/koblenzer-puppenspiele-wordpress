@@ -1,6 +1,6 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-21T19:18:22Z
+Erzeugt: 2026-08-21T21:42:52Z
 
 Asset-/Deployment-Prüfung: success
 Isolierter Browser-Verhaltenstest: failure
@@ -68,9 +68,9 @@ file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele
 const fail = message => { throw new Error(message); };
                                 ^
 
-Error: Menüregler wird beim Design-Speichern nicht genau einmal persistiert: 
+Error: Horizontaler Handy-/Tablet-Menüregler fehlt.
     at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:12:33)
-    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:128:72
+    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:121:32
 
 Node.js v22.23.2
 ```
