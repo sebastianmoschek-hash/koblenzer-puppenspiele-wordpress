@@ -176,6 +176,12 @@
       if (registry?.flushAll) await registry.flushAll();
       else await flushOwnerDesignBeforeMainSave();
 
+      // Also call the specialist runtimes directly. If the registry ran them
+      // already, their dirty flags make this a no-op. If the registry was not
+      // loaded on a page, these calls are the persistence safety net.
+      if (window.KPOwnerResponsiveRuntime?.flush) await window.KPOwnerResponsiveRuntime.flush();
+      if (window.KPOwnerMenuXRuntime?.flush) await window.KPOwnerMenuXRuntime.flush();
+      if (window.KPImagePositionRuntime?.flush) await window.KPImagePositionRuntime.flush();
       if (window.KPTouchGestureRuntime?.flush) await window.KPTouchGestureRuntime.flush();
       if (window.KPFreeLayoutRuntime?.flush) await window.KPFreeLayoutRuntime.flush();
     })().finally(() => { ownerFlushInFlight = null; });
