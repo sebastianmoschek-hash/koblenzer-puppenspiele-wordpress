@@ -21,16 +21,31 @@
     document.querySelector('.kp-fe2-save')?.classList.add('is-dirty');
   }
 
+  function syncLiveControls() {
+    qa('[data-kp-size]').forEach(input => {
+      const key = input?.dataset?.kpSize;
+      if (!key) return;
+      draft[key] = Number(input.value);
+    });
+  }
+
+  function hasChanges() {
+    return dirty || JSON.stringify(draft) !== JSON.stringify(cfg.settings || {});
+  }
+
   async function api(settings) {
     const fd=new FormData();fd.append('action','kp_owner_sizes_save');fd.append('nonce',cfg.nonce);fd.append('settings',JSON.stringify(settings));
-    const response=await fetch(cfg.ajaxUrl,{method:'POST',credentials:'same-origin',body:fd});
+    const response=await fetch(cfg.ajaxUrl,{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});
     let json;try{json=await response.json();}catch(e){throw new Error('WordPress hat keine gültige Antwort geliefert.');}
     if(!response.ok||!json.success)throw new Error(json?.data?.message||'Speichern fehlgeschlagen.');
     return json.data;
   }
 
   async function flush() {
-    if (!dirty) return {draft:false, settings:{...draft}};
+    // Unified orange Save must persist the values that are actually visible now,
+    // even if a browser/touch layer swallowed an input/change event.
+    syncLiveControls();
+    if (!hasChanges()) return {draft:false, settings:{...draft}};
     const data = await api(draft);
     draft={...(data.settings||draft)};
     cfg.settings={...draft};
@@ -86,8 +101,8 @@
 
   window.KPOwnerResponsiveRuntime = {
     flush,
-    isDirty: () => dirty,
-    settings: () => ({...draft})
+    isDirty: () => { syncLiveControls(); return hasChanges(); },
+    settings: () => { syncLiveControls(); return {...draft}; }
   };
 
   const observer=new MutationObserver(()=>qa('.kp-oa-sheet.is-design').forEach(inject));
