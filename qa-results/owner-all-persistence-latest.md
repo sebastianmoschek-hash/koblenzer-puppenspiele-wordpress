@@ -1,6 +1,6 @@
 # Owner controls + Versionen – echter Staging-Test
 
-Erzeugt: 2026-08-21T23:17:40Z
+Erzeugt: 2026-08-21T23:20:25Z
 Staging-only Direktdeploy: success
 Staging-Deploy bereit: success
 Staging-only E2E-Zugang: success
