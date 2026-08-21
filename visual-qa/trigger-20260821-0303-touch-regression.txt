@@ -1,0 +1,1 @@
+Fresh visual regression run after the 03:02 CEST touch-editor persistence changes. Verify Social/Instagram and mobile menu remain unaffected.
