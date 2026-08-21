@@ -6,8 +6,8 @@
 
   const clone = value => JSON.parse(JSON.stringify(value || {}));
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-  const globalData = clone(cfg.global);
-  const pageData = clone(cfg.page);
+  let globalData = clone(cfg.global);
+  let pageData = clone(cfg.page);
   const holdMs = Math.max(320, Math.min(800, Number(cfg.holdMs) || 460));
   const uiSelector = '.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,.kp-oa-backdrop,#wpadminbar';
   const headerSelector = '.kp-header-stage img,.kp-header-photo img';
@@ -160,6 +160,18 @@
       const key = keyFor(el, 'normal');
       apply(el, record(key, scopeFor(el, 'normal'), false).value, 'normal');
     });
+  }
+
+  function hydrate(payload) {
+    if (!payload || dirty || touchState || mouseState || saving) return false;
+    globalData = clone(payload.global);
+    pageData = clone(payload.page);
+    cfg.global = clone(globalData);
+    cfg.page = clone(pageData);
+    history.length = 0;
+    lastActionAt = 0;
+    applySaved();
+    return true;
   }
 
   function targetFor(node) {
@@ -368,6 +380,10 @@
       .then(async response => {
         const json = await response.json().catch(() => null);
         if (!response.ok || !json?.success) throw new Error(json?.data?.message || 'Position oder Größe konnte nicht gespeichert werden.');
+        if (json.data?.global) globalData = clone(json.data.global);
+        if (json.data?.page) pageData = clone(json.data.page);
+        cfg.global = clone(globalData);
+        cfg.page = clone(pageData);
         dirty = false;
         document.body.classList.remove('kp-touch-layout-dirty');
         return json.data || {};
@@ -411,6 +427,7 @@
 
   window.KPFreeLayoutRuntime = {
     flush,
+    hydrate,
     resetMenu,
     undo,
     hasHistory: () => history.length > 0,
