@@ -1,6 +1,6 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-21T10:47:54Z
+Erzeugt: 2026-08-21T11:34:29Z
 
 Asset-/Deployment-Prüfung: success
 Isolierter Browser-Verhaltenstest: success
