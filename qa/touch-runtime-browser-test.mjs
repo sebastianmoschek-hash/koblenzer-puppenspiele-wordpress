@@ -219,7 +219,7 @@ try {
   }));
   if (sliderState.css !== '64px') fail(`Horizontaler Menüregler greift live nicht: ${sliderState.css}`);
   if (sliderState.writes !== writesBeforeSlider) fail('Horizontaler Menüregler speichert bereits beim Schieben.');
-  await page.locator('.kp-oa-design-save').click();
+  await page.locator('.kp-oa-design-save').evaluate(el => el.click());
   await page.waitForTimeout(80);
   const sliderWrites = await page.evaluate(() => window.__writes.slice());
   if (sliderWrites.filter(x => x === 'kp_owner_menu_x_save').length !== 1) fail(`Menüregler wird beim Design-Speichern nicht genau einmal persistiert: ${sliderWrites.join(', ')}`);
