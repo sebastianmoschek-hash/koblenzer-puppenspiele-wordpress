@@ -4,6 +4,7 @@
   if (!cfg || !cfg.editMode) return;
 
   let draft = {...(cfg.settings || {})};
+  let dirty = false;
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const q = (s,r=document) => r.querySelector(s);
   const qa = (s,r=document) => [...r.querySelectorAll(s)];
@@ -15,12 +16,26 @@
     clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('is-visible'),2500);
   }
 
+  function markDirty() {
+    dirty = true;
+    document.querySelector('.kp-fe2-save')?.classList.add('is-dirty');
+  }
+
   async function api(settings) {
     const fd=new FormData();fd.append('action','kp_owner_sizes_save');fd.append('nonce',cfg.nonce);fd.append('settings',JSON.stringify(settings));
     const response=await fetch(cfg.ajaxUrl,{method:'POST',credentials:'same-origin',body:fd});
     let json;try{json=await response.json();}catch(e){throw new Error('WordPress hat keine gültige Antwort geliefert.');}
-    if(!json.success)throw new Error(json.data?.message||'Speichern fehlgeschlagen.');
+    if(!response.ok||!json.success)throw new Error(json?.data?.message||'Speichern fehlgeschlagen.');
     return json.data;
+  }
+
+  async function flush() {
+    if (!dirty) return {draft:false, settings:{...draft}};
+    const data = await api(draft);
+    draft={...(data.settings||draft)};
+    cfg.settings={...draft};
+    dirty=false;
+    return data;
   }
 
   function slider(key,label,min,max){
@@ -54,18 +69,26 @@
     qa('[data-kp-size]',pane).forEach(input=>input.addEventListener('input',()=>{
       draft[input.dataset.kpSize]=Number(input.value);
       const out=q('output',input.closest('label'));if(out)out.textContent=input.value+'%';
+      markDirty();
     }));
     q('.kp-oa-size-reset',pane)?.addEventListener('click',()=>{
       draft={...(cfg.defaults||{})};
       qa('[data-kp-size]',pane).forEach(input=>{input.value=draft[input.dataset.kpSize]??100;const out=q('output',input.closest('label'));if(out)out.textContent=input.value+'%';});
+      markDirty();
       toast('Alle Anzeigegrößen stehen wieder auf 100 %. Noch speichern.');
     });
     q('.kp-oa-size-save',pane)?.addEventListener('click',async e=>{
       const btn=e.currentTarget;btn.disabled=true;btn.textContent='Speichert…';
-      try{const data=await api(draft);draft={...(data.settings||draft)};cfg.settings=draft;toast(data.message||'Anzeigegrößen gespeichert ✓','ok');setTimeout(()=>location.reload(),500);}
+      try{const data=await flush();toast(data.message||'Anzeigegrößen gespeichert ✓','ok');setTimeout(()=>location.reload(),500);}
       catch(err){toast(err.message,'error');btn.disabled=false;btn.textContent='Anzeigegrößen speichern';}
     });
   }
+
+  window.KPOwnerResponsiveRuntime = {
+    flush,
+    isDirty: () => dirty,
+    settings: () => ({...draft})
+  };
 
   const observer=new MutationObserver(()=>qa('.kp-oa-sheet.is-design').forEach(inject));
   observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
