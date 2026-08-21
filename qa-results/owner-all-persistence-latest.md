@@ -1,7 +1,7 @@
 # Owner controls + Versionen – echter Staging-Test
 
-Erzeugt: 2026-08-21T13:46:53Z
-Ergebnis: skipped
+Erzeugt: 2026-08-21T13:47:59Z
+Ergebnis: failure
 
 ```text
 Kein Testlog erzeugt.
