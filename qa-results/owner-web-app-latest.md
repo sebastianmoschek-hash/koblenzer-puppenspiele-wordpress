@@ -1,9 +1,10 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-21T05:42:39Z
+Erzeugt: 2026-08-21T07:21:45Z
 
 Asset-/Deployment-Prüfung: success
-Browser-Verhaltenstest: success
+Isolierter Browser-Verhaltenstest: success
+Echter Staging-Speicher-/Reload-Test: failure
 
 ## Ausgelieferte Staging-Dateien
 ```text
@@ -61,7 +62,20 @@ OK: Menü-X-Regler benennt Links/Rechts
 FAILURES=0
 ```
 
-## Touch-Verhalten im echten Chromium
+## Touch-Verhalten im isolierten Chromium
 ```text
 PASS: Drag, Pinch, Undo, Menükarte, orange Speichern und Handy-/Tablet-Menüregler funktionieren ohne Auto-Save.
+```
+
+## Echter Staging-Persistenztest
+```text
+file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:10
+const fail = message => { throw new Error(message); };
+                                ^
+
+Error: Orange Speichern hat den Touch-Entwurf NICHT dauerhaft in WordPress geschrieben.
+    at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:10:33)
+    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:85:45
+
+Node.js v22.23.2
 ```
