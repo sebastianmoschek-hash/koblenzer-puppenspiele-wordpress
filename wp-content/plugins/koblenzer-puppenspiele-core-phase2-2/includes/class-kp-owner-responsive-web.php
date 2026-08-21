@@ -88,17 +88,19 @@ final class KP_Owner_Responsive_Web {
 
     public static function enqueue() {
         if ( is_admin() || ! self::can_edit() ) { return; }
+        $css = KP_CORE_DIR . 'assets/owner-responsive-web.css';
+        $js  = KP_CORE_DIR . 'assets/owner-responsive-web.js';
         wp_enqueue_style(
             'kp-owner-responsive-web',
             KP_CORE_URL . 'assets/owner-responsive-web.css',
             array( 'kp-owner-web-app' ),
-            KP_CORE_VERSION
+            file_exists( $css ) ? (string) filemtime( $css ) : KP_CORE_VERSION
         );
         wp_enqueue_script(
             'kp-owner-responsive-web',
             KP_CORE_URL . 'assets/owner-responsive-web.js',
             array( 'kp-owner-web-app' ),
-            KP_CORE_VERSION,
+            file_exists( $js ) ? (string) filemtime( $js ) : KP_CORE_VERSION,
             true
         );
         wp_add_inline_script(
