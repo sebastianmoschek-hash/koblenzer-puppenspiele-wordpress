@@ -7,6 +7,8 @@ on:
     paths:
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-*.js'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-*.php'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-menu-x.php'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-social-menu-extensions.php'
       - '.github/workflows/touch-editor-contract-check.yml'
 
 jobs:
@@ -25,6 +27,8 @@ jobs:
           node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js
           node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js
           node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js
+          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js
+          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-manual-save-gate.js
 
       - name: PHP syntax
         shell: bash
@@ -32,15 +36,50 @@ jobs:
           set -euo pipefail
           php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-gestures.php
           php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-free-layout.php
+          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-manual-save.php
+          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-persistence.php
+          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-menu-x.php
+          php -l wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-social-menu-extensions.php
 
-      - name: Menu save and undo contracts
+      - name: Explicit save and undo contracts
         shell: bash
         run: |
           set -euo pipefail
-          BRIDGE=wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js
-          grep -Fq "window.addEventListener('click'" "$BRIDGE"
-          grep -Fq 'interceptMenuTap' "$BRIDGE"
-          grep -Fq 'flushLatestGestureState' "$BRIDGE"
-          grep -Fq 'undoLastGesture' "$BRIDGE"
-          grep -Fq 'Position dauerhaft gespeichert' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-free-layout.php
-          grep -Fq 'Position dauerhaft gespeichert' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-gestures.php
+          ROOT=wp-content/plugins/koblenzer-puppenspiele-core-phase2-2
+          BRIDGE="$ROOT/assets/touch-editor-bridge.js"
+          GENERIC="$ROOT/assets/touch-gestures.js"
+          FREE="$ROOT/assets/touch-free-layout.js"
+          PERSIST="$ROOT/assets/touch-persistence.js"
+          GATE="$ROOT/assets/touch-manual-save-gate.js"
+          MANUAL="$ROOT/includes/class-kp-touch-manual-save.php"
+
+          grep -Fq 'flushTouchDrafts' "$BRIDGE"
+          grep -Fq "target.closest('.kp-fe2-save')" "$BRIDGE"
+          grep -Fq 'runtimeWithNewestUndo' "$BRIDGE"
+          grep -Fq 'flush,' "$GENERIC"
+          grep -Fq 'undo,' "$GENERIC"
+          grep -Fq 'flush,' "$FREE"
+          grep -Fq 'undo,' "$FREE"
+          grep -Fq "markDirty('Verschieben / Zoomen rückgängig ✓')" "$FREE"
+          grep -Fq 'menuPanelSelector' "$FREE"
+          grep -Fq "'menu-panel'" "$FREE"
+
+          # Old auto-save/fetch-gate architecture must never return.
+          ! grep -Fq 'postSave();' "$GENERIC"
+          ! grep -Fq 'postSave();' "$FREE"
+          ! grep -Fq 'window.fetch = function' "$GATE"
+          ! grep -Fq "'kp-touch-manual-save-gate'" "$MANUAL"
+
+          # Live persistence may not overwrite an active or dirty local draft.
+          grep -Fq 'editorHasLocalTouchState' "$PERSIST"
+          grep -Fq '.kp-free-layout-active,.kp-gesture-active' "$PERSIST"
+          grep -Fq 'if (!force && editorHasLocalTouchState()) return;' "$PERSIST"
+
+      - name: Menu slider and Instagram contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=wp-content/plugins/koblenzer-puppenspiele-core-phase2-2
+          grep -Fq 'Menü links / rechts' "$ROOT/includes/class-kp-owner-menu-x.php"
+          grep -Fq 'menu_offset_x' "$ROOT/includes/class-kp-owner-menu-x.php"
+          grep -Fq 'https://www.instagram.com/koblenzer_puppenspiele/' "$ROOT/includes/class-kp-social-menu-extensions.php"
