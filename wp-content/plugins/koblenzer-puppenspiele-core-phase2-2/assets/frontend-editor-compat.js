@@ -50,6 +50,7 @@
   let currentTerminStatus = '';
   const dirtyTextKeys = new Set();
   const originalFetch = window.fetch.bind(window);
+  let ownerFlushInFlight = null;
 
   function scopeFor(el) {
     return el && el.closest && el.closest('header,footer') ? 'global' : 'page';
@@ -165,6 +166,22 @@
     owner.design = {...(json.data?.settings || settings)};
   }
 
+  async function flushAllOwnerDraftsBeforeMainSave() {
+    if (ownerFlushInFlight) return ownerFlushInFlight;
+    ownerFlushInFlight = (async () => {
+      // The FE2 AJAX request is the one path every orange Save ultimately uses.
+      // Flush all specialist owner drafts here so persistence never depends on
+      // which click/capture bridge happened to win on a particular device.
+      const registry = window.KPOwnerSaveRegistry;
+      if (registry?.flushAll) await registry.flushAll();
+      else await flushOwnerDesignBeforeMainSave();
+
+      if (window.KPTouchGestureRuntime?.flush) await window.KPTouchGestureRuntime.flush();
+      if (window.KPFreeLayoutRuntime?.flush) await window.KPFreeLayoutRuntime.flush();
+    })().finally(() => { ownerFlushInFlight = null; });
+    return ownerFlushInFlight;
+  }
+
   // Track every actual text input, including mobile keyboard composition.
   document.addEventListener('input', (event) => {
     const el = event.target instanceof Element ? event.target.closest('[contenteditable="true"][data-kp-dom-key]') : null;
@@ -181,7 +198,7 @@
         if (!body.has('page_path')) body.append('page_path', window.location.pathname || '/');
       }
       if (body instanceof FormData && body.get('action') === 'kp_fe_v2_save') {
-        await flushOwnerDesignBeforeMainSave();
+        await flushAllOwnerDraftsBeforeMainSave();
       }
     } catch (e) {
       if (args[1]?.body instanceof FormData && args[1].body.get('action') === 'kp_fe_v2_save') throw e;
