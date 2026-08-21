@@ -1,9 +1,11 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-21T05:00:58Z
+Erzeugt: 2026-08-21T05:03:16Z
 
-Gesamtergebnis: failure
+Asset-/Deployment-Prüfung: failure
+Browser-Verhaltenstest: failure
 
+## Ausgelieferte Staging-Dateien
 ```text
 OK: Staging-Startseite abrufbar
 OK: PWA-Manifest abrufbar
@@ -54,4 +56,17 @@ OK: Live-Persistenz hydriert Runtime
 OK: Menü-X-Regler vorhanden
 OK: Menü-X-Regler benennt Links/Rechts
 FAILURES=1
+```
+
+## Touch-Verhalten im echten Chromium
+```text
+file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:13
+  throw new Error(message);
+        ^
+
+Error: Orange Speichern sichert Free-Layout nicht: 
+    at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:13:9)
+    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:142:57
+
+Node.js v22.23.2
 ```
