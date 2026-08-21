@@ -1,12 +1,13 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-21T05:29:55Z
+Erzeugt: 2026-08-21T05:32:12Z
 
 Asset-/Deployment-Prüfung: failure
-Browser-Verhaltenstest: failure
+Browser-Verhaltenstest: success
 
 ## Ausgelieferte Staging-Dateien
 ```text
+curl: (22) The requested URL returned error: 500
 OK: Staging-Startseite abrufbar
 OK: PWA-Manifest abrufbar
 OK: Service Worker abrufbar
@@ -63,66 +64,5 @@ FAILURES=1
 
 ## Touch-Verhalten im echten Chromium
 ```text
-node:internal/modules/run_main:123
-    triggerUncaughtException(
-    ^
-
-locator.click: Timeout 30000ms exceeded.
-Call log:
-  - waiting for locator('.kp-oa-design-save')
-    - locator resolved to <button class="kp-oa-design-save">Design speichern</button>
-  - attempting click action
-    2 × waiting for element to be visible, enabled and stable
-      - element is visible, enabled and stable
-      - scrolling into view if needed
-      - done scrolling
-      - <div class="kp-fe2-hint">Tippen = bearbeiten · halten + ziehen = verschieb…</div> from <div class="kp-fe2-toolbar">…</div> subtree intercepts pointer events
-    - retrying click action
-    - waiting 20ms
-    2 × waiting for element to be visible, enabled and stable
-      - element is visible, enabled and stable
-      - scrolling into view if needed
-      - done scrolling
-      - <div class="kp-fe2-hint">Tippen = bearbeiten · halten + ziehen = verschieb…</div> from <div class="kp-fe2-toolbar">…</div> subtree intercepts pointer events
-    - retrying click action
-      - waiting 100ms
-    58 × waiting for element to be visible, enabled and stable
-       - element is visible, enabled and stable
-       - scrolling into view if needed
-       - done scrolling
-       - <div class="kp-fe2-hint">Tippen = bearbeiten · halten + ziehen = verschieb…</div> from <div class="kp-fe2-toolbar">…</div> subtree intercepts pointer events
-     - retrying click action
-       - waiting 500ms
-
-    at /home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:126:44 {
-  log: [
-    "  - waiting for locator('.kp-oa-design-save')",
-    '    - locator resolved to <button class="kp-oa-design-save">Design speichern</button>',
-    '  - attempting click action',
-    '    2 × waiting for element to be visible, enabled and stable',
-    '      - element is visible, enabled and stable',
-    '      - scrolling into view if needed',
-    '      - done scrolling',
-    '      - <div class="kp-fe2-hint">Tippen = bearbeiten · halten + ziehen = verschieb…</div> from <div class="kp-fe2-toolbar">…</div> subtree intercepts pointer events',
-    '    - retrying click action',
-    '    - waiting 20ms',
-    '    2 × waiting for element to be visible, enabled and stable',
-    '      - element is visible, enabled and stable',
-    '      - scrolling into view if needed',
-    '      - done scrolling',
-    '      - <div class="kp-fe2-hint">Tippen = bearbeiten · halten + ziehen = verschieb…</div> from <div class="kp-fe2-toolbar">…</div> subtree intercepts pointer events',
-    '    - retrying click action',
-    '      - waiting 100ms',
-    '    58 × waiting for element to be visible, enabled and stable',
-    '       - element is visible, enabled and stable',
-    '       - scrolling into view if needed',
-    '       - done scrolling',
-    '       - <div class="kp-fe2-hint">Tippen = bearbeiten · halten + ziehen = verschieb…</div> from <div class="kp-fe2-toolbar">…</div> subtree intercepts pointer events',
-    '     - retrying click action',
-    '       - waiting 500ms'
-  ],
-  name: 'TimeoutError'
-}
-
-Node.js v22.23.2
+PASS: Drag, Pinch, Undo, Menükarte, orange Speichern und Handy-/Tablet-Menüregler funktionieren ohne Auto-Save.
 ```
