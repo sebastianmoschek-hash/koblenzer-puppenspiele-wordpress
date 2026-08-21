@@ -32,13 +32,16 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          set -euo pipefail
-          : "${FTP_SERVER:?STAGING_FTP_SERVER secret is missing}"
-          : "${FTP_USERNAME:?STAGING_FTP_USERNAME secret is missing}"
-          : "${LFTP_PASSWORD:?STAGING_FTP_PASSWORD secret is missing}"
+          set -uo pipefail
+          : > /tmp/staging-ftp-sandbox.log
+          if [ -z "${FTP_SERVER:-}" ]; then echo 'ERROR: STAGING_FTP_SERVER secret is missing' | tee -a /tmp/staging-ftp-sandbox.log; exit 1; fi
+          if [ -z "${FTP_USERNAME:-}" ]; then echo 'ERROR: STAGING_FTP_USERNAME secret is missing' | tee -a /tmp/staging-ftp-sandbox.log; exit 1; fi
+          if [ -z "${LFTP_PASSWORD:-}" ]; then echo 'ERROR: STAGING_FTP_PASSWORD secret is missing' | tee -a /tmp/staging-ftp-sandbox.log; exit 1; fi
+
           marker="kp-staging-access-${GITHUB_RUN_ID}.txt"
           printf 'staging-only access check %s\n' "$GITHUB_RUN_ID" > "/tmp/$marker"
 
+          set +e
           lftp -c "
             set ftp:ssl-force true;
             set ftp:ssl-protect-data true;
@@ -46,18 +49,25 @@ jobs:
             set net:max-retries 2;
             set net:timeout 20;
             open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            pwd;
             cls -1 /;
             cls -1 /wp-content;
             get /wp-config.php -o /tmp/wp-config-check.php;
             put /tmp/$marker -o /wp-content/$marker;
             rm -f /wp-content/$marker;
             bye
-          "
+          " > /tmp/staging-ftp-raw.log 2>&1
+          status=$?
+          set -e
 
-          test -s /tmp/wp-config-check.php
-          grep -Fq "DB_NAME" /tmp/wp-config-check.php
+          sed "s/${FTP_USERNAME}/***USER***/g; s/${FTP_SERVER}/***SERVER***/g" /tmp/staging-ftp-raw.log > /tmp/staging-ftp-sandbox.log
+          cat /tmp/staging-ftp-sandbox.log
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
+
+          test -s /tmp/wp-config-check.php || { echo 'ERROR: wp-config.php not readable from FTP root' | tee -a /tmp/staging-ftp-sandbox.log; exit 1; }
+          grep -Fq "DB_NAME" /tmp/wp-config-check.php || { echo 'ERROR: downloaded wp-config.php did not look like WordPress config' | tee -a /tmp/staging-ftp-sandbox.log; exit 1; }
           rm -f /tmp/wp-config-check.php
-          echo 'PASS: new FTP account reaches the staging WordPress root and can write/remove inside wp-content.'
+          echo 'PASS: new FTP account reaches the staging WordPress root and can write/remove inside wp-content.' | tee -a /tmp/staging-ftp-sandbox.log
 
       - name: Write auditable result
         if: always()
@@ -74,14 +84,15 @@ jobs:
             echo "Outcome: $SANDBOX_OUTCOME"
             echo 'Expected account root: staging WordPress root (/htdocs/neu on hosting side)'
             echo 'Production access: excluded by hosting FTP start directory'
-          } > qa-results/staging-ftp-sandbox-latest.md
+            echo
+            echo '```text'
+            if [ -s /tmp/staging-ftp-sandbox.log ]; then cat /tmp/staging-ftp-sandbox.log; else echo 'No sandbox log captured.'; fi
+            echo '```'
+          } > /tmp/staging-ftp-sandbox-latest.md
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin main
-          git reset --hard origin/main
-          mkdir -p qa-results
-          cp qa-results/staging-ftp-sandbox-latest.md /tmp/staging-ftp-sandbox-latest.md
           git reset --hard origin/main
           mkdir -p qa-results
           cp /tmp/staging-ftp-sandbox-latest.md qa-results/staging-ftp-sandbox-latest.md
