@@ -1,6 +1,6 @@
 # Owner controls + Versionen – echter Staging-Test
 
-Erzeugt: 2026-08-21T21:26:55Z
+Erzeugt: 2026-08-21T21:27:34Z
 Staging-Deploy bereit: skipped
 E2E-Zugang: skipped
 Persistenz-/Versionsprüfung: skipped
