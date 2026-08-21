@@ -26,10 +26,13 @@ final class KP_Owner_Save_Coordinator {
             array( 'kp-owner-web-app' ),
             file_exists( $css ) ? (string) filemtime( $css ) : KP_CORE_VERSION
         );
+        // Keep the coordinator itself independent from optional specialist scripts.
+        // It probes their runtimes at save time, so a missing optional dependency
+        // must never prevent Design (e.g. Header-Rundung) from being persisted.
         wp_enqueue_script(
             'kp-owner-save-coordinator',
             KP_CORE_URL . 'assets/owner-save-coordinator.js',
-            array( 'kp-owner-web-app', 'kp-owner-responsive-web', 'kp-owner-menu-x', 'kp-image-position', 'kp-touch-persistence' ),
+            array( 'kp-owner-web-app' ),
             file_exists( $js ) ? (string) filemtime( $js ) : KP_CORE_VERSION,
             true
         );
