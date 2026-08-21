@@ -6,6 +6,7 @@
 
   let replayingMainSave = false;
   let waitingForMainSave = false;
+  let frontendDirty = false;
 
   function editorToast(message, type = 'ok') {
     const toast = document.querySelector('.kp-fe2-toast');
@@ -15,6 +16,17 @@
     clearTimeout(editorToast.timer);
     editorToast.timer = setTimeout(() => toast.classList.remove('is-visible'), 2600);
   }
+
+  function markFrontendDirty(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    if (target.closest('.kp-fe2-inspector,[contenteditable="true"]') || target.closest('.kp-fe2-image-pick,.kp-fe2-up,.kp-fe2-down,.kp-fe2-reset')) {
+      frontendDirty = true;
+    }
+  }
+  document.addEventListener('input', markFrontendDirty, true);
+  document.addEventListener('change', markFrontendDirty, true);
+  document.addEventListener('click', markFrontendDirty, true);
 
   function setMenuOpen(nav, shouldOpen) {
     const container = nav?.querySelector('.wp-block-navigation__responsive-container');
@@ -97,9 +109,6 @@
   }
 
   async function flushTouchDrafts() {
-    // First persist every specialist editor. Then independently compare the live
-    // design controls against WordPress and save them as a fallback. This makes
-    // the orange main Save resilient even if the owner coordinator was skipped.
     const owner = window.KPOwnerSaveRegistry;
     if (owner?.flushAll) await owner.flushAll();
     await persistLiveDesignFallback();
@@ -139,6 +148,19 @@
 
     try {
       await flushTouchDrafts();
+
+      // Owner/design/size/menu/touch-only edits are already durably persisted by
+      // the specialist flushes above. Reload directly instead of synthesising a
+      // second click through multiple capture listeners. This makes the orange
+      // Save deterministic on mobile and guarantees the visible post-save reload.
+      if (!frontendDirty) {
+        saveButton.innerHTML = '<span class="dashicons dashicons-saved"></span><span>Gespeichert ✓</span>';
+        window.location.reload();
+        return;
+      }
+
+      // If the user also edited actual page content, replay the native FE2 save
+      // so its private draft payload is persisted before the editor reloads.
       replayingMainSave = true;
       saveButton.disabled = false;
       saveButton.innerHTML = originalHtml;
