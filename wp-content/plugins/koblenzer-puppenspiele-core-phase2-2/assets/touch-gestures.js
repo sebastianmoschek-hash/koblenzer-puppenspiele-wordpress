@@ -341,7 +341,7 @@
     if(target?.closest('.kp-fe2-undo')&&gestureHistory.length){
       event.preventDefault();event.stopImmediatePropagation();undo();return;
     }
-    if(Date.now()<suppressUntil){event.preventDefault();event.stopImmediatePropagation();}
+    if(Date.now()<suppressUntil&&!target?.closest(uiSelector)){event.preventDefault();event.stopImmediatePropagation();}
   },true);
 
   document.addEventListener('click', event => {

@@ -461,7 +461,7 @@
       undo();
       return;
     }
-    if (Date.now() < suppressUntil) {
+    if (Date.now() < suppressUntil && !target?.closest(uiSelector)) {
       event.preventDefault();
       event.stopImmediatePropagation();
     }
