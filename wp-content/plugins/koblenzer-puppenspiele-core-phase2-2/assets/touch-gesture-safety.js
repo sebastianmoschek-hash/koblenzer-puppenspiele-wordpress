@@ -113,72 +113,111 @@
 
     let state = null;
 
-    const cancel = () => {
+    const resetState = () => {
       if (!state) return;
       clearTimeout(state.timer);
       guard.classList.remove('is-armed');
+      if (state.pointerId !== undefined) {
+        try {
+          if (guard.hasPointerCapture?.(state.pointerId)) guard.releasePointerCapture(state.pointerId);
+        } catch (_) {}
+      }
       state = null;
+    };
+
+    const armState = () => {
+      if (!state) return;
+      state.armed = true;
+      guard.classList.add('is-armed');
+      try {
+        if (state.pointerId !== undefined) guard.setPointerCapture?.(state.pointerId);
+      } catch (_) {}
+      try { navigator.vibrate?.(12); } catch (_) {}
+      hud('Regler entsperrt – jetzt ziehen');
     };
 
     guard.addEventListener('contextmenu', e => e.preventDefault());
 
-    guard.addEventListener('touchstart', event => {
-      if (event.touches.length !== 1) { cancel(); return; }
-      positionGuard(input, guard);
-      cancel();
-      const t = event.touches[0];
-      state = {id:t.identifier,startX:t.clientX,startY:t.clientY,armed:false,changed:false,timer:null};
-      state.timer = setTimeout(() => {
+    if ('PointerEvent' in window) {
+      guard.addEventListener('pointerdown', event => {
+        if (!['touch','pen'].includes(event.pointerType) || event.isPrimary === false) return;
+        positionGuard(input, guard);
+        resetState();
+        state = {
+          pointerId:event.pointerId,
+          startX:event.clientX,
+          startY:event.clientY,
+          armed:false,
+          changed:false,
+          timer:setTimeout(armState, holdMs)
+        };
+      });
+
+      guard.addEventListener('pointermove', event => {
+        if (!state || event.pointerId !== state.pointerId) return;
+        if (!state.armed) {
+          if (Math.hypot(event.clientX - state.startX, event.clientY - state.startY) > 11) resetState();
+          return;
+        }
+        event.preventDefault();
+        state.changed = true;
+        updateRangeFromX(input, event.clientX);
+      }, {passive:false});
+
+      const finishPointer = event => {
+        if (!state || event.pointerId !== state.pointerId) return;
+        const wasArmed = state.armed;
+        const changed = state.changed;
+        clearTimeout(state.timer);
+        guard.classList.remove('is-armed');
+        try {
+          if (guard.hasPointerCapture?.(state.pointerId)) guard.releasePointerCapture(state.pointerId);
+        } catch (_) {}
+        state = null;
+        if (wasArmed) {
+          if (changed) input.dispatchEvent(new Event('change', {bubbles:true}));
+          hud(changed ? 'Regler geändert ✓' : 'Regler entsperrt – beim Halten direkt ziehen', 900);
+        }
+      };
+
+      guard.addEventListener('pointerup', finishPointer);
+      guard.addEventListener('pointercancel', event => {
+        if (state && event.pointerId === state.pointerId) resetState();
+      });
+    } else {
+      /* Legacy iOS/WebView fallback where Pointer Events are unavailable. */
+      guard.addEventListener('touchstart', event => {
+        if (event.touches.length !== 1) { resetState(); return; }
+        positionGuard(input, guard);
+        resetState();
+        const t = event.touches[0];
+        state = {id:t.identifier,startX:t.clientX,startY:t.clientY,armed:false,changed:false,timer:setTimeout(armState,holdMs)};
+      }, {passive:true});
+
+      guard.addEventListener('touchmove', event => {
         if (!state) return;
-        state.armed = true;
-        guard.classList.add('is-armed');
-        try { navigator.vibrate?.(12); } catch (_) {}
-        hud('Regler entsperrt – jetzt ziehen');
-      }, holdMs);
-    }, {passive:true});
+        const t = [...event.touches].find(x => x.identifier === state.id);
+        if (!t) return;
+        if (!state.armed) {
+          if (Math.hypot(t.clientX-state.startX,t.clientY-state.startY)>11) resetState();
+          return;
+        }
+        event.preventDefault();
+        state.changed=true;
+        updateRangeFromX(input,t.clientX);
+      }, {passive:false});
 
-    guard.addEventListener('touchmove', event => {
-      if (!state) return;
-      const t = [...event.touches].find(x => x.identifier === state.id);
-      if (!t) return;
-      if (!state.armed) {
-        if (Math.hypot(t.clientX - state.startX, t.clientY - state.startY) > 11) cancel();
-        return;
-      }
-      event.preventDefault();
-      state.changed = true;
-      updateRangeFromX(input, t.clientX);
-    }, {passive:false});
-
-    const finishTouch = event => {
-      if (!state) return;
-      const ended = [...event.changedTouches].some(x => x.identifier === state.id);
-      if (!ended) return;
-      const wasArmed = state.armed;
-      const changed = state.changed;
-      clearTimeout(state.timer);
-      guard.classList.remove('is-armed');
-      state = null;
-      if (wasArmed) {
-        if (changed) input.dispatchEvent(new Event('change', {bubbles:true}));
-        hud(changed ? 'Regler geändert ✓' : 'Regler bereit – beim nächsten Mal nach dem Halten ziehen', 900);
-      }
-    };
-    guard.addEventListener('touchend', finishTouch, {passive:true});
-    guard.addEventListener('touchcancel', () => cancel(), {passive:true});
-
-    /* Pen/stylus fallback. Phones use the touch path above. */
-    let pen = null;
-    guard.addEventListener('pointerdown', event => {
-      if (event.pointerType !== 'pen') return;
-      pen={id:event.pointerId,startX:event.clientX,startY:event.clientY,armed:false,timer:setTimeout(()=>{if(!pen)return;pen.armed=true;guard.classList.add('is-armed');hud('Regler entsperrt – jetzt ziehen');},holdMs)};
-    });
-    guard.addEventListener('pointermove', event => {
-      if(!pen||event.pointerId!==pen.id)return;
-      if(!pen.armed){if(Math.hypot(event.clientX-pen.startX,event.clientY-pen.startY)>11){clearTimeout(pen.timer);pen=null;}return;}
-      event.preventDefault();updateRangeFromX(input,event.clientX);
-    },{passive:false});
-    guard.addEventListener('pointerup', event => {if(!pen||event.pointerId!==pen.id)return;clearTimeout(pen.timer);if(pen.armed)input.dispatchEvent(new Event('change',{bubbles:true}));guard.classList.remove('is-armed');pen=null;});
+      guard.addEventListener('touchend', event => {
+        if (!state || ![...event.changedTouches].some(x=>x.identifier===state.id)) return;
+        const wasArmed=state.armed, changed=state.changed;
+        clearTimeout(state.timer); guard.classList.remove('is-armed'); state=null;
+        if (wasArmed) {
+          if (changed) input.dispatchEvent(new Event('change',{bubbles:true}));
+          hud(changed?'Regler geändert ✓':'Regler entsperrt – beim Halten direkt ziehen',900);
+        }
+      }, {passive:true});
+      guard.addEventListener('touchcancel', resetState, {passive:true});
+    }
   }
 
   function lockAllRanges(root = document) {
