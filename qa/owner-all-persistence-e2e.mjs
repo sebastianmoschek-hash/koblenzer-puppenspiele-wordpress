@@ -64,7 +64,7 @@ async function waitReload(click) {
 async function openDesign() {
   await page.locator('.kp-oa-tools').click();
   await page.locator('[data-action="design"]').click();
-  await page.waitForSelector('.kp-oa-sheet.is-design [data-design="header_radius"]', { timeout:10000 });
+  await page.locator('.kp-oa-sheet.is-design [data-design="header_radius"]').waitFor({ state:'attached', timeout:10000 });
   await page.waitForTimeout(350);
 }
 
@@ -169,7 +169,7 @@ try {
   await page.waitForSelector('.kp-oa-tools', { timeout:15000 });
   originalState = await state();
 
-  // Full owner control matrix: all visible Design controls + all size controls + menu X.
+  // Full owner control matrix: all Design controls + all size controls + menu X.
   await openDesign();
   const expectedDesign = await mutateEveryDesignControl();
   if (!Object.prototype.hasOwnProperty.call(expectedDesign, 'header_radius')) fail('Header-Rundung ist nicht als persistierbarer Design-Regler vorhanden.');
