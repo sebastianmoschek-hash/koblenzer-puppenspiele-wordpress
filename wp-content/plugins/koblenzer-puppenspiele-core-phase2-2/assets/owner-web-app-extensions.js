@@ -71,30 +71,15 @@
     button.addEventListener('click',openSocial);
   }
 
-  function installDesignMenuControl(){
-    const box=q('.kp-oa-sheet.is-design');if(!box)return;
-    const menuPane=q('[data-pane="menu"]',box);if(!menuPane||q('.kp-oa-menu-x-extension',menuPane))return;
-    const wrap=document.createElement('div');wrap.className='kp-oa-menu-x-extension';
-    const value=Number(draft.menu_offset_x||0);
-    wrap.innerHTML=`<h3>Position des Menü-Buttons</h3>
-      <label class="kp-oa-control"><span><strong>Feinposition links / rechts</strong><output>${esc(value)}px</output></span><input type="range" min="-140" max="140" step="2" value="${esc(value)}" data-menu-x><small>0 = bisherige Position · Minus = weiter rechts · Plus = weiter links. Menübutton und geöffnetes Kompaktmenü werden gemeinsam verschoben.</small></label>
-      <button type="button" class="kp-oa-secondary" data-menu-reset>Menüposition zurücksetzen</button>`;
-    menuPane.appendChild(wrap);
-
-    const range=q('[data-menu-x]',wrap),out=q('output',wrap);
-    range.addEventListener('input',()=>{draft.menu_offset_x=Number(range.value);if(out)out.textContent=range.value+'px';document.documentElement.style.setProperty('--kp-owner-menu-offset-x',range.value+'px');});
-    range.addEventListener('change',()=>save(true).catch(err=>toast(err.message,'error')));
-    q('[data-menu-reset]',wrap)?.addEventListener('click',async()=>{
-      draft.menu_offset_x=0;range.value='0';if(out)out.textContent='0px';document.documentElement.style.setProperty('--kp-owner-menu-offset-x','0px');
-      try{window.KPFreeLayoutRuntime?.resetMenu?.();await save(true);}catch(err){toast(err.message,'error');}
-    });
+  function removeLegacyMenuControl(){
+    qa('.kp-oa-menu-x-extension').forEach(el=>el.remove());
   }
 
   function installStyles(){
-    if(q('#kp-owner-social-extension-css'))return;const s=document.createElement('style');s.id='kp-owner-social-extension-css';s.textContent='.kp-oa-social-platforms{display:grid;gap:10px}.kp-oa-menu-x-extension{margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.10)}';document.head.appendChild(s);
+    if(q('#kp-owner-social-extension-css'))return;const s=document.createElement('style');s.id='kp-owner-social-extension-css';s.textContent='.kp-oa-social-platforms{display:grid;gap:10px}';document.head.appendChild(s);
   }
 
-  function install(){installStyles();installHub();installDesignMenuControl();}
+  function install(){installStyles();removeLegacyMenuControl();installHub();}
   new MutationObserver(()=>install()).observe(document.documentElement,{childList:true,subtree:true});
   document.addEventListener('click',()=>setTimeout(install,0),true);
   install();
