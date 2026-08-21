@@ -69,8 +69,10 @@ final class KP_Touch_Persistence {
             : array();
         $revision = substr( hash( 'sha256', wp_json_encode( array( $global, $page, $page_key ) ) ), 0, 16 );
         return array(
-            'global'   => $global,
-            'page'     => $page,
+            // These scopes are maps. Keep empty scopes as {} instead of [] so a
+            // later browser edit cannot create non-serializable named Array keys.
+            'global'   => (object) $global,
+            'page'     => (object) $page,
             'pageKey'  => $page_key,
             'revision' => $revision,
         );
@@ -88,7 +90,12 @@ final class KP_Touch_Persistence {
 (() => {
   const cfg = window.KPFreeLayout;
   if (!cfg || !cfg.pageKey) return;
-  const clone = value => JSON.parse(JSON.stringify(value || {}));
+  const clone = value => {
+    const cloned = JSON.parse(JSON.stringify(value || {}));
+    return Array.isArray(cloned) ? {} : cloned;
+  };
+  cfg.global = clone(cfg.global);
+  cfg.page = clone(cfg.page);
   const mergeEntry = (entry) => {
     if (!entry || !entry.key || !entry.scope || !entry.device || !entry.after) return;
     const bucket = entry.scope === 'global' ? cfg.global : cfg.page;
