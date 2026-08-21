@@ -10,6 +10,7 @@ final class KP_Instagram_Profile_Migration {
     public static function init() {
         add_action( 'init', array( __CLASS__, 'migrate' ), 36 );
         add_filter( 'option_' . self::OPTION, array( __CLASS__, 'canonicalize_runtime' ), 20 );
+        add_action( 'wp_head', array( __CLASS__, 'profile_link' ), 40 );
     }
 
     private static function is_known_profile( $current ) {
@@ -29,6 +30,11 @@ final class KP_Instagram_Profile_Migration {
             $saved['instagram_url'] = self::URL;
         }
         return $saved;
+    }
+
+    public static function profile_link() {
+        if ( is_admin() ) { return; }
+        echo '<link rel="me" href="' . esc_url( self::URL ) . '" data-kp-instagram-profile="1">' . "\n";
     }
 
     public static function migrate() {
