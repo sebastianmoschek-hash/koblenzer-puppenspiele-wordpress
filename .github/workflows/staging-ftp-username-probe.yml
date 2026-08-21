@@ -1,0 +1,90 @@
+name: Probe staging FTP username
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/staging-ftp-username-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      FTP_SERVER: ${{ secrets.STAGING_FTP_SERVER }}
+      SECRET_USERNAME: ${{ secrets.STAGING_FTP_USERNAME }}
+      LFTP_PASSWORD: ${{ secrets.STAGING_FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+      - name: Probe likely usernames without exposing password
+        id: probe
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FTP_SERVER:?missing server}"
+          : "${LFTP_PASSWORD:?missing password}"
+          candidates=("${SECRET_USERNAME:-}" 'web16_ftpstaging' 'web16_staging' 'staging')
+          : > /tmp/ftp-user-probe.log
+          found=''
+          for candidate in "${candidates[@]}"; do
+            [ -n "$candidate" ] || continue
+            if [ -n "$found" ]; then continue; fi
+            echo "Trying username: $candidate" >> /tmp/ftp-user-probe.log
+            if FTP_USERNAME="$candidate" lftp -c "
+              set ftp:ssl-force true;
+              set ftp:ssl-protect-data true;
+              set ssl:verify-certificate true;
+              set net:max-retries 1;
+              set net:timeout 12;
+              open --user '$candidate' --env-password -p 21 '$FTP_SERVER';
+              cls -1 /;
+              bye
+            " >/tmp/ftp-probe-one.log 2>&1; then
+              found="$candidate"
+              echo "SUCCESS username: $candidate" >> /tmp/ftp-user-probe.log
+            else
+              echo "FAILED username: $candidate" >> /tmp/ftp-user-probe.log
+            fi
+          done
+          cat /tmp/ftp-user-probe.log
+          [ -n "$found" ]
+          echo "username=$found" >> "$GITHUB_OUTPUT"
+
+      - name: Persist probe result
+        if: always()
+        env:
+          OUTCOME: ${{ steps.probe.outcome }}
+          FOUND: ${{ steps.probe.outputs.username }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '# Staging FTP username probe – latest'
+            echo
+            echo "Generated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "Outcome: $OUTCOME"
+            if [ -n "${FOUND:-}" ]; then echo "Working username: $FOUND"; else echo 'Working username: none of the safe candidates'; fi
+            echo
+            echo '```text'
+            cat /tmp/ftp-user-probe.log 2>/dev/null || true
+            echo '```'
+          } > /tmp/staging-ftp-username-probe-latest.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p qa-results
+          cp /tmp/staging-ftp-username-probe-latest.md qa-results/staging-ftp-username-probe-latest.md
+          git add qa-results/staging-ftp-username-probe-latest.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'qa: update staging FTP username probe [skip ci]'
+            git push origin HEAD:main
+          fi
