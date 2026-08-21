@@ -53,10 +53,9 @@ function subsetMatches(actual, expected) {
 }
 
 async function waitReload(click) {
-  const before = await page.evaluate(() => performance.timeOrigin);
+  const navigation = page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:18000 }).then(()=>true).catch(()=>false);
   await click();
-  const changed = await page.waitForFunction(previous => performance.timeOrigin !== previous, before, { timeout:18000 }).then(()=>true).catch(()=>false);
-  await page.waitForLoadState('domcontentloaded').catch(()=>null);
+  const changed = await navigation;
   await page.waitForTimeout(600);
   return changed;
 }
@@ -169,7 +168,6 @@ try {
   await page.waitForSelector('.kp-oa-tools', { timeout:15000 });
   originalState = await state();
 
-  // Full owner control matrix: all Design controls + all size controls + menu X.
   await openDesign();
   const expectedDesign = await mutateEveryDesignControl();
   if (!Object.prototype.hasOwnProperty.call(expectedDesign, 'header_radius')) fail('Header-Rundung ist nicht als persistierbarer Design-Regler vorhanden.');
@@ -192,7 +190,6 @@ try {
     fail(`Header-Rundung steht nach Reload nicht sichtbar auf ${expectedDesign.header_radius}px, sondern ${radiusCss}.`);
   }
 
-  // Post-save Undo must restore the exact prior persisted owner settings.
   const historyAfterSave = await ownerAjax('kp_owner_history_list');
   if (!historyAfterSave.ok || !historyAfterSave.json?.success) fail(`Versionsliste fehlt nach Speicherung: ${JSON.stringify(historyAfterSave)}`);
   if (Number(historyAfterSave.json.data?.retention_hours) !== 48) fail('Versionshistorie hat nicht 48 Stunden Aufbewahrung.');
@@ -207,7 +204,6 @@ try {
     fail('Rückgängig nach Speicherung hat Design/Größen nicht exakt auf den Ausgangsstand zurückgesetzt.');
   }
 
-  // Version restore: make a fresh saved change, then restore its pre-save snapshot.
   await page.waitForTimeout(3300);
   const changedRadius = await mutateHeaderRadiusOnly();
   const changedState = await state();
@@ -223,7 +219,6 @@ try {
     fail('Versions-Wiederherstellung hat den Ausgangsstand nicht korrekt zurückgebracht.');
   }
 
-  // UI contract for the owner, not just backend endpoints.
   await page.locator('.kp-oa-tools').click();
   await page.waitForSelector('[data-kp-history-undo]', { timeout:10000 });
   await page.waitForSelector('[data-kp-history-versions]', { timeout:10000 });
