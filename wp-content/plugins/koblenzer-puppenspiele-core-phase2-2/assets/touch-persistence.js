@@ -108,10 +108,15 @@
   }
 
   function hydrateEditorInPlace(payload) {
-    if (!cfg.canEdit || !window.KPFreeLayout || editorHasLocalTouchState()) return;
+    if (!cfg.canEdit || !window.KPFreeLayout || editorHasLocalTouchState()) return false;
     const live = normalized(payload);
+    const runtime = window.KPFreeLayoutRuntime;
+    if (runtime?.hydrate) {
+      return runtime.hydrate(live);
+    }
     window.KPFreeLayout.global = clone(live.global);
     window.KPFreeLayout.page = clone(live.page);
+    return true;
   }
 
   async function loadLive() {
