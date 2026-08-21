@@ -4,9 +4,15 @@
   if (!cfg) return;
 
   let draft = Number(cfg.value) || 0;
+  let dirty = false;
 
   function apply(value) {
     document.documentElement.style.setProperty('--kp-owner-menu-offset-x', `${value}px`);
+  }
+
+  function markDirty() {
+    dirty = true;
+    document.querySelector('.kp-fe2-save')?.classList.add('is-dirty');
   }
 
   function inject() {
@@ -27,10 +33,12 @@
       draft = Number(range.value) || 0;
       output.textContent = `${draft} px`;
       apply(draft);
+      markDirty();
     });
   }
 
-  async function save() {
+  async function flush() {
+    if (!dirty) return {draft:false, value:draft};
     const fd = new FormData();
     fd.append('action', 'kp_owner_menu_x_save');
     fd.append('nonce', cfg.nonce || '');
@@ -40,7 +48,9 @@
     if (!response.ok || !json?.success) throw new Error(json?.data?.message || 'Horizontale Menüposition konnte nicht gespeichert werden.');
     cfg.value = Number(json.data?.value ?? draft);
     draft = cfg.value;
+    dirty = false;
     apply(draft);
+    return json.data || {};
   }
 
   document.addEventListener('click', event => {
@@ -49,13 +59,16 @@
     if (target?.closest('.kp-oa-design-reset')) {
       draft = 0;
       apply(0);
+      markDirty();
       setTimeout(inject, 0);
-    }
-    if (target?.closest('.kp-oa-design-save')) {
-      save().catch(error => console.error('[KP menu x]', error));
     }
   }, true);
 
   new MutationObserver(inject).observe(document.documentElement, {childList:true, subtree:true});
+  window.KPOwnerMenuXRuntime = {
+    flush,
+    isDirty: () => dirty,
+    value: () => draft
+  };
   apply(draft);
 })();
