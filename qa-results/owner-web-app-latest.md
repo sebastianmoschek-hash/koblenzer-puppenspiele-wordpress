@@ -1,13 +1,12 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-21T05:32:12Z
+Erzeugt: 2026-08-21T05:42:39Z
 
-Asset-/Deployment-Prüfung: failure
+Asset-/Deployment-Prüfung: success
 Browser-Verhaltenstest: success
 
 ## Ausgelieferte Staging-Dateien
 ```text
-curl: (22) The requested URL returned error: 500
 OK: Staging-Startseite abrufbar
 OK: PWA-Manifest abrufbar
 OK: Service Worker abrufbar
@@ -25,7 +24,7 @@ OK: kein WordPress-/PHP-Fehlertext
 OK: Manifest im HTML eingebunden
 OK: Owner Web App im HTML eingebunden
 INFO: Responsive Web ist absichtlich nur im eingeloggten Owner-Modus eingebunden.
-FEHLER: Instagram-Profil kanonisch auf Staging verlinkt
+OK: Instagram-Profil kanonisch auf Staging verlinkt
 true
 OK: Manifest-Name korrekt
 true
@@ -59,7 +58,7 @@ OK: Live-Persistenz schützt lokale Entwürfe
 OK: Live-Persistenz hydriert Runtime
 OK: Menü-X-Regler vorhanden
 OK: Menü-X-Regler benennt Links/Rechts
-FAILURES=1
+FAILURES=0
 ```
 
 ## Touch-Verhalten im echten Chromium
