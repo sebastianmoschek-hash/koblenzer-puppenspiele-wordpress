@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Koblenzer Puppenspiele – Inhalte & Design
  * Description: Einfache Verwaltung für Inhalte, direkte visuelle Bearbeitung und installierbare Besitzer-Web-App direkt auf der Website.
- * Version: 4.5.13
+ * Version: 4.5.14
  * Author: Koblenzer Puppenspiele
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KP_CORE_VERSION', '4.5.13' );
+define( 'KP_CORE_VERSION', '4.5.14' );
 define( 'KP_CORE_FILE', __FILE__ );
 define( 'KP_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KP_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -55,6 +55,7 @@ require_once KP_CORE_DIR . 'includes/class-kp-touch-gestures.php';
 require_once KP_CORE_DIR . 'includes/class-kp-touch-free-layout.php';
 require_once KP_CORE_DIR . 'includes/class-kp-touch-manual-save.php';
 require_once KP_CORE_DIR . 'includes/class-kp-touch-persistence.php';
+require_once KP_CORE_DIR . 'includes/class-kp-home-landing-template.php';
 
 add_action( 'plugins_loaded', static function () {
     KP_Bundled_Images::init();
@@ -94,6 +95,7 @@ add_action( 'plugins_loaded', static function () {
     KP_Touch_Free_Layout::init();
     KP_Touch_Manual_Save::init();
     KP_Touch_Persistence::init();
+    KP_Home_Landing_Template::init();
 } );
 
 /* The old dashboard remains a technical fallback. Normal owner work now starts
