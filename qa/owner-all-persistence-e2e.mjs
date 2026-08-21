@@ -9,6 +9,7 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
 const page = await context.newPage();
 const fail = message => { throw new Error(message); };
 let originalState = null;
+const automaticReloads = [];
 
 async function e2eAjax(action, extra = {}) {
   return page.evaluate(async ({ action, extra, token }) => {
@@ -144,8 +145,15 @@ async function closeDesignAndSave() {
   await page.locator('.kp-oa-sheet.is-design .kp-oa-close').click();
   await page.waitForTimeout(100);
   const reloaded = await waitReload(() => page.locator('.kp-fe2-save').click());
-  if (!reloaded) fail('Orange Speichern hat keinen echten Reload ausgelöst.');
+  automaticReloads.push(reloaded);
+  if (!reloaded) {
+    // Continue the DB/UI persistence checks instead of hiding every later failure
+    // behind the reload symptom. The run still fails at the end if auto-reload
+    // never happened, but only after all persistence/history assertions ran.
+    await page.reload({ waitUntil:'domcontentloaded', timeout:30000 });
+  }
   await page.waitForSelector('.kp-fe2-save', { timeout:15000 });
+  return reloaded;
 }
 
 async function mutateHeaderRadiusOnly() {
@@ -222,6 +230,10 @@ try {
   await page.locator('.kp-oa-tools').click();
   await page.waitForSelector('[data-kp-history-undo]', { timeout:10000 });
   await page.waitForSelector('[data-kp-history-versions]', { timeout:10000 });
+
+  if (automaticReloads.some(value => !value)) {
+    fail(`Persistenz/Undo/48h-Versionen wurden vollständig geprüft, aber ${automaticReloads.filter(value => !value).length} von ${automaticReloads.length} orangefarbenen Speichervorgängen lösten keinen automatisch erkannten Reload aus.`);
+  }
 
   console.log(`PASS: ${Object.keys(expectedDesign).length} Design-Regler + ${Object.keys(expectedSizes).length} Größenregler + Menü-X über orange Speichern dauerhaft; Header-Rundung nach Reload sichtbar; Rückgängig nach Speichern funktioniert; 48-Stunden-Versionen funktionieren.`);
 } finally {
