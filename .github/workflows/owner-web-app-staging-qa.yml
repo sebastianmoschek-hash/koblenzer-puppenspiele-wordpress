@@ -40,6 +40,15 @@ jobs:
           curl --fail --silent --show-error --location "$BASE$PLUGIN/owner-responsive-web.css" -o /tmp/owner-responsive-web.css
           curl --fail --silent --show-error --location "$BASE$PLUGIN/kp-app-icon.svg" -o /tmp/kp-app-icon.svg
 
+          # Touch/editor assets are checked from the actual staging host as well.
+          # This prevents a stale deployment or cache from passing merely because
+          # the repository source itself is correct.
+          curl --fail --silent --show-error --location "$BASE$PLUGIN/touch-gestures.js" -o /tmp/touch-gestures.js
+          curl --fail --silent --show-error --location "$BASE$PLUGIN/touch-free-layout.js" -o /tmp/touch-free-layout.js
+          curl --fail --silent --show-error --location "$BASE$PLUGIN/touch-editor-bridge.js" -o /tmp/touch-editor-bridge.js
+          curl --fail --silent --show-error --location "$BASE$PLUGIN/touch-persistence.js" -o /tmp/touch-persistence.js
+          curl --fail --silent --show-error --location "$BASE$PLUGIN/owner-menu-x.js" -o /tmp/owner-menu-x.js
+
           if grep -qiE 'kritischen Fehler|critical error|fatal error|parse error' /tmp/home.html; then
             echo 'WordPress error text detected on staging homepage.'
             exit 1
@@ -60,8 +69,25 @@ jobs:
 
           node --check /tmp/owner-web-app.js
           node --check /tmp/owner-responsive-web.js
+          node --check /tmp/touch-gestures.js
+          node --check /tmp/touch-free-layout.js
+          node --check /tmp/touch-editor-bridge.js
+          node --check /tmp/touch-persistence.js
+          node --check /tmp/owner-menu-x.js
           test -s /tmp/owner-web-app.css
           test -s /tmp/owner-responsive-web.css
+
+          # Explicit-save contract against the bytes served by staging.
+          grep -Fq 'async function flush()' /tmp/touch-gestures.js
+          grep -Fq 'async function flush()' /tmp/touch-free-layout.js
+          grep -Fq 'flushTouchDrafts' /tmp/touch-editor-bridge.js
+          grep -Fq "target.closest('.kp-fe2-save')" /tmp/touch-editor-bridge.js
+          ! grep -Fq 'postSave();' /tmp/touch-gestures.js
+          ! grep -Fq 'postSave();' /tmp/touch-free-layout.js
+          grep -Fq 'editorHasLocalTouchState' /tmp/touch-persistence.js
+          grep -Fq 'runtime?.hydrate' /tmp/touch-persistence.js
+          grep -Fq 'Horizontale Position' /tmp/owner-menu-x.js
+          grep -Fq 'Links ↔ rechts verschieben' /tmp/owner-menu-x.js
 
       - name: Persist owner web app QA result
         shell: bash
@@ -78,6 +104,11 @@ jobs:
           - Service Worker ausgeliefert: OK
           - Owner-Web-App JavaScript: Syntax OK
           - Responsive-Frontend JavaScript: Syntax OK
+          - Touch-Gesten JavaScript auf Staging: Syntax/Explicit-Save-Vertrag OK
+          - Free-Layout JavaScript auf Staging: Syntax/Explicit-Save-Vertrag OK
+          - Touch-Editor-Bridge auf Staging: orange Speichern-Taste als Persistenzpfad geprüft
+          - Live-Persistenz auf Staging: lokale Entwürfe geschützt / Runtime-Hydration vorhanden
+          - Handy-/Tablet-Menüregler auf Staging: Links-/Rechts-Regler ausgeliefert
           - Owner-Web-App Styles: ausgeliefert
           - Responsive-Frontend Styles: ausgeliefert
           - App-Icon: ausgeliefert
