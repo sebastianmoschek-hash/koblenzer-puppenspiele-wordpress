@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const cfg = window.KPFrontendEditor;
+  const cfg = window.KPFrontendEditor || window.KPFrontendEditorV2;
   if (!cfg) return;
 
   // Stable leaf keys provide a second persistence path for visible content.
@@ -33,7 +33,7 @@
     roots.forEach((root, ri) => {
       root.querySelectorAll('h1,h2,h3,h4,p,a,img,li,button').forEach((el) => {
         if (el.dataset.kpDomKey) return;
-        if (el.closest('.kp-fe-toolbar,.kp-fe-panel,.kp-fe-modal-backdrop,.kp-fe-quick,#wpadminbar')) return;
+        if (el.closest('.kp-fe-toolbar,.kp-fe-panel,.kp-fe-modal-backdrop,.kp-fe-quick,.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,#wpadminbar')) return;
         if (el.closest('.kp-termin-card,.kp-repertoire-card')) return;
         if (el.matches('.wp-block-navigation__responsive-container-open,.wp-block-navigation__responsive-container-close')) return;
         el.dataset.kpDomKey = 'd-' + hashString(ri + '|' + root.tagName + '|' + pathFor(el, root));
@@ -135,10 +135,40 @@
     body.set('payload', JSON.stringify(payload));
   }
 
+  function collectOwnerDesignDraft() {
+    const owner = window.KPOwnerWebApp;
+    const sheet = document.querySelector('.kp-oa-sheet.is-design');
+    if (!owner || !owner.canEdit || !sheet) return null;
+    const settings = {...(owner.design || {})};
+    sheet.querySelectorAll('[data-design]').forEach((input) => {
+      const key = input.dataset.design;
+      if (!key) return;
+      settings[key] = input.type === 'checkbox' ? (input.checked ? 1 : 0) : (input.type === 'range' ? Number(input.value) : input.value);
+    });
+    const menuX = sheet.querySelector('[data-kp-menu-x] input[type="range"]');
+    if (menuX) settings.menu_offset_x = Number(menuX.value);
+    return settings;
+  }
+
+  async function flushOwnerDesignBeforeMainSave() {
+    const owner = window.KPOwnerWebApp;
+    const settings = collectOwnerDesignDraft();
+    if (!owner || !settings || !owner.nonce || !owner.ajaxUrl) return;
+    const fd = new FormData();
+    fd.append('action', 'kp_owner_design_save');
+    fd.append('nonce', owner.nonce);
+    fd.append('settings', JSON.stringify(settings));
+    const response = await originalFetch(owner.ajaxUrl, {method:'POST', credentials:'same-origin', body:fd});
+    let json = null;
+    try { json = await response.json(); } catch (e) {}
+    if (!response.ok || !json?.success) throw new Error(json?.data?.message || 'Design konnte vor dem Hauptspeichern nicht gespeichert werden.');
+    owner.design = {...(json.data?.settings || settings)};
+  }
+
   // Track every actual text input, including mobile keyboard composition.
   document.addEventListener('input', (event) => {
     const el = event.target instanceof Element ? event.target.closest('[contenteditable="true"][data-kp-dom-key]') : null;
-    if (el && !el.closest('.kp-fe-modal,.kp-fe-panel,.kp-fe-toolbar')) dirtyTextKeys.add(el.dataset.kpDomKey);
+    if (el && !el.closest('.kp-fe-modal,.kp-fe-panel,.kp-fe-toolbar,.kp-fe2-inspector,.kp-fe2-toolbar')) dirtyTextKeys.add(el.dataset.kpDomKey);
   }, true);
 
   window.fetch = async (...args) => {
@@ -150,7 +180,12 @@
         if (!body.has('page_key')) body.append('page_key', cfg.pageKey || '');
         if (!body.has('page_path')) body.append('page_path', window.location.pathname || '/');
       }
-    } catch (e) {}
+      if (body instanceof FormData && body.get('action') === 'kp_fe_v2_save') {
+        await flushOwnerDesignBeforeMainSave();
+      }
+    } catch (e) {
+      if (args[1]?.body instanceof FormData && args[1].body.get('action') === 'kp_fe_v2_save') throw e;
+    }
 
     const response = await originalFetch(...args);
     try {
