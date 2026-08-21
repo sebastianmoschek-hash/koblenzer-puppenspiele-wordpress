@@ -83,8 +83,11 @@ final class KP_Frontend_Card_Controls {
             wp_send_json_error( array( 'message' => 'Bild konnte nicht gespeichert werden.' ), 400 );
         }
         set_post_thumbnail( $id, $attachment_id );
+        if ( (int) get_post_thumbnail_id( $id ) !== $attachment_id ) {
+            wp_send_json_error( array( 'message' => 'WordPress hat das neue Kartenbild nicht dauerhaft bestätigt.' ), 500 );
+        }
         $src = wp_get_attachment_image_url( $attachment_id, 'large' );
-        wp_send_json_success( array( 'message' => 'Bild gespeichert.', 'src' => $src ?: '' ) );
+        wp_send_json_success( array( 'message' => 'Bild dauerhaft gespeichert ✓', 'src' => $src ?: '', 'verified' => true ) );
     }
 
     public static function save_button() {
@@ -105,11 +108,18 @@ final class KP_Frontend_Card_Controls {
         $label_key     = 'more' === $role ? '_kp_fe_more_label' : '_kp_fe_book_label';
         $url_key       = 'more' === $role ? '_kp_fe_more_url' : '_kp_fe_book_url';
 
-        if ( $label === $default_label ) { delete_post_meta( $id, $label_key ); }
-        else { update_post_meta( $id, $label_key, $label ); }
-        if ( untrailingslashit( $url ) === untrailingslashit( $default_url ) ) { delete_post_meta( $id, $url_key ); }
-        else { update_post_meta( $id, $url_key, $url ); }
+        $expected_label = $label === $default_label ? '' : $label;
+        $expected_url = untrailingslashit( $url ) === untrailingslashit( $default_url ) ? '' : $url;
+        if ( '' === $expected_label ) { delete_post_meta( $id, $label_key ); }
+        else { update_post_meta( $id, $label_key, $expected_label ); }
+        if ( '' === $expected_url ) { delete_post_meta( $id, $url_key ); }
+        else { update_post_meta( $id, $url_key, $expected_url ); }
 
-        wp_send_json_success( array( 'message' => 'Button gespeichert.', 'label' => $label, 'url' => $url ) );
+        if ( (string) get_post_meta( $id, $label_key, true ) !== (string) $expected_label
+            || untrailingslashit( (string) get_post_meta( $id, $url_key, true ) ) !== untrailingslashit( (string) $expected_url ) ) {
+            wp_send_json_error( array( 'message' => 'WordPress hat die Button-Änderung nicht dauerhaft bestätigt.' ), 500 );
+        }
+
+        wp_send_json_success( array( 'message' => 'Button dauerhaft gespeichert ✓', 'label' => $label, 'url' => $url, 'verified' => true ) );
     }
 }
