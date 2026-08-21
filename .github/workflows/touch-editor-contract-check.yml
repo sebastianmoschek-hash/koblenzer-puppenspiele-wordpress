@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-*.js'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-menu-x.js'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-*.php'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-menu-x.php'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-social-menu-extensions.php'
@@ -29,6 +30,7 @@ jobs:
           node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js
           node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js
           node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-manual-save-gate.js
+          node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-menu-x.js
 
       - name: PHP syntax
         shell: bash
@@ -80,6 +82,10 @@ jobs:
         run: |
           set -euo pipefail
           ROOT=wp-content/plugins/koblenzer-puppenspiele-core-phase2-2
-          grep -Fq 'Menü links / rechts' "$ROOT/includes/class-kp-owner-menu-x.php"
+          MENU_JS="$ROOT/assets/owner-menu-x.js"
+          grep -Fq 'Horizontale Position' "$MENU_JS"
+          grep -Fq 'Links ↔ rechts verschieben' "$MENU_JS"
+          grep -Fq 'Handy\\s*\\/\\s*Tablet' "$MENU_JS"
+          grep -Fq 'kp_owner_menu_x_save' "$MENU_JS"
           grep -Fq 'menu_offset_x' "$ROOT/includes/class-kp-owner-menu-x.php"
           grep -Fq 'https://www.instagram.com/koblenzer_puppenspiele/' "$ROOT/includes/class-kp-social-menu-extensions.php"
