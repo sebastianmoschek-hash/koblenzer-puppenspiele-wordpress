@@ -31,14 +31,12 @@ jobs:
         with:
           ref: main
 
-      - name: Install browser and secure FTP client
+      - name: Install secure FTP client
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq lftp
-          npm install --no-save playwright
-          npx playwright install --with-deps chromium
 
       - name: Deploy current plugin through staging-only FTP
         id: staging_deploy
@@ -87,8 +85,18 @@ jobs:
           [ -s /tmp/bridge-health.json ] && cat /tmp/bridge-health.json >&2 || true
           exit 1
 
-      - name: Create short-lived staging-only browser bridge
+      - name: Install Chromium after staging is ready
         if: always() && steps.staging_ready.outcome == 'success'
+        id: browser_setup
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Create short-lived staging-only browser bridge
+        if: always() && steps.staging_ready.outcome == 'success' && steps.browser_setup.outcome == 'success'
         id: e2e_setup
         continue-on-error: true
         shell: bash
