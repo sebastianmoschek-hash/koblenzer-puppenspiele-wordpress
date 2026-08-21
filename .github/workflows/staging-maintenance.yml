@@ -1,0 +1,278 @@
+name: Staging maintenance lane
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'qa/staging-maintenance-request.json'
+      - '.github/workflows/staging-maintenance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: koblenzer-puppenspiele-staging-maintenance
+  cancel-in-progress: true
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      FTP_SERVER: srv26.dsbsrv.de
+      STAGING_BASE: https://neu.koblenzer-puppenspiele.de
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Read maintenance request
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='qa/staging-maintenance-request.json'
+          test -s "$file"
+          request_id=$(jq -r '.request_id // "manual"' "$file")
+          operation=$(jq -r '.operation // "diagnose"' "$file")
+          case "$operation" in
+            diagnose|cache_flush|sync_front_page_template) ;;
+            *) echo "Unsupported operation: $operation" >&2; exit 1 ;;
+          esac
+          echo "request_id=$request_id" >> "$GITHUB_OUTPUT"
+          echo "operation=$operation" >> "$GITHUB_OUTPUT"
+
+      - name: Install secure FTP client
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+      - name: Install temporary staging maintenance bridge
+        id: bridge
+        env:
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FTP_USERNAME:?FTP_USERNAME secret is missing}"
+          : "${LFTP_PASSWORD:?LFTP_PASSWORD secret is missing}"
+          token=$(openssl rand -hex 32)
+          expires=$(( $(date +%s) + 900 ))
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+          mkdir -p /tmp/kp-maint
+          cat > /tmp/kp-maint/kp-staging-maintenance.php <<PHP
+          <?php
+          /* Temporary staging-only maintenance bridge. Generated in CI, never committed to WordPress. */
+          if ( ! defined( 'ABSPATH' ) ) { exit; }
+          define( 'KP_STAGING_MAINT_TOKEN', '${token}' );
+          define( 'KP_STAGING_MAINT_EXPIRES', ${expires} );
+
+          function kp_staging_maint_allowed( \$raw ) {
+              if ( time() > KP_STAGING_MAINT_EXPIRES ) { return false; }
+              if ( 'neu.koblenzer-puppenspiele.de' !== strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) ) ) { return false; }
+              return is_string( \$raw ) && hash_equals( KP_STAGING_MAINT_TOKEN, \$raw );
+          }
+
+          function kp_staging_maint_option_shape( \$name ) {
+              \$value = get_option( \$name, null );
+              if ( is_array( \$value ) ) {
+                  return array( 'type' => 'array', 'count' => count( \$value ), 'keys' => array_slice( array_map( 'strval', array_keys( \$value ) ), 0, 30 ) );
+              }
+              if ( is_object( \$value ) ) { return array( 'type' => 'object' ); }
+              if ( null === \$value ) { return array( 'type' => 'missing' ); }
+              return array( 'type' => gettype( \$value ), 'value' => is_scalar( \$value ) ? (string) \$value : '' );
+          }
+
+          function kp_staging_maint_templates() {
+              \$posts = get_posts( array(
+                  'post_type'      => 'wp_template',
+                  'post_status'    => array( 'publish', 'draft' ),
+                  'posts_per_page' => 50,
+                  'orderby'        => 'ID',
+                  'order'          => 'ASC',
+              ) );
+              \$out = array();
+              foreach ( \$posts as \$post ) {
+                  if ( 'front-page' !== \$post->post_name ) { continue; }
+                  \$themes = wp_get_post_terms( \$post->ID, 'wp_theme', array( 'fields' => 'names' ) );
+                  \$out[] = array(
+                      'id'      => (int) \$post->ID,
+                      'slug'    => (string) \$post->post_name,
+                      'status'  => (string) \$post->post_status,
+                      'themes'  => is_wp_error( \$themes ) ? array() : array_values( \$themes ),
+                      'length'  => strlen( (string) \$post->post_content ),
+                      'updated' => (string) \$post->post_modified_gmt,
+                  );
+              }
+              return \$out;
+          }
+
+          function kp_staging_maint_diagnostics() {
+              global \$wp_version;
+              return array(
+                  'host'          => strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) ),
+                  'home_url'      => home_url( '/' ),
+                  'wp_version'    => (string) \$wp_version,
+                  'theme'         => get_stylesheet(),
+                  'plugin_version'=> defined( 'KP_CORE_VERSION' ) ? KP_CORE_VERSION : '',
+                  'page_on_front' => (int) get_option( 'page_on_front' ),
+                  'show_on_front' => (string) get_option( 'show_on_front' ),
+                  'front_templates' => kp_staging_maint_templates(),
+                  'options'       => array(
+                      'website_studio' => kp_staging_maint_option_shape( 'kp_website_studio' ),
+                      'touch_free_global' => kp_staging_maint_option_shape( 'kp_touch_free_layout_global_v1' ),
+                      'touch_free_pages' => kp_staging_maint_option_shape( 'kp_touch_free_layout_pages_v1' ),
+                      'touch_gesture_global' => kp_staging_maint_option_shape( 'kp_touch_gestures_global_v1' ),
+                      'touch_gesture_pages' => kp_staging_maint_option_shape( 'kp_touch_gestures_pages_v1' ),
+                      'frontend_global' => kp_staging_maint_option_shape( 'kp_frontend_editor_global_v1' ),
+                      'frontend_pages' => kp_staging_maint_option_shape( 'kp_frontend_editor_pages_v1' ),
+                  ),
+              );
+          }
+
+          function kp_staging_maint_sync_front_page() {
+              \$path = trailingslashit( get_stylesheet_directory() ) . 'templates/front-page.html';
+              if ( ! is_readable( \$path ) ) {
+                  return new WP_Error( 'missing_template', 'Theme front-page.html is not readable.' );
+              }
+              \$content = file_get_contents( \$path );
+              if ( ! is_string( \$content ) || false === strpos( \$content, 'kp-home-landing' ) ) {
+                  return new WP_Error( 'unexpected_template', 'Theme front-page.html does not contain the landing-page marker.' );
+              }
+              \$posts = get_posts( array(
+                  'post_type'      => 'wp_template',
+                  'post_status'    => array( 'publish', 'draft' ),
+                  'posts_per_page' => 50,
+              ) );
+              \$updated = array();
+              foreach ( \$posts as \$post ) {
+                  if ( 'front-page' !== \$post->post_name ) { continue; }
+                  \$themes = wp_get_post_terms( \$post->ID, 'wp_theme', array( 'fields' => 'names' ) );
+                  if ( is_wp_error( \$themes ) || ! in_array( get_stylesheet(), \$themes, true ) ) { continue; }
+                  \$result = wp_update_post( array( 'ID' => \$post->ID, 'post_content' => \$content ), true );
+                  if ( is_wp_error( \$result ) ) { return \$result; }
+                  \$updated[] = (int) \$post->ID;
+              }
+              if ( function_exists( 'wp_cache_flush' ) ) { wp_cache_flush(); }
+              return array( 'updated_template_ids' => \$updated, 'content_length' => strlen( \$content ) );
+          }
+
+          function kp_staging_maint_handle() {
+              \$raw = isset( \$_POST['token'] ) ? (string) wp_unslash( \$_POST['token'] ) : '';
+              if ( ! kp_staging_maint_allowed( \$raw ) ) {
+                  wp_send_json_error( array( 'message' => 'Maintenance bridge denied.' ), 403 );
+              }
+              nocache_headers();
+              \$operation = isset( \$_POST['operation'] ) ? sanitize_key( wp_unslash( \$_POST['operation'] ) ) : 'diagnose';
+              \$action_result = null;
+              if ( 'cache_flush' === \$operation ) {
+                  \$action_result = array( 'cache_flushed' => function_exists( 'wp_cache_flush' ) ? (bool) wp_cache_flush() : false );
+              } elseif ( 'sync_front_page_template' === \$operation ) {
+                  \$action_result = kp_staging_maint_sync_front_page();
+                  if ( is_wp_error( \$action_result ) ) {
+                      wp_send_json_error( array( 'message' => \$action_result->get_error_message(), 'diagnostics' => kp_staging_maint_diagnostics() ), 500 );
+                  }
+              } elseif ( 'diagnose' !== \$operation ) {
+                  wp_send_json_error( array( 'message' => 'Unsupported maintenance operation.' ), 400 );
+              }
+              wp_send_json_success( array(
+                  'operation'   => \$operation,
+                  'action'      => \$action_result,
+                  'diagnostics' => kp_staging_maint_diagnostics(),
+              ) );
+          }
+          add_action( 'wp_ajax_kp_staging_maintenance', 'kp_staging_maint_handle' );
+          add_action( 'wp_ajax_nopriv_kp_staging_maintenance', 'kp_staging_maint_handle' );
+          PHP
+
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            mkdir -p /wp-content/mu-plugins;
+            put /tmp/kp-maint/kp-staging-maintenance.php -o /wp-content/mu-plugins/kp-staging-maintenance.php;
+            bye
+          "
+
+      - name: Run staging maintenance request
+        id: run
+        env:
+          TOKEN: ${{ steps.bridge.outputs.token }}
+          OPERATION: ${{ steps.request.outputs.operation }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            -H 'Cache-Control: no-cache' \
+            --data-urlencode 'action=kp_staging_maintenance' \
+            --data-urlencode "token=$TOKEN" \
+            --data-urlencode "operation=$OPERATION" \
+            "$STAGING_BASE/wp-admin/admin-ajax.php" \
+            -o /tmp/staging-maintenance.json
+          jq . /tmp/staging-maintenance.json
+          jq -e '.success == true' /tmp/staging-maintenance.json >/dev/null
+
+      - name: Remove temporary maintenance bridge
+        if: always()
+        env:
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        shell: bash
+        run: |
+          set +e
+          if [ -n "${FTP_USERNAME:-}" ] && [ -n "${LFTP_PASSWORD:-}" ]; then
+            lftp -c "
+              set ftp:ssl-force true;
+              set ftp:ssl-protect-data true;
+              set ssl:verify-certificate true;
+              set net:max-retries 1;
+              set net:timeout 15;
+              open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+              rm -f /wp-content/mu-plugins/kp-staging-maintenance.php;
+              bye
+            "
+          fi
+
+      - name: Write maintenance report
+        if: always()
+        env:
+          REQUEST_ID: ${{ steps.request.outputs.request_id }}
+          OPERATION: ${{ steps.request.outputs.operation }}
+          RUN_OUTCOME: ${{ steps.run.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qa-results
+          {
+            echo '# Staging maintenance – latest'
+            echo
+            echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Request: $REQUEST_ID"
+            echo "Operation: $OPERATION"
+            echo "Outcome: $RUN_OUTCOME"
+            echo
+            echo '```json'
+            if [ -s /tmp/staging-maintenance.json ]; then jq . /tmp/staging-maintenance.json; else echo '{"success":false,"message":"No response captured"}'; fi
+            echo '```'
+          } > qa-results/staging-maintenance-latest.md
+
+      - name: Commit maintenance report
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin main
+          git add qa-results/staging-maintenance-latest.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'qa: update staging maintenance report [skip ci]'
+          git push origin HEAD:main
