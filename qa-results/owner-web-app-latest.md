@@ -1,10 +1,10 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-21T12:04:24Z
+Erzeugt: 2026-08-21T13:22:08Z
 
 Asset-/Deployment-Prüfung: success
 Isolierter Browser-Verhaltenstest: success
-Echter Staging-Speicher-/Reload-Test: failure
+Echter Staging-Speicher-/Reload-Test: success
 
 ## Ausgelieferte Staging-Dateien
 ```text
@@ -69,13 +69,5 @@ PASS: Drag, Pinch, Undo, Menükarte, orange Speichern und Handy-/Tablet-Menüreg
 
 ## Echter Staging-Persistenztest
 ```text
-file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:10
-const fail = message => { throw new Error(message); };
-                                ^
-
-Error: Orange Speichern hat den Touch-Entwurf NICHT dauerhaft in WordPress geschrieben. reload=true; diagnostics={"browserState":{"freeDirty":false,"genericDirty":false,"editorMode":true,"toast":"","saveText":"Speichern","saveDisabled":false,"href":"https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1"},"saveNetwork":[{"action":"kp_touch_free_layout_save","status":200,"body":"{\"success\":true,\"data\":{\"message\":\"Position dauerhaft gespeichert \\u2713\",\"global\":[],\"page\":[]}}"},{"action":"kp_fe_v2_save","status":200,"body":"{\"success\":true,\"data\":{\"message\":\"Dauerhaft gespeichert \\u2713\",\"page_key\":\"post-12\",\"verified\":true,\"text_patches\":0}}"}]}
-    at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:10:33)
-    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:119:5
-
-Node.js v22.23.2
+PASS: echter Staging-End-to-End-Speichertest für post-12: Entwurf lokal, orange Speichern schreibt DB, Reload behält Zustand, Undo bleibt lokal.
 ```
