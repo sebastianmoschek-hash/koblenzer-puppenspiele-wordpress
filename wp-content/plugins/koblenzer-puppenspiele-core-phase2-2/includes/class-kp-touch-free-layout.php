@@ -90,8 +90,11 @@ final class KP_Touch_Free_Layout {
             'canEdit'  => self::can_edit(),
             'editMode' => self::edit_mode(),
             'pageKey'  => $page_key,
-            'global'   => self::clean_scope( $global ),
-            'page'     => self::clean_scope( $page ),
+            // These are JavaScript key/value maps, never list arrays. Casting an
+            // empty PHP array to object prevents wp_json_encode() from producing
+            // [] and silently dropping named layout keys added in the browser.
+            'global'   => (object) self::clean_scope( $global ),
+            'page'     => (object) self::clean_scope( $page ),
             'holdMs'   => 460,
         ) );
 
@@ -143,8 +146,10 @@ final class KP_Touch_Free_Layout {
 
         wp_send_json_success( array(
             'message' => 'Position dauerhaft gespeichert ✓',
-            'global'  => $saved_global,
-            'page'    => $saved_page,
+            // Keep the response shape stable for subsequent edits in the same
+            // browser session even when either scope is currently empty.
+            'global'  => (object) $saved_global,
+            'page'    => (object) $saved_page,
         ) );
     }
 }
