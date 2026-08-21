@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      FTP_SERVER: srv26.dsbsrv.de
+      FTP_SERVER: ${{ secrets.STAGING_FTP_SERVER }}
       STAGING_BASE: https://neu.koblenzer-puppenspiele.de
     steps:
       - name: Check out main
@@ -79,13 +79,13 @@ jobs:
       - name: Upload one-time maintenance request
         id: bridge_request
         env:
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_USERNAME: ${{ secrets.STAGING_FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.STAGING_FTP_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
-          : "${FTP_USERNAME:?FTP_USERNAME secret is missing}"
-          : "${LFTP_PASSWORD:?LFTP_PASSWORD secret is missing}"
+          : "${FTP_USERNAME:?STAGING_FTP_USERNAME secret is missing}"
+          : "${LFTP_PASSWORD:?STAGING_FTP_PASSWORD secret is missing}"
           token=$(openssl rand -hex 32)
           expires=$(( $(date +%s) + 240 ))
           created=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -139,8 +139,8 @@ jobs:
         if: always()
         env:
           TOKEN: ${{ steps.bridge_request.outputs.token }}
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_USERNAME: ${{ secrets.STAGING_FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.STAGING_FTP_PASSWORD }}
         shell: bash
         run: |
           set +e
@@ -171,7 +171,7 @@ jobs:
           {
             echo '# Staging maintenance – latest'
             echo
-            echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ')"
             echo "Request: $REQUEST_ID"
             echo "Operation: $OPERATION"
             echo "Outcome: $RUN_OUTCOME"
