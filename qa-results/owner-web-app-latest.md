@@ -1,6 +1,6 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-21T21:42:52Z
+Erzeugt: 2026-08-21T23:29:25Z
 
 Asset-/Deployment-Prüfung: success
 Isolierter Browser-Verhaltenstest: failure
@@ -8,6 +8,7 @@ Echter Staging-Speicher-/Reload-Test: success
 
 ## Ausgelieferte Staging-Dateien
 ```text
+curl: (22) The requested URL returned error: 500
 OK: Staging-Startseite abrufbar
 OK: PWA-Manifest abrufbar
 OK: Service Worker abrufbar
@@ -64,13 +65,17 @@ FAILURES=0
 
 ## Touch-Verhalten im isolierten Chromium
 ```text
-file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:12
-const fail = message => { throw new Error(message); };
-                                ^
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
 
-Error: Horizontaler Handy-/Tablet-Menüregler fehlt.
-    at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:12:33)
-    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:121:32
+page.evaluate: TypeError: window.__writes is not iterable
+    at eval (eval at evaluate (:311:30), <anonymous>:1:73)
+    at UtilityScript.evaluate (<anonymous>:313:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+    at /home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:93:16 {
+  log: []
+}
 
 Node.js v22.23.2
 ```
