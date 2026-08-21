@@ -108,10 +108,67 @@
     return json.data || {};
   }
 
+  function liveResponsiveSettings() {
+    const cfg = window.KPOwnerResponsiveWeb;
+    if (!cfg) return null;
+    let settings = { ...(cfg.settings || {}) };
+    try {
+      const runtimeSettings = window.KPOwnerResponsiveRuntime?.settings?.();
+      if (runtimeSettings && typeof runtimeSettings === 'object') settings = { ...settings, ...runtimeSettings };
+    } catch (_) {}
+    document.querySelectorAll('[data-kp-size]').forEach(input => {
+      const key = input?.dataset?.kpSize;
+      if (key) settings[key] = Number(input.value);
+    });
+    return settings;
+  }
+
+  async function persistResponsiveFallback() {
+    const cfg = window.KPOwnerResponsiveWeb;
+    const settings = liveResponsiveSettings();
+    if (!cfg?.ajaxUrl || !cfg?.nonce || !settings || sameJson(settings, cfg.settings || {})) return { draft:false };
+    const fd = new FormData();
+    fd.append('action', 'kp_owner_sizes_save');
+    fd.append('nonce', cfg.nonce);
+    fd.append('settings', JSON.stringify(settings));
+    const response = await fetch(cfg.ajaxUrl, { method:'POST', credentials:'same-origin', cache:'no-store', body:fd });
+    const json = await response.json().catch(() => null);
+    if (!response.ok || !json?.success) throw new Error(json?.data?.message || 'Anzeigegrößen konnten nicht dauerhaft gespeichert werden.');
+    cfg.settings = { ...(json.data?.settings || settings) };
+    return json.data || {};
+  }
+
+  function liveMenuX() {
+    const cfg = window.KPOwnerMenuX;
+    if (!cfg) return null;
+    try {
+      if (window.KPOwnerMenuXRuntime?.value) return Number(window.KPOwnerMenuXRuntime.value()) || 0;
+    } catch (_) {}
+    const input = document.querySelector('[data-kp-menu-x] input[type="range"]');
+    return input ? (Number(input.value) || 0) : (Number(cfg.value) || 0);
+  }
+
+  async function persistMenuXFallback() {
+    const cfg = window.KPOwnerMenuX;
+    const value = liveMenuX();
+    if (!cfg?.ajaxUrl || !cfg?.nonce || value === null || Number(value) === Number(cfg.value || 0)) return { draft:false };
+    const fd = new FormData();
+    fd.append('action', 'kp_owner_menu_x_save');
+    fd.append('nonce', cfg.nonce);
+    fd.append('value', String(value));
+    const response = await fetch(cfg.ajaxUrl, { method:'POST', credentials:'same-origin', cache:'no-store', body:fd });
+    const json = await response.json().catch(() => null);
+    if (!response.ok || !json?.success) throw new Error(json?.data?.message || 'Horizontale Menüposition konnte nicht dauerhaft gespeichert werden.');
+    cfg.value = Number(json.data?.value ?? value);
+    return json.data || {};
+  }
+
   async function flushTouchDrafts() {
     const owner = window.KPOwnerSaveRegistry;
     if (owner?.flushAll) await owner.flushAll();
     await persistLiveDesignFallback();
+    await persistResponsiveFallback();
+    await persistMenuXFallback();
 
     const generic = window.KPTouchGestureRuntime;
     const free = window.KPFreeLayoutRuntime;
