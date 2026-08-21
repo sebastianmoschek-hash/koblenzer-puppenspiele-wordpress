@@ -1,68 +1,105 @@
 # Owner controls + Versionen – echter Staging-Test
 
-Erzeugt: 2026-08-21T22:28:53Z
-Staging-only Direktdeploy: cancelled
-Staging-Deploy bereit: skipped
-Staging-only E2E-Zugang: skipped
-Persistenz-/Versionsprüfung: skipped
+Erzeugt: 2026-08-21T22:31:53Z
+Staging-only Direktdeploy: success
+Staging-Deploy bereit: success
+Staging-only E2E-Zugang: success
+Persistenz-/Versionsprüfung: failure
 
 ## Direktdeploy
 ```text
-Removing old file `koblenzer-puppenspiele-core.php'
-Transferring file `koblenzer-puppenspiele-core.php'
-Removing old file `readme.txt'
-Transferring file `readme.txt'
-Removing old file `data/legacy-ensemble.json'
-Transferring file `data/legacy-ensemble.json'
-Removing old file `assets/admin.css'
-Transferring file `assets/admin.css'
-Removing old file `data/legacy-referenzen.json'
-Transferring file `data/legacy-referenzen.json'
-Removing old file `assets/calendar-owner-ui.css'
-Transferring file `assets/calendar-owner-ui.css'
-Removing old file `data/legacy-repertoire.json'
-Transferring file `data/legacy-repertoire.json'
-Removing old file `assets/calendar-owner-ui.js'
-Transferring file `assets/calendar-owner-ui.js'
-Removing old file `data/legacy-termine-2026-2027.json'
-Transferring file `data/legacy-termine-2026-2027.json'
-Removing old file `assets/contact.css'
-Transferring file `assets/contact.css'
-Removing old file `assets/design-presets.js'
-Transferring file `assets/design-presets.js'
-Removing old file `assets/frontend-card-controls.css'
-Transferring file `assets/frontend-card-controls.css'
-Removing old file `assets/frontend-card-controls.js'
-Transferring file `assets/frontend-card-controls.js'
-Removing old file `assets/frontend-editor-compat.js'
-Transferring file `assets/frontend-editor-compat.js'
-Removing old file `assets/frontend-editor-inline.js'
-Transferring file `assets/frontend-editor-inline.js'
-Removing old file `assets/frontend-editor-v2.css'
-Transferring file `assets/frontend-editor-v2.css'
-Removing old file `assets/frontend-editor-v2.js'
-Transferring file `assets/frontend-editor-v2.js'
-Removing old file `assets/frontend-editor.css'
-Transferring file `assets/frontend-editor.css'
-Removing old file `assets/frontend-editor.js'
-Transferring file `assets/frontend-editor.js'
-Removing old file `includes/class-kp-bundled-images.php'
-Transferring file `includes/class-kp-bundled-images.php'
-Removing old file `includes/class-kp-calendar-owner-ui.php'
-Transferring file `includes/class-kp-calendar-owner-ui.php'
-Removing old file `assets/frontend.css'
-Transferring file `assets/frontend.css'
-Removing old file `includes/class-kp-contact.php'
-Transferring file `includes/class-kp-contact.php'
-Removing old file `assets/image-position.js'
-Transferring file `assets/image-position.js'
-Removing old file `includes/class-kp-design-presets.php'
-Transferring file `includes/class-kp-design-presets.php'
-Removing old file `assets/kp-app-icon.svg'
-Transferring file `assets/kp-app-icon.svg'
+Transferring file `assets/legacy-referenzen/referenzen_neuss.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_niederkassel.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_niederkassel.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_pellenz.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_pellenz.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_saarburg.png'
+Transferring file `assets/legacy-referenzen/referenzen_saarburg.png'
+Removing old file `assets/legacy-referenzen/referenzen_stadt.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_stadt.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_stadtbibliothek.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_stadtbibliothek.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_trabentrarbach.png'
+Transferring file `assets/legacy-referenzen/referenzen_trabentrarbach.png'
+Removing old file `assets/legacy-referenzen/referenzen_yellow.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_yellow.jpg'
+Removing old file `assets/legacy-repertoire/Die Hoellenfahrt des Dr. Faust.jpg'
+Transferring file `assets/legacy-repertoire/Die Hoellenfahrt des Dr. Faust.jpg'
+Removing old file `assets/legacy-repertoire/baerenstare_weihnachten_rep.jpg'
+Transferring file `assets/legacy-repertoire/baerenstare_weihnachten_rep.jpg'
+Removing old file `assets/legacy-repertoire/der_raeuber_hotzenplotz.jpg'
+Transferring file `assets/legacy-repertoire/der_raeuber_hotzenplotz.jpg'
+Removing old file `assets/legacy-repertoire/ein_baum_fuer_den_weihnachtsmann_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/ein_baum_fuer_den_weihnachtsmann_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/faust_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/faust_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/frau_holle.jpg'
+Transferring file `assets/legacy-repertoire/frau_holle.jpg'
+Removing old file `assets/legacy-repertoire/freunde_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/freunde_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/freunde_repertoire_helmeheine.jpg'
+Transferring file `assets/legacy-repertoire/freunde_repertoire_helmeheine.jpg'
+Removing old file `assets/legacy-repertoire/hahn_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/hahn_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/holle_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/holle_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/hotzenplotz_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/hotzenplotz_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/kasper-repertoire.jpg'
+Transferring file `assets/legacy-repertoire/kasper-repertoire.jpg'
+Removing old file `assets/legacy-repertoire/kasperspiel_goldschatz_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/kasperspiel_goldschatz_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/kasperspiel_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/kasperspiel_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/kasperspiel_repertoire_pfannkuchenschlacht.jpg'
+Transferring file `assets/legacy-repertoire/kasperspiel_repertoire_pfannkuchenschlacht.jpg'
+Removing old file `assets/legacy-repertoire/knusperknusperknaeuschen.jpg'
+Transferring file `assets/legacy-repertoire/knusperknusperknaeuschen.jpg'
+Removing old file `assets/legacy-repertoire/nulli.jpg'
+Transferring file `assets/legacy-repertoire/nulli.jpg'
+Removing old file `assets/legacy-repertoire/nulli_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/nulli_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/olchis.jpg'
+Transferring file `assets/legacy-repertoire/olchis.jpg'
+Removing old file `assets/legacy-repertoire/olchis_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/olchis_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/pettersson_kriegt_weihnachtsbesuch_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/pettersson_kriegt_weihnachtsbesuch_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/pettersson_und_findus.jpg'
+Transferring file `assets/legacy-repertoire/pettersson_und_findus.jpg'
+Removing old file `assets/legacy-repertoire/pettersson_und_findus_weihnachten_kurzinfo.jpg'
+Transferring file `assets/legacy-repertoire/pettersson_und_findus_weihnachten_kurzinfo.jpg'
+Removing old file `assets/legacy-repertoire/pfannkuchenschlacht.jpg'
+Transferring file `assets/legacy-repertoire/pfannkuchenschlacht.jpg'
+Removing old file `assets/legacy-repertoire/post_fuer_den_tiger.jpeg'
+Transferring file `assets/legacy-repertoire/post_fuer_den_tiger.jpeg'
+Removing old file `assets/legacy-repertoire/post_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/post_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/spielzeugkoenig.jpg'
+Transferring file `assets/legacy-repertoire/spielzeugkoenig.jpg'
+Removing old file `assets/legacy-repertoire/wasser_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/wasser_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/wassermann.jpg'
+Transferring file `assets/legacy-repertoire/wassermann.jpg'
+Removing old file `assets/legacy-repertoire/weihnachten_bei_tiger_und_baer_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/weihnachten_bei_tiger_und_baer_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/weihnachten_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/weihnachten_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/weihnachten_tiger_baer.jpg'
+Transferring file `assets/legacy-repertoire/weihnachten_tiger_baer.jpg'
+PASS: current plugin mirrored to staging-only WordPress root.
 ```
 
 ## Browser-/DB-Test
 ```text
-Kein Testlog erzeugt.
+file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/owner-all-persistence-e2e.mjs:10
+const fail = message => { throw new Error(message); };
+                                ^
+
+Error: Orange Speichern hat keinen echten Reload ausgelöst.
+    at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/owner-all-persistence-e2e.mjs:10:33)
+    at closeDesignAndSave (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/owner-all-persistence-e2e.mjs:147:18)
+    at async file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/owner-all-persistence-e2e.mjs:176:3
+
+Node.js v22.23.2
 ```
