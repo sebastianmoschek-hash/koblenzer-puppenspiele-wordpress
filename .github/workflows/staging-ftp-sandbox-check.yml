@@ -1,0 +1,53 @@
+name: Verify staging-only FTP sandbox
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/staging-ftp-sandbox-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      FTP_SERVER: ${{ secrets.STAGING_FTP_SERVER }}
+      FTP_USERNAME: ${{ secrets.STAGING_FTP_USERNAME }}
+      LFTP_PASSWORD: ${{ secrets.STAGING_FTP_PASSWORD }}
+    steps:
+      - name: Install secure FTP client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      - name: Verify chroot is the staging WordPress root
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FTP_SERVER:?STAGING_FTP_SERVER secret is missing}"
+          : "${FTP_USERNAME:?STAGING_FTP_USERNAME secret is missing}"
+          : "${LFTP_PASSWORD:?STAGING_FTP_PASSWORD secret is missing}"
+          marker="kp-staging-access-${GITHUB_RUN_ID}.txt"
+          printf 'staging-only access check %s\n' "$GITHUB_RUN_ID" > "/tmp/$marker"
+
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            cls -1 /;
+            cls -1 /wp-content;
+            get /wp-config.php -o /tmp/wp-config-check.php;
+            put /tmp/$marker -o /wp-content/$marker;
+            rm -f /wp-content/$marker;
+            bye
+          "
+
+          test -s /tmp/wp-config-check.php
+          grep -Fq "DB_NAME" /tmp/wp-config-check.php
+          rm -f /tmp/wp-config-check.php
+          echo 'PASS: new FTP account reaches the staging WordPress root and can write/remove inside wp-content.'
