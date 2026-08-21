@@ -1,6 +1,6 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-21T05:23:20Z
+Erzeugt: 2026-08-21T05:29:55Z
 
 Asset-/Deployment-Prüfung: failure
 Browser-Verhaltenstest: failure
@@ -63,13 +63,66 @@ FAILURES=1
 
 ## Touch-Verhalten im echten Chromium
 ```text
-file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:14
-  throw new Error(message);
-        ^
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
 
-Error: Menüregler wird beim Design-Speichern nicht genau einmal persistiert: kp_touch_gesture_save, kp_touch_gesture_save, kp_touch_gesture_save, kp_touch_free_layout_save
-    at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:14:9)
-    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:225:76
+locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('.kp-oa-design-save')
+    - locator resolved to <button class="kp-oa-design-save">Design speichern</button>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div class="kp-fe2-hint">Tippen = bearbeiten · halten + ziehen = verschieb…</div> from <div class="kp-fe2-toolbar">…</div> subtree intercepts pointer events
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div class="kp-fe2-hint">Tippen = bearbeiten · halten + ziehen = verschieb…</div> from <div class="kp-fe2-toolbar">…</div> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    58 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div class="kp-fe2-hint">Tippen = bearbeiten · halten + ziehen = verschieb…</div> from <div class="kp-fe2-toolbar">…</div> subtree intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+
+    at /home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:126:44 {
+  log: [
+    "  - waiting for locator('.kp-oa-design-save')",
+    '    - locator resolved to <button class="kp-oa-design-save">Design speichern</button>',
+    '  - attempting click action',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is visible, enabled and stable',
+    '      - scrolling into view if needed',
+    '      - done scrolling',
+    '      - <div class="kp-fe2-hint">Tippen = bearbeiten · halten + ziehen = verschieb…</div> from <div class="kp-fe2-toolbar">…</div> subtree intercepts pointer events',
+    '    - retrying click action',
+    '    - waiting 20ms',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is visible, enabled and stable',
+    '      - scrolling into view if needed',
+    '      - done scrolling',
+    '      - <div class="kp-fe2-hint">Tippen = bearbeiten · halten + ziehen = verschieb…</div> from <div class="kp-fe2-toolbar">…</div> subtree intercepts pointer events',
+    '    - retrying click action',
+    '      - waiting 100ms',
+    '    58 × waiting for element to be visible, enabled and stable',
+    '       - element is visible, enabled and stable',
+    '       - scrolling into view if needed',
+    '       - done scrolling',
+    '       - <div class="kp-fe2-hint">Tippen = bearbeiten · halten + ziehen = verschieb…</div> from <div class="kp-fe2-toolbar">…</div> subtree intercepts pointer events',
+    '     - retrying click action',
+    '       - waiting 500ms'
+  ],
+  name: 'TimeoutError'
+}
 
 Node.js v22.23.2
 ```
