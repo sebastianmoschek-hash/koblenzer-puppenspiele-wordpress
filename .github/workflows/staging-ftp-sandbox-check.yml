@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -19,10 +19,17 @@ jobs:
       FTP_USERNAME: ${{ secrets.STAGING_FTP_USERNAME }}
       LFTP_PASSWORD: ${{ secrets.STAGING_FTP_PASSWORD }}
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
       - name: Install secure FTP client
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
       - name: Verify chroot is the staging WordPress root
+        id: sandbox
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -51,3 +58,41 @@ jobs:
           grep -Fq "DB_NAME" /tmp/wp-config-check.php
           rm -f /tmp/wp-config-check.php
           echo 'PASS: new FTP account reaches the staging WordPress root and can write/remove inside wp-content.'
+
+      - name: Write auditable result
+        if: always()
+        env:
+          SANDBOX_OUTCOME: ${{ steps.sandbox.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qa-results
+          {
+            echo '# Staging-only FTP sandbox – latest'
+            echo
+            echo "Generated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "Outcome: $SANDBOX_OUTCOME"
+            echo 'Expected account root: staging WordPress root (/htdocs/neu on hosting side)'
+            echo 'Production access: excluded by hosting FTP start directory'
+          } > qa-results/staging-ftp-sandbox-latest.md
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p qa-results
+          cp qa-results/staging-ftp-sandbox-latest.md /tmp/staging-ftp-sandbox-latest.md
+          git reset --hard origin/main
+          mkdir -p qa-results
+          cp /tmp/staging-ftp-sandbox-latest.md qa-results/staging-ftp-sandbox-latest.md
+          git add qa-results/staging-ftp-sandbox-latest.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'qa: update staging FTP sandbox status [skip ci]'
+            git push origin HEAD:main
+          fi
+
+      - name: Final sandbox gate
+        if: always()
+        env:
+          SANDBOX_OUTCOME: ${{ steps.sandbox.outcome }}
+        run: test "$SANDBOX_OUTCOME" = 'success'
