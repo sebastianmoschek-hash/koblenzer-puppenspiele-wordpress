@@ -1,9 +1,9 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-21T13:37:51Z
+Erzeugt: 2026-08-21T13:56:21Z
 
 Asset-/Deployment-Prüfung: success
-Isolierter Browser-Verhaltenstest: success
+Isolierter Browser-Verhaltenstest: failure
 Echter Staging-Speicher-/Reload-Test: success
 
 ## Ausgelieferte Staging-Dateien
@@ -64,7 +64,15 @@ FAILURES=0
 
 ## Touch-Verhalten im isolierten Chromium
 ```text
-PASS: Drag, Pinch, Undo, Menükarte, orange Speichern und Handy-/Tablet-Menüregler funktionieren ohne Auto-Save.
+file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:12
+const fail = message => { throw new Error(message); };
+                                ^
+
+Error: Menüregler wird beim Design-Speichern nicht genau einmal persistiert: 
+    at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:12:33)
+    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:128:72
+
+Node.js v22.23.2
 ```
 
 ## Echter Staging-Persistenztest
