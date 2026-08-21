@@ -36,6 +36,10 @@ final class KP_Owner_Menu_X {
         if ( ! is_array( $settings ) ) { $settings = array(); }
         $settings['menu_offset_x'] = $x;
         update_option( self::OPTION, $settings, false );
-        wp_send_json_success( array( 'value' => $x, 'message' => 'Horizontale Menüposition gespeichert ✓' ) );
+        $stored = get_option( self::OPTION, array() );
+        if ( ! is_array( $stored ) || ! array_key_exists( 'menu_offset_x', $stored ) || (int) $stored['menu_offset_x'] !== $x ) {
+            wp_send_json_error( array( 'message' => 'Die horizontale Menüposition wurde von WordPress nicht dauerhaft übernommen.' ), 500 );
+        }
+        wp_send_json_success( array( 'value' => $x, 'message' => 'Horizontale Menüposition dauerhaft gespeichert ✓', 'verified' => true ) );
     }
 }
