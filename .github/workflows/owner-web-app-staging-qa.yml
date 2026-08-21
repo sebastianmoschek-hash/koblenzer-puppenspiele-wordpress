@@ -4,6 +4,10 @@ on:
   workflow_run:
     workflows: ['Deploy staging WordPress']
     types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/owner-web-app-staging-qa.yml'
   workflow_dispatch:
 
 permissions:
@@ -15,7 +19,7 @@ concurrency:
 
 jobs:
   staging-owner-web-app:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
