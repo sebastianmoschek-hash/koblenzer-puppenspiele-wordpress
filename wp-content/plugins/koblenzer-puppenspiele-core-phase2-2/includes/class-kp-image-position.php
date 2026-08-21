@@ -63,8 +63,8 @@ final class KP_Image_Position {
             'canEdit'   => self::can_edit(),
             'editMode'  => self::can_edit() && isset( $_GET['kp_edit'] ) && '1' === sanitize_text_field( wp_unslash( $_GET['kp_edit'] ) ),
             'pageKey'   => $page_key,
-            'global'    => $global,
-            'page'      => $page_data,
+            'global'    => self::clean_scope( $global ),
+            'page'      => self::clean_scope( $page_data ),
         ) );
     }
 
@@ -81,14 +81,29 @@ final class KP_Image_Position {
             wp_send_json_error( array( 'message' => 'Ungültige Seite.' ), 400 );
         }
 
-        update_option( self::GLOBAL_OPTION, self::clean_scope( $global_raw ), false );
+        $clean_global = self::clean_scope( $global_raw );
+        $clean_page = self::clean_scope( $page_raw );
+        update_option( self::GLOBAL_OPTION, $clean_global, false );
         $all_pages = get_option( self::PAGES_OPTION, array() );
         if ( ! is_array( $all_pages ) ) { $all_pages = array(); }
-        $clean_page = self::clean_scope( $page_raw );
         if ( $clean_page ) { $all_pages[ $page_key ] = $clean_page; }
         else { unset( $all_pages[ $page_key ] ); }
         update_option( self::PAGES_OPTION, $all_pages, false );
 
-        wp_send_json_success( array( 'message' => 'Bildposition gespeichert.' ) );
+        $saved_global = self::clean_scope( get_option( self::GLOBAL_OPTION, array() ) );
+        $saved_pages = get_option( self::PAGES_OPTION, array() );
+        if ( ! is_array( $saved_pages ) ) { $saved_pages = array(); }
+        $saved_page = isset( $saved_pages[ $page_key ] ) && is_array( $saved_pages[ $page_key ] )
+            ? self::clean_scope( $saved_pages[ $page_key ] ) : array();
+        if ( $saved_global !== $clean_global || $saved_page !== $clean_page ) {
+            wp_send_json_error( array( 'message' => 'Die Bildposition wurde von WordPress nicht dauerhaft übernommen.' ), 500 );
+        }
+
+        wp_send_json_success( array(
+            'message' => 'Bildposition dauerhaft gespeichert ✓',
+            'global'  => $saved_global,
+            'page'    => $saved_page,
+            'verified'=> true,
+        ) );
     }
 }
