@@ -1,6 +1,6 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-21T23:29:25Z
+Erzeugt: 2026-08-21T23:51:27Z
 
 Asset-/Deployment-Prüfung: success
 Isolierter Browser-Verhaltenstest: failure
@@ -8,7 +8,6 @@ Echter Staging-Speicher-/Reload-Test: success
 
 ## Ausgelieferte Staging-Dateien
 ```text
-curl: (22) The requested URL returned error: 500
 OK: Staging-Startseite abrufbar
 OK: PWA-Manifest abrufbar
 OK: Service Worker abrufbar
