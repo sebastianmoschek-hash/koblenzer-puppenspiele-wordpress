@@ -5,7 +5,7 @@
 
   const q = (s,r=document) => r.querySelector(s);
   const qa = (s,r=document) => [...r.querySelectorAll(s)];
-  const esc = v => String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const esc = v => String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c]));
   let designDraft = {...(cfg.design || {})};
   let designDirty = false;
   let flushing = null;
@@ -24,11 +24,21 @@
     q('.kp-fe2-save')?.classList.add('is-dirty');
   }
 
-  function readDesignInput(input) {
+  function readDesignInput(input, shouldMarkDirty=true) {
     if (!input?.dataset?.design) return;
     const key=input.dataset.design;
     designDraft[key]=input.type==='checkbox'?(input.checked?1:0):(input.type==='range'?Number(input.value):input.value);
-    markDirty();
+    if(shouldMarkDirty)markDirty();
+  }
+
+  function syncLiveDesignInputs() {
+    // The live controls are the source of truth at Save time. This deliberately
+    // does not depend on a prior input/change event having set designDirty.
+    qa('[data-design]').forEach(input=>readDesignInput(input,false));
+  }
+
+  function hasDesignChanges() {
+    return designDirty || JSON.stringify(designDraft)!==JSON.stringify(cfg.design||{});
   }
 
   document.addEventListener('input',event=>{
@@ -85,9 +95,10 @@
   }
 
   async function flushDesign() {
-    if(!designDirty)return {draft:false};
-    // Read the currently visible design sheet one final time before persistence.
-    qa('[data-design]').forEach(readDesignInput);
+    // Always collect the actual controls first. Previously the early dirty check
+    // could skip Header-Rundung and other sliders when their dirty event was lost.
+    syncLiveDesignInputs();
+    if(!hasDesignChanges())return {draft:false};
     const data=await api('kp_owner_design_save',{settings:designDraft});
     designDraft={...(data.settings||designDraft)};
     cfg.design={...designDraft};
@@ -110,7 +121,7 @@
 
   window.KPOwnerSaveRegistry={
     flushAll,
-    isDirty:()=>designDirty||!!window.KPOwnerResponsiveRuntime?.isDirty?.()||!!window.KPOwnerMenuXRuntime?.isDirty?.()||!!window.KPImagePositionRuntime?.isDirty?.()
+    isDirty:()=>hasDesignChanges()||!!window.KPOwnerResponsiveRuntime?.isDirty?.()||!!window.KPOwnerMenuXRuntime?.isDirty?.()||!!window.KPImagePositionRuntime?.isDirty?.()
   };
 
   // Replace the specialist Design button with the exact same unified pipeline.
