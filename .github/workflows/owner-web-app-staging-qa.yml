@@ -9,6 +9,7 @@ on:
     paths:
       - '.github/workflows/owner-web-app-staging-qa.yml'
       - 'qa/touch-runtime-browser-test.mjs'
+      - 'qa/touch-staging-persistence-e2e.mjs'
   workflow_dispatch:
 
 permissions:
@@ -22,7 +23,9 @@ jobs:
   staging-owner-web-app:
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
+    env:
+      FTP_SERVER: srv26.dsbsrv.de
     steps:
       - name: Check out latest main
         uses: actions/checkout@v4
@@ -122,15 +125,17 @@ jobs:
           echo "FAILURES=$failures" | tee -a "$LOG"
           test "$failures" -eq 0
 
-      - name: Install browser for touch interaction QA
+      - name: Install browser and secure FTP client for interaction QA
         if: always()
         shell: bash
         run: |
           set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y lftp
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
-      - name: Exercise deployed touch behavior in Chromium
+      - name: Exercise touch behavior in isolated Chromium harness
         if: always()
         id: behavior_verify
         continue-on-error: true
@@ -146,12 +151,133 @@ jobs:
             exit 1
           fi
 
+      - name: Install temporary staging-only E2E auth bridge
+        if: always()
+        id: e2e_setup
+        env:
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FTP_USERNAME:?FTP_USERNAME secret is missing}"
+          : "${LFTP_PASSWORD:?FTP_PASSWORD secret is missing}"
+          token=$(openssl rand -hex 32)
+          expires=$(( $(date +%s) + 1200 ))
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+          mkdir -p /tmp/kp-e2e
+          cat > /tmp/kp-e2e/kp-e2e-touch.php <<PHP
+          <?php
+          /* Temporary staging-only QA bridge. Generated during CI, never committed/deployed to production. */
+          if ( ! defined( 'ABSPATH' ) ) { exit; }
+          define( 'KP_E2E_TOUCH_TOKEN', '${token}' );
+          define( 'KP_E2E_TOUCH_EXPIRES', ${expires} );
+          function kp_e2e_touch_allowed_token( \$raw ) {
+              if ( time() > KP_E2E_TOUCH_EXPIRES ) { return false; }
+              if ( 'neu.koblenzer-puppenspiele.de' !== strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) ) ) { return false; }
+              return is_string( \$raw ) && hash_equals( KP_E2E_TOUCH_TOKEN, \$raw );
+          }
+          add_action( 'init', static function () {
+              \$raw = isset( \$_GET['kp_e2e_login'] ) ? (string) wp_unslash( \$_GET['kp_e2e_login'] ) : '';
+              if ( ! kp_e2e_touch_allowed_token( \$raw ) ) { return; }
+              \$admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+              if ( ! \$admins ) { wp_die( 'No administrator available for staging E2E.' ); }
+              \$id = (int) \$admins[0];
+              wp_set_current_user( \$id );
+              wp_set_auth_cookie( \$id, false, is_ssl() );
+              wp_safe_redirect( add_query_arg( array( 'kp_edit' => '1', 'kp_e2e' => '1' ), home_url( '/' ) ) );
+              exit;
+          }, 1 );
+          function kp_e2e_touch_guard() {
+              \$raw = isset( \$_POST['token'] ) ? (string) wp_unslash( \$_POST['token'] ) : '';
+              if ( ! current_user_can( 'manage_options' ) || ! kp_e2e_touch_allowed_token( \$raw ) ) {
+                  wp_send_json_error( array( 'message' => 'E2E denied.' ), 403 );
+              }
+          }
+          add_action( 'wp_ajax_kp_e2e_touch_state', static function () {
+              kp_e2e_touch_guard();
+              wp_send_json_success( array(
+                  'free_global' => get_option( 'kp_touch_free_layout_global_v1', array() ),
+                  'free_pages' => get_option( 'kp_touch_free_layout_pages_v1', array() ),
+                  'gesture_global' => get_option( 'kp_touch_gestures_global_v1', array() ),
+                  'gesture_pages' => get_option( 'kp_touch_gestures_pages_v1', array() ),
+              ) );
+          } );
+          add_action( 'wp_ajax_kp_e2e_touch_restore', static function () {
+              kp_e2e_touch_guard();
+              \$snapshot = isset( \$_POST['snapshot'] ) ? json_decode( wp_unslash( \$_POST['snapshot'] ), true ) : null;
+              if ( ! is_array( \$snapshot ) ) { wp_send_json_error( array( 'message' => 'Invalid snapshot.' ), 400 ); }
+              foreach ( array(
+                  'free_global' => 'kp_touch_free_layout_global_v1',
+                  'free_pages' => 'kp_touch_free_layout_pages_v1',
+                  'gesture_global' => 'kp_touch_gestures_global_v1',
+                  'gesture_pages' => 'kp_touch_gestures_pages_v1',
+              ) as \$key => \$option ) {
+                  update_option( \$option, isset( \$snapshot[\$key] ) && is_array( \$snapshot[\$key] ) ? \$snapshot[\$key] : array(), false );
+              }
+              wp_send_json_success( array( 'message' => 'restored' ) );
+          } );
+          PHP
+
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            mkdir -p /wp-content/mu-plugins;
+            put /tmp/kp-e2e/kp-e2e-touch.php -o /wp-content/mu-plugins/kp-e2e-touch.php;
+            bye
+          "
+
+      - name: Exercise REAL staging save and reload persistence
+        if: always() && steps.e2e_setup.outcome == 'success'
+        id: persistence_verify
+        continue-on-error: true
+        env:
+          KP_E2E_BASE: https://neu.koblenzer-puppenspiele.de
+          KP_E2E_TOKEN: ${{ steps.e2e_setup.outputs.token }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          : > /tmp/touch-staging-persistence.log
+          if node qa/touch-staging-persistence-e2e.mjs > /tmp/touch-staging-persistence.log 2>&1; then
+            cat /tmp/touch-staging-persistence.log
+            exit 0
+          else
+            cat /tmp/touch-staging-persistence.log
+            exit 1
+          fi
+
+      - name: Remove temporary staging E2E auth bridge
+        if: always()
+        env:
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        shell: bash
+        run: |
+          set +e
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 1;
+            set net:timeout 15;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            rm -f /wp-content/mu-plugins/kp-e2e-touch.php;
+            bye
+          "
+          exit 0
+
       - name: Persist owner web app QA result
         if: always()
         shell: bash
         env:
           VERIFY_OUTCOME: ${{ steps.asset_verify.outcome }}
           BEHAVIOR_OUTCOME: ${{ steps.behavior_verify.outcome }}
+          PERSISTENCE_OUTCOME: ${{ steps.persistence_verify.outcome }}
         run: |
           set -euo pipefail
           generated=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -161,16 +287,22 @@ jobs:
             echo "Erzeugt: $generated"
             echo
             echo "Asset-/Deployment-Prüfung: $VERIFY_OUTCOME"
-            echo "Browser-Verhaltenstest: $BEHAVIOR_OUTCOME"
+            echo "Isolierter Browser-Verhaltenstest: $BEHAVIOR_OUTCOME"
+            echo "Echter Staging-Speicher-/Reload-Test: $PERSISTENCE_OUTCOME"
             echo
             echo '## Ausgelieferte Staging-Dateien'
             echo '```text'
             if [ -f /tmp/owner-web-app-check.log ]; then cat /tmp/owner-web-app-check.log; else echo 'Kein Asset-Prüflog erzeugt.'; fi
             echo '```'
             echo
-            echo '## Touch-Verhalten im echten Chromium'
+            echo '## Touch-Verhalten im isolierten Chromium'
             echo '```text'
             if [ -f /tmp/touch-browser-check.log ]; then cat /tmp/touch-browser-check.log; else echo 'Kein Browser-Prüflog erzeugt.'; fi
+            echo '```'
+            echo
+            echo '## Echter Staging-Persistenztest'
+            echo '```text'
+            if [ -f /tmp/touch-staging-persistence.log ]; then cat /tmp/touch-staging-persistence.log; else echo 'Kein echter Staging-Persistenzlog erzeugt.'; fi
             echo '```'
           } > /tmp/owner-web-app-latest.md
 
@@ -194,7 +326,9 @@ jobs:
         env:
           VERIFY_OUTCOME: ${{ steps.asset_verify.outcome }}
           BEHAVIOR_OUTCOME: ${{ steps.behavior_verify.outcome }}
+          PERSISTENCE_OUTCOME: ${{ steps.persistence_verify.outcome }}
         run: |
           set -euo pipefail
           test "$VERIFY_OUTCOME" = 'success'
           test "$BEHAVIOR_OUTCOME" = 'success'
+          test "$PERSISTENCE_OUTCOME" = 'success'
