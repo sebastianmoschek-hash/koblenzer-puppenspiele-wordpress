@@ -69,14 +69,32 @@
 
   function positionGuard(input, guard) {
     const parent = input.parentElement;
-    if (!parent) return;
+    if (!parent || !input.isConnected || !guard.isConnected) return false;
     const pr = parent.getBoundingClientRect();
     const ir = input.getBoundingClientRect();
+    /* Hidden design tabs report a 0x0 range. Never freeze that bogus geometry;
+       the guard is repositioned when the tab becomes visible. */
+    if (ir.width < 2 || ir.height < 1) return false;
     const height = Math.max(40, ir.height + 24);
+    guard.style.position = 'absolute';
     guard.style.left = `${ir.left - pr.left}px`;
     guard.style.top = `${ir.top - pr.top - (height - ir.height) / 2}px`;
     guard.style.width = `${Math.max(28, ir.width)}px`;
     guard.style.height = `${height}px`;
+    return true;
+  }
+
+  let rangePositionFrame = 0;
+  function repositionAllRangeGuards() {
+    rangePositionFrame = 0;
+    document.querySelectorAll('.kp-touch-range-hardlock').forEach(guard => {
+      const input = guard.parentElement?.querySelector('input[type="range"][data-kp-touch-hardlocked="4"]');
+      if (input) positionGuard(input, guard);
+    });
+  }
+  function scheduleRangePositions() {
+    if (rangePositionFrame) return;
+    rangePositionFrame = requestAnimationFrame(() => requestAnimationFrame(repositionAllRangeGuards));
   }
 
   function updateRangeFromX(input, clientX) {
@@ -92,13 +110,23 @@
     input.dispatchEvent(new Event('input', {bubbles:true}));
   }
 
+  function nearestScroller(input) {
+    let node = input.parentElement;
+    while (node && node !== document.body && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      if (/(auto|scroll|overlay)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) return node;
+      node = node.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
   function hardLockRange(input) {
     if (!(input instanceof HTMLInputElement) || input.type !== 'range') return;
-    if (input.dataset.kpTouchHardlocked === '3') return;
+    if (input.dataset.kpTouchHardlocked === '4') return;
     const parent = input.parentElement;
     if (!parent) return;
 
-    input.dataset.kpTouchHardlocked = '3';
+    input.dataset.kpTouchHardlocked = '4';
     input.dataset.kpTouchGuarded = '1';
     parent.classList.add('kp-range-guarded', 'kp-range-hardlocked');
     if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
@@ -108,10 +136,18 @@
     guard.className = 'kp-touch-range-guard kp-touch-range-hardlock';
     guard.setAttribute('aria-hidden','true');
     guard.title = 'Gedrückt halten, dann ziehen';
+    guard.style.position = 'absolute';
     parent.appendChild(guard);
     requestAnimationFrame(() => positionGuard(input, guard));
 
+    if ('ResizeObserver' in window) {
+      const resizeObserver = new ResizeObserver(() => positionGuard(input, guard));
+      resizeObserver.observe(input);
+      guard._kpRangeResizeObserver = resizeObserver;
+    }
+
     let state = null;
+    let scrollTarget = null;
 
     const resetState = () => {
       if (!state) return;
@@ -123,6 +159,7 @@
         } catch (_) {}
       }
       state = null;
+      scrollTarget = null;
     };
 
     const armState = () => {
@@ -137,6 +174,7 @@
       if (!state || state.armed || state.scrolling) return;
       state.scrolling = true;
       clearTimeout(state.timer);
+      scrollTarget = nearestScroller(input);
       guard.classList.add('is-scrolling');
     };
 
@@ -144,7 +182,12 @@
       if (!state) return;
       const deltaY = state.lastY - clientY;
       state.lastY = clientY;
-      if (Math.abs(deltaY) > 0.01) window.scrollBy(0, deltaY);
+      if (Math.abs(deltaY) <= 0.01) return;
+      if (scrollTarget && scrollTarget !== document.scrollingElement && scrollTarget !== document.documentElement && scrollTarget !== document.body) {
+        scrollTarget.scrollTop += deltaY;
+      } else {
+        window.scrollBy(0, deltaY);
+      }
     };
 
     guard.addEventListener('contextmenu', e => e.preventDefault());
@@ -191,6 +234,7 @@
           if (guard.hasPointerCapture?.(state.pointerId)) guard.releasePointerCapture(state.pointerId);
         } catch (_) {}
         state = null;
+        scrollTarget = null;
         if (wasArmed) {
           if (changed) input.dispatchEvent(new Event('change', {bubbles:true}));
           hud(changed ? 'Regler geändert ✓' : 'Regler entsperrt – beim Halten direkt ziehen', 900);
@@ -203,7 +247,7 @@
       });
     } else {
       /* Legacy iOS/WebView fallback. touch-action:none keeps the stream in JS;
-         pre-hold vertical motion is mirrored to normal page scrolling here. */
+         pre-hold vertical motion is mirrored to the editor's own scroll area. */
       guard.addEventListener('touchstart', event => {
         if (event.touches.length !== 1) { resetState(); return; }
         positionGuard(input, guard);
@@ -229,7 +273,7 @@
       guard.addEventListener('touchend', event => {
         if (!state || ![...event.changedTouches].some(x=>x.identifier===state.id)) return;
         const wasArmed=state.armed, changed=state.changed;
-        clearTimeout(state.timer); guard.classList.remove('is-armed','is-scrolling'); state=null;
+        clearTimeout(state.timer); guard.classList.remove('is-armed','is-scrolling'); state=null; scrollTarget=null;
         if (wasArmed) {
           if (changed) input.dispatchEvent(new Event('change',{bubbles:true}));
           hud(changed?'Regler geändert ✓':'Regler entsperrt – beim Halten direkt ziehen',900);
@@ -245,14 +289,27 @@
   }
 
   lockAllRanges();
-  new MutationObserver(records => {
-    records.forEach(record => record.addedNodes.forEach(node => { if (node instanceof Element) lockAllRanges(node); }));
-  }).observe(document.documentElement, {childList:true,subtree:true});
-
-  window.addEventListener('resize', () => {
-    document.querySelectorAll('.kp-touch-range-hardlock').forEach(guard => {
-      const input = guard.parentElement?.querySelector('input[type="range"][data-kp-touch-hardlocked="3"]');
-      if (input) positionGuard(input, guard);
+  const rangeObserver = new MutationObserver(records => {
+    let shouldReposition = false;
+    records.forEach(record => {
+      if (record.type === 'childList') {
+        record.addedNodes.forEach(node => { if (node instanceof Element) lockAllRanges(node); });
+        shouldReposition = true;
+      } else if (record.type === 'attributes') {
+        const target = record.target;
+        if (target instanceof Element && (target.matches('.kp-oa-tab,.kp-oa-sheet,.kp-oa-backdrop') || target.closest('.kp-oa-tabs'))) {
+          shouldReposition = true;
+        }
+      }
     });
-  }, {passive:true});
+    if (shouldReposition) scheduleRangePositions();
+  });
+  rangeObserver.observe(document.documentElement, {childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
+
+  document.addEventListener('click', event => {
+    if (event.target instanceof Element && event.target.closest('.kp-oa-tabs [data-tab]')) scheduleRangePositions();
+  }, true);
+
+  window.addEventListener('resize', scheduleRangePositions, {passive:true});
+  window.addEventListener('orientationchange', scheduleRangePositions, {passive:true});
 })();
