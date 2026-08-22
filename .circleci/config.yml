@@ -1,0 +1,38 @@
+version: 2.1
+
+jobs:
+  homepage-staging-lab:
+    docker:
+      - image: mcr.microsoft.com/playwright:v1.55.0-noble
+    resource_class: small
+    environment:
+      STAGING_BASE: https://neu.koblenzer-puppenspiele.de
+    steps:
+      - checkout
+      - run:
+          name: Install lightweight CI tools
+          command: |
+            apt-get update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp jq php-cli ca-certificates curl
+            npm install --no-save playwright@1.55.0
+      - run:
+          name: Staging deploy + real Chromium/Touch/Persistence/Visual lab
+          command: bash qa/circleci-homepage-lab.sh
+          no_output_timeout: 20m
+      - store_artifacts:
+          path: qa-results/circleci
+          destination: circleci-lab-report
+      - store_artifacts:
+          path: qa-artifacts/homepage-lab
+          destination: editor-browser-screenshots
+      - store_artifacts:
+          path: visual-qa/output
+          destination: visual-qa
+
+workflows:
+  autonomous-homepage-lab:
+    jobs:
+      - homepage-staging-lab:
+          filters:
+            branches:
+              only: main
