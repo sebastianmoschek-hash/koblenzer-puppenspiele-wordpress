@@ -1,0 +1,54 @@
+name: Actions heartbeat
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/actions-heartbeat.yml'
+      - 'qa/actions-heartbeat-trigger.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: koblenzer-puppenspiele-actions-heartbeat
+  cancel-in-progress: true
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check out latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Write heartbeat result
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qa-results
+          {
+            echo '# GitHub Actions Heartbeat'
+            echo
+            echo "Runner: OK"
+            echo "Erzeugt: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "Auslöser-Commit: $GITHUB_SHA"
+            echo "Run-ID: $GITHUB_RUN_ID"
+          } > qa-results/actions-heartbeat-latest.md
+
+      - name: Persist heartbeat
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git rebase origin/main
+          git add qa-results/actions-heartbeat-latest.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'qa: actions heartbeat [skip ci]'
+            git push origin HEAD:main
+          fi
