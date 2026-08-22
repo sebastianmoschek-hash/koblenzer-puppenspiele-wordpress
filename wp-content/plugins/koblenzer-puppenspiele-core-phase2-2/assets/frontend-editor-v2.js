@@ -667,5 +667,7 @@
     catch(e){toast(e.message||'Speichern fehlgeschlagen','error');btn.disabled=false;btn.textContent=type==='termin'?'Termin speichern':'Stück speichern';}
   }
 
-  window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
+  // Deliberately no beforeunload confirmation: owner actions such as X/Beenden
+  // must execute immediately. Unsaved changes are handled by the explicit
+  // Save/Undo/Discard UI instead of a browser-level reload dialog.
 })();
