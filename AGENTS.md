@@ -16,10 +16,10 @@ Eine Änderung der Ordnernamen erzeugt in WordPress doppelte Installationen stat
 - Keine Secrets in Git einchecken.
 - Keine importierten Inhalte, Termine, Repertoire-, Referenz- oder Ensemble-Daten löschen.
 
-## Autonomes Homepage-Labor
-Die zentrale Definition of Done ist `.github/workflows/homepage-autonomous-lab.yml`.
+## Autonomes Homepage-Labor — CircleCI Free
+Die zentrale automatische Pipeline ist `.circleci/config.yml`; die ausführbare Logik liegt in `qa/circleci-homepage-lab.sh`. GitHub Actions ist nur noch Fallback, weil das monatliche Actions-Kontingent ausgeschöpft wurde und soll nicht als primärer Auto-Runner verwendet werden.
 
-Der Workflow stellt eine kurzlebige Linux-/Chromium-Sandbox bereit und führt auf echtem Staging aus:
+CircleCI stellt eine kurzlebige Linux-/Chromium-Sandbox bereit und führt ausschließlich auf echtem Staging aus:
 1. PHP-Syntaxprüfung.
 2. Force-Deploy des aktuellen Plugin-/Theme-Stands nur auf Staging.
 3. Verifikation des aktiven Pluginstands.
@@ -29,19 +29,19 @@ Der Workflow stellt eine kurzlebige Linux-/Chromium-Sandbox bereit und führt au
 7. „Design speichern“ als echten Touch-Tap auslösen und Änderung erst nach Reload + WordPress-State-Readback akzeptieren.
 8. „Standardwerte“ als echten Touch-Tap prüfen; Standardwerte müssen sichtbar übernommen werden, dürfen aber ohne Speichern nicht in der DB landen.
 9. Hit-Testing mit `elementFromPoint()` für Speichern/Zurücksetzen, damit transparente Overlays oder Slider-Guards keine Buttons verdecken.
-10. `qa/owner-all-persistence-e2e.mjs`: alle Design-/Größenregler, Menü-X, Hauptspeichern, Reload, DB-Readback, Undo und 48h-Versionen testen und den Ausgangszustand wiederherstellen.
-11. `qa/touch-runtime-browser-test.mjs`: Drag/Pinch/Touch-Runtime regressionsprüfen.
+10. `qa/owner-all-persistence-e2e.mjs`: Design-/Größenregler, Menü-X, Hauptspeichern, Reload, DB-Readback, Undo und 48h-Versionen testen und den Ausgangszustand wiederherstellen.
+11. `qa/touch-slider-hold-browser-test.mjs` und `qa/touch-runtime-browser-test.mjs`: nativen Slider-Touch, Drag, Pinch und Touch-Runtime regressionsprüfen.
 12. `visual-qa/capture.mjs`: 50 reale Ansichten (Desktop/Laptop/Tablet/Mobile × Seiten) rendern, Screenshots und Layoutdiagnosen erzeugen.
 13. Console/Page-Errors, same-origin HTTP-Fehler, horizontalen Overflow, Menüöffnung und Editor-Geometrie protokollieren.
-14. Screenshots/Logs als GitHub-Artifact speichern; maschinenlesbaren Status nach `qa-results/homepage-lab-latest.json` und den lesbaren Gesamtbericht nach `qa-results/homepage-lab-latest.md` schreiben.
+14. Sichere, secret-freie Ergebnisse werden nach `https://neu.koblenzer-puppenspiele.de/wp-content/uploads/kp-homepage-lab/latest/report.json` und `report.md` veröffentlicht; Editor- und Visual-Screenshots liegen darunter in `editor/` und `visual/`.
 
-Der Lab-Workflow läuft nach relevanten Pushes sofort und zusätzlich zweimal täglich als Sicherheitscheck. Er nutzt dieselbe Concurrency-Gruppe wie die alte Owner-Persistenz-QA, damit sich temporäre E2E-Bridges niemals überschneiden. Ein fehlender oder veralteter `qa-results/homepage-lab-latest.*`-Bericht gilt selbst als roter Infrastrukturfehler und darf niemals als grüne Abnahme interpretiert werden.
+Ein fehlender, veralteter oder roter CircleCI-Bericht gilt als Fehler und niemals als grüne Abnahme. CircleCI-Secrets werden ausschließlich in den CircleCI-Projekteinstellungen gehalten: `STAGING_FTP_SERVER`, `STAGING_FTP_USERNAME`, `STAGING_FTP_PASSWORD`.
 
 ## Arbeitsweise für Codex / Coding-Agenten
 - Eine einfache Benutzeranweisung in fachliche Zielkriterien übersetzen, nicht in Rückfragen zerlegen, wenn die Absicht ausreichend klar ist.
-- Vor Änderungen den aktuellen Code und `qa-results/homepage-lab-latest.md` lesen.
-- Kleine, reversible Änderungen auf `main` vornehmen. Relevante Pushes starten das Homepage-Labor automatisch.
-- Nach einem fehlgeschlagenen Lab-Lauf zuerst den konkreten Befund aus `qa-results/homepage-lab-latest.json/.md`, Screenshots, Console/Network und betroffenen Codepfad analysieren.
+- Vor Änderungen den aktuellen Code und den neuesten CircleCI-Staging-Bericht unter `/wp-content/uploads/kp-homepage-lab/latest/report.json` lesen.
+- Kleine, reversible Änderungen auf `main` vornehmen. Relevante Pushes starten nach aktivierter CircleCI-GitHub-Verknüpfung das Homepage-Labor automatisch.
+- Nach einem fehlgeschlagenen Lab-Lauf zuerst den konkreten CircleCI-Bericht, Screenshots, Console/Network und betroffenen Codepfad analysieren.
 - Danach Fix → Staging-Deploy → echter Browser-Test wiederholen, bis die relevanten Gates grün sind.
 - HTTP 200, ein synthetischer DOM-Test oder ein isolierter Unit-Test allein sind niemals Beweis für eine behobene Eigentümer-Interaktion.
 - Persistenz gilt erst als bewiesen, wenn UI-Änderung → echter Speichervorgang → Reload → WordPress-State/DB-Readback denselben Wert zeigt.
@@ -50,7 +50,7 @@ Der Lab-Workflow läuft nach relevanten Pushes sofort und zusätzlich zweimal t�
 - Erst „fertig“ melden, wenn die für die Aufgabe relevanten Lab-Gates grün sind. Produktion bleibt bis zur ausdrücklichen Freigabe unangetastet.
 
 ## Bestehende Visual-QA
-Visual-QA-Ausgaben werden weiterhin unter `https://neu.koblenzer-puppenspiele.de/visual-qa/` veröffentlicht. Desktop, Tablet und Smartphone selbst prüfen; insbesondere Zeilenumbrüche, horizontalen Overflow, unnötige Leerflächen, Bildbeschnitt, große Bilder/Überschriften, Kontrast, Button-Hierarchie und Überdeckung durch Floating-UI.
+Visual-QA-Ausgaben werden weiterhin unter `https://neu.koblenzer-puppenspiele.de/visual-qa/` bzw. im CircleCI-Lab unter `/wp-content/uploads/kp-homepage-lab/latest/visual/` veröffentlicht. Desktop, Tablet und Smartphone selbst prüfen; insbesondere Zeilenumbrüche, horizontalen Overflow, unnötige Leerflächen, Bildbeschnitt, große Bilder/Überschriften, Kontrast, Button-Hierarchie und Überdeckung durch Floating-UI.
 
 ## Gestaltungsrichtung
 - Hochwertige moderne Theater-/Kultur-Ästhetik statt Shop-/Baukasten-Look.
