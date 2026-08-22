@@ -26,6 +26,9 @@ jobs:
               echo 'PWA-fast mode: skipping Playwright npm install.'
             fi
       - run:
+          name: Verify unified Save Undo and AI contract
+          command: bash qa/unified-editor-contract.sh
+      - run:
           name: Protect shared staging design colors
           command: node qa/neutralize-staging-color-mutations.mjs
       - run:
