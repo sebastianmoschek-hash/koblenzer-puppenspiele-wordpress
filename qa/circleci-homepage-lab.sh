@@ -54,22 +54,18 @@ run_capture(){
   return $rc
 }
 
-# Tools are installed in the CircleCI job; keep this script runner-neutral.
 log "CircleCI Homepage Lab: $SHA"
 
-# 1) Static safety.
 if ! find "$PLUGIN" "$THEME" -type f -name '*.php' -print0 | xargs -0 -n1 php -l >> "$REPORT_DIR/php-syntax.log" 2>&1; then
   log 'FAIL PHP syntax';
 fi
 
-# 2) Force deploy exact repository state to staging only.
 if ftp_cmd "mirror -R --verbose --transfer-all --no-perms --parallel=2 '$PLUGIN' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'; mirror -R --verbose --transfer-all --no-perms --parallel=2 '$THEME' '/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'" > "$REPORT_DIR/deploy.log" 2>&1; then
   status_deploy=success
 else
   status_deploy=failure
 fi
 
-# 3) Verify active plugin version on staging.
 expected=$(sed -n 's/^ \* Version: //p' "$PLUGIN/koblenzer-puppenspiele-core.php" | head -1)
 if [[ "$status_deploy" == success && -n "$expected" ]]; then
   for attempt in $(seq 1 20); do
@@ -85,7 +81,6 @@ else
   status_ready=failure
 fi
 
-# 4) Short-lived staging-only owner/browser bridge.
 if [[ "$status_ready" == success ]]; then
   E2E_TOKEN=$(openssl rand -hex 32)
   expires=$(( $(date +%s) + 1100 ))
@@ -140,7 +135,6 @@ else
   status_bridge=failure
 fi
 
-# 5) Exact touch assets used by native touch regression.
 cp "$ASSETS/touch-gesture-safety.js" /tmp/touch-gesture-safety.js
 cp "$ASSETS/touch-gesture-safety.css" /tmp/touch-gesture-safety.css
 cp "$ASSETS/touch-gestures.js" /tmp/touch-gestures.js
@@ -151,6 +145,7 @@ cp "$ASSETS/owner-menu-x.js" /tmp/owner-menu-x.js
 if [[ "$status_bridge" == success ]]; then
   export KP_E2E_BASE="$STAGING_BASE" KP_E2E_TOKEN="$E2E_TOKEN" KP_LAB_OUT="$EDITOR_DIR"
   if run_capture editor node qa/homepage-editor-lab.mjs; then status_editor=success; else status_editor=failure; fi
+  if ! run_capture session-undo node qa/editor-session-undo-e2e.mjs; then status_editor=failure; fi
   if run_capture persistence node qa/owner-all-persistence-e2e.mjs; then status_persistence=success; else status_persistence=failure; fi
 else
   status_editor=failure; status_persistence=failure
@@ -208,7 +203,7 @@ Gesamtstatus: **${overall^^}**
 - Staging-only Force-Deploy: $status_deploy
 - Aktive Staging-Version: $status_ready
 - Temporärer E2E-Zugang: $status_bridge
-- Echter Editor Mobile/Tablet/Desktop: $status_editor
+- Echter Editor Mobile/Tablet/Desktop + Session-Undo: $status_editor
 - Speichern → Reload → DB + Undo/48h: $status_persistence
 - Nativer Touch-Regler + Zurücksetzen/Speichern: $status_slider
 - Drag/Pinch/Touch-Runtime: $status_touch
@@ -217,8 +212,6 @@ Gesamtstatus: **${overall^^}**
 Produktion wurde nicht verändert.
 MD
 
-# Publish only safe summaries/screenshots to staging so the autonomous repair
-# agent can inspect results without a CircleCI API token.
 if [[ -n "${STAGING_FTP_SERVER:-}" && -n "${STAGING_FTP_USERNAME:-}" && -n "${LFTP_PASSWORD:-}" ]]; then
   ftp_cmd "mkdir -p '$REMOTE_REPORT'; put '$REPORT_DIR/report.json' -o '$REMOTE_REPORT/report.json'; put '$REPORT_DIR/report.md' -o '$REMOTE_REPORT/report.md'" || true
   [[ -d "$EDITOR_DIR" ]] && ftp_cmd "mkdir -p '$REMOTE_REPORT/editor'; mirror -R --delete --no-perms '$EDITOR_DIR' '$REMOTE_REPORT/editor'" || true
