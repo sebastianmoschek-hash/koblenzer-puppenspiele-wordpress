@@ -9,6 +9,9 @@ fail(){ echo "FAIL word-history contract: $*" >&2; exit 1; }
 [[ -f "$FRONTEND" ]] || fail 'frontend editor runtime missing'
 [[ -f "$RUNTIME" ]] || fail 'Word history runtime missing'
 
+# Catch malformed JavaScript before any browser/staging work consumes credits.
+node --check "$FRONTEND" >/dev/null || fail 'frontend editor JavaScript syntax is invalid'
+
 for obsolete in \
   wp-content/mu-plugins/kp-owner-history-toolbar-fix.php \
   wp-content/mu-plugins/kp-owner-undo-redo.php \
@@ -35,4 +38,4 @@ grep -Fq 'const MAX=50;' "$RUNTIME" || fail 'global history is not capped at 50 
 grep -Fq "data-kp-word-history-new" "$RUNTIME" || fail 'compact arrow controls missing'
 grep -Fq '48 Stunden' "$RUNTIME" || fail 'version-history separation copy missing'
 
-echo 'PASS: Word-style arrows are client-side, instant, 50-step, and separated from 48-hour versions.'
+echo 'PASS: Word-style arrows are client-side, instant, 50-step, syntax-valid, and separated from 48-hour versions.'
