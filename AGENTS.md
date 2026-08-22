@@ -35,7 +35,7 @@ Der Workflow stellt eine kurzlebige Linux-/Chromium-Sandbox bereit und führt au
 13. Console/Page-Errors, same-origin HTTP-Fehler, horizontalen Overflow, Menüöffnung und Editor-Geometrie protokollieren.
 14. Screenshots/Logs als GitHub-Artifact speichern; maschinenlesbaren Status nach `qa-results/homepage-lab-latest.json` und den lesbaren Gesamtbericht nach `qa-results/homepage-lab-latest.md` schreiben.
 
-Der Lab-Workflow läuft nach relevanten Pushes sofort und zusätzlich zweimal täglich als Sicherheitscheck. Er nutzt dieselbe Concurrency-Gruppe wie die alte Owner-Persistenz-QA, damit sich temporäre E2E-Bridges niemals überschneiden.
+Der Lab-Workflow läuft nach relevanten Pushes sofort und zusätzlich zweimal täglich als Sicherheitscheck. Er nutzt dieselbe Concurrency-Gruppe wie die alte Owner-Persistenz-QA, damit sich temporäre E2E-Bridges niemals überschneiden. Ein fehlender oder veralteter `qa-results/homepage-lab-latest.*`-Bericht gilt selbst als roter Infrastrukturfehler und darf niemals als grüne Abnahme interpretiert werden.
 
 ## Arbeitsweise für Codex / Coding-Agenten
 - Eine einfache Benutzeranweisung in fachliche Zielkriterien übersetzen, nicht in Rückfragen zerlegen, wenn die Absicht ausreichend klar ist.
