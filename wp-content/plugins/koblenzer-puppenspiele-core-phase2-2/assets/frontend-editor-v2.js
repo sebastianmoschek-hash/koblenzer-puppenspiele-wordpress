@@ -21,6 +21,8 @@
   let inspectorExpanded = false;
   let dirty = false;
   const history = [];
+  const redoHistory = [];
+  const HISTORY_LIMIT = 50;
 
   function currentDevice() {
     const w = window.innerWidth;
@@ -193,9 +195,72 @@
 
   document.body.classList.add('kp-fe2-editing');
 
+  function captureHistoryDom() {
+    const nodes = [...document.querySelectorAll('[data-kp-dom-key],[data-kp-edit-key]')].map(el => {
+      const target = contentTarget(el) || el;
+      return {
+        el,
+        target,
+        elStyle: el.getAttribute('style'),
+        targetStyle: target === el ? null : target.getAttribute('style'),
+        html: target.tagName === 'IMG' ? null : target.innerHTML,
+        href: target.tagName === 'A' ? target.getAttribute('href') : null,
+        src: target.tagName === 'IMG' ? target.getAttribute('src') : null,
+        alt: target.tagName === 'IMG' ? target.getAttribute('alt') : null,
+        srcset: target.tagName === 'IMG' ? target.getAttribute('srcset') : null,
+        sizes: target.tagName === 'IMG' ? target.getAttribute('sizes') : null,
+      };
+    });
+    const section = sectionRootAndItems();
+    return {nodes, order: section.items.slice()};
+  }
+
+  function restoreAttr(el, name, value) {
+    if (value === null || value === undefined) el.removeAttribute(name);
+    else el.setAttribute(name, value);
+  }
+
+  function restoreHistoryDom(dom) {
+    if (!dom) return;
+    deactivateText();
+    (dom.nodes || []).forEach(saved => {
+      const el = saved.el, target = saved.target;
+      if (!el?.isConnected || !target?.isConnected) return;
+      if (saved.elStyle === null) el.removeAttribute('style');
+      else el.setAttribute('style', saved.elStyle);
+      if (target !== el) {
+        if (saved.targetStyle === null) target.removeAttribute('style');
+        else target.setAttribute('style', saved.targetStyle);
+      }
+      if (target.tagName === 'IMG') {
+        restoreAttr(target, 'src', saved.src);
+        restoreAttr(target, 'alt', saved.alt);
+        restoreAttr(target, 'srcset', saved.srcset);
+        restoreAttr(target, 'sizes', saved.sizes);
+      } else {
+        target.innerHTML = saved.html ?? '';
+        if (target.tagName === 'A') restoreAttr(target, 'href', saved.href);
+      }
+    });
+    const section = sectionRootAndItems();
+    if (section.root && Array.isArray(dom.order)) {
+      dom.order.forEach(el => { if (el?.isConnected) section.root.appendChild(el); });
+    }
+    clearSelection();
+  }
+
+  function emitHistoryChange() {
+    window.dispatchEvent(new CustomEvent('kp:frontend-history-change', {
+      detail: {undo: history.length, redo: redoHistory.length}
+    }));
+  }
+
   function snapshot() {
-    history.push({global:clone(draftGlobal),page:clone(draftPage)});
-    if (history.length > 25) history.shift();
+    history.push({global:clone(draftGlobal),page:clone(draftPage),dom:captureHistoryDom()});
+    if (history.length > HISTORY_LIMIT) history.shift();
+    redoHistory.length = 0;
+    window.dispatchEvent(new CustomEvent('kp:frontend-history-push'));
+    emitHistoryChange();
   }
 
   function setDirty(value = true) {
@@ -335,12 +400,13 @@
     deactivateText();
     const target=contentTarget(el);
     if(!target)return;
-    snapshot();
+    let pushed=false;
     activeText=target;
     target.contentEditable='true';
     target.spellcheck=true;
     target.classList.add('kp-fe2-inline-text');
     activeTextHandler=()=>{
+      if(!pushed){snapshot();pushed=true;}
       mutateItem(el,item=>{item.content={type:'html',value:target.innerHTML};},false);
     };
     target.addEventListener('input',activeTextHandler);
@@ -444,14 +510,52 @@
     editorDevice=e.target.value;if(selected)renderInspector(selected,inspectorExpanded);toast('Gestaltung für '+deviceLabels[editorDevice]);
   });
 
+  function currentHistoryEntry() {
+    return {global:clone(draftGlobal),page:clone(draftPage),dom:captureHistoryDom()};
+  }
+
+  function applyHistoryEntry(entry) {
+    if (!entry) return false;
+    draftGlobal=ensureScope(entry.global);
+    draftPage=ensureScope(entry.page);
+    restoreHistoryDom(entry.dom);
+    setDirty(true);
+    emitHistoryChange();
+    return true;
+  }
+
+  function undoHistory() {
+    const prev=history.pop();
+    if(!prev){emitHistoryChange();return false;}
+    redoHistory.push(currentHistoryEntry());
+    if(redoHistory.length>HISTORY_LIMIT)redoHistory.shift();
+    applyHistoryEntry(prev);
+    return true;
+  }
+
+  function redoHistoryStep() {
+    const next=redoHistory.pop();
+    if(!next){emitHistoryChange();return false;}
+    history.push(currentHistoryEntry());
+    if(history.length>HISTORY_LIMIT)history.shift();
+    applyHistoryEntry(next);
+    return true;
+  }
+
   document.querySelector('.kp-fe2-undo')?.addEventListener('click',()=>{
-    const prev=history.pop();if(!prev){toast('Nichts mehr rückgängig.');return;}
-    sessionStorage.setItem('kpFe2Restore',JSON.stringify({global:prev.global,page:prev.page,at:Date.now()}));
-    location.reload();
+    if(window.KPWordHistory?.undo)window.KPWordHistory.undo();
+    else undoHistory();
   });
 
-  const restored=(()=>{try{const r=JSON.parse(sessionStorage.getItem('kpFe2Restore')||'null');sessionStorage.removeItem('kpFe2Restore');return r&&Date.now()-r.at<10000?r:null;}catch(e){return null;}})();
-  if(restored){draftGlobal=ensureScope(restored.global);draftPage=ensureScope(restored.page);applyScope(draftGlobal,'global');applyScope(draftPage,'page');applyOrder(draftPage.order);setDirty(true);}
+  window.KPFrontendEditorHistory={
+    undo:undoHistory,
+    redo:redoHistoryStep,
+    canUndo:()=>history.length>0,
+    canRedo:()=>redoHistory.length>0,
+    counts:()=>({undo:history.length,redo:redoHistory.length}),
+    clearRedo:()=>{redoHistory.length=0;emitHistoryChange();}
+  };
+  emitHistoryChange();
 
   async function api(action,fields={}) {
     const fd=new FormData();fd.append('action',action);fd.append('nonce',cfg.nonce);
