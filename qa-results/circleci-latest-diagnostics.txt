@@ -1,6 +1,6 @@
 
 ===== pipeline.log =====
-CircleCI Homepage Lab: bffdff70c433ab21b497838e38e75b688722256d
+CircleCI Homepage Lab: bfe4f0d54c36677c20de7a9152fa0cc3d4f8573d
 == editor ==
 FAIL editor (exit 1)
 == persistence ==
@@ -10,12 +10,12 @@ PASS touch-slider
 == touch-runtime ==
 PASS touch-runtime
 == visual ==
-FAIL visual (exit 2)
+PASS visual
 
 ===== editor.log =====
-FAIL: mobile-390: Error: E2E state read failed: {"ok":false,"status":403,"json":{"success":false,"data":{"message":"E2E denied."}}}
+FAIL: mobile-390: Error: E2E state read failed: {"ok":false,"status":400,"json":0}
     at readState (file:///root/project/qa/homepage-editor-lab.mjs:51:50)
-    at async mobileSaveAndResetRoundTrip (file:///root/project/qa/homepage-editor-lab.mjs:165:19)
+    at async mobileSaveAndResetRoundTrip (file:///root/project/qa/homepage-editor-lab.mjs:147:20)
     at async file:///root/project/qa/homepage-editor-lab.mjs:294:7
 FAIL: tablet-820: page.waitForSelector: Timeout 18000ms exceeded.
 Call log:
@@ -31,8 +31,8 @@ Call log:
     at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
 # Homepage-Labor – echter Staging-Browser
 
-Erzeugt: 2026-08-22T20:12:38.301Z
-Commit: bffdff70c433ab21b497838e38e75b688722256d
+Erzeugt: 2026-08-22T20:13:17.323Z
+Commit: bfe4f0d54c36677c20de7a9152fa0cc3d4f8573d
 Gesamtstatus: FAILURE
 
 ## mobile-390
@@ -41,9 +41,8 @@ Gesamtstatus: FAILURE
 - Menü geöffnet: true
 - Speichern antippbar: true
 - Standardwerte antippbar: true
-- Touch-Regler: 322 → 254
 - JS Page Errors: 0
-- Same-origin HTTP Fehler: 6
+- Same-origin HTTP Fehler: 1
 
 ## tablet-820
 - Viewport: 820×1180
@@ -52,7 +51,7 @@ Gesamtstatus: FAILURE
 - Speichern antippbar: false
 - Standardwerte antippbar: false
 - JS Page Errors: 0
-- Same-origin HTTP Fehler: 0
+- Same-origin HTTP Fehler: 1
 
 ## desktop-1440
 - Viewport: 1440×900
@@ -65,7 +64,7 @@ Gesamtstatus: FAILURE
 
 ## Fehler
 
-- mobile-390: Error: E2E state read failed: {"ok":false,"status":403,"json":{"success":false,"data":{"message":"E2E denied."}}} at readState (file:///root/project/qa/homepage-editor-lab.mjs:51:50) at async mobileSaveAndResetRoundTrip (file:///root/project/qa/homepage-editor-lab.mjs:165:19) at async file:///root/project/qa/homepage-editor-lab.mjs:294:7
+- mobile-390: Error: E2E state read failed: {"ok":false,"status":400,"json":0} at readState (file:///root/project/qa/homepage-editor-lab.mjs:51:50) at async mobileSaveAndResetRoundTrip (file:///root/project/qa/homepage-editor-lab.mjs:147:20) at async file:///root/project/qa/homepage-editor-lab.mjs:294:7
 - tablet-820: page.waitForSelector: Timeout 18000ms exceeded. Call log: [2m - waiting for locator('.kp-fe2-save') to be visible[22m at login (/root/project/qa/homepage-editor-lab.mjs:64:14) at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
 - desktop-1440: page.waitForSelector: Timeout 18000ms exceeded. Call log: [2m - waiting for locator('.kp-fe2-save') to be visible[22m at login (/root/project/qa/homepage-editor-lab.mjs:64:14) at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
 
@@ -74,7 +73,7 @@ file:///root/project/qa/owner-all-persistence-e2e.mjs:10
 const fail = message => { throw new Error(message); };
                                 ^
 
-Error: Frontend-Editor wurde nicht initialisiert. Diagnose={"status":200,"url":"https://neu.koblenzer-puppenspiele.de/?kp_e2e_login=4f844a83fafd213a5b241232cdf24fbed1d3aa5c3ea11b32c77ff0201b489db2","title":"puppenspiele","body":"Zum Inhalt springen Mobiles Figurentheater aus Koblenz Seit 1995 KOBLENZER PUPPENSPIELE Figurentheater, das Kinder begeistert und Veranstaltungen besonders macht. Liebevolle Kinderbuchhelden, fantasievolle Geschichten und kasperhafter Schalk – für Familien, Einrichtungen und Veranstaltungen. Jetzt buchen Stücke entdecken VORHANG AUF Ein Theatererlebnis mit Herz, Witz und Fantasie Entdecken Sie unser Repertoire, finden Sie öffentliche Vorstellungen oder fragen Sie direkt einen Auftritt für Ihre Veranstaltung an. Geschichten, die bleiben Bekannte Kinderbuchhelden und eigene Theaterwelten werden auf der Bühne lebendig. Nah am Publikum Figuren, Humor und direkte Spielfreude schaffen Theatermomente, bei denen Kinder wirklich dabei sind. Einfach anfragen Stück auswählen, Wunschtermin und Rahmen nennen – die Buchungsseite führt direkt zur Anfrage. Puppentheater für Ihre Veranstaltung? Senden Sie direkt Ihre Anfrage – die Details können anschließend gemeinsam geklärt werden. Jetzt buchen Demnächst live erleben Die nächsten öffentlichen Vorstellungen auf einen Blick. [kp_naechste_termine limit=“5″] Alle Termine Jetzt buchen UNSER REPERTOIRE Welches Stück darf es sein? Hier können Sie direkt","globals":{"fe2":false,"owner":false,"responsive":false,"registry":false},"scripts":["https://neu.koblenzer-puppenspiele.de/wp-includes/js/dist/script-modules/block-library/navigation/view.min.js?ver=96a846e1d7b789c39ab9","https://neu.koblenzer-puppenspiele.de/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/image-fallback.js?ver=1787429435","https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1787429598","https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-editor.js?ver=1787429598","https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-image-inherit.js?ver=1787429598"]}
+Error: Frontend-Editor wurde nicht initialisiert. Diagnose={"status":200,"url":"https://neu.koblenzer-puppenspiele.de/?kp_e2e_login=f32f1c4ed1368d02057260181a24a8a94420b4fc44023241157a27038630b8b0","title":"puppenspiele","body":"Zum Inhalt springen KOBLENZER PUPPENSPIELE Figurentheater, das Kinder begeistert und Veranstaltungen besonders macht. Liebevolle Kinderbuchhelden, fantasievolle Geschichten und kasperhafter Schalk – für Familien, Einrichtungen und Veranstaltungen. Jetzt buchen Stücke entdecken VORHANG AUF Ein Theatererlebnis mit Herz, Witz und Fantasie Entdecken Sie unser Repertoire, finden Sie öffentliche Vorstellungen oder fragen Sie direkt einen Auftritt für Ihre Veranstaltung an. Geschichten, die bleiben Bekannte Kinderbuchhelden und eigene Theaterwelten werden auf der Bühne lebendig. Nah am Publikum Figuren, Humor und direkte Spielfreude schaffen Theatermomente, bei denen Kinder wirklich dabei sind. Einfach anfragen Stück auswählen, Wunschtermin und Rahmen nennen – die Buchungsseite führt direkt zur Anfrage. Puppentheater für Ihre Veranstaltung? Senden Sie direkt Ihre Anfrage – die Details können anschließend gemeinsam geklärt werden. Jetzt buchen Demnächst live erleben Die nächsten öffentlichen Vorstellungen auf einen Blick. Nächste Vorstellungen SA. 22. AUG. 15:00 Uhr Die Pfannkuchenschlacht Spay Peterskapelle Infos & Tickets SA. 22. AUG. 16:30 Uhr Die Pfannkuchenschlacht Spay Peterskapelle ","globals":{"fe2":true,"owner":true,"responsive":false,"registry":false},"scripts":["https://neu.koblenzer-puppenspiele.de/wp-includes/js/dist/script-modules/block-library/navigation/view.min.js?ver=96a846e1d7b789c39ab9","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js?ver=4.5.28","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-card-controls.js?ver=4.5.28","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js?ver=4.5.28","https://neu.koblenzer-puppenspiele.de/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/image-fallback.js?ver=1787429549","https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1787429598","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gestures.js?ver=1787429549","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js?ver=1787429598","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js?ver=1787429598","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js?ver=1787429598","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1787429549","https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-editor.js?ver=1787429598","https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-image-inherit.js?ver=1787429598","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/design-reset-reliability.js?ver=4.5.28"]}
     at fail (file:///root/project/qa/owner-all-persistence-e2e.mjs:10:33)
     at file:///root/project/qa/owner-all-persistence-e2e.mjs:203:5
 
@@ -85,14 +84,6 @@ PASS: echter versteckter Design-Tab → Regler Touch/Scroll/Halten funktioniert;
 
 ===== touch-runtime.log =====
 PASS: Drag, Pinch, Undo, Menükarte, orange Speichern/Reload und Handy-/Tablet-Menüregler funktionieren ohne Auto-Save.
-
-===== visual.log =====
-Visual QA hard failures: [
-  'desktop-1600/startseite',
-  'desktop-1600/impressum',
-  'laptop-1366/aktuelles',
-  'laptop-1366/jetzt-buchen'
-]
 
 ===== php-syntax.log =====
 No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-bundled-images.php
@@ -156,18 +147,18 @@ Removing old file `readme.txt'
 Transferring file `readme.txt'
 Removing old file `assets/admin.css'
 Transferring file `assets/admin.css'
-Removing old file `assets/calendar-owner-ui.css'
-Transferring file `assets/calendar-owner-ui.css'
 Removing old file `data/legacy-ensemble.json'
 Transferring file `data/legacy-ensemble.json'
-Removing old file `assets/calendar-owner-ui.js'
-Transferring file `assets/calendar-owner-ui.js'
+Removing old file `assets/calendar-owner-ui.css'
+Transferring file `assets/calendar-owner-ui.css'
 Removing old file `data/legacy-referenzen.json'
 Transferring file `data/legacy-referenzen.json'
-Removing old file `assets/contact.css'
-Transferring file `assets/contact.css'
+Removing old file `assets/calendar-owner-ui.js'
+Transferring file `assets/calendar-owner-ui.js'
 Removing old file `data/legacy-repertoire.json'
 Transferring file `data/legacy-repertoire.json'
+Removing old file `assets/contact.css'
+Transferring file `assets/contact.css'
 Removing old file `assets/design-presets.js'
 Transferring file `assets/design-presets.js'
 Removing old file `data/legacy-termine-2026-2027.json'
@@ -234,18 +225,18 @@ Removing old file `includes/class-kp-google-calendar-import.php'
 Transferring file `includes/class-kp-google-calendar-import.php'
 Removing old file `assets/owner-web-app.js'
 Transferring file `assets/owner-web-app.js'
-Removing old file `assets/touch-editor-bridge.js'
-Transferring file `assets/touch-editor-bridge.js'
 Removing old file `includes/class-kp-home-landing-template.php'
 Transferring file `includes/class-kp-home-landing-template.php'
-Removing old file `assets/touch-free-layout.css'
-Transferring file `assets/touch-free-layout.css'
+Removing old file `assets/touch-editor-bridge.js'
+Transferring file `assets/touch-editor-bridge.js'
 Removing old file `includes/class-kp-image-position.php'
 Transferring file `includes/class-kp-image-position.php'
-Removing old file `assets/touch-free-layout.js'
-Transferring file `assets/touch-free-layout.js'
+Removing old file `assets/touch-free-layout.css'
+Transferring file `assets/touch-free-layout.css'
 Removing old file `includes/class-kp-instagram-profile-migration.php'
 Transferring file `includes/class-kp-instagram-profile-migration.php'
+Removing old file `assets/touch-free-layout.js'
+Transferring file `assets/touch-free-layout.js'
 Removing old file `includes/class-kp-legal.php'
 Transferring file `includes/class-kp-legal.php'
 Removing old file `assets/touch-gesture-safety.css'
@@ -274,10 +265,10 @@ Removing old file `includes/class-kp-owner-edit-reliability.php'
 Transferring file `includes/class-kp-owner-edit-reliability.php'
 Removing old file `assets/website-studio-admin.css'
 Transferring file `assets/website-studio-admin.css'
-Removing old file `assets/website-studio-admin.js'
-Transferring file `assets/website-studio-admin.js'
 Removing old file `includes/class-kp-owner-experience.php'
 Transferring file `includes/class-kp-owner-experience.php'
+Removing old file `assets/website-studio-admin.js'
+Transferring file `assets/website-studio-admin.js'
 Removing old file `includes/class-kp-owner-history.php'
 Transferring file `includes/class-kp-owner-history.php'
 Removing old file `includes/class-kp-owner-menu-x.php'

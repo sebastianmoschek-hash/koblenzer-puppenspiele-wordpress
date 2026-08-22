@@ -1,7 +1,7 @@
 {
-  "generatedAt":"2026-08-22T20:15:51Z",
+  "generatedAt":"2026-08-22T20:16:28Z",
   "provider":"CircleCI Free",
-  "commit":"bffdff70c433ab21b497838e38e75b688722256d",
+  "commit":"bfe4f0d54c36677c20de7a9152fa0cc3d4f8573d",
   "staging":"https://neu.koblenzer-puppenspiele.de",
   "success":false,
   "checks":{
@@ -12,6 +12,6 @@
     "saveReloadDbUndo48h":"failure",
     "nativeTouchSliderSaveReset":"success",
     "touchRuntime":"success",
-    "visual50Views":"failure"
+    "visual50Views":"success"
   }
 }
