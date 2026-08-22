@@ -74,8 +74,8 @@ fi
 
 if curl --fail --silent --show-error --location -H 'Cache-Control: no-cache, no-store' \
   "$STAGING_BASE/?kp_ci=${SHA}" -o "$REPORT_DIR/home.html" \
-  && grep -Eiq '<meta[^>]+name=["'"']application-name["'"'][^>]+content=["'"']KP["'"']|<meta[^>]+content=["'"']KP["'"'][^>]+name=["'"']application-name["'"']' "$REPORT_DIR/home.html" \
-  && grep -Eiq 'apple-mobile-web-app-title[^>]+content=["'"']KP["'"']' "$REPORT_DIR/home.html"; then
+  && grep -Eiq 'application-name[^>]+content=.KP.|content=.KP.[^>]+application-name' "$REPORT_DIR/home.html" \
+  && grep -Eiq 'apple-mobile-web-app-title[^>]+content=.KP.' "$REPORT_DIR/home.html"; then
   status_meta=success
 fi
 
