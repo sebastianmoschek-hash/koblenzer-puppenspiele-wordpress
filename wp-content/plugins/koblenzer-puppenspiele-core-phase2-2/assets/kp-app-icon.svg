@@ -1,9 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Koblenzer Puppenspiele">
-  <rect width="512" height="512" rx="116" fill="#080706"/>
-  <circle cx="256" cy="256" r="184" fill="#17110e" stroke="#f07a22" stroke-width="18"/>
-  <path d="M142 334c25-78 68-118 114-118s89 40 114 118" fill="none" stroke="#f07a22" stroke-width="24" stroke-linecap="round"/>
-  <circle cx="202" cy="190" r="28" fill="#f07a22"/>
-  <circle cx="310" cy="190" r="28" fill="#f07a22"/>
-  <path d="M210 290c30 23 62 23 92 0" fill="none" stroke="#f7f1eb" stroke-width="20" stroke-linecap="round"/>
-  <text x="256" y="417" text-anchor="middle" fill="#f7f1eb" font-family="Arial,sans-serif" font-size="58" font-weight="700" letter-spacing="7">KP</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="KP – Koblenzer Puppenspiele">
+  <defs>
+    <clipPath id="kpIconClip"><rect width="512" height="512" rx="112" ry="112"/></clipPath>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#f07a22"/>
+  <image x="0" y="0" width="512" height="512" preserveAspectRatio="xMidYMid slice" clip-path="url(#kpIconClip)" href="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAW
