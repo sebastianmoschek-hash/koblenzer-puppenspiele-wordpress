@@ -104,6 +104,24 @@ function kp_history_ext_restore_state( $state ) {
     if ( function_exists( 'wp_cache_flush' ) ) { wp_cache_flush(); }
 }
 
+function kp_history_ext_entity_ids_from_state( $state ) {
+    $ids = array();
+    if ( isset( $state['entity']['id'] ) ) { $ids[] = absint( $state['entity']['id'] ); }
+    foreach ( (array) ( $state['entities'] ?? array() ) as $entity ) {
+        if ( is_array( $entity ) && ! empty( $entity['id'] ) ) { $ids[] = absint( $entity['id'] ); }
+    }
+    return array_values( array_filter( array_unique( $ids ) ) );
+}
+
+function kp_history_ext_capture_entities_by_ids( $ids ) {
+    $out = array();
+    foreach ( (array) $ids as $id ) {
+        $entity = kp_history_ext_capture_entity( $id );
+        if ( $entity ) { $out[] = $entity; }
+    }
+    return $out;
+}
+
 function kp_history_ext_request_allowed() {
     if ( ! is_user_logged_in() || ! current_user_can( 'edit_pages' ) ) { return false; }
     if ( class_exists( 'KP_Owner_Web_App' ) && defined( 'KP_Owner_Web_App::NONCE_ACTION' ) ) {
@@ -143,6 +161,13 @@ function kp_history_ext_augment_latest() {
     update_option( 'kp_owner_history_v1', $items, false );
 }
 
+function kp_history_ext_find_version( $id ) {
+    foreach ( (array) get_option( 'kp_owner_history_v1', array() ) as $item ) {
+        if ( is_array( $item ) && isset( $item['id'] ) && hash_equals( (string) $item['id'], (string) $id ) ) { return $item; }
+    }
+    return null;
+}
+
 add_action( 'plugins_loaded', static function () {
     $actions = array(
         'kp_owner_design_save','kp_owner_sizes_save','kp_owner_menu_x_save','kp_owner_nav_save',
@@ -157,20 +182,45 @@ add_action( 'plugins_loaded', static function () {
     add_action( 'wp_ajax_kp_owner_history_undo', static function () {
         if ( ! kp_history_ext_request_allowed() ) { return; }
         $items = get_option( 'kp_owner_history_v1', array() );
-        if ( is_array( $items ) && $items ) {
-            $item = end( $items );
-            kp_history_ext_restore_state( is_array( $item ) ? ( $item['state'] ?? array() ) : array() );
-        }
+        if ( ! is_array( $items ) || ! $items ) { return; }
+        $item = end( $items );
+        $state = is_array( $item ) ? ( $item['state'] ?? array() ) : array();
+        // Core history restores its native options/entity first. Extra AI and
+        // grouped entities are restored at PHP shutdown, before the AJAX request
+        // is actually finished for the browser.
+        register_shutdown_function( static function () use ( $state ) {
+            kp_history_ext_restore_state( $state );
+        } );
     }, 5 );
 
     add_action( 'wp_ajax_kp_owner_history_restore', static function () {
         if ( ! kp_history_ext_request_allowed() ) { return; }
         $id = isset( $_POST['version_id'] ) ? sanitize_text_field( wp_unslash( $_POST['version_id'] ) ) : '';
-        foreach ( (array) get_option( 'kp_owner_history_v1', array() ) as $item ) {
-            if ( is_array( $item ) && isset( $item['id'] ) && hash_equals( (string) $item['id'], $id ) ) {
-                kp_history_ext_restore_state( $item['state'] ?? array() );
-                break;
-            }
-        }
+        $target = kp_history_ext_find_version( $id );
+        if ( ! is_array( $target ) ) { return; }
+        $target_state = $target['state'] ?? array();
+
+        // The core restore handler intentionally creates a fresh checkpoint of
+        // the current state before restoring the requested old version. Capture
+        // our extension state now, and inject it into that new checkpoint when
+        // the core class updates kp_owner_history_v1 a few lines later.
+        $current_extra = kp_history_ext_capture_options();
+        $current_entities = kp_history_ext_capture_entities_by_ids( kp_history_ext_entity_ids_from_state( $target_state ) );
+        add_filter( 'pre_update_option_kp_owner_history_v1', static function ( $new_value, $old_value ) use ( $current_extra, $current_entities ) {
+            if ( ! is_array( $new_value ) || ! $new_value ) { return $new_value; }
+            if ( is_array( $old_value ) && count( $new_value ) <= count( $old_value ) ) { return $new_value; }
+            $index = count( $new_value ) - 1;
+            if ( ! isset( $new_value[ $index ]['state'] ) || ! is_array( $new_value[ $index ]['state'] ) ) { return $new_value; }
+            $new_value[ $index ]['state']['extra_options'] = $current_extra;
+            $new_value[ $index ]['state']['entities'] = $current_entities;
+            $new_value[ $index ]['checksum'] = hash( 'sha256', wp_json_encode( $new_value[ $index ]['state'] ) );
+            return $new_value;
+        }, 5, 2 );
+
+        // Let the core class restore its native state first, then finish the
+        // same version with AI options and all grouped entities.
+        register_shutdown_function( static function () use ( $target_state ) {
+            kp_history_ext_restore_state( $target_state );
+        } );
     }, 5 );
 } );
