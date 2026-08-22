@@ -54,7 +54,7 @@
 
   async function editButton(card,anchor,role){
     notice('Button wird geöffnet …');
-    try{
+    try {
       const record=await resolveRecord(card);closeSheet();sheet=document.createElement('div');sheet.className='kp-fe-card-sheet-backdrop';
       sheet.innerHTML=`<div class="kp-fe-card-sheet" role="dialog" aria-modal="true" aria-label="Button bearbeiten"><div class="kp-fe-card-sheet-head"><div><strong>Button bearbeiten</strong><small>${role==='more'?'„Mehr erfahren“-Button':'„Buchen“-Button'} von ${esc(record.title)}</small></div><button type="button" class="kp-fe-card-sheet-close" aria-label="Schließen">×</button></div><label>Beschriftung<input type="text" class="kp-fe-card-label" value="${esc(anchor.textContent.trim())}"></label><label>Link-Ziel<input type="text" inputmode="url" class="kp-fe-card-url" value="${esc(anchor.getAttribute('href')||'')}"></label><p class="kp-fe-card-help">Die Änderung wird sofort als Vorschau gezeigt. Dauerhaft wird sie erst mit dem orangefarbenen Speichern-Button.</p><div class="kp-fe-card-sheet-actions"><button type="button" class="kp-fe-card-cancel">Abbrechen</button><button type="button" class="kp-fe-card-save">Übernehmen</button></div></div>`;
       document.body.appendChild(sheet);const close=()=>closeSheet();sheet.querySelector('.kp-fe-card-sheet-close').onclick=close;sheet.querySelector('.kp-fe-card-cancel').onclick=close;sheet.addEventListener('click',e=>{if(e.target===sheet)close()});
@@ -75,14 +75,13 @@
   const runtime={flush,isDirty:()=>dirty,undo,redo:redoStep,clearRedo,counts:()=>({undo:history.length,redo:redo.length})};window.KPCardDraftRuntime=runtime;
   function register(){if(window.KPWordHistory?.register){window.KPWordHistory.register('card',()=>runtime);return true}return false}register();setInterval(register,500);
 
-  function temporarilyShieldLink(anchor){if(!anchor||anchor.dataset.kpFeCardShielded==='1')return;const href=anchor.getAttribute('href');if(!href)return;anchor.dataset.kpFeCardShielded='1';anchor.dataset.kpFeCardHref=href;anchor.setAttribute('href','#');setTimeout(()=>{if(!anchor.isConnected)return;const original=anchor.dataset.kpFeCardHref;if(original)anchor.setAttribute('href',original);delete anchor.dataset.kpFeCardHref;delete anchor.dataset.kpFeCardShielded;},0);}
   window.addEventListener('click',e=>{
     if(window.KPTouchGestureRuntime?.suppressClick?.()){e.preventDefault();e.stopImmediatePropagation();return;}
     if(e.target.closest('.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,#wpadminbar'))return;
     const card=e.target.closest('.kp-repertoire-card');if(!card)return;
     const image=e.target.closest('.kp-repertoire-image');if(image){e.preventDefault();e.stopPropagation();replaceImage(card);return;}
     const action=e.target.closest('.kp-repertoire-card-actions .kp-termine-button');if(action){e.preventDefault();e.stopPropagation();editButton(card,action,action.classList.contains('kp-termine-button-outline')?'more':'book');return;}
-    const link=e.target.closest('a[href]');if(link){e.preventDefault();temporarilyShieldLink(link);}
+    const link=e.target.closest('a[href]');if(link)e.preventDefault();
   },true);
   function setHint(){const hint=document.querySelector('.kp-fe2-hint');if(hint)hint.textContent='Text antippen = bearbeiten · Bild antippen = ändern · Button antippen = ändern · orange Speichern = alles sichern';}
   setHint();document.addEventListener('DOMContentLoaded',setHint);window.addEventListener('load',()=>setTimeout(setHint,0));
