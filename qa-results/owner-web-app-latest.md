@@ -1,6 +1,6 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-22T01:21:02Z
+Erzeugt: 2026-08-22T01:54:05Z
 
 Asset-/Deployment-Prüfung: success
 Isolierter Browser-Verhaltenstest: failure
@@ -68,11 +68,11 @@ node:internal/modules/run_main:123
     triggerUncaughtException(
     ^
 
-page.evaluate: TypeError: window.__writes is not iterable
-    at eval (eval at evaluate (:311:30), <anonymous>:1:73)
+page.evaluate: TypeError: Cannot read properties of undefined (reading 'writes')
+    at eval (eval at evaluate (:311:30), <anonymous>:1:80)
     at UtilityScript.evaluate (<anonymous>:313:16)
     at UtilityScript.<anonymous> (<anonymous>:1:44)
-    at /home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:93:16 {
+    at /home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:111:16 {
   log: []
 }
 
