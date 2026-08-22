@@ -11,25 +11,26 @@ const fail=m=>{throw new Error(m)};
 try{
   await page.goto(`${base}/?kp_e2e_login=${encodeURIComponent(token)}`,{waitUntil:'domcontentloaded',timeout:30000});
   await page.waitForSelector('.kp-fe2-save',{timeout:15000});
-  await page.waitForFunction(()=>!!window.KPOwnerSaveRegistry&&!!window.KPWordHistory&&!!window.KPCanvaLayoutRuntime,{timeout:15000});
+  await page.waitForFunction(()=>!!window.KPOwnerSaveRegistry&&!!window.KPWordHistory&&!!window.KPCanvaLayoutRuntime&&!!window.KPAIEditorRuntime,{timeout:15000});
 
-  // Verify the central registry actually calls every specialist. Wrappers only
-  // count calls; with a clean freshly loaded editor every flush is a no-op and
-  // therefore this test writes no site data.
+  // Verify the central registry actually calls every specialist that is loaded
+  // on the homepage. Wrappers only count calls; a freshly loaded clean editor
+  // makes every flush a no-op and therefore writes no site data.
   const coverage=await page.evaluate(async()=>{
-    const names=['KPCanvaLayoutRuntime','KPCanvaImageRuntime','KPCardDraftRuntime','KPAIEditorRuntime'];
-    const counts={};
-    for(const name of names){
-      const runtime=window[name];counts[name]=0;
+    const required=['KPCanvaLayoutRuntime','KPCanvaImageRuntime','KPAIEditorRuntime','KPRecordDraftRuntime','KPHeaderImageDraftRuntime'];
+    const optional=['KPCardDraftRuntime'];
+    const counts={},present={};
+    for(const name of [...required,...optional]){
+      const runtime=window[name];present[name]=!!runtime?.flush;counts[name]=0;
       if(!runtime?.flush)continue;
       const original=runtime.flush.bind(runtime);
       runtime.flush=async(...args)=>{counts[name]++;return original(...args)};
     }
     await window.KPOwnerSaveRegistry.flushAll();
-    return {counts,dirty:window.KPOwnerSaveRegistry.isDirty?.()??null};
+    return {counts,present,required,dirty:window.KPOwnerSaveRegistry.isDirty?.()??null};
   });
-  for(const name of ['KPCanvaLayoutRuntime','KPCanvaImageRuntime','KPCardDraftRuntime','KPAIEditorRuntime']){
-    if(Number(coverage.counts?.[name]||0)<1)fail(`Unified Save ruft ${name} nicht auf: ${JSON.stringify(coverage)}`);
+  for(const name of coverage.required){
+    if(!coverage.present?.[name]||Number(coverage.counts?.[name]||0)<1)fail(`Unified Save ruft ${name} nicht auf: ${JSON.stringify(coverage)}`);
   }
 
   // Real menu-button drag -> one Word-history marker -> undo restores the exact
@@ -60,8 +61,8 @@ try{
     if((restored||'')!==(before||''))fail(`Undo stellte Menübutton-Stil nicht exakt her. before=${before} restored=${restored}`);
   }
 
-  // Image-position inspector must be represented in the global control-history
-  // contract whenever a directly editable image exists.
+  // Image-position inspector participates in global Undo when the current page
+  // exposes such a control.
   const image=page.locator('main img[data-kp-dom-key],main [data-kp-edit-key] img,header img[data-kp-dom-key],header [data-kp-edit-key] img').first();
   if(await image.count()){
     await image.click({force:true});
@@ -78,9 +79,16 @@ try{
     }
   }
 
-  // Card button edit is draft-only now: local preview + undo, no server save.
+  // Repertoire-only card controls are tested on their real page, not falsely
+  // required on the homepage.
+  const repertoireUrl=await page.evaluate(()=>window.KPOwnerWebApp?.repertoireEditUrl||'/repertoire/');
+  const target=new URL(repertoireUrl,base);target.searchParams.set('kp_edit','1');
+  await page.goto(target.toString(),{waitUntil:'domcontentloaded',timeout:30000});
+  await page.waitForSelector('.kp-fe2-save',{timeout:15000});
+  await page.waitForFunction(()=>!!window.KPWordHistory,{timeout:10000});
   const cardButton=page.locator('.kp-repertoire-card-actions .kp-termine-button').first();
   if(await cardButton.count()){
+    await page.waitForFunction(()=>!!window.KPCardDraftRuntime,{timeout:10000});
     const original=(await cardButton.textContent()||'').trim();
     await cardButton.click({force:true});
     const sheet=page.locator('.kp-fe-card-sheet-backdrop');
