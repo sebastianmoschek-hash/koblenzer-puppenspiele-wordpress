@@ -7,10 +7,37 @@ TARGET_JSON='qa-results/circleci-latest.json'
 TARGET_MD='qa-results/circleci-latest.md'
 TARGET_DIAG='qa-results/circleci-latest-diagnostics.txt'
 REPO="${CIRCLE_PROJECT_USERNAME:-sebastianmoschek-hash}/${CIRCLE_PROJECT_REPONAME:-koblenzer-puppenspiele-wordpress}"
+SHA="${CIRCLE_SHA1:-unknown}"
 
+mkdir -p qa-results/circleci
+
+# If a preflight/contract step failed before the full browser lab could create
+# its normal report, still publish a useful failure report instead of going
+# silent. This makes every red CircleCI run diagnosable from GitHub alone.
 if [[ ! -s "$REPORT_JSON" || ! -s "$REPORT_MD" ]]; then
-  echo 'CircleCI report files are missing; nothing to publish.' >&2
-  exit 1
+  generated="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+  cat > "$REPORT_JSON" <<JSON
+{
+  "generatedAt":"$generated",
+  "provider":"CircleCI Free",
+  "commit":"$SHA",
+  "success":false,
+  "phase":"preflight",
+  "checks":{
+    "preflight":"failure",
+    "browserLab":"not-started"
+  }
+}
+JSON
+  cat > "$REPORT_MD" <<MD
+# CircleCI Preflight-Fehler
+
+Erzeugt: $generated  
+Commit: $SHA  
+Gesamtstatus: **FAILURE**
+
+Der vollständige Staging-Browserlauf wurde nicht gestartet. Die genaue Ursache steht in den veröffentlichten Diagnosen unter **preflight / contract logs**.
+MD
 fi
 
 if [[ -z "${GITHUB_REPORT_TOKEN:-}" ]]; then
@@ -21,11 +48,10 @@ fi
 cp "$REPORT_JSON" /tmp/kp-circleci-report.json
 cp "$REPORT_MD" /tmp/kp-circleci-report.md
 
-# Keep the autonomous repair loop observable without exposing secrets or
-# requiring CircleCI API access. Only known test logs are copied; credentials
-# and environment dumps are deliberately excluded.
 : > /tmp/kp-circleci-diagnostics.txt
-for logfile in pipeline.log editor.log persistence.log touch-slider.log touch-runtime.log visual.log php-syntax.log deploy.log; do
+for logfile in \
+  word-history-contract.log unified-contract.log pipeline.log editor.log session-undo.log \
+  persistence.log touch-slider.log touch-runtime.log visual.log php-syntax.log deploy.log; do
   src="qa-results/circleci/$logfile"
   if [[ -s "$src" ]]; then
     {
@@ -34,6 +60,12 @@ for logfile in pipeline.log editor.log persistence.log touch-slider.log touch-ru
     } >> /tmp/kp-circleci-diagnostics.txt
   fi
 done
+
+# Never publish an empty diagnostics file: it would hide that an early step
+# failed before it could write its own log.
+if [[ ! -s /tmp/kp-circleci-diagnostics.txt ]]; then
+  printf 'No detailed contract log was produced. CircleCI failed before diagnostics were captured.\n' > /tmp/kp-circleci-diagnostics.txt
+fi
 
 git config user.name 'kp-circleci-report-bot'
 git config user.email 'circleci-report@users.noreply.github.com'
@@ -53,9 +85,6 @@ if git diff --cached --quiet; then
 fi
 
 git commit -m 'qa: update CircleCI homepage lab report [skip ci]' --quiet
-
-# A repair commit can land while the browser lab is running. Rebase once so the
-# report commit never overwrites newer application code.
 git pull --rebase origin main --quiet
 git push origin HEAD:main --quiet
 
