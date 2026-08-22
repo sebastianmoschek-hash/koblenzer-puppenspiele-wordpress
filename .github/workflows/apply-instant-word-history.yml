@@ -1,3 +1,4 @@
+# One-shot workflow: removes itself after applying the core history patch.
 name: Apply instant Word history core patch
 
 on:
