@@ -1,0 +1,3 @@
+Trigger CircleCI after staging environment variables were configured.
+UTC date: 2026-08-22
+Purpose: start first free external homepage-lab pipeline.
