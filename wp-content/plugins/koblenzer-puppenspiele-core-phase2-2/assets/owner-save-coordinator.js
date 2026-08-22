@@ -10,6 +10,24 @@
   let designDirty = false;
   let flushing = null;
   let replayDesignSave = false;
+  let activeHistoryGroup = '';
+
+  // All specialist runtimes use fetch/FormData. While one unified orange Save
+  // is flushing, transparently attach one transaction id to every persistence
+  // request so PHP can group them into exactly one undo checkpoint.
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = (input, init={}) => {
+    try {
+      const body = init?.body;
+      if (activeHistoryGroup && body instanceof FormData && !body.has('kp_history_group')) {
+        const action = String(body.get('action') || '');
+        if (/^kp_(owner_(design|sizes|menu_x|nav)_save|fe_v2_save|touch_(free_layout|gesture)_save|image_position_save|frontend_card_(image|button)_save|fe_v2_record_save)$/.test(action)) {
+          body.append('kp_history_group', activeHistoryGroup);
+        }
+      }
+    } catch (_) {}
+    return nativeFetch(input, init);
+  };
 
   function toast(text,type='ok') {
     let el=q('.kp-oa-toast') || q('.kp-fe2-toast');
@@ -32,8 +50,6 @@
   }
 
   function syncLiveDesignInputs() {
-    // The live controls are the source of truth at Save time. This deliberately
-    // does not depend on a prior input/change event having set designDirty.
     qa('[data-design]').forEach(input=>readDesignInput(input,false));
   }
 
@@ -58,8 +74,6 @@
     }
   },true);
 
-  // Capture the header attachment selected by the existing media picker so the
-  // unified orange Save can persist it too.
   function wrapMedia() {
     if(!window.wp?.media || window.wp.media.__kpUnifiedWrapped) return;
     const original=window.wp.media;
@@ -95,8 +109,6 @@
   }
 
   async function flushDesign() {
-    // Always collect the actual controls first. Previously the early dirty check
-    // could skip Header-Rundung and other sliders when their dirty event was lost.
     syncLiveDesignInputs();
     if(!hasDesignChanges())return {draft:false};
     const data=await api('kp_owner_design_save',{settings:designDraft});
@@ -106,15 +118,26 @@
     return data;
   }
 
+  function makeHistoryGroup(){
+    const random = (globalThis.crypto?.getRandomValues)
+      ? Array.from(globalThis.crypto.getRandomValues(new Uint32Array(2))).map(v=>v.toString(36)).join('')
+      : Math.random().toString(36).slice(2);
+    return `save-${Date.now().toString(36)}-${random}`.toLowerCase();
+  }
+
   async function flushAll() {
     if(flushing)return flushing;
     flushing=(async()=>{
-      // Sequential order avoids two specialist writers racing over the same WP option.
-      await flushDesign();
-      if(window.KPOwnerResponsiveRuntime?.flush)await window.KPOwnerResponsiveRuntime.flush();
-      if(window.KPOwnerMenuXRuntime?.flush)await window.KPOwnerMenuXRuntime.flush();
-      if(window.KPImagePositionRuntime?.flush)await window.KPImagePositionRuntime.flush();
-      return {success:true};
+      activeHistoryGroup=makeHistoryGroup();
+      try{
+        await flushDesign();
+        if(window.KPOwnerResponsiveRuntime?.flush)await window.KPOwnerResponsiveRuntime.flush();
+        if(window.KPOwnerMenuXRuntime?.flush)await window.KPOwnerMenuXRuntime.flush();
+        if(window.KPImagePositionRuntime?.flush)await window.KPImagePositionRuntime.flush();
+        return {success:true};
+      } finally {
+        activeHistoryGroup='';
+      }
     })().finally(()=>{flushing=null;});
     return flushing;
   }
@@ -124,7 +147,6 @@
     isDirty:()=>hasDesignChanges()||!!window.KPOwnerResponsiveRuntime?.isDirty?.()||!!window.KPOwnerMenuXRuntime?.isDirty?.()||!!window.KPImagePositionRuntime?.isDirty?.()
   };
 
-  // Replace the specialist Design button with the exact same unified pipeline.
   document.addEventListener('click',async event=>{
     const button=event.target instanceof Element?event.target.closest('.kp-oa-design-save'):null;
     if(!button||replayDesignSave)return;
