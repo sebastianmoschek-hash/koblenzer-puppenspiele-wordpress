@@ -1,0 +1,131 @@
+name: Patch Word history E2E
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-word-history-e2e.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: patch-word-history-e2e
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Replace obsolete server-undo assertions with instant arrow test
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('qa/owner-all-persistence-e2e.mjs')
+          s = p.read_text()
+
+          start = "  const historyAfterSave = await ownerAjax('kp_owner_history_list');"
+          end = "  await page.waitForTimeout(3300);"
+          a = s.find(start)
+          b = s.find(end, a)
+          if a < 0 or b < 0:
+              raise SystemExit('history test block markers not found')
+
+          replacement = r'''  const historyAfterSave = await ownerAjax('kp_owner_history_list');
+          if (!historyAfterSave.ok || !historyAfterSave.json?.success) fail(`Versionsliste fehlt nach Speicherung: ${JSON.stringify(historyAfterSave)}`);
+          if (Number(historyAfterSave.json.data?.retention_hours) !== 48) fail('Versionshistorie hat nicht 48 Stunden Aufbewahrung.');
+          if (!historyAfterSave.json.data?.items?.length) fail('Nach Speicherung wurde kein Versions-Snapshot angelegt.');
+          const originalVersionId = historyAfterSave.json.data.items[0]?.id;
+          if (!originalVersionId) fail('Der Wiederherstellungspunkt vor der Speicherung fehlt.');
+
+          // Word-style arrows are deliberately browser-session history only.
+          // Prove that one real edit can be undone/redone immediately without reload
+          // and without triggering the browser's unsaved-changes dialog.
+          await page.waitForSelector('[data-kp-word-history-new="undo"]', { state:'visible', timeout:10000 });
+          await page.waitForSelector('[data-kp-word-history-new="redo"]', { state:'visible', timeout:10000 });
+          if (await page.locator('[data-kp-history-undo]').count()) fail('Der alte Rückgängig-Textbutton ist noch vorhanden.');
+
+          await openDesign();
+          const arrowRadius = page.locator('.kp-oa-sheet.is-design [data-design="header_radius"]');
+          const radiusBeforeArrow = Number(await arrowRadius.inputValue());
+          const radiusMax = Number(await arrowRadius.getAttribute('max') || 50);
+          await arrowRadius.focus();
+          await arrowRadius.press(radiusBeforeArrow < radiusMax ? 'ArrowRight' : 'ArrowLeft');
+          await page.waitForTimeout(180);
+          const radiusAfterEdit = Number(await arrowRadius.inputValue());
+          if (radiusAfterEdit === radiusBeforeArrow) fail('Der echte Test-Reglerschritt hat keinen Wert verändert.');
+          const countsAfterEdit = await page.evaluate(() => window.KPWordHistory?.counts?.() || null);
+          if (!countsAfterEdit || Number(countsAfterEdit.undo || 0) < 1) fail('Der neue Rückgängig-Pfeil hat den Bearbeitungsschritt nicht erfasst.');
+
+          let unexpectedDialog = '';
+          let unexpectedNavigation = false;
+          const onDialog = async dialog => { unexpectedDialog = dialog.message(); await dialog.dismiss(); };
+          const onFrame = frame => { if (frame === page.mainFrame()) unexpectedNavigation = true; };
+          page.on('dialog', onDialog);
+          page.on('framenavigated', onFrame);
+          const urlBeforeUndo = page.url();
+          await page.locator('[data-kp-word-history-new="undo"]').click();
+          await page.waitForTimeout(260);
+          page.off('dialog', onDialog);
+          page.off('framenavigated', onFrame);
+          if (unexpectedDialog) fail(`Rückgängig öffnete unerwartet einen Browserdialog: ${unexpectedDialog}`);
+          if (unexpectedNavigation || page.url() !== urlBeforeUndo) fail('Rückgängig hat die Seite neu geladen oder navigiert.');
+          if (Number(await arrowRadius.inputValue()) !== radiusBeforeArrow) fail('Rückgängig hat den Reglerwert nicht sofort wiederhergestellt.');
+
+          await page.locator('[data-kp-word-history-new="redo"]').click();
+          await page.waitForTimeout(180);
+          if (Number(await arrowRadius.inputValue()) !== radiusAfterEdit) fail('Wiederholen hat den Reglerwert nicht sofort erneut angewendet.');
+          const countsAfterRedo = await page.evaluate(() => window.KPWordHistory?.counts?.() || null);
+          if (!countsAfterRedo || Number(countsAfterRedo.undo || 0) < 1) fail('Wiederholen hat die Historie nicht korrekt fortgeführt.');
+
+          // Leave the draft at the persisted value before continuing with the archive test.
+          await page.locator('[data-kp-word-history-new="undo"]').click();
+          await page.waitForTimeout(120);
+          await page.locator('.kp-oa-sheet.is-design .kp-oa-close').click();
+
+'''
+          s = s[:a] + replacement + s[b:]
+
+          old_restore = "  const versions = await ownerAjax('kp_owner_history_list');\n  const version = versions.json?.data?.items?.[0];\n  if (!version?.id) fail('Keine 48-Stunden-Version zum Wiederherstellen gefunden.');\n  const restoredVersion = await ownerAjax('kp_owner_history_restore', { version_id:version.id });"
+          new_restore = "  const versions = await ownerAjax('kp_owner_history_list');\n  if (!versions.ok || !versions.json?.success) fail(`48-Stunden-Versionsliste konnte nicht gelesen werden: ${JSON.stringify(versions)}`);\n  const restoredVersion = await ownerAjax('kp_owner_history_restore', { version_id:originalVersionId });"
+          if old_restore not in s:
+              raise SystemExit('version restore block not found')
+          s = s.replace(old_restore, new_restore, 1)
+
+          old_ui = "  await page.locator('.kp-oa-tools').click();\n  await page.waitForSelector('[data-kp-history-undo]', { timeout:10000 });\n  await page.waitForSelector('[data-kp-history-versions]', { timeout:10000 });"
+          new_ui = "  await page.waitForSelector('[data-kp-word-history-new=\"undo\"]', { state:'visible', timeout:10000 });\n  await page.waitForSelector('[data-kp-word-history-new=\"redo\"]', { state:'visible', timeout:10000 });\n  if (await page.locator('[data-kp-history-undo]').count()) fail('Der alte Rückgängig-Textbutton ist noch sichtbar/registriert.');\n  await page.locator('.kp-oa-tools').click();\n  await page.waitForSelector('[data-kp-history-versions]', { timeout:10000 });"
+          if old_ui not in s:
+              raise SystemExit('obsolete UI selector block not found')
+          s = s.replace(old_ui, new_ui, 1)
+
+          s = s.replace(
+              "Rückgängig nach Speichern funktioniert; 48-Stunden-Versionen funktionieren.",
+              "↶/↷ wirken sofort ohne Reload/Dialog; 48-Stunden-Versionen funktionieren getrennt davon.",
+              1,
+          )
+
+          p.write_text(s)
+          PY
+
+          node --check qa/owner-all-persistence-e2e.mjs
+          bash qa/word-history-contract.sh
+
+      - name: Commit corrected E2E and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/patch-word-history-e2e.yml
+          git add qa/owner-all-persistence-e2e.mjs
+          git commit -m 'test: verify instant arrows separately from 48h versions'
+          git pull --rebase origin main
+          git push origin HEAD:main
