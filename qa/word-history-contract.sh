@@ -7,10 +7,11 @@ CANVA_JS='wp-content/mu-plugins/kp-canva-editor.js'
 CANVA_KEYS='wp-content/mu-plugins/kp-canva-keys.js'
 CANVA_PHP='wp-content/mu-plugins/kp-canva-editor.php'
 CANVA_CSS='wp-content/mu-plugins/kp-canva-editor.css'
+NO_UNLOAD='wp-content/mu-plugins/kp-editor-no-beforeunload.php'
 
 fail(){ echo "FAIL word-history contract: $*" >&2; exit 1; }
 
-for file in "$FRONTEND" "$RUNTIME" "$CANVA_JS" "$CANVA_KEYS" "$CANVA_PHP" "$CANVA_CSS"; do
+for file in "$FRONTEND" "$RUNTIME" "$CANVA_JS" "$CANVA_KEYS" "$CANVA_PHP" "$CANVA_CSS" "$NO_UNLOAD"; do
   [[ -f "$file" ]] || fail "required editor file missing: $file"
 done
 
@@ -23,6 +24,7 @@ node --check "$CANVA_KEYS" >/dev/null || fail 'Canva key bridge JavaScript synta
 if command -v php >/dev/null 2>&1; then
   php -l "$CANVA_PHP" >/dev/null || fail 'Canva editor PHP syntax is invalid'
   php -l "$RUNTIME" >/dev/null || fail 'Word history PHP syntax is invalid'
+  php -l "$NO_UNLOAD" >/dev/null || fail 'no-beforeunload guard PHP syntax is invalid'
 fi
 
 for obsolete in \
@@ -39,6 +41,10 @@ grep -Fq 'captureHistoryDom' "$FRONTEND" || fail 'exact DOM snapshot support mis
 if grep -Fq 'kpFe2Restore' "$FRONTEND"; then
   fail 'legacy sessionStorage + reload undo path still present'
 fi
+if grep -Fq "addEventListener('beforeunload'" "$FRONTEND" || grep -Fq 'returnValue=' "$FRONTEND"; then
+  fail 'frontend editor must never trigger a browser reload/leave confirmation'
+fi
+grep -Fq "String(type || '').toLowerCase() === 'beforeunload'" "$NO_UNLOAD" || fail 'central beforeunload blocker missing'
 
 if grep -Fq 'location.reload' "$RUNTIME"; then
   fail 'global arrow runtime must never reload the page'
@@ -63,4 +69,4 @@ grep -Fq 'kp_canva_image_save' "$CANVA_JS" || fail 'image edit persistence missi
 grep -Fq 'brightness' "$CANVA_JS" || fail 'image brightness tool missing'
 grep -Fq 'rotation' "$CANVA_JS" || fail 'image rotation tool missing'
 
-echo 'PASS: Word-style arrows + Canva drag/preview/discard/image editing are syntax-valid, client-side, 50-step, and separated from 48-hour versions.'
+echo 'PASS: Word-style arrows + Canva editing are syntax-valid, 50-step, no-reload-prompt, and separated from 48-hour versions.'
