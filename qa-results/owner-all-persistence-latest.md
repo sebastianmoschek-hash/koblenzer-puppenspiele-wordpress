@@ -1,10 +1,10 @@
 # Owner controls + Versionen – echter Staging-Test
 
-Erzeugt: 2026-08-22T01:10:56Z
+Erzeugt: 2026-08-22T04:11:18Z
 Staging-only Direktdeploy: success
 Staging-Deploy bereit: success
 Staging-only E2E-Zugang: success
-Persistenz-/Versionsprüfung: success
+Persistenz-/Versionsprüfung: failure
 
 ## Direktdeploy
 ```text
@@ -92,5 +92,13 @@ PASS: current plugin mirrored to staging-only WordPress root.
 
 ## Browser-/DB-Test
 ```text
-PASS: 38 Design-Regler + 64 Größenregler + Menü-X über orange Speichern dauerhaft; Header-Rundung nach Reload sichtbar; Rückgängig nach Speichern funktioniert; 48-Stunden-Versionen funktionieren.
+file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/owner-all-persistence-e2e.mjs:10
+const fail = message => { throw new Error(message); };
+                                ^
+
+Error: Header-Rundung steht nach Reload nicht sichtbar auf 1px, sondern .
+    at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/owner-all-persistence-e2e.mjs:10:33)
+    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/owner-all-persistence-e2e.mjs:227:5
+
+Node.js v22.23.2
 ```
