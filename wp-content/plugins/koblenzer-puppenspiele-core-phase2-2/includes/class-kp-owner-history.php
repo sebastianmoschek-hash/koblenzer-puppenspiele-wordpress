@@ -4,9 +4,9 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * Short-term owner version history for visual/content maintenance.
  *
- * Stores compact snapshots for 48 hours. The first write in a short save burst
- * creates the snapshot, so one tap on the unified Save button becomes one undo
- * step even though several specialist runtimes may persist sequentially.
+ * Stores compact snapshots for 48 hours. Unified owner saves carry an explicit
+ * transaction id so every orange Save tap is exactly one undo step, independent
+ * of request timing. Legacy/specialist saves retain the short burst fallback.
  */
 final class KP_Owner_History {
     const OPTION = 'kp_owner_history_v1';
@@ -126,16 +126,29 @@ final class KP_Owner_History {
         return hash( 'sha256', wp_json_encode( $state ) );
     }
 
+    private static function request_group() {
+        if ( ! isset( $_POST['kp_history_group'] ) ) { return ''; }
+        $group = sanitize_key( wp_unslash( (string) $_POST['kp_history_group'] ) );
+        return substr( $group, 0, 80 );
+    }
+
     public static function checkpoint( $label = 'Website geändert', $force = false ) {
         if ( self::$checkpointed || ! self::can_edit() ) { return ''; }
         self::$checkpointed = true;
         $items = self::items();
         $now = time();
+        $group = self::request_group();
 
-        // Sequential specialist saves from one orange Save tap form one undo step.
         if ( ! $force && $items ) {
             $last = end( $items );
-            if ( is_array( $last ) && isset( $last['ts'], $last['user'] )
+            // Explicit unified-save transaction: only requests from the exact
+            // same orange Save tap may share one checkpoint.
+            if ( $group && is_array( $last ) && ! empty( $last['group'] )
+                && hash_equals( (string) $last['group'], $group ) ) {
+                return isset( $last['id'] ) ? (string) $last['id'] : '';
+            }
+            // Legacy/specialist fallback when no transaction id is available.
+            if ( ! $group && is_array( $last ) && isset( $last['ts'], $last['user'] )
                 && (int) $last['user'] === get_current_user_id()
                 && $now - (int) $last['ts'] <= self::BURST_SECONDS ) {
                 return isset( $last['id'] ) ? (string) $last['id'] : '';
@@ -145,7 +158,9 @@ final class KP_Owner_History {
         $state = self::state();
         $last = $items ? end( $items ) : null;
         $checksum = self::checksum( $state );
-        if ( is_array( $last ) && isset( $last['checksum'] ) && hash_equals( (string) $last['checksum'], $checksum ) ) {
+        // For explicit transactions do not deduplicate against a previous save:
+        // a new orange Save tap must remain an independent undo step.
+        if ( ! $group && is_array( $last ) && isset( $last['checksum'] ) && hash_equals( (string) $last['checksum'], $checksum ) ) {
             return isset( $last['id'] ) ? (string) $last['id'] : '';
         }
 
@@ -155,6 +170,7 @@ final class KP_Owner_History {
             'ts'       => $now,
             'label'    => sanitize_text_field( (string) $label ),
             'user'     => get_current_user_id(),
+            'group'    => $group,
             'checksum' => $checksum,
             'state'    => $state,
         );
