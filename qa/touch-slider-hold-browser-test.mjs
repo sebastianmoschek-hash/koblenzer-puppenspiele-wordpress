@@ -52,14 +52,13 @@ try {
   await page.addStyleTag({ path: safetyCss });
   await page.evaluate(() => {
     window.KPTouchGestures = { editMode: true, canEdit: true, holdMs: 320 };
+    window.KPOwnerWebApp = { designDefaults: { menu_width: 62 } };
     window.__sliderInputEvents = 0;
     window.__sliderChangeEvents = 0;
-    window.__resetClicks = 0;
     window.__saveClicks = 0;
     document.querySelector('#range')?.addEventListener('input', () => window.__sliderInputEvents += 1);
     document.querySelector('#range')?.addEventListener('change', () => window.__sliderChangeEvents += 1);
     document.querySelector('#show-design')?.addEventListener('click', () => document.querySelector('#design-pane')?.classList.add('is-active'));
-    document.querySelector('.kp-oa-design-reset')?.addEventListener('click', () => window.__resetClicks += 1);
     document.querySelector('.kp-oa-design-save')?.addEventListener('click', () => window.__saveClicks += 1);
   });
 
@@ -141,14 +140,18 @@ try {
 
   // Regression from the real phone: while the sticky footer is visible, slider
   // guards below it must never steal taps from Standardwerte / Design speichern.
+  // Reset is also verified semantically: the live range must become the configured
+  // default without reopening the sheet and restoring the previously saved value.
   await sheet.evaluate(el => { el.scrollTop = el.scrollHeight; });
   await page.waitForTimeout(120);
   await tap('.kp-oa-design-reset', 41);
+  const resetValue = Number(await page.locator('#range').inputValue());
+  if (resetValue !== 62) fail(`Standardwerte wurden nicht sichtbar angewendet: ${resetValue}`);
   await tap('.kp-oa-design-save', 42);
-  const actions = await page.evaluate(() => ({ reset: window.__resetClicks, save: window.__saveClicks }));
-  if (actions.reset !== 1 || actions.save !== 1) fail(`Design-Aktionsbuttons reagieren nicht auf Touch: ${JSON.stringify(actions)}`);
+  const saveClicks = await page.evaluate(() => window.__saveClicks);
+  if (saveClicks !== 1) fail(`Design speichern reagiert nicht auf Touch: ${saveClicks}`);
 
-  console.log(`PASS: echter versteckter Design-Tab → Regler Touch/Scroll/Halten funktioniert; Standardwerte und Design speichern erhalten echte Touch-Taps (${actions.reset}/${actions.save}).`);
+  console.log(`PASS: echter versteckter Design-Tab → Regler Touch/Scroll/Halten funktioniert; Standardwerte setzen ${resetValue}; Design speichern erhält echten Touch-Tap.`);
 } finally {
   await browser.close();
 }
