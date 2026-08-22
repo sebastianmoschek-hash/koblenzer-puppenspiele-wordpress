@@ -8,14 +8,18 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 function kp_webapp_brand_icon_url() {
-    return content_url( '/plugins/koblenzer-puppenspiele-core-phase2-2/assets/kp-app-icon.svg' );
+    return add_query_arg(
+        'kp_icon',
+        'puppen-1',
+        content_url( '/plugins/koblenzer-puppenspiele-core-phase2-2/assets/kp-app-icon.svg' )
+    );
 }
 
 function kp_webapp_brand_manifest_url() {
     return add_query_arg(
         array(
             'kp_webapp_manifest' => '1',
-            'kp_brand'           => 'kp-1',
+            'kp_brand'           => 'kp-2',
         ),
         home_url( '/' )
     );
