@@ -1,0 +1,2 @@
+Trigger CircleCI after configuring GITHUB_REPORT_TOKEN.
+Purpose: verify automatic report writeback to GitHub.
