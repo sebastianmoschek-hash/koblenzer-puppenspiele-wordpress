@@ -1,6 +1,6 @@
 # Touch-Regler – echter Staging-Test
 
-Erzeugt: 2026-08-22T01:52:30Z
+Erzeugt: 2026-08-22T04:14:32Z
 Exakte Staging-Datei: success
 Chromium bereit: success
 Wischen / Halten+Ziehen: success
