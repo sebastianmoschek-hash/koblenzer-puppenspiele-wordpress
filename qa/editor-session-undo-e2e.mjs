@@ -33,6 +33,51 @@ try{
     if(!coverage.present?.[name]||Number(coverage.counts?.[name]||0)<1)fail(`Unified Save ruft ${name} nicht auf: ${JSON.stringify(coverage)}`);
   }
 
+  // AI image Discard must restore the exact saved visual image even when the
+  // underlying AI runtime has no replacement record to re-apply. No Gemini
+  // request is made here; the DOM is mutated locally and then discarded.
+  await page.waitForFunction(()=>!!window.KPAIEditorRuntime?.__kpImageDraftSafe,{timeout:10000});
+  const aiDiscard=await page.evaluate(()=>{
+    const img=document.querySelector('header img,main img');
+    if(!img)return{skipped:true};
+    const take=()=>({src:img.getAttribute('src'),alt:img.getAttribute('alt'),srcset:img.getAttribute('srcset'),sizes:img.getAttribute('sizes')});
+    const before=take();
+    img.setAttribute('src','data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==');
+    img.removeAttribute('srcset');img.removeAttribute('sizes');
+    window.KPAIEditorRuntime.discard();
+    return{skipped:false,before,after:take()};
+  });
+  if(!aiDiscard.skipped&&JSON.stringify(aiDiscard.before)!==JSON.stringify(aiDiscard.after))fail(`KI-Bild-Discard stellte das sichtbare Bild nicht exakt her: ${JSON.stringify(aiDiscard)}`);
+
+  // Synthetic/programmatic design input is how AI set_design operates. It must
+  // create exactly a normal global Undo step even though Event.isTrusted=false.
+  const tools=page.locator('.kp-oa-tools').first();
+  if(await tools.count()){
+    await tools.click({force:true});
+    const designAction=page.locator('[data-action="design"]').first();
+    if(await designAction.count()){
+      await designAction.click({force:true});
+      const design=page.locator('[data-design="header_radius"]').first();
+      if(await design.count()){
+        const old=await design.inputValue();
+        const countsBefore=await page.evaluate(()=>window.KPWordHistory.counts());
+        await design.evaluate((el,oldValue)=>{
+          const min=Number(el.min||0),max=Number(el.max||100),old=Number(oldValue||0);
+          el.value=String(old<max?Math.min(max,old+1):Math.max(min,old-1));
+          el.dispatchEvent(new Event('input',{bubbles:true}));
+          el.dispatchEvent(new Event('change',{bubbles:true}));
+        },old);
+        await page.waitForTimeout(100);
+        const countsAfter=await page.evaluate(()=>window.KPWordHistory.counts());
+        if(Number(countsAfter.undo)<=Number(countsBefore.undo))fail('Synthetische KI-Designänderung erzeugte keinen Undo-Schritt.');
+        if(!await page.evaluate(()=>window.KPWordHistory.undo()))fail('Undo der synthetischen KI-Designänderung fehlgeschlagen.');
+        await page.waitForTimeout(100);
+        if(await design.inputValue()!==old)fail('Undo stellte den KI-geänderten Designregler nicht wieder her.');
+      }
+      const close=page.locator('.kp-oa-close').first();if(await close.count())await close.click({force:true});
+    }
+  }
+
   // Real menu-button drag -> one Word-history marker -> undo restores the exact
   // inline transform, without navigation or a browser dialog.
   const menu=page.locator('.kp-site-nav .wp-block-navigation__responsive-container-open').first();
@@ -79,13 +124,36 @@ try{
     }
   }
 
-  // Repertoire-only card controls are tested on their real page, not falsely
-  // required on the homepage.
+  // Repertoire-only record/card controls are tested on their real page.
   const repertoireUrl=await page.evaluate(()=>window.KPOwnerWebApp?.repertoireEditUrl||'/repertoire/');
   const target=new URL(repertoireUrl,base);target.searchParams.set('kp_edit','1');
   await page.goto(target.toString(),{waitUntil:'domcontentloaded',timeout:30000});
   await page.waitForSelector('.kp-fe2-save',{timeout:15000});
-  await page.waitForFunction(()=>!!window.KPWordHistory,{timeout:10000});
+  await page.waitForFunction(()=>!!window.KPWordHistory&&!!window.KPRecordDraftRuntime,{timeout:10000});
+
+  // Record title draft must preserve the actual <a> and Undo must restore both
+  // its label and href without a save request.
+  const titleLink=page.locator('.kp-repertoire-card h3 a[href]').first();
+  if(await titleLink.count()){
+    const originalTitle=((await titleLink.textContent())||'').trim(),originalHref=await titleLink.getAttribute('href');
+    await titleLink.click({force:true});
+    const record=page.locator('.kp-fe2-record-backdrop');
+    await record.waitFor({state:'visible',timeout:10000});
+    const titleInput=record.locator('[data-f="title"]').first();
+    await titleInput.waitFor({state:'visible',timeout:10000});
+    await titleInput.fill(originalTitle+' TEST');
+    await record.locator('.kp-fe2-record-main-save').click({force:true});
+    await page.waitForTimeout(120);
+    const draftLink=page.locator('.kp-repertoire-card h3 a[href]').first();
+    if(!await draftLink.count())fail('Stücktitel-Entwurf entfernte den Titel-Link.');
+    if((await draftLink.getAttribute('href'))!==originalHref)fail('Stücktitel-Entwurf veränderte das Link-Ziel.');
+    if(((await draftLink.textContent())||'').trim()===originalTitle)fail('Stücktitel-Entwurf wurde nicht sichtbar angewendet.');
+    if(!await page.evaluate(()=>window.KPWordHistory.undo()))fail('Stücktitel-Undo fehlgeschlagen.');
+    await page.waitForTimeout(120);
+    const restoredLink=page.locator('.kp-repertoire-card h3 a[href]').first();
+    if(!await restoredLink.count()||((await restoredLink.textContent())||'').trim()!==originalTitle||(await restoredLink.getAttribute('href'))!==originalHref)fail('Stücktitel-Undo stellte Titel und Link nicht exakt wieder her.');
+  }
+
   const cardButton=page.locator('.kp-repertoire-card-actions .kp-termine-button').first();
   if(await cardButton.count()){
     await page.waitForFunction(()=>!!window.KPCardDraftRuntime,{timeout:10000});
@@ -103,7 +171,7 @@ try{
     if(((await cardButton.textContent())||'').trim()!==original)fail('Karten-Button-Undo stellte die Beschriftung nicht wieder her.');
   }
 
-  console.log('PASS: real editor unified Save coverage + drag/image-position/card Undo without reload or persistent QA mutation.');
+  console.log('PASS: unified Save + AI/design/drag/image-position/record/card Undo and Discard work without reload or persistent QA mutation.');
 } finally {
   await context.close();await browser.close();
 }
