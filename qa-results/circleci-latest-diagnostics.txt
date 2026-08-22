@@ -1,8 +1,8 @@
 
 ===== pipeline.log =====
-CircleCI Homepage Lab: cb17482b7f4dbbb7a45d511fe72d7a4cbcbebbd8
+CircleCI Homepage Lab: 493234f18e139a896d33de2835b01487a4618b6a
 == editor ==
-PASS editor
+FAIL editor (exit 1)
 == persistence ==
 FAIL persistence (exit 1)
 == touch-slider ==
@@ -10,35 +10,44 @@ PASS touch-slider
 == touch-runtime ==
 PASS touch-runtime
 == visual ==
-PASS visual
+FAIL visual (exit 2)
 
 ===== editor.log =====
+FAIL: mobile-390: page.waitForSelector: Timeout 18000ms exceeded.
+Call log:
+[2m  - waiting for locator('.kp-fe2-save') to be visible[22m
+
+    at login (/root/project/qa/homepage-editor-lab.mjs:64:14)
+    at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
+FAIL: tablet-820: page.waitForSelector: Timeout 18000ms exceeded.
+Call log:
+[2m  - waiting for locator('.kp-fe2-save') to be visible[22m
+
+    at login (/root/project/qa/homepage-editor-lab.mjs:64:14)
+    at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
 # Homepage-Labor – echter Staging-Browser
 
-Erzeugt: 2026-08-22T19:48:05.695Z
-Commit: cb17482b7f4dbbb7a45d511fe72d7a4cbcbebbd8
-Gesamtstatus: SUCCESS
+Erzeugt: 2026-08-22T20:02:00.010Z
+Commit: 493234f18e139a896d33de2835b01487a4618b6a
+Gesamtstatus: FAILURE
 
 ## mobile-390
 - Viewport: 390×844
 - Horizontaler Overflow: 0px
-- Menü geöffnet: true
-- Speichern antippbar: true
-- Standardwerte antippbar: true
-- Touch-Regler: 320 → 254
-- Touch → Speichern → Reload → DB: OK
-- Standardwerte ohne Auto-Save: OK
+- Menü geöffnet: n/a
+- Speichern antippbar: false
+- Standardwerte antippbar: false
 - JS Page Errors: 0
-- Same-origin HTTP Fehler: 0
+- Same-origin HTTP Fehler: 1
 
 ## tablet-820
 - Viewport: 820×1180
 - Horizontaler Overflow: 0px
-- Menü geöffnet: true
-- Speichern antippbar: true
-- Standardwerte antippbar: true
+- Menü geöffnet: n/a
+- Speichern antippbar: false
+- Standardwerte antippbar: false
 - JS Page Errors: 0
-- Same-origin HTTP Fehler: 0
+- Same-origin HTTP Fehler: 1
 
 ## desktop-1440
 - Viewport: 1440×900
@@ -49,18 +58,19 @@ Gesamtstatus: SUCCESS
 - JS Page Errors: 0
 - Same-origin HTTP Fehler: 0
 
-## Ergebnis
+## Fehler
 
-- Alle echten Browser-/Touch-/Speicherchecks grün.
+- mobile-390: page.waitForSelector: Timeout 18000ms exceeded. Call log: [2m - waiting for locator('.kp-fe2-save') to be visible[22m at login (/root/project/qa/homepage-editor-lab.mjs:64:14) at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
+- tablet-820: page.waitForSelector: Timeout 18000ms exceeded. Call log: [2m - waiting for locator('.kp-fe2-save') to be visible[22m at login (/root/project/qa/homepage-editor-lab.mjs:64:14) at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
 
 ===== persistence.log =====
 file:///root/project/qa/owner-all-persistence-e2e.mjs:10
 const fail = message => { throw new Error(message); };
                                 ^
 
-Error: Frontend-Editor wurde nicht initialisiert. Diagnose={"status":200,"url":"https://neu.koblenzer-puppenspiele.de/?kp_e2e_login=b4aec86e2832115342f7338e20ecc06e250ff4b61a0c074a7fc0e46881a187f1","title":"puppenspiele","body":"Zum Inhalt springen Mobiles Figurentheater aus Koblenz Seit 1995 KOBLENZER PUPPENSPIELE Figurentheater, das Kinder begeistert und Veranstaltungen besonders macht. Liebevolle Kinderbuchhelden, fantasievolle Geschichten und kasperhafter Schalk – für Familien, Einrichtungen und Veranstaltungen. Jetzt buchen Stücke entdecken VORHANG AUF Ein Theatererlebnis mit Herz, Witz und Fantasie Entdecken Sie unser Repertoire, finden Sie öffentliche Vorstellungen oder fragen Sie direkt einen Auftritt für Ihre Veranstaltung an. Geschichten, die bleiben Bekannte Kinderbuchhelden und eigene Theaterwelten werden auf der Bühne lebendig. Nah am Publikum Figuren, Humor und direkte Spielfreude schaffen Theatermomente, bei denen Kinder wirklich dabei sind. Einfach anfragen Stück auswählen, Wunschtermin und Rahmen nennen – die Buchungsseite führt direkt zur Anfrage. Puppentheater für Ihre Veranstaltung? Senden Sie direkt Ihre Anfrage – die Details können anschließend gemeinsam geklärt werden. Jetzt buchen Demnächst live erleben Die nächsten öffentlichen Vorstellungen auf einen Blick. Nächste Vorstellungen SA. 22. AUG. 15:00 Uhr Die Pfannkuchenschlacht Spay Peterskapelle Infos & Tickets SA. 22. AUG. 16:30 Uh","globals":{"fe2":true,"owner":true,"responsive":false,"registry":false},"scripts":["https://neu.koblenzer-puppenspiele.de/wp-includes/js/dist/script-modules/block-library/navigation/view.min.js?ver=96a846e1d7b789c39ab9","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js?ver=4.5.28","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-card-controls.js?ver=4.5.28","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js?ver=4.5.28","https://neu.koblenzer-puppenspiele.de/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/image-fallback.js?ver=1787427952","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gestures.js?ver=1787427952","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js?ver=1787427952","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js?ver=1787427952","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js?ver=1787427952","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1787427952","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/design-reset-reliability.js?ver=4.5.28"]}
+Error: Der echte Test-Reglerschritt hat keinen Wert verändert.
     at fail (file:///root/project/qa/owner-all-persistence-e2e.mjs:10:33)
-    at file:///root/project/qa/owner-all-persistence-e2e.mjs:203:5
+    at file:///root/project/qa/owner-all-persistence-e2e.mjs:249:46
 
 Node.js v22.18.0
 
@@ -69,6 +79,16 @@ PASS: echter versteckter Design-Tab → Regler Touch/Scroll/Halten funktioniert;
 
 ===== touch-runtime.log =====
 PASS: Drag, Pinch, Undo, Menükarte, orange Speichern/Reload und Handy-/Tablet-Menüregler funktionieren ohne Auto-Save.
+
+===== visual.log =====
+Visual QA hard failures: [
+  'laptop-1366/repertoire',
+  'laptop-1366/jetzt-buchen',
+  'tablet-820/startseite',
+  'tablet-820/repertoire',
+  'tablet-820/referenzen',
+  'mobile-412/repertoire'
+]
 
 ===== php-syntax.log =====
 No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-bundled-images.php
@@ -268,10 +288,10 @@ Removing old file `assets/legacy-ensemble/gordian_schneider.png'
 Transferring file `assets/legacy-ensemble/gordian_schneider.png'
 Removing old file `includes/class-kp-owner-save-readback-fix.php'
 Transferring file `includes/class-kp-owner-save-readback-fix.php'
-Removing old file `includes/class-kp-owner-ui-polish.php'
-Transferring file `includes/class-kp-owner-ui-polish.php'
 Removing old file `assets/legacy-ensemble/helmut_schmidt.png'
 Transferring file `assets/legacy-ensemble/helmut_schmidt.png'
+Removing old file `includes/class-kp-owner-ui-polish.php'
+Transferring file `includes/class-kp-owner-ui-polish.php'
 Removing old file `includes/class-kp-owner-web-app-extensions.php'
 Transferring file `includes/class-kp-owner-web-app-extensions.php'
 Removing old file `assets/legacy-ensemble/martin_wolfram.png'
@@ -314,10 +334,10 @@ Removing old file `assets/legacy-referenzen/referenzen_bitburg.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_bitburg.jpg'
 Removing old file `includes/class-kp-touch-persistence.php'
 Transferring file `includes/class-kp-touch-persistence.php'
-Removing old file `includes/class-kp-website-studio-frontend.php'
-Transferring file `includes/class-kp-website-studio-frontend.php'
 Removing old file `assets/legacy-referenzen/referenzen_brohltal.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_brohltal.jpg'
+Removing old file `includes/class-kp-website-studio-frontend.php'
+Transferring file `includes/class-kp-website-studio-frontend.php'
 Removing old file `assets/legacy-referenzen/referenzen_dueren.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_dueren.jpg'
 Removing old file `includes/class-kp-website-studio.php'
