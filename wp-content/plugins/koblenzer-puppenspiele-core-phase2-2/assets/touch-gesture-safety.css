@@ -1,4 +1,5 @@
 /* Safety fixes for touch gestures: preserve floating navigation and hard-lock sliders. */
+/* QA retrigger 2026-08-22: no functional change; forces a fresh staging deploy + full verification. */
 
 /* A translated/scaled ancestor changes the containing block for position:fixed.
    Navigation geometry is therefore never gesture-transformable through the
