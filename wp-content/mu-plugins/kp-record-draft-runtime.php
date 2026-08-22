@@ -31,7 +31,7 @@ add_action( 'wp_footer', static function () {
           const time=q('.kp-termin-time',card);if(time&&fields.time)time.textContent=fields.time;
           if(fields.date){const d=new Date(`${fields.date}T12:00:00`);if(!Number.isNaN(d.getTime())){const weekday=q('.kp-termin-weekday',card),day=q('.kp-termin-date strong',card),month=q('.kp-termin-date > span:last-child',card);if(weekday)weekday.textContent=d.toLocaleDateString('de-DE',{weekday:'short'}).replace('.','');if(day)day.textContent=String(d.getDate()).padStart(2,'0');if(month)month.textContent=d.toLocaleDateString('de-DE',{month:'short'}).replace('.','');}}
         }else{
-          qa('h3,h3 a',card).forEach(el=>{if(fields.title)el.textContent=fields.title});
+          const title=q('h3 a',card)||q('h3',card);if(title&&fields.title)title.textContent=fields.title;
           const excerpt=q('.kp-repertoire-excerpt,.kp-repertoire-card-excerpt,.kp-repertoire-card-body p',card);if(excerpt&&fields.excerpt!==undefined)excerpt.textContent=fields.excerpt;
         }
       }
@@ -45,11 +45,8 @@ add_action( 'wp_footer', static function () {
       const runtime={flush,isDirty:()=>pending.size>0,undo,redo:redoStep,clearRedo,counts:()=>({undo:history.length,redo:redo.length})};window.KPRecordDraftRuntime=runtime;
       function register(){if(window.KPWordHistory?.register){window.KPWordHistory.register('record',()=>runtime);return true}return false}register();setInterval(register,500);
 
-      // Remember which visible card opened the dialog before FE2 handles the tap.
       window.addEventListener('click',e=>{const t=e.target instanceof Element?e.target:null;if(!t)return;const card=t.closest('.kp-termin-card,.kp-repertoire-card');if(card)lastCard=card},true);
 
-      // Capture before the native target onclick. The dialog's contextual button
-      // now means "apply to draft", not "write to WordPress right now".
       window.addEventListener('click',e=>{
         const t=e.target instanceof Element?e.target:null,button=t?.closest?.('.kp-fe2-record-main-save');if(!button)return;
         const box=button.closest('.kp-fe2-record');if(!box)return;const type=typeFromDialog(box),id=idFromDialog(box);if(!type||!id)return;
