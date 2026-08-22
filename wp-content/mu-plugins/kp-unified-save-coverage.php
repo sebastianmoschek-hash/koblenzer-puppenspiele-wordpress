@@ -18,6 +18,7 @@ add_action( 'wp_footer', static function () {
       let saveGroup='',groupTimer=0;
       const makeGroup=()=>`save-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
       function beginGroup(){clearTimeout(groupTimer);saveGroup=makeGroup();groupTimer=setTimeout(()=>{saveGroup=''},12000);return saveGroup}
+      function ensureGroup(){return saveGroup||beginGroup()}
       function actionFromBody(body){
         try{
           if(body instanceof FormData)return String(body.get('action')||'');
@@ -45,6 +46,7 @@ add_action( 'wp_footer', static function () {
         if(!registry||registry.__kpUnifiedCoverage)return false;
         const baseFlush=registry.flushAll?.bind(registry),baseDirty=registry.isDirty?.bind(registry);
         registry.flushAll=async()=>{
+          ensureGroup();
           const result=baseFlush?await baseFlush():{success:true};
           if(window.KPCanvaLayoutRuntime?.flush)await window.KPCanvaLayoutRuntime.flush();
           if(window.KPCanvaImageRuntime?.flush)await window.KPCanvaImageRuntime.flush();
@@ -59,10 +61,10 @@ add_action( 'wp_footer', static function () {
 
       document.addEventListener('click',e=>{
         const t=e.target instanceof Element?e.target:null;if(!t)return;
-        if(t.closest('.kp-fe2-save,.kp-oa-design-save,.kp-oa-size-save,.kp-fe2-record-main-save,.kp-fe-card-save'))beginGroup();
+        if(t.closest('.kp-fe2-save,.kp-oa-design-save,.kp-oa-size-save,.kp-fe2-record-main-save,.kp-fe-card-save'))ensureGroup();
       },true);
 
-      window.KPUnifiedSaveCoverage={beginGroup,currentGroup:()=>saveGroup,refresh:installRegistryCoverage};
+      window.KPUnifiedSaveCoverage={beginGroup,ensureGroup,currentGroup:()=>saveGroup,refresh:installRegistryCoverage};
     })();
     </script>
     <?php
