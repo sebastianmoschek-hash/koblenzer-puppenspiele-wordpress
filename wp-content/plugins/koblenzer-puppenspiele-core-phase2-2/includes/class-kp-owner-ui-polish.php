@@ -6,6 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * editor persistence path:
  * - make the owner edit entry unobtrusive on phones
  * - make Instagram immediately recognizable as Instagram
+ * - keep Design reset as a true preview without reopening the sheet
  */
 final class KP_Owner_UI_Polish {
     public static function init() {
@@ -96,6 +97,40 @@ final class KP_Owner_UI_Polish {
               scrollTimer=window.setTimeout(()=>editButton.classList.remove('is-kp-scrolling'),520);
             },{passive:true});
           }
+
+          /*
+           * owner-web-app.js historically reopened the Design sheet after Reset.
+           * openDesign() initializes its draft again from the stored settings,
+           * which immediately undid the visible defaults. Intercept Reset before
+           * that legacy handler, feed every control its configured default and
+           * dispatch the same UI events bindDesign() listens to. This changes the
+           * live draft/preview only; no AJAX write happens until Design speichern.
+           */
+          document.addEventListener('click',event=>{
+            const reset=event.target instanceof Element ? event.target.closest('.kp-oa-design-reset') : null;
+            if(!reset)return;
+            const sheet=reset.closest('.kp-oa-sheet.is-design');
+            const defaults=window.KPOwnerWebApp?.designDefaults;
+            if(!sheet||!defaults||typeof defaults!=='object')return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+
+            sheet.querySelectorAll('[data-design]').forEach(input=>{
+              const key=input.dataset.design;
+              if(!key||!Object.prototype.hasOwnProperty.call(defaults,key))return;
+              const value=defaults[key];
+              if(input instanceof HTMLInputElement&&input.type==='checkbox'){
+                input.checked=Number(value)!==0;
+                input.dispatchEvent(new Event('change',{bubbles:true}));
+                return;
+              }
+              if(input instanceof HTMLInputElement||input instanceof HTMLSelectElement||input instanceof HTMLTextAreaElement){
+                input.value=String(value ?? '');
+                const eventType=(input instanceof HTMLSelectElement)?'change':'input';
+                input.dispatchEvent(new Event(eventType,{bubbles:true}));
+              }
+            });
+          },true);
 
           const instagramSvg='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.1" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.1" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.4" cy="6.7" r="1.25" fill="currentColor"/></svg>';
           const upgradeInstagram=()=>{
