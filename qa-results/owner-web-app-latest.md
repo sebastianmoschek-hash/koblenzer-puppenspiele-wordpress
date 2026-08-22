@@ -1,6 +1,6 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-22T01:54:05Z
+Erzeugt: 2026-08-22T03:10:35Z
 
 Asset-/Deployment-Prüfung: success
 Isolierter Browser-Verhaltenstest: failure
@@ -64,17 +64,13 @@ FAILURES=0
 
 ## Touch-Verhalten im isolierten Chromium
 ```text
-node:internal/modules/run_main:123
-    triggerUncaughtException(
-    ^
+file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:12
+const fail = message => { throw new Error(message); };
+                                ^
 
-page.evaluate: TypeError: Cannot read properties of undefined (reading 'writes')
-    at eval (eval at evaluate (:311:30), <anonymous>:1:80)
-    at UtilityScript.evaluate (<anonymous>:313:16)
-    at UtilityScript.<anonymous> (<anonymous>:1:44)
-    at /home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:111:16 {
-  log: []
-}
+Error: Menüregler wird beim Design-Speichern nicht genau einmal persistiert: 
+    at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:12:33)
+    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-runtime-browser-test.mjs:163:72
 
 Node.js v22.23.2
 ```
