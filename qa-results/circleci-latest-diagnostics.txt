@@ -1,8 +1,8 @@
 
 ===== pipeline.log =====
-CircleCI Homepage Lab: fb22ac24f8c4cbeccb397c36a4c695ed0fae277b
+CircleCI Homepage Lab: 86048d34b0266191d1c80fecebccf44a1ced5989
 == editor ==
-PASS editor
+FAIL editor (exit 1)
 == persistence ==
 FAIL persistence (exit 1)
 == touch-slider ==
@@ -13,11 +13,17 @@ PASS touch-runtime
 PASS visual
 
 ===== editor.log =====
+FAIL: tablet-820: page.waitForSelector: Timeout 18000ms exceeded.
+Call log:
+[2m  - waiting for locator('.kp-fe2-save') to be visible[22m
+
+    at login (/root/project/qa/homepage-editor-lab.mjs:64:14)
+    at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
 # Homepage-Labor – echter Staging-Browser
 
-Erzeugt: 2026-08-22T19:34:29.263Z
-Commit: fb22ac24f8c4cbeccb397c36a4c695ed0fae277b
-Gesamtstatus: SUCCESS
+Erzeugt: 2026-08-22T19:46:08.307Z
+Commit: 86048d34b0266191d1c80fecebccf44a1ced5989
+Gesamtstatus: FAILURE
 
 ## mobile-390
 - Viewport: 390×844
@@ -29,16 +35,16 @@ Gesamtstatus: SUCCESS
 - Touch → Speichern → Reload → DB: OK
 - Standardwerte ohne Auto-Save: OK
 - JS Page Errors: 0
-- Same-origin HTTP Fehler: 0
+- Same-origin HTTP Fehler: 1
 
 ## tablet-820
 - Viewport: 820×1180
 - Horizontaler Overflow: 0px
-- Menü geöffnet: true
-- Speichern antippbar: true
-- Standardwerte antippbar: true
+- Menü geöffnet: n/a
+- Speichern antippbar: false
+- Standardwerte antippbar: false
 - JS Page Errors: 0
-- Same-origin HTTP Fehler: 0
+- Same-origin HTTP Fehler: 1
 
 ## desktop-1440
 - Viewport: 1440×900
@@ -49,9 +55,9 @@ Gesamtstatus: SUCCESS
 - JS Page Errors: 0
 - Same-origin HTTP Fehler: 0
 
-## Ergebnis
+## Fehler
 
-- Alle echten Browser-/Touch-/Speicherchecks grün.
+- tablet-820: page.waitForSelector: Timeout 18000ms exceeded. Call log: [2m - waiting for locator('.kp-fe2-save') to be visible[22m at login (/root/project/qa/homepage-editor-lab.mjs:64:14) at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
 
 ===== persistence.log =====
 node:internal/modules/run_main:123
@@ -136,22 +142,22 @@ Removing old file `readme.txt'
 Transferring file `readme.txt'
 Removing old file `assets/admin.css'
 Transferring file `assets/admin.css'
-Removing old file `data/legacy-ensemble.json'
-Transferring file `data/legacy-ensemble.json'
 Removing old file `assets/calendar-owner-ui.css'
 Transferring file `assets/calendar-owner-ui.css'
-Removing old file `data/legacy-referenzen.json'
-Transferring file `data/legacy-referenzen.json'
+Removing old file `data/legacy-ensemble.json'
+Transferring file `data/legacy-ensemble.json'
 Removing old file `assets/calendar-owner-ui.js'
 Transferring file `assets/calendar-owner-ui.js'
-Removing old file `data/legacy-repertoire.json'
-Transferring file `data/legacy-repertoire.json'
+Removing old file `data/legacy-referenzen.json'
+Transferring file `data/legacy-referenzen.json'
 Removing old file `assets/contact.css'
 Transferring file `assets/contact.css'
-Removing old file `data/legacy-termine-2026-2027.json'
-Transferring file `data/legacy-termine-2026-2027.json'
+Removing old file `data/legacy-repertoire.json'
+Transferring file `data/legacy-repertoire.json'
 Removing old file `assets/design-presets.js'
 Transferring file `assets/design-presets.js'
+Removing old file `data/legacy-termine-2026-2027.json'
+Transferring file `data/legacy-termine-2026-2027.json'
 Removing old file `assets/design-reset-reliability.js'
 Transferring file `assets/design-reset-reliability.js'
 Removing old file `assets/frontend-card-controls.css'
@@ -176,22 +182,22 @@ Removing old file `assets/frontend.css'
 Transferring file `assets/frontend.css'
 Removing old file `includes/class-kp-calendar-owner-ui.php'
 Transferring file `includes/class-kp-calendar-owner-ui.php'
-Removing old file `includes/class-kp-contact.php'
-Transferring file `includes/class-kp-contact.php'
 Removing old file `assets/image-position.js'
 Transferring file `assets/image-position.js'
-Removing old file `includes/class-kp-design-presets.php'
-Transferring file `includes/class-kp-design-presets.php'
+Removing old file `includes/class-kp-contact.php'
+Transferring file `includes/class-kp-contact.php'
 Removing old file `assets/kp-app-icon.svg'
 Transferring file `assets/kp-app-icon.svg'
-Removing old file `includes/class-kp-ensemble.php'
-Transferring file `includes/class-kp-ensemble.php'
+Removing old file `includes/class-kp-design-presets.php'
+Transferring file `includes/class-kp-design-presets.php'
 Removing old file `assets/owner-menu-x.js'
 Transferring file `assets/owner-menu-x.js'
-Removing old file `includes/class-kp-final-polish.php'
-Transferring file `includes/class-kp-final-polish.php'
+Removing old file `includes/class-kp-ensemble.php'
+Transferring file `includes/class-kp-ensemble.php'
 Removing old file `assets/owner-responsive-web.css'
 Transferring file `assets/owner-responsive-web.css'
+Removing old file `includes/class-kp-final-polish.php'
+Transferring file `includes/class-kp-final-polish.php'
 Removing old file `assets/owner-responsive-web.js'
 Transferring file `assets/owner-responsive-web.js'
 Removing old file `includes/class-kp-frontend-card-controls.php'
@@ -264,46 +270,46 @@ Removing old file `includes/class-kp-owner-menu-x.php'
 Transferring file `includes/class-kp-owner-menu-x.php'
 Removing old file `includes/class-kp-owner-responsive-web.php'
 Transferring file `includes/class-kp-owner-responsive-web.php'
-Removing old file `includes/class-kp-owner-save-coordinator.php'
-Transferring file `includes/class-kp-owner-save-coordinator.php'
 Removing old file `assets/legacy-ensemble/bjoern_christian_kuepper.png'
 Transferring file `assets/legacy-ensemble/bjoern_christian_kuepper.png'
+Removing old file `includes/class-kp-owner-save-coordinator.php'
+Transferring file `includes/class-kp-owner-save-coordinator.php'
 Removing old file `includes/class-kp-owner-save-readback-fix.php'
 Transferring file `includes/class-kp-owner-save-readback-fix.php'
 Removing old file `assets/legacy-ensemble/gordian_schneider.png'
 Transferring file `assets/legacy-ensemble/gordian_schneider.png'
 Removing old file `includes/class-kp-owner-ui-polish.php'
 Transferring file `includes/class-kp-owner-ui-polish.php'
-Removing old file `includes/class-kp-owner-web-app-extensions.php'
-Transferring file `includes/class-kp-owner-web-app-extensions.php'
 Removing old file `assets/legacy-ensemble/helmut_schmidt.png'
 Transferring file `assets/legacy-ensemble/helmut_schmidt.png'
+Removing old file `includes/class-kp-owner-web-app-extensions.php'
+Transferring file `includes/class-kp-owner-web-app-extensions.php'
 Removing old file `includes/class-kp-owner-web-app.php'
 Transferring file `includes/class-kp-owner-web-app.php'
-Removing old file `includes/class-kp-referenzen.php'
-Transferring file `includes/class-kp-referenzen.php'
 Removing old file `assets/legacy-ensemble/martin_wolfram.png'
 Transferring file `assets/legacy-ensemble/martin_wolfram.png'
-Removing old file `includes/class-kp-repertoire.php'
-Transferring file `includes/class-kp-repertoire.php'
+Removing old file `includes/class-kp-referenzen.php'
+Transferring file `includes/class-kp-referenzen.php'
 Removing old file `assets/legacy-ensemble/sarah_juengling.png'
 Transferring file `assets/legacy-ensemble/sarah_juengling.png'
+Removing old file `includes/class-kp-repertoire.php'
+Transferring file `includes/class-kp-repertoire.php'
 Removing old file `includes/class-kp-responsive-sizes.php'
 Transferring file `includes/class-kp-responsive-sizes.php'
-Removing old file `includes/class-kp-site-finish.php'
-Transferring file `includes/class-kp-site-finish.php'
 Removing old file `assets/legacy-ensemble/sebastian_moschek.png'
 Transferring file `assets/legacy-ensemble/sebastian_moschek.png'
-Removing old file `includes/class-kp-social-menu-extensions.php'
-Transferring file `includes/class-kp-social-menu-extensions.php'
+Removing old file `includes/class-kp-site-finish.php'
+Transferring file `includes/class-kp-site-finish.php'
 Removing old file `assets/legacy-ensemble/stefanie_czapla.png'
 Transferring file `assets/legacy-ensemble/stefanie_czapla.png'
+Removing old file `includes/class-kp-social-menu-extensions.php'
+Transferring file `includes/class-kp-social-menu-extensions.php'
 Removing old file `includes/class-kp-social-studio-clarity.php'
 Transferring file `includes/class-kp-social-studio-clarity.php'
-Removing old file `includes/class-kp-staging-maintenance-bridge.php'
-Transferring file `includes/class-kp-staging-maintenance-bridge.php'
 Removing old file `assets/legacy-ensemble/ursula_birgid_kuepper.png'
 Transferring file `assets/legacy-ensemble/ursula_birgid_kuepper.png'
+Removing old file `includes/class-kp-staging-maintenance-bridge.php'
+Transferring file `includes/class-kp-staging-maintenance-bridge.php'
 Removing old file `includes/class-kp-termine.php'
 Transferring file `includes/class-kp-termine.php'
 Removing old file `includes/class-kp-ticket-display.php'
@@ -316,14 +322,14 @@ Removing old file `includes/class-kp-touch-manual-save.php'
 Transferring file `includes/class-kp-touch-manual-save.php'
 Removing old file `includes/class-kp-touch-persistence.php'
 Transferring file `includes/class-kp-touch-persistence.php'
-Removing old file `includes/class-kp-website-studio-frontend.php'
-Transferring file `includes/class-kp-website-studio-frontend.php'
 Removing old file `assets/legacy-referenzen/referenzen_bitburg.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_bitburg.jpg'
-Removing old file `includes/class-kp-website-studio.php'
-Transferring file `includes/class-kp-website-studio.php'
+Removing old file `includes/class-kp-website-studio-frontend.php'
+Transferring file `includes/class-kp-website-studio-frontend.php'
 Removing old file `assets/legacy-referenzen/referenzen_brohltal.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_brohltal.jpg'
+Removing old file `includes/class-kp-website-studio.php'
+Transferring file `includes/class-kp-website-studio.php'
 Removing old file `assets/legacy-referenzen/referenzen_dueren.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_dueren.jpg'
 Removing old file `assets/legacy-referenzen/referenzen_evm.jpg'
