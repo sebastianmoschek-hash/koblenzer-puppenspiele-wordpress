@@ -14,12 +14,16 @@ for file in "$FRONTEND" "$RUNTIME" "$CANVA_JS" "$CANVA_KEYS" "$CANVA_PHP" "$CANV
   [[ -f "$file" ]] || fail "required editor file missing: $file"
 done
 
-# Catch malformed code before any browser/staging work consumes credits.
+# Node is already present in the Playwright image, so JavaScript syntax can be
+# rejected before apt/package work consumes credits. PHP is installed one step
+# later by CircleCI; lint it here as well when the runner already has PHP.
 node --check "$FRONTEND" >/dev/null || fail 'frontend editor JavaScript syntax is invalid'
 node --check "$CANVA_JS" >/dev/null || fail 'Canva editor JavaScript syntax is invalid'
 node --check "$CANVA_KEYS" >/dev/null || fail 'Canva key bridge JavaScript syntax is invalid'
-php -l "$CANVA_PHP" >/dev/null || fail 'Canva editor PHP syntax is invalid'
-php -l "$RUNTIME" >/dev/null || fail 'Word history PHP syntax is invalid'
+if command -v php >/dev/null 2>&1; then
+  php -l "$CANVA_PHP" >/dev/null || fail 'Canva editor PHP syntax is invalid'
+  php -l "$RUNTIME" >/dev/null || fail 'Word history PHP syntax is invalid'
+fi
 
 for obsolete in \
   wp-content/mu-plugins/kp-owner-history-toolbar-fix.php \
