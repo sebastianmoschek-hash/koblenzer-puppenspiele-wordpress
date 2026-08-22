@@ -1,14 +1,14 @@
 # Kostenloses Homepage-Labor – letzter CircleCI-Staging-Stand
 
-Erzeugt: 2026-08-22T19:49:32Z  
-Commit: 86048d34b0266191d1c80fecebccf44a1ced5989  
+Erzeugt: 2026-08-22T19:51:36Z  
+Commit: cb17482b7f4dbbb7a45d511fe72d7a4cbcbebbd8  
 Provider: CircleCI Free  
 Gesamtstatus: **FAILURE**
 
 - Staging-only Force-Deploy: success
 - Aktive Staging-Version: success
 - Temporärer E2E-Zugang: success
-- Echter Editor Mobile/Tablet/Desktop: failure
+- Echter Editor Mobile/Tablet/Desktop: success
 - Speichern → Reload → DB + Undo/48h: failure
 - Nativer Touch-Regler + Zurücksetzen/Speichern: success
 - Drag/Pinch/Touch-Runtime: success
