@@ -14,6 +14,19 @@ async function touch(type, x, y, id = 1) {
   await cdp.send('Input.dispatchTouchEvent', {type, touchPoints});
 }
 
+async function tap(selector, id) {
+  const box = await page.locator(selector).boundingBox();
+  if (!box) fail(`Button ${selector} ist nicht sichtbar.`);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  const hit = await page.evaluate(({x,y,selector}) => document.elementFromPoint(x,y)?.closest(selector) !== null, {x,y,selector});
+  if (!hit) fail(`Tap auf ${selector} trifft nicht den sichtbaren Button.`);
+  await touch('touchStart', x, y, id);
+  await page.waitForTimeout(45);
+  await touch('touchEnd', x, y, id);
+  await page.waitForTimeout(80);
+}
+
 try {
   await page.setContent(`<!doctype html><html><head><style>
     body{margin:0}
@@ -21,8 +34,10 @@ try {
     .kp-oa-tab{display:none}.kp-oa-tab.is-active{display:block}
     .kp-oa-control{display:block;position:relative;margin:18px 10px;padding:12px}
     .kp-oa-control input[type=range]{width:300px}
+    .kp-oa-sticky-actions{position:sticky;bottom:-12px;display:flex;justify-content:flex-end;gap:8px;margin:18px -12px -12px;padding:12px;background:#18100c}
+    .kp-oa-sticky-actions button{min-height:44px;padding:8px 12px}
   </style></head><body class="kp-touch-gestures-enabled">
-    <div class="kp-oa-sheet">
+    <div class="kp-oa-sheet is-design">
       <div class="kp-oa-tabs"><button id="show-design" data-tab="menu">Menü</button></div>
       <div style="height:240px"></div>
       <div id="design-pane" class="kp-oa-tab" data-pane="menu">
@@ -30,6 +45,7 @@ try {
         <label class="kp-oa-control"><span>Breite</span><input id="range" data-design="menu_width" type="range" min="0" max="100" step="1" value="50" /></label>
         <div style="height:700px"></div>
       </div>
+      <div class="kp-oa-sticky-actions"><button type="button" class="kp-oa-secondary kp-oa-design-reset">Standardwerte</button><button type="button" class="kp-oa-primary kp-oa-design-save">Design speichern</button></div>
     </div>
   </body></html>`);
 
@@ -38,9 +54,13 @@ try {
     window.KPTouchGestures = { editMode: true, canEdit: true, holdMs: 320 };
     window.__sliderInputEvents = 0;
     window.__sliderChangeEvents = 0;
+    window.__resetClicks = 0;
+    window.__saveClicks = 0;
     document.querySelector('#range')?.addEventListener('input', () => window.__sliderInputEvents += 1);
     document.querySelector('#range')?.addEventListener('change', () => window.__sliderChangeEvents += 1);
     document.querySelector('#show-design')?.addEventListener('click', () => document.querySelector('#design-pane')?.classList.add('is-active'));
+    document.querySelector('.kp-oa-design-reset')?.addEventListener('click', () => window.__resetClicks += 1);
+    document.querySelector('.kp-oa-design-save')?.addEventListener('click', () => window.__saveClicks += 1);
   });
 
   await page.addScriptTag({ path: safetyJs });
@@ -51,7 +71,6 @@ try {
   const hardlock = await page.locator('#range').getAttribute('data-kp-touch-hardlocked');
   if (hardlock !== '4') fail(`Unerwartete Hardlock-Version: ${hardlock}`);
 
-  // Real regression: the range exists inside a hidden Design tab first.
   await page.locator('#show-design').click();
   await page.waitForTimeout(120);
   await page.locator('#range').scrollIntoViewIfNeeded();
@@ -71,8 +90,6 @@ try {
   const hit = await page.evaluate(({x,y}) => document.elementFromPoint(x,y)?.classList?.contains('kp-touch-range-hardlock') || false, {x:cx,y:cy});
   if (!hit) fail('Echter Touch auf der sichtbaren Sliderposition trifft die Schutzschicht nicht.');
 
-  // A real Chromium touch swipe on the slider must scroll the Design sheet,
-  // while the slider value stays untouched before the hold threshold.
   const initial = Number(await page.locator('#range').inputValue());
   const sheet = page.locator('.kp-oa-sheet');
   const scrollBefore = await sheet.evaluate(el => el.scrollTop);
@@ -92,8 +109,6 @@ try {
   if (quick.sheetScroll <= scrollBefore) fail(`Normales Wischen scrollt das Design-Menü nicht: ${JSON.stringify(quick)}`);
   if (quick.inputs !== 0 || quick.changes !== 0) fail(`Normales Wischen feuert Slider-Events: ${JSON.stringify(quick)}`);
 
-  // Bring the real slider back into view, hold on the visible track and move
-  // the SAME physical touch point horizontally after the hold threshold.
   await page.locator('#range').scrollIntoViewIfNeeded();
   await page.waitForTimeout(100);
   inputBox = await page.locator('#range').boundingBox();
@@ -124,7 +139,16 @@ try {
   if (held.inputs < 1 || held.changes !== 1) fail(`Slider-Events nach Halten/Ziehen fehlerhaft: ${JSON.stringify(held)}`);
   if (held.armed) fail('Design-Regler bleibt nach Loslassen entsperrt.');
 
-  console.log(`PASS: echter versteckter Design-Tab → sichtbarer Regler überlagert; natives Touch-Wischen scrollt; Halten + derselbe Finger zieht von ${initial} auf ${held.value}.`);
+  // Regression from the real phone: while the sticky footer is visible, slider
+  // guards below it must never steal taps from Standardwerte / Design speichern.
+  await sheet.evaluate(el => { el.scrollTop = el.scrollHeight; });
+  await page.waitForTimeout(120);
+  await tap('.kp-oa-design-reset', 41);
+  await tap('.kp-oa-design-save', 42);
+  const actions = await page.evaluate(() => ({ reset: window.__resetClicks, save: window.__saveClicks }));
+  if (actions.reset !== 1 || actions.save !== 1) fail(`Design-Aktionsbuttons reagieren nicht auf Touch: ${JSON.stringify(actions)}`);
+
+  console.log(`PASS: echter versteckter Design-Tab → Regler Touch/Scroll/Halten funktioniert; Standardwerte und Design speichern erhalten echte Touch-Taps (${actions.reset}/${actions.save}).`);
 } finally {
   await browser.close();
 }
