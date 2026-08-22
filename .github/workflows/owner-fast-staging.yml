@@ -1,0 +1,103 @@
+name: Owner fast staging deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
+      - '.github/workflows/owner-fast-staging.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: koblenzer-puppenspiele-owner-fast-staging
+  cancel-in-progress: true
+
+jobs:
+  fast-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FTP_SERVER: ${{ secrets.STAGING_FTP_SERVER }}
+      FTP_USERNAME: ${{ secrets.STAGING_FTP_USERNAME }}
+      LFTP_PASSWORD: ${{ secrets.STAGING_FTP_PASSWORD }}
+      STAGING_BASE: https://neu.koblenzer-puppenspiele.de
+    steps:
+      - name: Check out latest main with previous commit
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+
+      - name: Install FTP client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+
+      - name: Force-upload changed plugin files to staging only
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FTP_SERVER:?STAGING_FTP_SERVER secret is missing}"
+          : "${FTP_USERNAME:?STAGING_FTP_USERNAME secret is missing}"
+          : "${LFTP_PASSWORD:?STAGING_FTP_PASSWORD secret is missing}"
+          plugin='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
+          test -d "$plugin"
+
+          before='${{ github.event.before }}'
+          files=()
+          if [ "${{ github.event_name }}" = 'push' ] && [ -n "$before" ] && [ "$before" != '0000000000000000000000000000000000000000' ] && git cat-file -e "$before^{commit}" 2>/dev/null; then
+            while IFS= read -r file; do files+=("$file"); done < <(git diff --name-only --diff-filter=AM "$before" "$GITHUB_SHA" -- "$plugin")
+          fi
+
+          if [ ${#files[@]} -eq 0 ]; then
+            echo 'No changed plugin files detected; marker verification only.'
+          else
+            printf 'Force-uploading %s changed plugin file(s).\n' "${#files[@]}"
+            for file in "${files[@]}"; do
+              remote="/$file"
+              remote_dir=$(dirname "$remote")
+              echo "PUT $file"
+              lftp -c "
+                set ftp:ssl-force true;
+                set ftp:ssl-protect-data true;
+                set ssl:verify-certificate true;
+                set net:max-retries 2;
+                set net:timeout 15;
+                open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+                mkdir -p '$remote_dir';
+                put '$file' -o '$remote';
+                bye
+              "
+            done
+          fi
+
+          printf '%s\n' "$GITHUB_SHA" > /tmp/kp-staging-commit.txt
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 15;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            put /tmp/kp-staging-commit.txt -o '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/.kp-staging-commit';
+            bye
+          "
+
+      - name: Verify exact commit marker from staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="$STAGING_BASE/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/.kp-staging-commit"
+          for attempt in $(seq 1 15); do
+            actual=$(curl --fail --silent --show-error --location -H 'Cache-Control: no-cache, no-store' "$url?kp_fast=${GITHUB_RUN_ID}-${attempt}" 2>/dev/null | tr -d '\r\n' || true)
+            echo "Attempt $attempt marker: ${actual:-missing}"
+            if [ "$actual" = "$GITHUB_SHA" ]; then
+              echo "PASS: exact commit $GITHUB_SHA is marked live on staging."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "ERROR: staging did not expose exact commit marker $GITHUB_SHA" >&2
+          exit 1
