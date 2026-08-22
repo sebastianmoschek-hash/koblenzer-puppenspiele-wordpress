@@ -44,7 +44,12 @@ function kp_canva_clean_image_scope( $raw ) {
         $key = sanitize_key( (string) $key );
         if ( ! $key || ! is_array( $value ) ) { continue; }
         $fit = isset( $value['fit'] ) ? sanitize_key( (string) $value['fit'] ) : 'cover';
-        if ( ! in_array( $fit, array( 'cover', 'contain', 'fill' ), true ) ) { $fit = 'cover'; }
+        if ( ! in_array( $fit, array( 'auto', 'cover', 'contain', 'fill' ), true ) ) { $fit = 'cover'; }
+        // -1 / auto are intentional inheritance sentinels. They mean that this
+        // tool never touched the property's pre-existing theme/editor styling.
+        $pos_x  = isset( $value['pos_x'] ) ? max( -1, min( 100, (float) $value['pos_x'] ) ) : 50;
+        $pos_y  = isset( $value['pos_y'] ) ? max( -1, min( 100, (float) $value['pos_y'] ) ) : 50;
+        $radius = isset( $value['radius'] ) ? max( -1, min( 80, (float) $value['radius'] ) ) : 0;
         $out[ $key ] = array(
             'brightness' => max( 50, min( 160, (float) ( $value['brightness'] ?? 100 ) ) ),
             'contrast'   => max( 50, min( 180, (float) ( $value['contrast'] ?? 100 ) ) ),
@@ -54,10 +59,10 @@ function kp_canva_clean_image_scope( $raw ) {
             'blur'       => max( 0, min( 12, (float) ( $value['blur'] ?? 0 ) ) ),
             'opacity'    => max( 20, min( 100, (float) ( $value['opacity'] ?? 100 ) ) ),
             'rotation'   => max( -180, min( 180, (float) ( $value['rotation'] ?? 0 ) ) ),
-            'pos_x'      => max( 0, min( 100, (float) ( $value['pos_x'] ?? 50 ) ) ),
-            'pos_y'      => max( 0, min( 100, (float) ( $value['pos_y'] ?? 50 ) ) ),
+            'pos_x'      => $pos_x,
+            'pos_y'      => $pos_y,
             'fit'        => $fit,
-            'radius'     => max( 0, min( 80, (float) ( $value['radius'] ?? 0 ) ) ),
+            'radius'     => $radius,
         );
     }
     return $out;
@@ -137,16 +142,23 @@ add_action( 'wp_enqueue_scripts', static function () {
         'imageGlobal'   => (object) kp_canva_clean_image_scope( $image_global ),
         'imagePage'     => (object) kp_canva_clean_image_scope( kp_canva_current_page_scope( KP_CANVA_IMAGE_PAGES, $page_key ) ),
     ) );
+    wp_enqueue_script(
+        'kp-canva-image-inherit',
+        $mu_url . 'kp-canva-image-inherit.js',
+        array( 'kp-canva-editor' ),
+        file_exists( $mu_dir . 'kp-canva-image-inherit.js' ) ? (string) filemtime( $mu_dir . 'kp-canva-image-inherit.js' ) : '1',
+        true
+    );
 
     if ( $edit_mode ) {
         wp_enqueue_script(
             'kp-canva-touch-safety',
             $core_url . 'touch-gesture-safety.js',
-            array( 'kp-canva-editor' ),
+            array( 'kp-canva-image-inherit' ),
             defined( 'KP_CORE_VERSION' ) ? KP_CORE_VERSION : '1',
             true
         );
-        $bridge_deps = array( 'kp-canva-editor' );
+        $bridge_deps = array( 'kp-canva-image-inherit' );
         if ( wp_script_is( 'kp-owner-save-coordinator', 'registered' ) ) { $bridge_deps[] = 'kp-owner-save-coordinator'; }
         wp_enqueue_script(
             'kp-canva-touch-bridge',
