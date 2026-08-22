@@ -10,14 +10,21 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Classify change and stop superseded work
+          command: bash qa/circleci-classify.sh
+      - run:
           name: Install lightweight CI tools
           command: |
             apt-get update -qq
             DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp jq php-cli ca-certificates curl git
-            npm install --no-save playwright@1.55.0
+            if [[ "${KP_CI_MODE:-full}" != "pwa" ]]; then
+              npm install --no-save --no-audit --no-fund --prefer-offline playwright@1.55.0
+            else
+              echo 'PWA-fast mode: skipping Playwright npm install.'
+            fi
       - run:
-          name: Staging deploy + real Chromium/Touch/Persistence/Visual lab
-          command: bash qa/circleci-homepage-lab.sh
+          name: Smart staging deploy + homepage lab
+          command: bash qa/circleci-homepage-lab-smart.sh
           no_output_timeout: 20m
       - run:
           name: Publish latest safe lab report back to GitHub
