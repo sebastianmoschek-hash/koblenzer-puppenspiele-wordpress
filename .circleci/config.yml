@@ -14,7 +14,9 @@ jobs:
           command: bash qa/circleci-classify.sh
       - run:
           name: Verify instant Word history safety contract
-          command: bash qa/word-history-contract.sh
+          command: |
+            mkdir -p qa-results/circleci
+            bash qa/word-history-contract.sh 2>&1 | tee qa-results/circleci/word-history-contract.log
       - run:
           name: Install lightweight CI tools
           command: |
