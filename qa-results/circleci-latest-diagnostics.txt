@@ -1,0 +1,500 @@
+
+===== pipeline.log =====
+CircleCI Homepage Lab: 4d06fccbda6ce3ae0fd28a125f5c8eeb7480acc8
+== editor ==
+FAIL editor (exit 1)
+== persistence ==
+PASS persistence
+== touch-slider ==
+FAIL touch-slider (exit 1)
+== touch-runtime ==
+PASS touch-runtime
+== visual ==
+PASS visual
+
+===== editor.log =====
+FAIL: mobile-390: Error: Standardwerte did not visibly restore menu_width. expected=320 actual=330
+    at mobileSaveAndResetRoundTrip (file:///root/project/qa/homepage-editor-lab.mjs:198:13)
+    at async file:///root/project/qa/homepage-editor-lab.mjs:294:7
+FAIL: tablet-820: mobile/tablet menu button is not visible
+# Homepage-Labor – echter Staging-Browser
+
+Erzeugt: 2026-08-22T15:57:54.659Z
+Commit: 4d06fccbda6ce3ae0fd28a125f5c8eeb7480acc8
+Gesamtstatus: FAILURE
+
+## mobile-390
+- Viewport: 390×844
+- Horizontaler Overflow: 0px
+- Menü geöffnet: true
+- Speichern antippbar: true
+- Standardwerte antippbar: true
+- Touch-Regler: 320 → 254
+- Touch → Speichern → Reload → DB: OK
+- JS Page Errors: 0
+- Same-origin HTTP Fehler: 0
+
+## tablet-820
+- Viewport: 820×1180
+- Horizontaler Overflow: 0px
+- Menü geöffnet: n/a
+- Speichern antippbar: true
+- Standardwerte antippbar: true
+- JS Page Errors: 0
+- Same-origin HTTP Fehler: 0
+
+## desktop-1440
+- Viewport: 1440×900
+- Horizontaler Overflow: 0px
+- Menü geöffnet: n/a
+- Speichern antippbar: true
+- Standardwerte antippbar: true
+- JS Page Errors: 0
+- Same-origin HTTP Fehler: 0
+
+## Fehler
+
+- mobile-390: Error: Standardwerte did not visibly restore menu_width. expected=320 actual=330 at mobileSaveAndResetRoundTrip (file:///root/project/qa/homepage-editor-lab.mjs:198:13) at async file:///root/project/qa/homepage-editor-lab.mjs:294:7
+- tablet-820: mobile/tablet menu button is not visible
+
+===== persistence.log =====
+PASS: 38 Design-Regler + 64 Größenregler + Menü-X über orange Speichern dauerhaft; Header-Rundung nach Reload sichtbar; Rückgängig nach Speichern funktioniert; 48-Stunden-Versionen funktionieren.
+
+===== touch-slider.log =====
+file:///root/project/qa/touch-slider-hold-browser-test.mjs:11
+const fail = message => { throw new Error(message); };
+                                ^
+
+Error: Standardwerte reagiert nicht auf echten Touch: {"reset":0,"save":1}
+    at fail (file:///root/project/qa/touch-slider-hold-browser-test.mjs:11:33)
+    at file:///root/project/qa/touch-slider-hold-browser-test.mjs:154:27
+
+Node.js v22.18.0
+
+===== touch-runtime.log =====
+PASS: Drag, Pinch, Undo, Menükarte, orange Speichern/Reload und Handy-/Tablet-Menüregler funktionieren ohne Auto-Save.
+
+===== php-syntax.log =====
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-bundled-images.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-calendar-owner-ui.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-contact.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-design-presets.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-ensemble.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-final-polish.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-card-controls.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-save-guard.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor-v2.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-frontend-editor.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-google-calendar-import.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-home-landing-template.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-image-position.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-instagram-profile-migration.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-legal.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-mobile-menu-float.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-mobile-menu-glass.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-mobile-menu-links.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-direct-edit-cta.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-focus.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-edit-reliability.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-experience.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-history.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-menu-x.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-responsive-web.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-save-coordinator.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-save-readback-fix.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-ui-polish.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app-extensions.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-referenzen.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-repertoire.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-responsive-sizes.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-site-finish.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-social-menu-extensions.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-social-studio-clarity.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-staging-maintenance-bridge.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-termine.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-ticket-display.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-free-layout.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-gestures.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-manual-save.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-touch-persistence.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-website-studio-frontend.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-website-studio.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/views/website-studio-page.php
+No syntax errors detected in wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php
+No syntax errors detected in wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/functions.php
+No syntax errors detected in wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/patterns/booking-cta.php
+No syntax errors detected in wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/patterns/header-main.php
+No syntax errors detected in wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/patterns/hero.php
+No syntax errors detected in wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/patterns/image-text.php
+No syntax errors detected in wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/patterns/startseite.php
+
+===== deploy.log =====
+Removing old file `koblenzer-puppenspiele-core.php'
+Transferring file `koblenzer-puppenspiele-core.php'
+Removing old file `readme.txt'
+Transferring file `readme.txt'
+Removing old file `assets/admin.css'
+Transferring file `assets/admin.css'
+Removing old file `data/legacy-ensemble.json'
+Transferring file `data/legacy-ensemble.json'
+Removing old file `assets/calendar-owner-ui.css'
+Transferring file `assets/calendar-owner-ui.css'
+Removing old file `data/legacy-referenzen.json'
+Transferring file `data/legacy-referenzen.json'
+Removing old file `assets/calendar-owner-ui.js'
+Transferring file `assets/calendar-owner-ui.js'
+Removing old file `data/legacy-repertoire.json'
+Transferring file `data/legacy-repertoire.json'
+Removing old file `assets/contact.css'
+Transferring file `assets/contact.css'
+Removing old file `data/legacy-termine-2026-2027.json'
+Transferring file `data/legacy-termine-2026-2027.json'
+Removing old file `assets/design-presets.js'
+Transferring file `assets/design-presets.js'
+Removing old file `assets/frontend-card-controls.css'
+Transferring file `assets/frontend-card-controls.css'
+Removing old file `assets/frontend-card-controls.js'
+Transferring file `assets/frontend-card-controls.js'
+Removing old file `assets/frontend-editor-compat.js'
+Transferring file `assets/frontend-editor-compat.js'
+Removing old file `assets/frontend-editor-inline.js'
+Transferring file `assets/frontend-editor-inline.js'
+Removing old file `assets/frontend-editor-v2.css'
+Transferring file `assets/frontend-editor-v2.css'
+Removing old file `assets/frontend-editor-v2.js'
+Transferring file `assets/frontend-editor-v2.js'
+Removing old file `assets/frontend-editor.css'
+Transferring file `assets/frontend-editor.css'
+Removing old file `assets/frontend-editor.js'
+Transferring file `assets/frontend-editor.js'
+Removing old file `assets/frontend.css'
+Transferring file `assets/frontend.css'
+Removing old file `includes/class-kp-bundled-images.php'
+Transferring file `includes/class-kp-bundled-images.php'
+Removing old file `assets/image-position.js'
+Transferring file `assets/image-position.js'
+Removing old file `includes/class-kp-calendar-owner-ui.php'
+Transferring file `includes/class-kp-calendar-owner-ui.php'
+Removing old file `assets/kp-app-icon.svg'
+Transferring file `assets/kp-app-icon.svg'
+Removing old file `includes/class-kp-contact.php'
+Transferring file `includes/class-kp-contact.php'
+Removing old file `assets/owner-menu-x.js'
+Transferring file `assets/owner-menu-x.js'
+Removing old file `includes/class-kp-design-presets.php'
+Transferring file `includes/class-kp-design-presets.php'
+Removing old file `assets/owner-responsive-web.css'
+Transferring file `assets/owner-responsive-web.css'
+Removing old file `includes/class-kp-ensemble.php'
+Transferring file `includes/class-kp-ensemble.php'
+Removing old file `assets/owner-responsive-web.js'
+Transferring file `assets/owner-responsive-web.js'
+Removing old file `includes/class-kp-final-polish.php'
+Transferring file `includes/class-kp-final-polish.php'
+Removing old file `assets/owner-save-coordinator.css'
+Transferring file `assets/owner-save-coordinator.css'
+Removing old file `includes/class-kp-frontend-card-controls.php'
+Transferring file `includes/class-kp-frontend-card-controls.php'
+Removing old file `assets/owner-save-coordinator.js'
+Transferring file `assets/owner-save-coordinator.js'
+Removing old file `includes/class-kp-frontend-editor-save-guard.php'
+Transferring file `includes/class-kp-frontend-editor-save-guard.php'
+Removing old file `assets/owner-web-app-extensions.js'
+Transferring file `assets/owner-web-app-extensions.js'
+Removing old file `includes/class-kp-frontend-editor-v2.php'
+Transferring file `includes/class-kp-frontend-editor-v2.php'
+Removing old file `assets/owner-web-app.css'
+Transferring file `assets/owner-web-app.css'
+Removing old file `includes/class-kp-frontend-editor.php'
+Transferring file `includes/class-kp-frontend-editor.php'
+Removing old file `assets/owner-web-app.js'
+Transferring file `assets/owner-web-app.js'
+Removing old file `includes/class-kp-google-calendar-import.php'
+Transferring file `includes/class-kp-google-calendar-import.php'
+Removing old file `assets/touch-editor-bridge.js'
+Transferring file `assets/touch-editor-bridge.js'
+Removing old file `includes/class-kp-home-landing-template.php'
+Transferring file `includes/class-kp-home-landing-template.php'
+Removing old file `assets/touch-free-layout.css'
+Transferring file `assets/touch-free-layout.css'
+Removing old file `includes/class-kp-image-position.php'
+Transferring file `includes/class-kp-image-position.php'
+Removing old file `assets/touch-free-layout.js'
+Transferring file `assets/touch-free-layout.js'
+Removing old file `includes/class-kp-instagram-profile-migration.php'
+Transferring file `includes/class-kp-instagram-profile-migration.php'
+Removing old file `assets/touch-gesture-safety.css'
+Transferring file `assets/touch-gesture-safety.css'
+Removing old file `includes/class-kp-legal.php'
+Transferring file `includes/class-kp-legal.php'
+Removing old file `assets/touch-gesture-safety.js'
+Transferring file `assets/touch-gesture-safety.js'
+Removing old file `includes/class-kp-mobile-menu-float.php'
+Transferring file `includes/class-kp-mobile-menu-float.php'
+Removing old file `assets/touch-gestures.css'
+Transferring file `assets/touch-gestures.css'
+Removing old file `includes/class-kp-mobile-menu-glass.php'
+Transferring file `includes/class-kp-mobile-menu-glass.php'
+Removing old file `assets/touch-gestures.js'
+Transferring file `assets/touch-gestures.js'
+Removing old file `includes/class-kp-mobile-menu-links.php'
+Transferring file `includes/class-kp-mobile-menu-links.php'
+Removing old file `assets/touch-manual-save-gate.js'
+Transferring file `assets/touch-manual-save-gate.js'
+Removing old file `includes/class-kp-owner-direct-edit-cta.php'
+Transferring file `includes/class-kp-owner-direct-edit-cta.php'
+Removing old file `assets/touch-persistence.js'
+Transferring file `assets/touch-persistence.js'
+Removing old file `includes/class-kp-owner-edit-focus.php'
+Transferring file `includes/class-kp-owner-edit-focus.php'
+Removing old file `assets/website-studio-admin.css'
+Transferring file `assets/website-studio-admin.css'
+Removing old file `includes/class-kp-owner-edit-reliability.php'
+Transferring file `includes/class-kp-owner-edit-reliability.php'
+Removing old file `assets/website-studio-admin.js'
+Transferring file `assets/website-studio-admin.js'
+Removing old file `includes/class-kp-owner-experience.php'
+Transferring file `includes/class-kp-owner-experience.php'
+Removing old file `includes/class-kp-owner-history.php'
+Transferring file `includes/class-kp-owner-history.php'
+Removing old file `includes/class-kp-owner-menu-x.php'
+Transferring file `includes/class-kp-owner-menu-x.php'
+Removing old file `assets/legacy-ensemble/bjoern_christian_kuepper.png'
+Transferring file `assets/legacy-ensemble/bjoern_christian_kuepper.png'
+Removing old file `includes/class-kp-owner-responsive-web.php'
+Transferring file `includes/class-kp-owner-responsive-web.php'
+Removing old file `includes/class-kp-owner-save-coordinator.php'
+Transferring file `includes/class-kp-owner-save-coordinator.php'
+Removing old file `assets/legacy-ensemble/gordian_schneider.png'
+Transferring file `assets/legacy-ensemble/gordian_schneider.png'
+Removing old file `includes/class-kp-owner-save-readback-fix.php'
+Transferring file `includes/class-kp-owner-save-readback-fix.php'
+Removing old file `includes/class-kp-owner-ui-polish.php'
+Transferring file `includes/class-kp-owner-ui-polish.php'
+Removing old file `assets/legacy-ensemble/helmut_schmidt.png'
+Transferring file `assets/legacy-ensemble/helmut_schmidt.png'
+Removing old file `includes/class-kp-owner-web-app-extensions.php'
+Transferring file `includes/class-kp-owner-web-app-extensions.php'
+Removing old file `assets/legacy-ensemble/martin_wolfram.png'
+Transferring file `assets/legacy-ensemble/martin_wolfram.png'
+Removing old file `includes/class-kp-owner-web-app.php'
+Transferring file `includes/class-kp-owner-web-app.php'
+Removing old file `includes/class-kp-referenzen.php'
+Transferring file `includes/class-kp-referenzen.php'
+Removing old file `assets/legacy-ensemble/sarah_juengling.png'
+Transferring file `assets/legacy-ensemble/sarah_juengling.png'
+Removing old file `includes/class-kp-repertoire.php'
+Transferring file `includes/class-kp-repertoire.php'
+Removing old file `assets/legacy-ensemble/sebastian_moschek.png'
+Transferring file `assets/legacy-ensemble/sebastian_moschek.png'
+Removing old file `includes/class-kp-responsive-sizes.php'
+Transferring file `includes/class-kp-responsive-sizes.php'
+Removing old file `includes/class-kp-site-finish.php'
+Transferring file `includes/class-kp-site-finish.php'
+Removing old file `assets/legacy-ensemble/stefanie_czapla.png'
+Transferring file `assets/legacy-ensemble/stefanie_czapla.png'
+Removing old file `includes/class-kp-social-menu-extensions.php'
+Transferring file `includes/class-kp-social-menu-extensions.php'
+Removing old file `assets/legacy-ensemble/ursula_birgid_kuepper.png'
+Transferring file `assets/legacy-ensemble/ursula_birgid_kuepper.png'
+Removing old file `includes/class-kp-social-studio-clarity.php'
+Transferring file `includes/class-kp-social-studio-clarity.php'
+Removing old file `includes/class-kp-staging-maintenance-bridge.php'
+Transferring file `includes/class-kp-staging-maintenance-bridge.php'
+Removing old file `includes/class-kp-termine.php'
+Transferring file `includes/class-kp-termine.php'
+Removing old file `includes/class-kp-ticket-display.php'
+Transferring file `includes/class-kp-ticket-display.php'
+Removing old file `includes/class-kp-touch-free-layout.php'
+Transferring file `includes/class-kp-touch-free-layout.php'
+Removing old file `includes/class-kp-touch-gestures.php'
+Transferring file `includes/class-kp-touch-gestures.php'
+Removing old file `includes/class-kp-touch-manual-save.php'
+Transferring file `includes/class-kp-touch-manual-save.php'
+Removing old file `assets/legacy-referenzen/referenzen_bitburg.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_bitburg.jpg'
+Removing old file `includes/class-kp-touch-persistence.php'
+Transferring file `includes/class-kp-touch-persistence.php'
+Removing old file `includes/class-kp-website-studio-frontend.php'
+Transferring file `includes/class-kp-website-studio-frontend.php'
+Removing old file `assets/legacy-referenzen/referenzen_brohltal.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_brohltal.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_dueren.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_dueren.jpg'
+Removing old file `includes/class-kp-website-studio.php'
+Transferring file `includes/class-kp-website-studio.php'
+Removing old file `assets/legacy-referenzen/referenzen_evm.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_evm.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_familienbildungsstaette.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_familienbildungsstaette.jpg'
+Removing old file `includes/views/website-studio-page.php'
+Transferring file `includes/views/website-studio-page.php'
+Removing old file `assets/legacy-referenzen/referenzen_felsenkeller.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_felsenkeller.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_gdke.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_gdke.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_globus.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_globus.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_grevenbroich.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_grevenbroich.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_hospiz.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_hospiz.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_kijub.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_kijub.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_kinderzauber.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_kinderzauber.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_kleinkunst.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_kleinkunst.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_kufa.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_kufa.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_kulturkurze.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_kulturkurze.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_lyz.png'
+Transferring file `assets/legacy-referenzen/referenzen_lyz.png'
+Removing old file `assets/legacy-referenzen/referenzen_montabaur.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_montabaur.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_neuss.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_neuss.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_niederkassel.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_niederkassel.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_pellenz.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_pellenz.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_saarburg.png'
+Transferring file `assets/legacy-referenzen/referenzen_saarburg.png'
+Removing old file `assets/legacy-referenzen/referenzen_stadt.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_stadt.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_stadtbibliothek.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_stadtbibliothek.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_trabentrarbach.png'
+Transferring file `assets/legacy-referenzen/referenzen_trabentrarbach.png'
+Removing old file `assets/legacy-referenzen/referenzen_yellow.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_yellow.jpg'
+Removing old file `assets/legacy-repertoire/Die Hoellenfahrt des Dr. Faust.jpg'
+Transferring file `assets/legacy-repertoire/Die Hoellenfahrt des Dr. Faust.jpg'
+Removing old file `assets/legacy-repertoire/baerenstare_weihnachten_rep.jpg'
+Transferring file `assets/legacy-repertoire/baerenstare_weihnachten_rep.jpg'
+Removing old file `assets/legacy-repertoire/der_raeuber_hotzenplotz.jpg'
+Transferring file `assets/legacy-repertoire/der_raeuber_hotzenplotz.jpg'
+Removing old file `assets/legacy-repertoire/ein_baum_fuer_den_weihnachtsmann_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/ein_baum_fuer_den_weihnachtsmann_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/faust_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/faust_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/frau_holle.jpg'
+Transferring file `assets/legacy-repertoire/frau_holle.jpg'
+Removing old file `assets/legacy-repertoire/freunde_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/freunde_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/freunde_repertoire_helmeheine.jpg'
+Transferring file `assets/legacy-repertoire/freunde_repertoire_helmeheine.jpg'
+Removing old file `assets/legacy-repertoire/hahn_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/hahn_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/holle_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/holle_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/hotzenplotz_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/hotzenplotz_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/kasper-repertoire.jpg'
+Transferring file `assets/legacy-repertoire/kasper-repertoire.jpg'
+Removing old file `assets/legacy-repertoire/kasperspiel_goldschatz_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/kasperspiel_goldschatz_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/kasperspiel_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/kasperspiel_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/kasperspiel_repertoire_pfannkuchenschlacht.jpg'
+Transferring file `assets/legacy-repertoire/kasperspiel_repertoire_pfannkuchenschlacht.jpg'
+Removing old file `assets/legacy-repertoire/knusperknusperknaeuschen.jpg'
+Transferring file `assets/legacy-repertoire/knusperknusperknaeuschen.jpg'
+Removing old file `assets/legacy-repertoire/nulli.jpg'
+Transferring file `assets/legacy-repertoire/nulli.jpg'
+Removing old file `assets/legacy-repertoire/nulli_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/nulli_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/olchis.jpg'
+Transferring file `assets/legacy-repertoire/olchis.jpg'
+Removing old file `assets/legacy-repertoire/olchis_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/olchis_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/pettersson_kriegt_weihnachtsbesuch_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/pettersson_kriegt_weihnachtsbesuch_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/pettersson_und_findus.jpg'
+Transferring file `assets/legacy-repertoire/pettersson_und_findus.jpg'
+Removing old file `assets/legacy-repertoire/pettersson_und_findus_weihnachten_kurzinfo.jpg'
+Transferring file `assets/legacy-repertoire/pettersson_und_findus_weihnachten_kurzinfo.jpg'
+Removing old file `assets/legacy-repertoire/pfannkuchenschlacht.jpg'
+Transferring file `assets/legacy-repertoire/pfannkuchenschlacht.jpg'
+Removing old file `assets/legacy-repertoire/post_fuer_den_tiger.jpeg'
+Transferring file `assets/legacy-repertoire/post_fuer_den_tiger.jpeg'
+Removing old file `assets/legacy-repertoire/post_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/post_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/spielzeugkoenig.jpg'
+Transferring file `assets/legacy-repertoire/spielzeugkoenig.jpg'
+Removing old file `assets/legacy-repertoire/wasser_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/wasser_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/wassermann.jpg'
+Transferring file `assets/legacy-repertoire/wassermann.jpg'
+Removing old file `assets/legacy-repertoire/weihnachten_bei_tiger_und_baer_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/weihnachten_bei_tiger_und_baer_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/weihnachten_repertoire.jpg'
+Transferring file `assets/legacy-repertoire/weihnachten_repertoire.jpg'
+Removing old file `assets/legacy-repertoire/weihnachten_tiger_baer.jpg'
+Transferring file `assets/legacy-repertoire/weihnachten_tiger_baer.jpg'
+Removing old file `README.md'
+Transferring file `README.md'
+Removing old file `ROLLBACK-DEPLOY.txt'
+Transferring file `ROLLBACK-DEPLOY.txt'
+Removing old file `UPDATE-NOTES.txt'
+Transferring file `UPDATE-NOTES.txt'
+Removing old file `functions.php'
+Transferring file `functions.php'
+Removing old file `style.css'
+Transferring file `style.css'
+Removing old file `theme.json'
+Transferring file `theme.json'
+Removing old file `parts/footer.html'
+Transferring file `parts/footer.html'
+Removing old file `assets/compat-overrides.css'
+Transferring file `assets/compat-overrides.css'
+Removing old file `parts/header.html'
+Transferring file `parts/header.html'
+Removing old file `assets/image-fallback.js'
+Transferring file `assets/image-fallback.js'
+Removing old file `assets/mobile-nav-qa.css'
+Transferring file `assets/mobile-nav-qa.css'
+Removing old file `assets/site-finish.css'
+Transferring file `assets/site-finish.css'
+Removing old file `assets/theater-polish.css'
+Transferring file `assets/theater-polish.css'
+Removing old file `patterns/booking-cta.php'
+Transferring file `patterns/booking-cta.php'
+Removing old file `patterns/header-main.php'
+Transferring file `patterns/header-main.php'
+Removing old file `patterns/hero.php'
+Transferring file `patterns/hero.php'
+Removing old file `assets/images/header.webp'
+Transferring file `assets/images/header.webp'
+Removing old file `patterns/image-text.php'
+Transferring file `patterns/image-text.php'
+Removing old file `patterns/startseite.php'
+Transferring file `patterns/startseite.php'
+Removing old file `templates/404.html'
+Transferring file `templates/404.html'
+Removing old file `templates/archive.html'
+Transferring file `templates/archive.html'
+Removing old file `templates/front-page.html'
+Transferring file `templates/front-page.html'
+Removing old file `templates/index.html'
+Transferring file `templates/index.html'
+Removing old file `templates/landing.html'
+Transferring file `templates/landing.html'
+Removing old file `templates/page-das-theater.html'
+Transferring file `templates/page-das-theater.html'
+Removing old file `templates/page-referenzen.html'
+Transferring file `templates/page-referenzen.html'
+Removing old file `templates/page-repertoire.html'
+Transferring file `templates/page-repertoire.html'
+Removing old file `templates/page-termine.html'
+Transferring file `templates/page-termine.html'
+Removing old file `templates/page.html'
+Transferring file `templates/page.html'
+Removing old file `templates/single-kp_ensemble.html'
+Transferring file `templates/single-kp_ensemble.html'
+Removing old file `templates/single-kp_repertoire.html'
+Transferring file `templates/single-kp_repertoire.html'
+Removing old file `templates/single.html'
+Transferring file `templates/single.html'
