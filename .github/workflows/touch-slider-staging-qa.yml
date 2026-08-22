@@ -1,0 +1,67 @@
+name: Touch slider staging QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.css'
+      - 'qa/touch-slider-hold-browser-test.mjs'
+      - '.github/workflows/touch-slider-staging-qa.yml'
+  workflow_run:
+    workflows: ['Deploy staging WordPress']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: koblenzer-puppenspiele-touch-slider-staging
+  cancel-in-progress: true
+
+jobs:
+  held-touch-slider:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check out latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Wait for exact touch safety asset on staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          local_asset='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js'
+          url='https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js'
+          expected=$(sha256sum "$local_asset" | awk '{print $1}')
+          echo "Expected SHA256: $expected"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --location -H 'Cache-Control: no-cache' "$url?kp_slider_qa=${GITHUB_SHA}-${GITHUB_RUN_ID}-${attempt}" -o /tmp/touch-gesture-safety.js; then
+              actual=$(sha256sum /tmp/touch-gesture-safety.js | awk '{print $1}')
+              echo "Attempt $attempt staging SHA256: $actual"
+              if [ "$actual" = "$expected" ]; then
+                echo 'PASS: exact repository touch safety asset is live on staging.'
+                exit 0
+              fi
+            fi
+            sleep 4
+          done
+          echo 'ERROR: staging never served the exact current touch safety asset.' >&2
+          exit 1
+
+      - name: Install Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Reproduce swipe vs hold-and-drag against staged asset
+        env:
+          KP_TOUCH_SAFETY: /tmp/touch-gesture-safety.js
+        shell: bash
+        run: node qa/touch-slider-hold-browser-test.mjs
