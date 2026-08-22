@@ -94,11 +94,11 @@
 
   function hardLockRange(input) {
     if (!(input instanceof HTMLInputElement) || input.type !== 'range') return;
-    if (input.dataset.kpTouchHardlocked === '2') return;
+    if (input.dataset.kpTouchHardlocked === '3') return;
     const parent = input.parentElement;
     if (!parent) return;
 
-    input.dataset.kpTouchHardlocked = '2';
+    input.dataset.kpTouchHardlocked = '3';
     input.dataset.kpTouchGuarded = '1';
     parent.classList.add('kp-range-guarded', 'kp-range-hardlocked');
     if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
@@ -116,7 +116,7 @@
     const resetState = () => {
       if (!state) return;
       clearTimeout(state.timer);
-      guard.classList.remove('is-armed');
+      guard.classList.remove('is-armed', 'is-scrolling');
       if (state.pointerId !== undefined) {
         try {
           if (guard.hasPointerCapture?.(state.pointerId)) guard.releasePointerCapture(state.pointerId);
@@ -126,14 +126,25 @@
     };
 
     const armState = () => {
-      if (!state) return;
+      if (!state || state.scrolling) return;
       state.armed = true;
       guard.classList.add('is-armed');
-      try {
-        if (state.pointerId !== undefined) guard.setPointerCapture?.(state.pointerId);
-      } catch (_) {}
       try { navigator.vibrate?.(12); } catch (_) {}
       hud('Regler entsperrt – jetzt ziehen');
+    };
+
+    const beginManualScroll = () => {
+      if (!state || state.armed || state.scrolling) return;
+      state.scrolling = true;
+      clearTimeout(state.timer);
+      guard.classList.add('is-scrolling');
+    };
+
+    const manualScroll = clientY => {
+      if (!state) return;
+      const deltaY = state.lastY - clientY;
+      state.lastY = clientY;
+      if (Math.abs(deltaY) > 0.01) window.scrollBy(0, deltaY);
     };
 
     guard.addEventListener('contextmenu', e => e.preventDefault());
@@ -147,21 +158,27 @@
           pointerId:event.pointerId,
           startX:event.clientX,
           startY:event.clientY,
+          lastY:event.clientY,
           armed:false,
+          scrolling:false,
           changed:false,
           timer:setTimeout(armState, holdMs)
         };
+        try { guard.setPointerCapture?.(event.pointerId); } catch (_) {}
       });
 
       guard.addEventListener('pointermove', event => {
         if (!state || event.pointerId !== state.pointerId) return;
-        if (!state.armed) {
-          if (Math.hypot(event.clientX - state.startX, event.clientY - state.startY) > 11) resetState();
+        event.preventDefault();
+        if (state.armed) {
+          state.changed = true;
+          updateRangeFromX(input, event.clientX);
           return;
         }
-        event.preventDefault();
-        state.changed = true;
-        updateRangeFromX(input, event.clientX);
+        if (!state.scrolling && Math.hypot(event.clientX - state.startX, event.clientY - state.startY) > 11) {
+          beginManualScroll();
+        }
+        if (state.scrolling) manualScroll(event.clientY);
       }, {passive:false});
 
       const finishPointer = event => {
@@ -169,7 +186,7 @@
         const wasArmed = state.armed;
         const changed = state.changed;
         clearTimeout(state.timer);
-        guard.classList.remove('is-armed');
+        guard.classList.remove('is-armed', 'is-scrolling');
         try {
           if (guard.hasPointerCapture?.(state.pointerId)) guard.releasePointerCapture(state.pointerId);
         } catch (_) {}
@@ -185,32 +202,34 @@
         if (state && event.pointerId === state.pointerId) resetState();
       });
     } else {
-      /* Legacy iOS/WebView fallback where Pointer Events are unavailable. */
+      /* Legacy iOS/WebView fallback. touch-action:none keeps the stream in JS;
+         pre-hold vertical motion is mirrored to normal page scrolling here. */
       guard.addEventListener('touchstart', event => {
         if (event.touches.length !== 1) { resetState(); return; }
         positionGuard(input, guard);
         resetState();
         const t = event.touches[0];
-        state = {id:t.identifier,startX:t.clientX,startY:t.clientY,armed:false,changed:false,timer:setTimeout(armState,holdMs)};
+        state = {id:t.identifier,startX:t.clientX,startY:t.clientY,lastY:t.clientY,armed:false,scrolling:false,changed:false,timer:setTimeout(armState,holdMs)};
       }, {passive:true});
 
       guard.addEventListener('touchmove', event => {
         if (!state) return;
         const t = [...event.touches].find(x => x.identifier === state.id);
         if (!t) return;
-        if (!state.armed) {
-          if (Math.hypot(t.clientX-state.startX,t.clientY-state.startY)>11) resetState();
+        event.preventDefault();
+        if (state.armed) {
+          state.changed=true;
+          updateRangeFromX(input,t.clientX);
           return;
         }
-        event.preventDefault();
-        state.changed=true;
-        updateRangeFromX(input,t.clientX);
+        if (!state.scrolling && Math.hypot(t.clientX-state.startX,t.clientY-state.startY)>11) beginManualScroll();
+        if (state.scrolling) manualScroll(t.clientY);
       }, {passive:false});
 
       guard.addEventListener('touchend', event => {
         if (!state || ![...event.changedTouches].some(x=>x.identifier===state.id)) return;
         const wasArmed=state.armed, changed=state.changed;
-        clearTimeout(state.timer); guard.classList.remove('is-armed'); state=null;
+        clearTimeout(state.timer); guard.classList.remove('is-armed','is-scrolling'); state=null;
         if (wasArmed) {
           if (changed) input.dispatchEvent(new Event('change',{bubbles:true}));
           hud(changed?'Regler geändert ✓':'Regler entsperrt – beim Halten direkt ziehen',900);
@@ -232,7 +251,7 @@
 
   window.addEventListener('resize', () => {
     document.querySelectorAll('.kp-touch-range-hardlock').forEach(guard => {
-      const input = guard.parentElement?.querySelector('input[type="range"][data-kp-touch-hardlocked="2"]');
+      const input = guard.parentElement?.querySelector('input[type="range"][data-kp-touch-hardlocked="3"]');
       if (input) positionGuard(input, guard);
     });
   }, {passive:true});
