@@ -4,27 +4,14 @@ import path from 'node:path';
 const safetyJs = process.env.KP_TOUCH_SAFETY || path.resolve('wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js');
 const safetyCss = process.env.KP_TOUCH_SAFETY_CSS || path.resolve('wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.css');
 const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+const page = await context.newPage();
+const cdp = await context.newCDPSession(page);
 const fail = message => { throw new Error(message); };
 
-async function pointerAt(type, x, y, pointerId = 17) {
-  return page.evaluate(args => {
-    const el = document.elementFromPoint(args.x, args.y);
-    if (!el) throw new Error(`Kein Element an ${args.x}/${args.y}`);
-    const target = el.className || el.id || el.tagName;
-    el.dispatchEvent(new PointerEvent(args.type, {
-      bubbles: true,
-      cancelable: true,
-      pointerId: args.pointerId,
-      pointerType: 'touch',
-      isPrimary: true,
-      clientX: args.x,
-      clientY: args.y,
-      buttons: args.type === 'pointerup' ? 0 : 1,
-      pressure: args.type === 'pointerup' ? 0 : 0.5,
-    }));
-    return String(target);
-  }, { type, x, y, pointerId });
+async function touch(type, x, y, id = 1) {
+  const touchPoints = type === 'touchEnd' || type === 'touchCancel' ? [] : [{x, y, id, radiusX: 2, radiusY: 2, force: 0.7}];
+  await cdp.send('Input.dispatchTouchEvent', {type, touchPoints});
 }
 
 try {
@@ -64,8 +51,7 @@ try {
   const hardlock = await page.locator('#range').getAttribute('data-kp-touch-hardlocked');
   if (hardlock !== '4') fail(`Unerwartete Hardlock-Version: ${hardlock}`);
 
-  // Critical regression: the range is created inside a hidden Design tab. Opening
-  // that tab must reposition the guard over the now-visible real range.
+  // Real regression: the range exists inside a hidden Design tab first.
   await page.locator('#show-design').click();
   await page.waitForTimeout(120);
   await page.locator('#range').scrollIntoViewIfNeeded();
@@ -80,24 +66,22 @@ try {
     fail(`Schutzschicht liegt nicht über dem sichtbaren Design-Regler: input=${JSON.stringify(inputBox)} guard=${JSON.stringify(guardBox)}`);
   }
 
-  // Touch the VISUAL slider coordinates. Hit-testing must land on the guard.
   const cx = inputBox.x + inputBox.width / 2;
   const cy = inputCenterY;
-  const hit = await page.evaluate(({x,y}) => {
-    const el = document.elementFromPoint(x,y);
-    return el?.classList?.contains('kp-touch-range-hardlock') || false;
-  }, {x:cx,y:cy});
+  const hit = await page.evaluate(({x,y}) => document.elementFromPoint(x,y)?.classList?.contains('kp-touch-range-hardlock') || false, {x:cx,y:cy});
   if (!hit) fail('Echter Touch auf der sichtbaren Sliderposition trifft die Schutzschicht nicht.');
 
-  // A normal swipe on the slider must scroll the Design sheet, not change value.
+  // A real Chromium touch swipe on the slider must scroll the Design sheet,
+  // while the slider value stays untouched before the hold threshold.
   const initial = Number(await page.locator('#range').inputValue());
   const sheet = page.locator('.kp-oa-sheet');
   const scrollBefore = await sheet.evaluate(el => el.scrollTop);
-  await pointerAt('pointerdown', cx, cy, 21);
+  await touch('touchStart', cx, cy, 21);
   await page.waitForTimeout(35);
-  await pointerAt('pointermove', cx, cy - 70, 21);
-  await pointerAt('pointerup', cx, cy - 70, 21);
-  await page.waitForTimeout(50);
+  await touch('touchMove', cx, cy - 70, 21);
+  await page.waitForTimeout(35);
+  await touch('touchEnd', cx, cy - 70, 21);
+  await page.waitForTimeout(70);
   const quick = await page.evaluate(() => ({
     value: Number(document.querySelector('#range')?.value || 0),
     sheetScroll: document.querySelector('.kp-oa-sheet')?.scrollTop || 0,
@@ -108,7 +92,8 @@ try {
   if (quick.sheetScroll <= scrollBefore) fail(`Normales Wischen scrollt das Design-Menü nicht: ${JSON.stringify(quick)}`);
   if (quick.inputs !== 0 || quick.changes !== 0) fail(`Normales Wischen feuert Slider-Events: ${JSON.stringify(quick)}`);
 
-  // Scroll the real range back into view and hold directly on its visible track.
+  // Bring the real slider back into view, hold on the visible track and move
+  // the SAME physical touch point horizontally after the hold threshold.
   await page.locator('#range').scrollIntoViewIfNeeded();
   await page.waitForTimeout(100);
   inputBox = await page.locator('#range').boundingBox();
@@ -117,15 +102,17 @@ try {
   const startX = inputBox.x + inputBox.width * 0.35;
   const targetX = inputBox.x + inputBox.width * 0.86;
   const y = inputBox.y + inputBox.height / 2;
+  const holdHit = await page.evaluate(({x,y}) => document.elementFromPoint(x,y)?.classList?.contains('kp-touch-range-hardlock') || false, {x:startX,y});
+  if (!holdHit) fail('Long-press startet nicht auf der Schutzschicht des sichtbaren Design-Reglers.');
 
-  const downTarget = await pointerAt('pointerdown', startX, y, 31);
-  if (!downTarget.includes('kp-touch-range-hardlock')) fail(`Pointerdown trifft nicht den Guard: ${downTarget}`);
+  await touch('touchStart', startX, y, 31);
   await page.waitForTimeout(370);
   const armed = await guard.evaluate(el => el.classList.contains('is-armed'));
   if (!armed) fail('Echter Design-Regler wird nach langem Halten nicht entsperrt.');
-  await pointerAt('pointermove', targetX, y, 31);
-  await pointerAt('pointerup', targetX, y, 31);
-  await page.waitForTimeout(50);
+  await touch('touchMove', targetX, y, 31);
+  await page.waitForTimeout(35);
+  await touch('touchEnd', targetX, y, 31);
+  await page.waitForTimeout(70);
 
   const held = await page.evaluate(() => ({
     value: Number(document.querySelector('#range')?.value || 0),
@@ -137,7 +124,7 @@ try {
   if (held.inputs < 1 || held.changes !== 1) fail(`Slider-Events nach Halten/Ziehen fehlerhaft: ${JSON.stringify(held)}`);
   if (held.armed) fail('Design-Regler bleibt nach Loslassen entsperrt.');
 
-  console.log(`PASS: echter versteckter Design-Tab → sichtbarer Regler überlagert; Menü scrollt; Halten + derselbe Pointer zieht von ${initial} auf ${held.value}.`);
+  console.log(`PASS: echter versteckter Design-Tab → sichtbarer Regler überlagert; natives Touch-Wischen scrollt; Halten + derselbe Finger zieht von ${initial} auf ${held.value}.`);
 } finally {
   await browser.close();
 }
