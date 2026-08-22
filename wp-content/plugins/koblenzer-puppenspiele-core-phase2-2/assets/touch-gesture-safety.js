@@ -306,6 +306,40 @@
   });
   rangeObserver.observe(document.documentElement, {childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
 
+  /* Owner Web App currently reopens the Design sheet after its own Reset click,
+     which immediately reloads the old saved cfg.design values. On touch, keep the
+     reset as a preview-only draft: update every live Design control from the
+     configured defaults, dispatch the same input/change events as a real edit,
+     and stop propagation before the stale-state reopening handler runs. */
+  document.addEventListener('click', event => {
+    const target = event.target instanceof Element ? event.target : null;
+    const button = target?.closest('.kp-oa-design-reset');
+    if (!button) return;
+    const owner = window.KPOwnerWebApp;
+    const defaults = owner?.designDefaults;
+    const box = button.closest('.kp-oa-sheet.is-design');
+    if (!defaults || typeof defaults !== 'object' || !box) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    box.querySelectorAll('[data-design]').forEach(input => {
+      const key = input.dataset.design;
+      if (!key || !Object.prototype.hasOwnProperty.call(defaults, key)) return;
+      const value = defaults[key];
+      if (input.type === 'checkbox') {
+        input.checked = Number(value) !== 0 && value !== false;
+        input.dispatchEvent(new Event('change', {bubbles:true}));
+      } else {
+        input.value = String(value ?? '');
+        input.dispatchEvent(new Event('input', {bubbles:true}));
+        input.dispatchEvent(new Event('change', {bubbles:true}));
+      }
+    });
+    hud('Standardwerte geladen – zum Übernehmen „Design speichern“ antippen', 1800);
+    scheduleRangePositions();
+  }, true);
+
   document.addEventListener('click', event => {
     if (event.target instanceof Element && event.target.closest('.kp-oa-tabs [data-tab]')) scheduleRangePositions();
   }, true);
