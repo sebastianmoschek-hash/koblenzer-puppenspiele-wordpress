@@ -4,6 +4,7 @@ import path from 'node:path';
 const safetyJs = process.env.KP_TOUCH_SAFETY || path.resolve('wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js');
 const safetyCss = process.env.KP_TOUCH_SAFETY_CSS || path.resolve('wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.css');
 const ownerCss = process.env.KP_OWNER_WEB_CSS || path.resolve('wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.css');
+const resetReliabilityJs = process.env.KP_DESIGN_RESET_RELIABILITY || path.resolve('wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/design-reset-reliability.js');
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 const page = await context.newPage();
@@ -25,7 +26,7 @@ async function tap(selector, id) {
   await touch('touchStart', x, y, id);
   await page.waitForTimeout(45);
   await touch('touchEnd', x, y, id);
-  await page.waitForTimeout(80);
+  await page.waitForTimeout(100);
 }
 
 try {
@@ -58,15 +59,14 @@ try {
     window.__sliderInputEvents = 0;
     window.__sliderChangeEvents = 0;
     window.__saveClicks = 0;
-    window.__resetClicks = 0;
     document.querySelector('#range')?.addEventListener('input', () => window.__sliderInputEvents += 1);
     document.querySelector('#range')?.addEventListener('change', () => window.__sliderChangeEvents += 1);
     document.querySelector('#show-design')?.addEventListener('click', () => document.querySelector('#design-pane')?.classList.add('is-active'));
     document.querySelector('.kp-oa-design-save')?.addEventListener('click', () => window.__saveClicks += 1);
-    document.querySelector('.kp-oa-design-reset')?.addEventListener('click', () => window.__resetClicks += 1);
   });
 
   await page.addScriptTag({ path: safetyJs });
+  await page.addScriptTag({ path: resetReliabilityJs });
   await page.waitForTimeout(80);
 
   const guard = page.locator('.kp-touch-range-hardlock');
@@ -143,18 +143,18 @@ try {
   if (held.armed) fail('Design-Regler bleibt nach Loslassen entsperrt.');
 
   // Regression from the real phone: while the sticky footer is visible, slider
-  // guards below it must never steal taps from Standardwerte / Design speichern.
-  // The real reset semantics are intentionally tested in homepage-editor-lab.mjs
-  // against live staging; this isolated runtime test only proves native tap reach.
+  // guards below it must never steal taps. Reset must visibly apply defaults on
+  // the first native touch; Save must still receive its normal click.
   await sheet.evaluate(el => { el.scrollTop = el.scrollHeight; });
   await page.waitForTimeout(120);
   await tap('.kp-oa-design-reset', 41);
+  const resetValue = Number(await page.locator('#range').inputValue());
+  if (resetValue !== 62) fail(`Standardwerte wurden beim ersten echten Touch nicht sichtbar angewendet: ${resetValue}`);
   await tap('.kp-oa-design-save', 42);
-  const clicks = await page.evaluate(() => ({ reset: window.__resetClicks, save: window.__saveClicks }));
-  if (clicks.reset !== 1) fail(`Standardwerte reagiert nicht auf echten Touch: ${JSON.stringify(clicks)}`);
-  if (clicks.save !== 1) fail(`Design speichern reagiert nicht auf echten Touch: ${JSON.stringify(clicks)}`);
+  const saveClicks = await page.evaluate(() => window.__saveClicks);
+  if (saveClicks !== 1) fail(`Design speichern reagiert nicht auf echten Touch: ${saveClicks}`);
 
-  console.log(`PASS: echter versteckter Design-Tab → Regler Touch/Scroll/Halten funktioniert; Standardwerte und Design speichern erhalten echte Touch-Taps.`);
+  console.log(`PASS: echter versteckter Design-Tab → Regler Touch/Scroll/Halten funktioniert; Standardwerte setzen beim ersten Touch ${resetValue}; Design speichern erhält echten Touch-Tap.`);
 } finally {
   await browser.close();
 }
