@@ -71,7 +71,10 @@ add_action( 'wp_footer', static function () {
         const ajaxUrl=window.KPOwnerWebApp?.ajaxUrl||window.KPFrontendEditorV2?.ajaxUrl||'/wp-admin/admin-ajax.php';
         const nonce=cleanupUnused.nonce||'';if(!nonce)return;
         const fd=new FormData();fd.append('action','kp_ai_temp_image_cleanup');fd.append('nonce',nonce);fd.append('ids',JSON.stringify(ids));
-        try{await fetch(ajaxUrl,{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});ids.forEach(id=>{for(const [url,e] of generated){if(e.attachmentId===id)generated.delete(url);}});}catch(_){}
+        try{
+          await fetch(ajaxUrl,{method:'POST',credentials:'same-origin',cache:'no-store',keepalive:true,body:fd});
+          ids.forEach(id=>{for(const [url,e] of generated){if(e.attachmentId===id)generated.delete(url);}});
+        }catch(_){}
       }
 
       const inheritedFetch=window.fetch.bind(window);
@@ -102,7 +105,7 @@ add_action( 'wp_footer', static function () {
 
       function install(){
         const runtime=window.KPAIEditorRuntime;if(!runtime||runtime.__kpImageDraftSafe)return false;
-        const originalUndo=runtime.undo?.bind(runtime),originalRedo=runtime.redo?.bind(runtime),originalDiscard=runtime.discard?.bind(runtime),originalFlush=runtime.flush?.bind(runtime);
+        const originalUndo=runtime.undo?.bind(runtime),originalRedo=runtime.redo?.bind(runtime),originalClearRedo=runtime.clearRedo?.bind(runtime),originalDiscard=runtime.discard?.bind(runtime),originalFlush=runtime.flush?.bind(runtime);
         savedVisual=captureVisual();
         runtime.undo=()=>{
           const before=captureVisual();const ok=originalUndo?originalUndo():false;if(!ok)return false;
@@ -115,6 +118,7 @@ add_action( 'wp_footer', static function () {
           return true;
         };
         runtime.redo=()=>originalRedo?originalRedo():false;
+        runtime.clearRedo=()=>{const result=originalClearRedo?originalClearRedo():undefined;setTimeout(cleanupUnused,0);return result;};
         runtime.discard=()=>{
           const result=originalDiscard?originalDiscard():undefined;
           for(const [k,state] of savedVisual){restoreAttrs(imageByKey(k),state);}
@@ -127,6 +131,14 @@ add_action( 'wp_footer', static function () {
         runtime.__kpImageDraftSafe=true;return true;
       }
       install();setInterval(install,350);
+
+      // The global X reloads very shortly after discarding. Invoke AI Discard in
+      // window-capture first; cleanup uses fetch keepalive so unused Gemini files
+      // still reach WordPress even while the page is leaving.
+      window.addEventListener('click',e=>{
+        const t=e.target instanceof Element?e.target:null;
+        if(t?.closest('.kp-canva-discard'))window.KPAIEditorRuntime?.discard?.();
+      },true);
     })();
     </script>
     <?php
