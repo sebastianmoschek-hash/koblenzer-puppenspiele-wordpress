@@ -1,10 +1,10 @@
 
 ===== pipeline.log =====
-CircleCI Homepage Lab: 670a8e12b9920ab97435279481b2fbdfe1d114e7
+CircleCI Homepage Lab: 43e18c17cdf88fc0a7b0863fba4b971ea673adc4
 == editor ==
-PASS editor
+FAIL editor (exit 1)
 == persistence ==
-PASS persistence
+FAIL persistence (exit 1)
 == touch-slider ==
 PASS touch-slider
 == touch-runtime ==
@@ -13,11 +13,16 @@ PASS touch-runtime
 PASS visual
 
 ===== editor.log =====
+FAIL: mobile-390: Error: E2E state read failed: {"ok":false,"status":500,"json":null}
+    at readState (file:///root/project/qa/homepage-editor-lab.mjs:51:50)
+    at async mobileSaveAndResetRoundTrip (file:///root/project/qa/homepage-editor-lab.mjs:147:20)
+    at async file:///root/project/qa/homepage-editor-lab.mjs:294:7
+FAIL: tablet-820: same-origin HTTP 5xx: [{"status":500,"url":"https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php"}]
 # Homepage-Labor – echter Staging-Browser
 
-Erzeugt: 2026-08-22T16:30:31.224Z
-Commit: 670a8e12b9920ab97435279481b2fbdfe1d114e7
-Gesamtstatus: SUCCESS
+Erzeugt: 2026-08-22T17:00:10.992Z
+Commit: 43e18c17cdf88fc0a7b0863fba4b971ea673adc4
+Gesamtstatus: FAILURE
 
 ## mobile-390
 - Viewport: 390×844
@@ -25,11 +30,8 @@ Gesamtstatus: SUCCESS
 - Menü geöffnet: true
 - Speichern antippbar: true
 - Standardwerte antippbar: true
-- Touch-Regler: 320 → 254
-- Touch → Speichern → Reload → DB: OK
-- Standardwerte ohne Auto-Save: OK
 - JS Page Errors: 0
-- Same-origin HTTP Fehler: 0
+- Same-origin HTTP Fehler: 1
 
 ## tablet-820
 - Viewport: 820×1180
@@ -38,7 +40,7 @@ Gesamtstatus: SUCCESS
 - Speichern antippbar: true
 - Standardwerte antippbar: true
 - JS Page Errors: 0
-- Same-origin HTTP Fehler: 0
+- Same-origin HTTP Fehler: 1
 
 ## desktop-1440
 - Viewport: 1440×900
@@ -49,12 +51,22 @@ Gesamtstatus: SUCCESS
 - JS Page Errors: 0
 - Same-origin HTTP Fehler: 0
 
-## Ergebnis
+## Fehler
 
-- Alle echten Browser-/Touch-/Speicherchecks grün.
+- mobile-390: Error: E2E state read failed: {"ok":false,"status":500,"json":null} at readState (file:///root/project/qa/homepage-editor-lab.mjs:51:50) at async mobileSaveAndResetRoundTrip (file:///root/project/qa/homepage-editor-lab.mjs:147:20) at async file:///root/project/qa/homepage-editor-lab.mjs:294:7
+- tablet-820: same-origin HTTP 5xx: [{"status":500,"url":"https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php"}]
 
 ===== persistence.log =====
-PASS: 38 Design-Regler + 64 Größenregler + Menü-X über orange Speichern dauerhaft; Header-Rundung nach Reload sichtbar; Rückgängig nach Speichern funktioniert; 48-Stunden-Versionen funktionieren.
+WARNUNG: Restore des Owner-E2E-Ausgangszustands fehlgeschlagen: E2E-Ausgangszustand konnte nicht wiederhergestellt werden: {"ok":false,"status":403,"json":{"success":false,"data":{"message":"E2E denied."}}}
+file:///root/project/qa/owner-all-persistence-e2e.mjs:10
+const fail = message => { throw new Error(message); };
+                                ^
+
+Error: Header-Rundung steht nach Reload nicht sichtbar auf 35px, sondern .
+    at fail (file:///root/project/qa/owner-all-persistence-e2e.mjs:10:33)
+    at file:///root/project/qa/owner-all-persistence-e2e.mjs:227:5
+
+Node.js v22.18.0
 
 ===== touch-slider.log =====
 PASS: echter versteckter Design-Tab → Regler Touch/Scroll/Halten funktioniert; Standardwerte setzen beim ersten Touch 62; Design speichern erhält echten Touch-Tap.
@@ -190,14 +202,14 @@ Removing old file `includes/class-kp-frontend-editor-save-guard.php'
 Transferring file `includes/class-kp-frontend-editor-save-guard.php'
 Removing old file `assets/owner-save-coordinator.js'
 Transferring file `assets/owner-save-coordinator.js'
-Removing old file `includes/class-kp-frontend-editor-v2.php'
-Transferring file `includes/class-kp-frontend-editor-v2.php'
 Removing old file `assets/owner-web-app-extensions.js'
 Transferring file `assets/owner-web-app-extensions.js'
-Removing old file `includes/class-kp-frontend-editor.php'
-Transferring file `includes/class-kp-frontend-editor.php'
+Removing old file `includes/class-kp-frontend-editor-v2.php'
+Transferring file `includes/class-kp-frontend-editor-v2.php'
 Removing old file `assets/owner-web-app.css'
 Transferring file `assets/owner-web-app.css'
+Removing old file `includes/class-kp-frontend-editor.php'
+Transferring file `includes/class-kp-frontend-editor.php'
 Removing old file `assets/owner-web-app.js'
 Transferring file `assets/owner-web-app.js'
 Removing old file `includes/class-kp-google-calendar-import.php'
@@ -214,34 +226,34 @@ Removing old file `assets/touch-free-layout.js'
 Transferring file `assets/touch-free-layout.js'
 Removing old file `includes/class-kp-instagram-profile-migration.php'
 Transferring file `includes/class-kp-instagram-profile-migration.php'
-Removing old file `includes/class-kp-legal.php'
-Transferring file `includes/class-kp-legal.php'
 Removing old file `assets/touch-gesture-safety.css'
 Transferring file `assets/touch-gesture-safety.css'
-Removing old file `includes/class-kp-mobile-menu-float.php'
-Transferring file `includes/class-kp-mobile-menu-float.php'
+Removing old file `includes/class-kp-legal.php'
+Transferring file `includes/class-kp-legal.php'
 Removing old file `assets/touch-gesture-safety.js'
 Transferring file `assets/touch-gesture-safety.js'
-Removing old file `includes/class-kp-mobile-menu-glass.php'
-Transferring file `includes/class-kp-mobile-menu-glass.php'
+Removing old file `includes/class-kp-mobile-menu-float.php'
+Transferring file `includes/class-kp-mobile-menu-float.php'
 Removing old file `assets/touch-gestures.css'
 Transferring file `assets/touch-gestures.css'
-Removing old file `includes/class-kp-mobile-menu-links.php'
-Transferring file `includes/class-kp-mobile-menu-links.php'
+Removing old file `includes/class-kp-mobile-menu-glass.php'
+Transferring file `includes/class-kp-mobile-menu-glass.php'
 Removing old file `assets/touch-gestures.js'
 Transferring file `assets/touch-gestures.js'
-Removing old file `includes/class-kp-owner-direct-edit-cta.php'
-Transferring file `includes/class-kp-owner-direct-edit-cta.php'
+Removing old file `includes/class-kp-mobile-menu-links.php'
+Transferring file `includes/class-kp-mobile-menu-links.php'
 Removing old file `assets/touch-manual-save-gate.js'
 Transferring file `assets/touch-manual-save-gate.js'
-Removing old file `includes/class-kp-owner-edit-focus.php'
-Transferring file `includes/class-kp-owner-edit-focus.php'
+Removing old file `includes/class-kp-owner-direct-edit-cta.php'
+Transferring file `includes/class-kp-owner-direct-edit-cta.php'
 Removing old file `assets/touch-persistence.js'
 Transferring file `assets/touch-persistence.js'
-Removing old file `includes/class-kp-owner-edit-reliability.php'
-Transferring file `includes/class-kp-owner-edit-reliability.php'
+Removing old file `includes/class-kp-owner-edit-focus.php'
+Transferring file `includes/class-kp-owner-edit-focus.php'
 Removing old file `assets/website-studio-admin.css'
 Transferring file `assets/website-studio-admin.css'
+Removing old file `includes/class-kp-owner-edit-reliability.php'
+Transferring file `includes/class-kp-owner-edit-reliability.php'
 Removing old file `assets/website-studio-admin.js'
 Transferring file `assets/website-studio-admin.js'
 Removing old file `includes/class-kp-owner-experience.php'
@@ -256,10 +268,10 @@ Removing old file `assets/legacy-ensemble/bjoern_christian_kuepper.png'
 Transferring file `assets/legacy-ensemble/bjoern_christian_kuepper.png'
 Removing old file `includes/class-kp-owner-save-coordinator.php'
 Transferring file `includes/class-kp-owner-save-coordinator.php'
-Removing old file `includes/class-kp-owner-save-readback-fix.php'
-Transferring file `includes/class-kp-owner-save-readback-fix.php'
 Removing old file `assets/legacy-ensemble/gordian_schneider.png'
 Transferring file `assets/legacy-ensemble/gordian_schneider.png'
+Removing old file `includes/class-kp-owner-save-readback-fix.php'
+Transferring file `includes/class-kp-owner-save-readback-fix.php'
 Removing old file `includes/class-kp-owner-ui-polish.php'
 Transferring file `includes/class-kp-owner-ui-polish.php'
 Removing old file `assets/legacy-ensemble/helmut_schmidt.png'
@@ -316,10 +328,10 @@ Removing old file `assets/legacy-referenzen/referenzen_dueren.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_dueren.jpg'
 Removing old file `assets/legacy-referenzen/referenzen_evm.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_evm.jpg'
-Removing old file `includes/views/website-studio-page.php'
-Transferring file `includes/views/website-studio-page.php'
 Removing old file `assets/legacy-referenzen/referenzen_familienbildungsstaette.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_familienbildungsstaette.jpg'
+Removing old file `includes/views/website-studio-page.php'
+Transferring file `includes/views/website-studio-page.php'
 Removing old file `assets/legacy-referenzen/referenzen_felsenkeller.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_felsenkeller.jpg'
 Removing old file `assets/legacy-referenzen/referenzen_gdke.jpg'
