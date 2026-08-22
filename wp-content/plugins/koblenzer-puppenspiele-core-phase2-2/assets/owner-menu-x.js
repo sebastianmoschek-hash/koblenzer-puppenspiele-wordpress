@@ -5,6 +5,7 @@
 
   let draft = Number(cfg.value) || 0;
   let dirty = false;
+  let designFlush = null;
 
   function apply(value) {
     document.documentElement.style.setProperty('--kp-owner-menu-offset-x', `${value}px`);
@@ -65,8 +66,6 @@
   }
 
   async function flush() {
-    // Read the visible slider at Save time so touch/browser event quirks cannot
-    // make the orange unified Save silently skip the horizontal position.
     syncLiveValue();
     if (!hasChanges()) return {draft:false, value:draft};
     const fd = new FormData();
@@ -92,6 +91,17 @@
       apply(0);
       markDirty();
       setTimeout(inject, 0);
+    }
+    if (target?.closest('.kp-oa-design-save') && hasChanges()) {
+      // The design dialog has its own explicit save button. Persist the
+      // horizontal menu position from the same user action before the dialog
+      // reloads the page. Reuse one in-flight request to prevent duplicates.
+      if (!designFlush) {
+        designFlush = flush().catch(err => {
+          console.error('[KP] Menü-X konnte beim Design-Speichern nicht gespeichert werden.', err);
+          throw err;
+        }).finally(() => { designFlush = null; });
+      }
     }
   }, true);
 
