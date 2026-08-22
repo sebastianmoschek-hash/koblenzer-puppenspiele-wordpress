@@ -1,8 +1,8 @@
 # Visual QA – letzter Lauf
 
-Erzeugt: 2026-08-21T23:48:20.914Z
+Erzeugt: 2026-08-22T00:00:43.739Z
 Geprüfte Ansichten: 50
-Auffällige Ansichten: 0
+Auffällige Ansichten: 19
 
 ## desktop-1600 / startseite
 - Automatische Layoutchecks: OK
@@ -98,62 +98,81 @@ Auffällige Ansichten: 0
 - Automatische Layoutchecks: OK
 
 ## mobile-390 / aktuelles
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-390 / das-theater
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-390 / repertoire
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-390 / termine
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-390 / referenzen
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-390 / jetzt-buchen
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-390 / kontakt
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-390 / impressum
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-390 / datenschutz
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-412 / startseite
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-412 / aktuelles
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-412 / das-theater
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-412 / repertoire
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-412 / termine
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-412 / referenzen
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-412 / jetzt-buchen
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-412 / kontakt
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-412 / impressum
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## mobile-412 / datenschutz
-- Automatische Layoutchecks: OK
+- HTTP 500
+- WordPress-/Fehlertext erkannt
 
 ## Interaktionen
 
-- mobile-menu: Button sichtbar=true; Menü geöffnet=true
+- mobile-menu: Button sichtbar=false; Menü geöffnet=false
