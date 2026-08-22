@@ -8,11 +8,18 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * kp_website_studio option. The core design sanitizer does not own that key,
  * therefore comparing the complete stored option strictly against the design
  * payload reports a false failure even though WordPress persisted the design.
+ *
+ * Some long-lived WordPress installations can also carry a database-saved
+ * header template part from before the kp-header-stage wrapper class existed.
+ * Normalize that wrapper in the owner/frontend DOM so all header width/gap/
+ * radius controls still apply after reload even when such a template override
+ * is active.
  */
 final class KP_Owner_Save_Readback_Fix {
     public static function init() {
         remove_action( 'wp_ajax_kp_owner_design_save', array( 'KP_Owner_Web_App', 'ajax_design_save' ) );
         add_action( 'wp_ajax_kp_owner_design_save', array( __CLASS__, 'ajax_design_save' ) );
+        add_action( 'wp_footer', array( __CLASS__, 'render_header_stage_compat' ), 5 );
     }
 
     private static function can_edit() {
@@ -40,6 +47,22 @@ final class KP_Owner_Save_Readback_Fix {
             }
         }
         return true;
+    }
+
+    public static function render_header_stage_compat() {
+        if ( is_admin() ) { return; }
+        ?>
+        <script id="kp-header-stage-compat">
+        (()=>{
+          'use strict';
+          document.querySelectorAll('.kp-header-photo').forEach(photo=>{
+            if(photo.closest('.kp-header-stage')) return;
+            const wrapper=photo.parentElement;
+            if(wrapper) wrapper.classList.add('kp-header-stage');
+          });
+        })();
+        </script>
+        <?php
     }
 
     public static function ajax_design_save() {
