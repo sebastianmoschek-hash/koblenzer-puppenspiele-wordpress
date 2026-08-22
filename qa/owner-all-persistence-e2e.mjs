@@ -231,24 +231,57 @@ try {
   if (!historyAfterSave.ok || !historyAfterSave.json?.success) fail(`Versionsliste fehlt nach Speicherung: ${JSON.stringify(historyAfterSave)}`);
   if (Number(historyAfterSave.json.data?.retention_hours) !== 48) fail('Versionshistorie hat nicht 48 Stunden Aufbewahrung.');
   if (!historyAfterSave.json.data?.items?.length) fail('Nach Speicherung wurde kein Versions-Snapshot angelegt.');
-  if (Number(historyAfterSave.json.data?.undo_steps || 0) < 1 || Number(historyAfterSave.json.data?.undo_steps || 0) > 10) fail('Undo-Schrittzähler liegt nicht im erwarteten Bereich 1–10.');
+  const originalVersionId = historyAfterSave.json.data.items[0]?.id;
+  if (!originalVersionId) fail('Der Wiederherstellungspunkt vor der Speicherung fehlt.');
 
-  const undo = await ownerAjax('kp_owner_history_undo');
-  if (!undo.ok || !undo.json?.success) fail(`Rückgängig nach Speicherung fehlgeschlagen: ${JSON.stringify(undo)}`);
-  await page.reload({ waitUntil:'domcontentloaded', timeout:30000 });
-  const afterUndo = await state();
-  if (!same(afterUndo.studio, originalState.studio) || !same(afterUndo.sizes, originalState.sizes)) {
-    fail('Rückgängig nach Speicherung hat Design/Größen nicht exakt auf den Ausgangsstand zurückgesetzt.');
-  }
+  await page.waitForSelector('[data-kp-word-history-new="undo"]', { state:'visible', timeout:10000 });
+  await page.waitForSelector('[data-kp-word-history-new="redo"]', { state:'visible', timeout:10000 });
+  if (await page.locator('[data-kp-history-undo]').count()) fail('Der alte Rückgängig-Textbutton ist noch vorhanden.');
+
+  await openDesign();
+  const arrowRadius = page.locator('.kp-oa-sheet.is-design [data-design="header_radius"]');
+  const radiusBeforeArrow = Number(await arrowRadius.inputValue());
+  const radiusMax = Number(await arrowRadius.getAttribute('max') || 50);
+  await arrowRadius.focus();
+  await arrowRadius.press(radiusBeforeArrow < radiusMax ? 'ArrowRight' : 'ArrowLeft');
+  await page.waitForTimeout(180);
+  const radiusAfterEdit = Number(await arrowRadius.inputValue());
+  if (radiusAfterEdit === radiusBeforeArrow) fail('Der echte Test-Reglerschritt hat keinen Wert verändert.');
+  const countsAfterEdit = await page.evaluate(() => window.KPWordHistory?.counts?.() || null);
+  if (!countsAfterEdit || Number(countsAfterEdit.undo || 0) < 1) fail('Der neue Rückgängig-Pfeil hat den Bearbeitungsschritt nicht erfasst.');
+
+  let unexpectedDialog = '';
+  let unexpectedNavigation = false;
+  const onDialog = async dialog => { unexpectedDialog = dialog.message(); await dialog.dismiss(); };
+  const onFrame = frame => { if (frame === page.mainFrame()) unexpectedNavigation = true; };
+  page.on('dialog', onDialog);
+  page.on('framenavigated', onFrame);
+  const urlBeforeUndo = page.url();
+  await page.locator('[data-kp-word-history-new="undo"]').click();
+  await page.waitForTimeout(260);
+  page.off('dialog', onDialog);
+  page.off('framenavigated', onFrame);
+  if (unexpectedDialog) fail(`Rückgängig öffnete unerwartet einen Browserdialog: ${unexpectedDialog}`);
+  if (unexpectedNavigation || page.url() !== urlBeforeUndo) fail('Rückgängig hat die Seite neu geladen oder navigiert.');
+  if (Number(await arrowRadius.inputValue()) !== radiusBeforeArrow) fail('Rückgängig hat den Reglerwert nicht sofort wiederhergestellt.');
+
+  await page.locator('[data-kp-word-history-new="redo"]').click();
+  await page.waitForTimeout(180);
+  if (Number(await arrowRadius.inputValue()) !== radiusAfterEdit) fail('Wiederholen hat den Reglerwert nicht sofort erneut angewendet.');
+  const countsAfterRedo = await page.evaluate(() => window.KPWordHistory?.counts?.() || null);
+  if (!countsAfterRedo || Number(countsAfterRedo.undo || 0) < 1) fail('Wiederholen hat die Historie nicht korrekt fortgeführt.');
+
+  await page.locator('[data-kp-word-history-new="undo"]').click();
+  await page.waitForTimeout(120);
+  await page.locator('.kp-oa-sheet.is-design .kp-oa-close').click();
 
   await page.waitForTimeout(3300);
   const changedRadius = await mutateHeaderRadiusOnly();
   const changedState = await state();
   if (Number(changedState.studio?.header_radius) !== Number(changedRadius)) fail('Zweiter Header-Rundungs-Test wurde nicht gespeichert.');
   const versions = await ownerAjax('kp_owner_history_list');
-  const version = versions.json?.data?.items?.[0];
-  if (!version?.id) fail('Keine 48-Stunden-Version zum Wiederherstellen gefunden.');
-  const restoredVersion = await ownerAjax('kp_owner_history_restore', { version_id:version.id });
+  if (!versions.ok || !versions.json?.success) fail(`48-Stunden-Versionsliste konnte nicht gelesen werden: ${JSON.stringify(versions)}`);
+  const restoredVersion = await ownerAjax('kp_owner_history_restore', { version_id:originalVersionId });
   if (!restoredVersion.ok || !restoredVersion.json?.success) fail(`48-Stunden-Version konnte nicht wiederhergestellt werden: ${JSON.stringify(restoredVersion)}`);
   await page.reload({ waitUntil:'domcontentloaded', timeout:30000 });
   const afterVersionRestore = await state();
@@ -256,15 +289,17 @@ try {
     fail('Versions-Wiederherstellung hat den Ausgangsstand nicht korrekt zurückgebracht.');
   }
 
+  await page.waitForSelector('[data-kp-word-history-new="undo"]', { state:'visible', timeout:10000 });
+  await page.waitForSelector('[data-kp-word-history-new="redo"]', { state:'visible', timeout:10000 });
+  if (await page.locator('[data-kp-history-undo]').count()) fail('Der alte Rückgängig-Textbutton ist noch sichtbar/registriert.');
   await page.locator('.kp-oa-tools').click();
-  await page.waitForSelector('[data-kp-history-undo]', { timeout:10000 });
   await page.waitForSelector('[data-kp-history-versions]', { timeout:10000 });
 
   if (automaticReloads.some(value => !value)) {
     fail(`Persistenz/Undo/48h-Versionen wurden vollständig geprüft, aber ${automaticReloads.filter(value => !value).length} von ${automaticReloads.length} orangefarbenen Speichervorgängen lösten keinen automatisch erkannten Reload aus.`);
   }
 
-  console.log(`PASS: ${Object.keys(expectedDesign).length} Design-Regler + ${Object.keys(expectedSizes).length} Größenregler + Menü-X über orange Speichern dauerhaft; Header-Rundung nach Reload sichtbar; Rückgängig nach Speichern funktioniert; 48-Stunden-Versionen funktionieren.`);
+  console.log(`PASS: ${Object.keys(expectedDesign).length} Design-Regler + ${Object.keys(expectedSizes).length} Größenregler + Menü-X über orange Speichern dauerhaft; Header-Rundung nach Reload sichtbar; ↶/↷ wirken sofort ohne Reload/Dialog; 48-Stunden-Versionen funktionieren getrennt davon.`);
 } finally {
   if (originalState) {
     try {
