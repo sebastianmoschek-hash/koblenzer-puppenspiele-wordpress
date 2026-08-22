@@ -6,11 +6,24 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * editor persistence path:
  * - make the owner edit entry unobtrusive on phones
  * - make Instagram immediately recognizable as Instagram
- * - keep Design reset as a true preview without reopening the sheet
+ * - keep tablet navigation consistent with the mobile/tablet controls
+ * - load reliable Design reset behavior for touch and mouse
  */
 final class KP_Owner_UI_Polish {
     public static function init() {
+        add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ), 1300 );
         add_action( 'wp_footer', array( __CLASS__, 'render' ), 1200 );
+    }
+
+    public static function enqueue_assets() {
+        if ( is_admin() ) { return; }
+        wp_enqueue_script(
+            'kp-design-reset-reliability',
+            KP_CORE_URL . 'assets/design-reset-reliability.js',
+            array( 'kp-owner-web-app' ),
+            KP_CORE_VERSION,
+            true
+        );
     }
 
     public static function render() {
@@ -50,6 +63,20 @@ final class KP_Owner_UI_Polish {
             .kp-owner-single-edit:active{
               transform:translateX(0)!important;
               opacity:1!important;
+            }
+          }
+
+          /* The editor labels these controls Handy / Tablet. Keep the real
+             navigation in the same compact mode through common tablet widths. */
+          @media(min-width:601px) and (max-width:900px){
+            .kp-site-nav .wp-block-navigation__responsive-container-open{
+              display:flex!important;
+            }
+            .kp-site-nav .wp-block-navigation__responsive-container:not(.is-menu-open){
+              display:none!important;
+            }
+            .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open{
+              display:flex!important;
             }
           }
 
@@ -97,40 +124,6 @@ final class KP_Owner_UI_Polish {
               scrollTimer=window.setTimeout(()=>editButton.classList.remove('is-kp-scrolling'),520);
             },{passive:true});
           }
-
-          /*
-           * owner-web-app.js historically reopened the Design sheet after Reset.
-           * openDesign() initializes its draft again from the stored settings,
-           * which immediately undid the visible defaults. Intercept Reset before
-           * that legacy handler, feed every control its configured default and
-           * dispatch the same UI events bindDesign() listens to. This changes the
-           * live draft/preview only; no AJAX write happens until Design speichern.
-           */
-          document.addEventListener('click',event=>{
-            const reset=event.target instanceof Element ? event.target.closest('.kp-oa-design-reset') : null;
-            if(!reset)return;
-            const sheet=reset.closest('.kp-oa-sheet.is-design');
-            const defaults=window.KPOwnerWebApp?.designDefaults;
-            if(!sheet||!defaults||typeof defaults!=='object')return;
-            event.preventDefault();
-            event.stopImmediatePropagation();
-
-            sheet.querySelectorAll('[data-design]').forEach(input=>{
-              const key=input.dataset.design;
-              if(!key||!Object.prototype.hasOwnProperty.call(defaults,key))return;
-              const value=defaults[key];
-              if(input instanceof HTMLInputElement&&input.type==='checkbox'){
-                input.checked=Number(value)!==0;
-                input.dispatchEvent(new Event('change',{bubbles:true}));
-                return;
-              }
-              if(input instanceof HTMLInputElement||input instanceof HTMLSelectElement||input instanceof HTMLTextAreaElement){
-                input.value=String(value ?? '');
-                const eventType=(input instanceof HTMLSelectElement)?'change':'input';
-                input.dispatchEvent(new Event(eventType,{bubbles:true}));
-              }
-            });
-          },true);
 
           const instagramSvg='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.1" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.1" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.4" cy="6.7" r="1.25" fill="currentColor"/></svg>';
           const upgradeInstagram=()=>{
