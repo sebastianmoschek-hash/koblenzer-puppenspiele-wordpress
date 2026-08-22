@@ -47,6 +47,10 @@ workflows:
   autonomous-homepage-lab:
     jobs:
       - homepage-staging-lab:
+          # Staging is one shared mutable environment. Serializing the complete
+          # job prevents concurrent deploys and temporary E2E login bridges from
+          # overwriting each other. Newer pipeline numbers keep precedence.
+          serial-group: << pipeline.project.slug >>/homepage-staging-lab
           filters:
             branches:
               only: main
