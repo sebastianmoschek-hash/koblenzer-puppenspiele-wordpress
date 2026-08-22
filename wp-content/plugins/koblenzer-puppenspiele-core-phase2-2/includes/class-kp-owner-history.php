@@ -26,6 +26,7 @@ final class KP_Owner_History {
             'kp_touch_free_layout_save'     => 'Position / Größe geändert',
             'kp_touch_gesture_save'         => 'Position / Größe geändert',
             'kp_image_position_save'        => 'Bildposition geändert',
+            'kp_canva_image_save'           => 'Bildgestaltung geändert',
             'kp_fe_v2_record_save'          => 'Inhalt geändert',
             'kp_frontend_card_image_save'   => 'Bild geändert',
             'kp_frontend_card_button_save'  => 'Button geändert',
@@ -58,6 +59,8 @@ final class KP_Owner_History {
             'kp_touch_gestures_pages_v1',
             'kp_image_position_global_v1',
             'kp_image_position_pages_v1',
+            'kp_canva_image_edits_global_v1',
+            'kp_canva_image_edits_pages_v1',
         );
     }
 
