@@ -1,31 +1,51 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-php -l wp-content/mu-plugins/kp-word-history.php >/dev/null
-php -l wp-content/mu-plugins/kp-unified-save-coverage.php >/dev/null
-php -l wp-content/mu-plugins/kp-ai-direct-editor.php >/dev/null
+for file in \
+  wp-content/mu-plugins/kp-word-history.php \
+  wp-content/mu-plugins/kp-unified-save-coverage.php \
+  wp-content/mu-plugins/kp-ai-direct-editor.php \
+  wp-content/mu-plugins/kp-synthetic-control-history.php \
+  wp-content/mu-plugins/kp-record-draft-runtime.php \
+  wp-content/mu-plugins/kp-header-image-draft-runtime.php; do
+  php -l "$file" >/dev/null
+done
 
 SAVE='wp-content/mu-plugins/kp-unified-save-coverage.php'
 HISTORY='wp-content/mu-plugins/kp-word-history.php'
 AI='wp-content/mu-plugins/kp-ai-direct-editor.php'
 CANVA='wp-content/mu-plugins/kp-canva-editor.js'
 CARD='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-card-controls.js'
+SYNTH='wp-content/mu-plugins/kp-synthetic-control-history.php'
+RECORD='wp-content/mu-plugins/kp-record-draft-runtime.php'
+HEADER='wp-content/mu-plugins/kp-header-image-draft-runtime.php'
 
 # One visible Save gesture must include every specialist draft.
 grep -q 'KPCanvaLayoutRuntime.*flush' "$SAVE"
 grep -q 'KPCanvaImageRuntime.*flush' "$SAVE"
 grep -q 'KPCardDraftRuntime.*flush' "$SAVE"
+grep -q 'KPRecordDraftRuntime.*flush' "$SAVE"
+grep -q 'KPHeaderImageDraftRuntime.*flush' "$SAVE"
 grep -q 'KPAIEditorRuntime.*flush' "$SAVE"
 grep -q 'kp_history_group' "$SAVE"
+grep -q 'kp-oa-design-save,.kp-oa-size-save' "$SAVE"
 
 # Undo must cover direct image-position controls plus extensible specialist runtimes.
 grep -q 'kp-image-position-controls' "$HISTORY"
 grep -q 'register,push:pushSpecialist' "$HISTORY"
 grep -q 'MAX=50' "$HISTORY"
 
-# Card image/button changes are drafts until central Save and participate in Undo.
+# Card, record and header-image changes are drafts until central Save and have Undo.
 grep -q 'KPCardDraftRuntime' "$CARD"
 grep -q "KPWordHistory.*push.*card" "$CARD"
+grep -q 'KPRecordDraftRuntime' "$RECORD"
+grep -q "KPWordHistory.*push.*record" "$RECORD"
+grep -q 'KPHeaderImageDraftRuntime' "$HEADER"
+grep -q "KPWordHistory.*push.*header-image" "$HEADER"
+
+# Programmatic AI changes to owner controls must receive an Undo marker too.
+grep -q 'synthetic-controls' "$SYNTH"
+grep -q "KPWordHistory.*push.*synthetic-controls" "$SYNTH"
 
 # AI key must stay server-side and image edits must use Gemini's image endpoint.
 grep -q 'KP_GEMINI_API_KEY' "$AI"
