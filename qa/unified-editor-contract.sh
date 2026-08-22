@@ -14,9 +14,11 @@ PHP_FILES=(
   wp-content/mu-plugins/kp-unified-save-coverage.php
   wp-content/mu-plugins/kp-ai-direct-editor.php
   wp-content/mu-plugins/kp-ai-plan-interactions.php
+  wp-content/mu-plugins/kp-ai-image-draft-safety.php
   wp-content/mu-plugins/kp-synthetic-control-history.php
   wp-content/mu-plugins/kp-record-draft-runtime.php
   wp-content/mu-plugins/kp-header-image-draft-runtime.php
+  wp-content/mu-plugins/kp-owner-history-extension.php
 )
 for file in "${PHP_FILES[@]}"; do
   [[ -f "$file" ]] || fail "required file missing: $file"
@@ -29,6 +31,8 @@ SAVE='wp-content/mu-plugins/kp-unified-save-coverage.php'
 HISTORY='wp-content/mu-plugins/kp-word-history.php'
 AI='wp-content/mu-plugins/kp-ai-direct-editor.php'
 AI_PLAN='wp-content/mu-plugins/kp-ai-plan-interactions.php'
+AI_IMAGE_SAFE='wp-content/mu-plugins/kp-ai-image-draft-safety.php'
+HISTORY_EXT='wp-content/mu-plugins/kp-owner-history-extension.php'
 CANVA='wp-content/mu-plugins/kp-canva-editor.js'
 CARD='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-card-controls.js'
 SYNTH='wp-content/mu-plugins/kp-synthetic-control-history.php'
@@ -63,6 +67,17 @@ contains "$AI_PLAN" '/v1beta/interactions' 'Gemini Interactions planning endpoin
 contains "$AI" 'gemini-3.1-flash-image' 'Gemini image-edit model missing'
 contains "$AI" 'KPAIEditorRuntime' 'AI draft runtime missing'
 contains "$AI" 'kp_ai_draft_save' 'AI persistence endpoint missing'
+contains "$AI_IMAGE_SAFE" 'kp_ai_temp_image_cleanup' 'discarded Gemini image attachment cleanup missing'
+contains "$AI_IMAGE_SAFE" 'runtime.undo' 'Gemini image Undo safety wrapper missing'
+contains "$AI_IMAGE_SAFE" 'runtime.discard' 'Gemini image Discard safety wrapper missing'
+contains "$AI_IMAGE_SAFE" 'savedVisual' 'Gemini saved-image visual baseline missing'
+
+contains "$HISTORY_EXT" 'kp_ai_image_replacements_global_v1' 'AI image state is missing from 48-hour versions'
+contains "$HISTORY_EXT" 'kp_ai_elements_pages_v1' 'AI generated elements are missing from 48-hour versions'
+contains "$HISTORY_EXT" "state\['entities'\]" 'multi-record grouped snapshots are missing'
+contains "$HISTORY_EXT" 'kp_history_ext_restore_state' 'extended 48-hour restore path missing'
+contains "$HISTORY_EXT" 'kp_fe_v2_record_save' 'record saves are not accumulated into grouped 48-hour history'
+contains "$HISTORY_EXT" 'kp_frontend_card_image_save' 'card image saves are not accumulated into grouped 48-hour history'
 
 contains "$CANVA" 'KPCanvaLayoutRuntime' 'Canva layout runtime missing'
 contains "$CANVA" 'KPCanvaImageRuntime' 'Canva image runtime missing'
