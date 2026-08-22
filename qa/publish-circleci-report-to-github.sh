@@ -5,6 +5,7 @@ REPORT_JSON='qa-results/circleci/report.json'
 REPORT_MD='qa-results/circleci/report.md'
 TARGET_JSON='qa-results/circleci-latest.json'
 TARGET_MD='qa-results/circleci-latest.md'
+TARGET_DIAG='qa-results/circleci-latest-diagnostics.txt'
 REPO="${CIRCLE_PROJECT_USERNAME:-sebastianmoschek-hash}/${CIRCLE_PROJECT_REPONAME:-koblenzer-puppenspiele-wordpress}"
 
 if [[ ! -s "$REPORT_JSON" || ! -s "$REPORT_MD" ]]; then
@@ -20,6 +21,20 @@ fi
 cp "$REPORT_JSON" /tmp/kp-circleci-report.json
 cp "$REPORT_MD" /tmp/kp-circleci-report.md
 
+# Keep the autonomous repair loop observable without exposing secrets or
+# requiring CircleCI API access. Only known test logs are copied; credentials
+# and environment dumps are deliberately excluded.
+: > /tmp/kp-circleci-diagnostics.txt
+for logfile in pipeline.log editor.log persistence.log touch-slider.log touch-runtime.log visual.log php-syntax.log deploy.log; do
+  src="qa-results/circleci/$logfile"
+  if [[ -s "$src" ]]; then
+    {
+      printf '\n===== %s =====\n' "$logfile"
+      tail -n 500 "$src"
+    } >> /tmp/kp-circleci-diagnostics.txt
+  fi
+done
+
 git config user.name 'kp-circleci-report-bot'
 git config user.email 'circleci-report@users.noreply.github.com'
 git remote set-url origin "https://x-access-token:${GITHUB_REPORT_TOKEN}@github.com/${REPO}.git"
@@ -29,7 +44,8 @@ git checkout -B main origin/main --quiet
 mkdir -p qa-results
 cp /tmp/kp-circleci-report.json "$TARGET_JSON"
 cp /tmp/kp-circleci-report.md "$TARGET_MD"
-git add "$TARGET_JSON" "$TARGET_MD"
+cp /tmp/kp-circleci-diagnostics.txt "$TARGET_DIAG"
+git add "$TARGET_JSON" "$TARGET_MD" "$TARGET_DIAG"
 
 if git diff --cached --quiet; then
   echo 'CircleCI GitHub report is already current.'
@@ -43,4 +59,4 @@ git commit -m 'qa: update CircleCI homepage lab report [skip ci]' --quiet
 git pull --rebase origin main --quiet
 git push origin HEAD:main --quiet
 
-echo 'PASS: CircleCI report published to qa-results/circleci-latest.{json,md}.'
+echo 'PASS: CircleCI report and diagnostics published to qa-results/circleci-latest*.'
