@@ -35,6 +35,24 @@
   box-shadow: 0 0 0 2px rgba(240,122,34,.34);
 }
 
+/* The Design sheet has a sticky action footer. Slider guards intentionally sit
+   above the range track, but must never sit above the visible Reset/Save actions
+   when content scrolls underneath that footer. Keep the complete action layer in
+   its own higher stacking context so a normal tap always reaches the button. */
+.kp-oa-sheet.is-design .kp-oa-sticky-actions {
+  z-index: 300 !important;
+  isolation: isolate;
+  pointer-events: auto !important;
+}
+.kp-oa-sheet.is-design .kp-oa-sticky-actions > button,
+.kp-oa-sheet.is-design .kp-oa-design-reset,
+.kp-oa-sheet.is-design .kp-oa-design-save {
+  position: relative;
+  z-index: 301 !important;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+}
+
 /* The native range itself is inert on touch. The transparent guard is placed
    exactly over the visible slider and changes the value only after the hold delay. */
 @media (hover: none), (pointer: coarse) {
