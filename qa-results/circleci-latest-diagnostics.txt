@@ -1,6 +1,6 @@
 
 ===== pipeline.log =====
-CircleCI Homepage Lab: 43e18c17cdf88fc0a7b0863fba4b971ea673adc4
+CircleCI Homepage Lab: 2ae681c1c8259e0dd68005bd9187ed18c3ce60fb
 == editor ==
 FAIL editor (exit 1)
 == persistence ==
@@ -13,15 +13,26 @@ PASS touch-runtime
 PASS visual
 
 ===== editor.log =====
-FAIL: mobile-390: Error: E2E state read failed: {"ok":false,"status":500,"json":null}
+FAIL: mobile-390: Error: E2E state read failed: {"ok":false,"status":403,"json":{"success":false,"data":{"message":"E2E denied."}}}
     at readState (file:///root/project/qa/homepage-editor-lab.mjs:51:50)
     at async mobileSaveAndResetRoundTrip (file:///root/project/qa/homepage-editor-lab.mjs:147:20)
     at async file:///root/project/qa/homepage-editor-lab.mjs:294:7
-FAIL: tablet-820: same-origin HTTP 5xx: [{"status":500,"url":"https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php"}]
+FAIL: tablet-820: page.waitForSelector: Timeout 18000ms exceeded.
+Call log:
+[2m  - waiting for locator('.kp-fe2-save') to be visible[22m
+
+    at login (/root/project/qa/homepage-editor-lab.mjs:64:14)
+    at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
+FAIL: desktop-1440: page.waitForSelector: Timeout 18000ms exceeded.
+Call log:
+[2m  - waiting for locator('.kp-fe2-save') to be visible[22m
+
+    at login (/root/project/qa/homepage-editor-lab.mjs:64:14)
+    at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
 # Homepage-Labor – echter Staging-Browser
 
-Erzeugt: 2026-08-22T17:00:10.992Z
-Commit: 43e18c17cdf88fc0a7b0863fba4b971ea673adc4
+Erzeugt: 2026-08-22T17:01:49.221Z
+Commit: 2ae681c1c8259e0dd68005bd9187ed18c3ce60fb
 Gesamtstatus: FAILURE
 
 ## mobile-390
@@ -36,35 +47,35 @@ Gesamtstatus: FAILURE
 ## tablet-820
 - Viewport: 820×1180
 - Horizontaler Overflow: 0px
-- Menü geöffnet: true
-- Speichern antippbar: true
-- Standardwerte antippbar: true
+- Menü geöffnet: n/a
+- Speichern antippbar: false
+- Standardwerte antippbar: false
 - JS Page Errors: 0
-- Same-origin HTTP Fehler: 1
+- Same-origin HTTP Fehler: 0
 
 ## desktop-1440
 - Viewport: 1440×900
 - Horizontaler Overflow: 0px
 - Menü geöffnet: n/a
-- Speichern antippbar: true
-- Standardwerte antippbar: true
+- Speichern antippbar: false
+- Standardwerte antippbar: false
 - JS Page Errors: 0
 - Same-origin HTTP Fehler: 0
 
 ## Fehler
 
-- mobile-390: Error: E2E state read failed: {"ok":false,"status":500,"json":null} at readState (file:///root/project/qa/homepage-editor-lab.mjs:51:50) at async mobileSaveAndResetRoundTrip (file:///root/project/qa/homepage-editor-lab.mjs:147:20) at async file:///root/project/qa/homepage-editor-lab.mjs:294:7
-- tablet-820: same-origin HTTP 5xx: [{"status":500,"url":"https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php"}]
+- mobile-390: Error: E2E state read failed: {"ok":false,"status":403,"json":{"success":false,"data":{"message":"E2E denied."}}} at readState (file:///root/project/qa/homepage-editor-lab.mjs:51:50) at async mobileSaveAndResetRoundTrip (file:///root/project/qa/homepage-editor-lab.mjs:147:20) at async file:///root/project/qa/homepage-editor-lab.mjs:294:7
+- tablet-820: page.waitForSelector: Timeout 18000ms exceeded. Call log: [2m - waiting for locator('.kp-fe2-save') to be visible[22m at login (/root/project/qa/homepage-editor-lab.mjs:64:14) at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
+- desktop-1440: page.waitForSelector: Timeout 18000ms exceeded. Call log: [2m - waiting for locator('.kp-fe2-save') to be visible[22m at login (/root/project/qa/homepage-editor-lab.mjs:64:14) at async file:///root/project/qa/homepage-editor-lab.mjs:245:32
 
 ===== persistence.log =====
-WARNUNG: Restore des Owner-E2E-Ausgangszustands fehlgeschlagen: E2E-Ausgangszustand konnte nicht wiederhergestellt werden: {"ok":false,"status":403,"json":{"success":false,"data":{"message":"E2E denied."}}}
 file:///root/project/qa/owner-all-persistence-e2e.mjs:10
 const fail = message => { throw new Error(message); };
                                 ^
 
-Error: Header-Rundung steht nach Reload nicht sichtbar auf 35px, sondern .
+Error: Frontend-Editor wurde nicht initialisiert. Diagnose={"status":200,"url":"https://neu.koblenzer-puppenspiele.de/?kp_e2e_login=7805a141b57033aef986a58cecef2d69fb947eda714dd1501e9aa0007c7f3571","title":"puppenspiele","body":"Zum Inhalt springen KOBLENZER PUPPENSPIELE Figurentheater, das Kinder begeistert und Veranstaltungen besonders macht. Liebevolle Kinderbuchhelden, fantasievolle Geschichten und kasperhafter Schalk – für Familien, Einrichtungen und Veranstaltungen. Jetzt buchen Stücke entdecken VORHANG AUF Ein Theatererlebnis mit Herz, Witz und Fantasie Entdecken Sie unser Repertoire, finden Sie öffentliche Vorstellungen oder fragen Sie direkt einen Auftritt für Ihre Veranstaltung an. Geschichten, die bleiben Bekannte Kinderbuchhelden und eigene Theaterwelten werden auf der Bühne lebendig. Nah am Publikum Figuren, Humor und direkte Spielfreude schaffen Theatermomente, bei denen Kinder wirklich dabei sind. Einfach anfragen Stück auswählen, Wunschtermin und Rahmen nennen – die Buchungsseite führt direkt zur Anfrage. Puppentheater für Ihre Veranstaltung? Senden Sie direkt Ihre Anfrage – die Details können anschließend gemeinsam geklärt werden. Jetzt buchen Demnächst live erleben Die nächsten öffentlichen Vorstellungen auf einen Blick. Nächste Vorstellungen SA. 22. AUG. 15:00 Uhr Die Pfannkuchenschlacht Spay Peterskapelle Infos & Tickets SA. 22. AUG. 16:30 Uhr Die Pfannkuchenschlacht Spay Peterskapelle ","globals":{"fe2":true,"owner":true,"responsive":false,"registry":false},"scripts":["https://neu.koblenzer-puppenspiele.de/wp-includes/js/dist/script-modules/block-library/navigation/view.min.js?ver=96a846e1d7b789c39ab9","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js?ver=4.5.28","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-card-controls.js?ver=4.5.28","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app.js?ver=4.5.28","https://neu.koblenzer-puppenspiele.de/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/image-fallback.js?ver=1787417997","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gestures.js?ver=1787417997","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js?ver=1787417997","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js?ver=1787417997","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js?ver=1787417997","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1787417997","https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/design-reset-reliability.js?ver=4.5.28"]}
     at fail (file:///root/project/qa/owner-all-persistence-e2e.mjs:10:33)
-    at file:///root/project/qa/owner-all-persistence-e2e.mjs:227:5
+    at file:///root/project/qa/owner-all-persistence-e2e.mjs:203:5
 
 Node.js v22.18.0
 
@@ -202,62 +213,62 @@ Removing old file `includes/class-kp-frontend-editor-save-guard.php'
 Transferring file `includes/class-kp-frontend-editor-save-guard.php'
 Removing old file `assets/owner-save-coordinator.js'
 Transferring file `assets/owner-save-coordinator.js'
-Removing old file `assets/owner-web-app-extensions.js'
-Transferring file `assets/owner-web-app-extensions.js'
 Removing old file `includes/class-kp-frontend-editor-v2.php'
 Transferring file `includes/class-kp-frontend-editor-v2.php'
-Removing old file `assets/owner-web-app.css'
-Transferring file `assets/owner-web-app.css'
+Removing old file `assets/owner-web-app-extensions.js'
+Transferring file `assets/owner-web-app-extensions.js'
 Removing old file `includes/class-kp-frontend-editor.php'
 Transferring file `includes/class-kp-frontend-editor.php'
-Removing old file `assets/owner-web-app.js'
-Transferring file `assets/owner-web-app.js'
+Removing old file `assets/owner-web-app.css'
+Transferring file `assets/owner-web-app.css'
 Removing old file `includes/class-kp-google-calendar-import.php'
 Transferring file `includes/class-kp-google-calendar-import.php'
-Removing old file `assets/touch-editor-bridge.js'
-Transferring file `assets/touch-editor-bridge.js'
+Removing old file `assets/owner-web-app.js'
+Transferring file `assets/owner-web-app.js'
 Removing old file `includes/class-kp-home-landing-template.php'
 Transferring file `includes/class-kp-home-landing-template.php'
-Removing old file `assets/touch-free-layout.css'
-Transferring file `assets/touch-free-layout.css'
+Removing old file `assets/touch-editor-bridge.js'
+Transferring file `assets/touch-editor-bridge.js'
 Removing old file `includes/class-kp-image-position.php'
 Transferring file `includes/class-kp-image-position.php'
-Removing old file `assets/touch-free-layout.js'
-Transferring file `assets/touch-free-layout.js'
+Removing old file `assets/touch-free-layout.css'
+Transferring file `assets/touch-free-layout.css'
 Removing old file `includes/class-kp-instagram-profile-migration.php'
 Transferring file `includes/class-kp-instagram-profile-migration.php'
-Removing old file `assets/touch-gesture-safety.css'
-Transferring file `assets/touch-gesture-safety.css'
+Removing old file `assets/touch-free-layout.js'
+Transferring file `assets/touch-free-layout.js'
 Removing old file `includes/class-kp-legal.php'
 Transferring file `includes/class-kp-legal.php'
-Removing old file `assets/touch-gesture-safety.js'
-Transferring file `assets/touch-gesture-safety.js'
+Removing old file `assets/touch-gesture-safety.css'
+Transferring file `assets/touch-gesture-safety.css'
 Removing old file `includes/class-kp-mobile-menu-float.php'
 Transferring file `includes/class-kp-mobile-menu-float.php'
-Removing old file `assets/touch-gestures.css'
-Transferring file `assets/touch-gestures.css'
+Removing old file `assets/touch-gesture-safety.js'
+Transferring file `assets/touch-gesture-safety.js'
 Removing old file `includes/class-kp-mobile-menu-glass.php'
 Transferring file `includes/class-kp-mobile-menu-glass.php'
-Removing old file `assets/touch-gestures.js'
-Transferring file `assets/touch-gestures.js'
+Removing old file `assets/touch-gestures.css'
+Transferring file `assets/touch-gestures.css'
 Removing old file `includes/class-kp-mobile-menu-links.php'
 Transferring file `includes/class-kp-mobile-menu-links.php'
-Removing old file `assets/touch-manual-save-gate.js'
-Transferring file `assets/touch-manual-save-gate.js'
+Removing old file `assets/touch-gestures.js'
+Transferring file `assets/touch-gestures.js'
 Removing old file `includes/class-kp-owner-direct-edit-cta.php'
 Transferring file `includes/class-kp-owner-direct-edit-cta.php'
-Removing old file `assets/touch-persistence.js'
-Transferring file `assets/touch-persistence.js'
+Removing old file `assets/touch-manual-save-gate.js'
+Transferring file `assets/touch-manual-save-gate.js'
 Removing old file `includes/class-kp-owner-edit-focus.php'
 Transferring file `includes/class-kp-owner-edit-focus.php'
-Removing old file `assets/website-studio-admin.css'
-Transferring file `assets/website-studio-admin.css'
+Removing old file `assets/touch-persistence.js'
+Transferring file `assets/touch-persistence.js'
 Removing old file `includes/class-kp-owner-edit-reliability.php'
 Transferring file `includes/class-kp-owner-edit-reliability.php'
-Removing old file `assets/website-studio-admin.js'
-Transferring file `assets/website-studio-admin.js'
+Removing old file `assets/website-studio-admin.css'
+Transferring file `assets/website-studio-admin.css'
 Removing old file `includes/class-kp-owner-experience.php'
 Transferring file `includes/class-kp-owner-experience.php'
+Removing old file `assets/website-studio-admin.js'
+Transferring file `assets/website-studio-admin.js'
 Removing old file `includes/class-kp-owner-history.php'
 Transferring file `includes/class-kp-owner-history.php'
 Removing old file `includes/class-kp-owner-menu-x.php'
@@ -268,10 +279,10 @@ Removing old file `assets/legacy-ensemble/bjoern_christian_kuepper.png'
 Transferring file `assets/legacy-ensemble/bjoern_christian_kuepper.png'
 Removing old file `includes/class-kp-owner-save-coordinator.php'
 Transferring file `includes/class-kp-owner-save-coordinator.php'
-Removing old file `assets/legacy-ensemble/gordian_schneider.png'
-Transferring file `assets/legacy-ensemble/gordian_schneider.png'
 Removing old file `includes/class-kp-owner-save-readback-fix.php'
 Transferring file `includes/class-kp-owner-save-readback-fix.php'
+Removing old file `assets/legacy-ensemble/gordian_schneider.png'
+Transferring file `assets/legacy-ensemble/gordian_schneider.png'
 Removing old file `includes/class-kp-owner-ui-polish.php'
 Transferring file `includes/class-kp-owner-ui-polish.php'
 Removing old file `assets/legacy-ensemble/helmut_schmidt.png'

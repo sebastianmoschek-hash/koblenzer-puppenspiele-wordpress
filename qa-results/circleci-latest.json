@@ -1,7 +1,7 @@
 {
-  "generatedAt":"2026-08-22T17:03:53Z",
+  "generatedAt":"2026-08-22T17:04:58Z",
   "provider":"CircleCI Free",
-  "commit":"43e18c17cdf88fc0a7b0863fba4b971ea673adc4",
+  "commit":"2ae681c1c8259e0dd68005bd9187ed18c3ce60fb",
   "staging":"https://neu.koblenzer-puppenspiele.de",
   "success":false,
   "checks":{
