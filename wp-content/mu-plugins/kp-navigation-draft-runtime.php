@@ -67,14 +67,15 @@ add_action( 'wp_footer', static function () {
       function renderIfOpen(){if(q('[data-kp-navigation-draft]',openBox()))renderRows()}
       function openNavigation(){
         const box=openBox();if(!box)return;
-        box.className='kp-oa-sheet';box.innerHTML=`<div data-kp-navigation-draft="1"><div class="kp-oa-head"><div><span class="kp-oa-kicker">Menü</span><h2>Navigation</h2><p>Änderungen erscheinen sofort als Vorschau. ↶/↷ funktioniert direkt; dauerhaft wird alles erst mit dem orangefarbenen Speichern-Button.</p></div><button type="button" class="kp-oa-close" data-kp-nav-close>×</button></div><div class="kp-oa-nav-list kp-nav-draft-list"></div><div class="kp-oa-actions"><button type="button" class="kp-oa-secondary" data-kp-nav-add>＋ Menüpunkt</button><button type="button" class="kp-oa-primary" data-kp-nav-done>Fertig</button></div></div>`;
+        // data-kp-word-history-new tells the generic owner-control history to
+        // ignore these inputs. Navigation owns its own before/after snapshots,
+        // so one typing gesture creates exactly one global ↶ marker.
+        box.className='kp-oa-sheet';box.innerHTML=`<div data-kp-navigation-draft="1" data-kp-word-history-new="navigation"><div class="kp-oa-head"><div><span class="kp-oa-kicker">Menü</span><h2>Navigation</h2><p>Änderungen erscheinen sofort als Vorschau. ↶/↷ funktioniert direkt; dauerhaft wird alles erst mit dem orangefarbenen Speichern-Button.</p></div><button type="button" class="kp-oa-close" data-kp-nav-close>×</button></div><div class="kp-oa-nav-list kp-nav-draft-list"></div><div class="kp-oa-actions"><button type="button" class="kp-oa-secondary" data-kp-nav-add>＋ Menüpunkt</button><button type="button" class="kp-oa-primary" data-kp-nav-done>Fertig</button></div></div>`;
         renderRows();
         q('[data-kp-nav-close]',box)?.addEventListener('click',closeSheet);q('[data-kp-nav-done]',box)?.addEventListener('click',closeSheet);
         q('[data-kp-nav-add]',box)?.addEventListener('click',()=>{const before=clone(current);current.push({label:'Neue Seite',url:'/'});applyNavigation(current);mark();push(before,current);renderRows()});
       }
 
-      // Window capture beats the original target listener, so the old immediate
-      // save dialog never runs while leaving the rest of the owner hub intact.
       window.addEventListener('click',e=>{
         const t=e.target instanceof Element?e.target:null;if(!t)return;
         const nav=t.closest('[data-action="nav"]');if(!nav)return;
