@@ -1,7 +1,7 @@
 # CircleCI Preflight-Fehler
 
-Erzeugt: 2026-08-22T21:35:40Z  
-Commit: e0ea8131148f0201af6ee7adccee667fe854673b  
+Erzeugt: 2026-08-22T21:37:03Z  
+Commit: 9952f62693749d560029577c58a7adaaaab1cd9f  
 Gesamtstatus: **FAILURE**
 
 Der vollständige Staging-Browserlauf wurde nicht gestartet. Die genaue Ursache steht in den veröffentlichten Diagnosen unter **preflight / contract logs**.
