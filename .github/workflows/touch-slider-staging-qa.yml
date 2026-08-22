@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: koblenzer-puppenspiele-touch-slider-staging
@@ -32,9 +32,12 @@ jobs:
           ref: main
 
       - name: Wait for exact touch safety asset on staging
+        id: staging_exact
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee /tmp/touch-slider-asset.log) 2>&1
           local_asset='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js'
           url='https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js'
           expected=$(sha256sum "$local_asset" | awk '{print $1}')
@@ -54,6 +57,9 @@ jobs:
           exit 1
 
       - name: Install Chromium
+        if: always() && steps.staging_exact.outcome == 'success'
+        id: browser_install
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -61,7 +67,64 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Reproduce swipe vs hold-and-drag against staged asset
+        if: always() && steps.browser_install.outcome == 'success'
+        id: behavior
+        continue-on-error: true
         env:
           KP_TOUCH_SAFETY: /tmp/touch-gesture-safety.js
         shell: bash
-        run: node qa/touch-slider-hold-browser-test.mjs
+        run: |
+          set -uo pipefail
+          node qa/touch-slider-hold-browser-test.mjs 2>&1 | tee /tmp/touch-slider-behavior.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Write auditable slider result
+        if: always()
+        env:
+          ASSET_OUTCOME: ${{ steps.staging_exact.outcome }}
+          INSTALL_OUTCOME: ${{ steps.browser_install.outcome }}
+          BEHAVIOR_OUTCOME: ${{ steps.behavior.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '# Touch-Regler – echter Staging-Test'
+            echo
+            echo "Erzeugt: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "Exakte Staging-Datei: $ASSET_OUTCOME"
+            echo "Chromium bereit: $INSTALL_OUTCOME"
+            echo "Wischen / Halten+Ziehen: $BEHAVIOR_OUTCOME"
+            echo
+            echo '## Staging-Dateiabgleich'
+            echo '```text'
+            if [ -s /tmp/touch-slider-asset.log ]; then cat /tmp/touch-slider-asset.log; else echo 'Kein Asset-Log.'; fi
+            echo '```'
+            echo
+            echo '## Browser-Verhalten'
+            echo '```text'
+            if [ -s /tmp/touch-slider-behavior.log ]; then cat /tmp/touch-slider-behavior.log; else echo 'Kein Browser-Log.'; fi
+            echo '```'
+          } > /tmp/touch-slider-latest.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p qa-results
+          cp /tmp/touch-slider-latest.md qa-results/touch-slider-latest.md
+          git add qa-results/touch-slider-latest.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'qa: update touch slider staging status [skip ci]'
+            git push origin HEAD:main
+          fi
+
+      - name: Final touch slider gate
+        if: always()
+        env:
+          ASSET_OUTCOME: ${{ steps.staging_exact.outcome }}
+          INSTALL_OUTCOME: ${{ steps.browser_install.outcome }}
+          BEHAVIOR_OUTCOME: ${{ steps.behavior.outcome }}
+        shell: bash
+        run: |
+          test "$ASSET_OUTCOME" = 'success'
+          test "$INSTALL_OUTCOME" = 'success'
+          test "$BEHAVIOR_OUTCOME" = 'success'
