@@ -82,10 +82,12 @@ add_action( 'wp_footer', static function () {
       const qa=(s,r=document)=>[...r.querySelectorAll(s)];
 
       function historyRuntime(){ return window.KPFrontendEditorHistory||null; }
+      function layoutRuntime(){ return window.KPCanvaLayoutRuntime||null; }
+      function imageRuntime(){ return window.KPCanvaImageRuntime||null; }
 
       function ownerControls(){
         return qa('.kp-oa-sheet input,.kp-oa-sheet select,.kp-oa-sheet textarea')
-          .filter(el=>!el.closest('.kp-history-sheet')&&!el.closest('[data-kp-word-history-new]'));
+          .filter(el=>!el.closest('.kp-history-sheet')&&!el.closest('[data-kp-word-history-new]')&&!el.closest('.kp-canva-image-panel'));
       }
 
       function controlKey(el){
@@ -142,23 +144,29 @@ add_action( 'wp_footer', static function () {
         }
       }
 
+      function clearForeignRedo(kind){
+        if(kind!=='frontend')historyRuntime()?.clearRedo?.();
+        if(kind!=='layout')layoutRuntime()?.clearRedo?.();
+        if(kind!=='image')imageRuntime()?.clearRedo?.();
+      }
+
       function push(entry){
         if(restoring||!entry)return;
         undoStack.push(entry);
         if(undoStack.length>MAX)undoStack.shift();
         redoStack.length=0;
-        if(entry.kind!=='frontend')historyRuntime()?.clearRedo?.();
+        clearForeignRedo(entry.kind||'controls');
         updateButtons();
       }
 
       function beginControlGesture(el){
-        if(restoring||!el||el.closest('.kp-fe2-inspector,.kp-fe2-toolbar,.kp-fe2-record-backdrop'))return;
+        if(restoring||!el||el.closest('.kp-fe2-inspector,.kp-fe2-toolbar,.kp-fe2-record-backdrop,.kp-canva-image-panel'))return;
         clearTimeout(pendingTimer);
         pending={el,state:captureControls(),recorded:false};
       }
 
       function commitControlGesture(el){
-        if(restoring||!el||el.closest('.kp-fe2-inspector,.kp-fe2-toolbar,.kp-fe2-record-backdrop'))return;
+        if(restoring||!el||el.closest('.kp-fe2-inspector,.kp-fe2-toolbar,.kp-fe2-record-backdrop,.kp-canva-image-panel'))return;
         if(!pending||pending.el!==el)beginControlGesture(el);
         if(pending&&!pending.recorded){
           push({kind:'controls',state:pending.state});
@@ -198,7 +206,7 @@ add_action( 'wp_footer', static function () {
       document.addEventListener('click',e=>{
         if(restoring||!e.isTrusted)return;
         const btn=e.target instanceof Element?e.target.closest('.kp-oa-sheet button'):null;
-        if(!btn||btn.closest('.kp-history-sheet'))return;
+        if(!btn||btn.closest('.kp-history-sheet,.kp-canva-image-panel'))return;
         const text=(btn.textContent||'').replace(/\s+/g,' ').trim();
         const cls=String(btn.className||'');
         if(/reset/i.test(cls)||/zurücksetzen|standardwerte|auf 100|standard/i.test(text)){
@@ -206,45 +214,60 @@ add_action( 'wp_footer', static function () {
         }
       },true);
 
-      // The frontend editor has its own exact draft+DOM snapshots. We only keep
-      // a chronological marker here, so the two global arrows can drive it.
+      // Every specialist runtime keeps the exact before/after payload internally.
+      // The global stack only stores one chronological marker per logical action.
       window.addEventListener('kp:frontend-history-push',()=>push({kind:'frontend'}));
       window.addEventListener('kp:frontend-history-change',updateButtons);
+      window.addEventListener('kp:canva-layout-history-push',()=>push({kind:'layout'}));
+      window.addEventListener('kp:canva-layout-history-change',updateButtons);
+      window.addEventListener('kp:canva-image-history-push',()=>push({kind:'image'}));
+      window.addEventListener('kp:canva-image-history-change',updateButtons);
+
+      function specialistUndo(entry){
+        if(entry.kind==='frontend')return !!historyRuntime()?.undo?.();
+        if(entry.kind==='layout')return !!layoutRuntime()?.undo?.();
+        if(entry.kind==='image')return !!imageRuntime()?.undo?.();
+        return null;
+      }
+      function specialistRedo(entry){
+        if(entry.kind==='frontend')return !!historyRuntime()?.redo?.();
+        if(entry.kind==='layout')return !!layoutRuntime()?.redo?.();
+        if(entry.kind==='image')return !!imageRuntime()?.redo?.();
+        return null;
+      }
 
       function undo(){
         const entry=undoStack.pop();
-        if(!entry){updateButtons();return;}
-        if(entry.kind==='frontend'){
-          const rt=historyRuntime();
-          if(!rt?.undo?.()){
-            updateButtons();return;
-          }
-          redoStack.push({kind:'frontend'});
-        }else{
+        if(!entry){updateButtons();return false;}
+        if(entry.kind==='controls'){
           const current=captureControls();
           restoreControls(entry.state);
           redoStack.push({kind:'controls',state:current});
+        }else{
+          const ok=specialistUndo(entry);
+          if(!ok){undoStack.push(entry);updateButtons();return false;}
+          redoStack.push({kind:entry.kind});
         }
         if(redoStack.length>MAX)redoStack.shift();
         updateButtons();
+        return true;
       }
 
       function redo(){
         const entry=redoStack.pop();
-        if(!entry){updateButtons();return;}
-        if(entry.kind==='frontend'){
-          const rt=historyRuntime();
-          if(!rt?.redo?.()){
-            updateButtons();return;
-          }
-          undoStack.push({kind:'frontend'});
-        }else{
+        if(!entry){updateButtons();return false;}
+        if(entry.kind==='controls'){
           const current=captureControls();
           restoreControls(entry.state);
           undoStack.push({kind:'controls',state:current});
+        }else{
+          const ok=specialistRedo(entry);
+          if(!ok){redoStack.push(entry);updateButtons();return false;}
+          undoStack.push({kind:entry.kind});
         }
         if(undoStack.length>MAX)undoStack.shift();
         updateButtons();
+        return true;
       }
 
       function findBar(){
