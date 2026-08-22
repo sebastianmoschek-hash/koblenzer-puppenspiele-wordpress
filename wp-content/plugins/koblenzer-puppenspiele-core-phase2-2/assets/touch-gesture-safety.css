@@ -19,13 +19,13 @@
 
 .kp-range-hardlocked { position: relative; }
 .kp-touch-range-hardlock {
+  position: absolute !important;
   z-index: 100 !important;
   display: block;
   pointer-events: auto !important;
   /* The guard owns the gesture stream. Before the hold threshold JS mirrors a
-     normal vertical swipe into window scrolling; after the threshold the exact
-     same pointer becomes the slider drag. pan-y let the browser seize/cancel the
-     pointer before JS could switch modes after a long press. */
+     normal vertical swipe into the nearest scrollable editor surface; after the
+     threshold the exact same pointer becomes the slider drag. */
   touch-action: none;
   border-radius: 999px;
   background: transparent;
@@ -35,8 +35,8 @@
   box-shadow: 0 0 0 2px rgba(240,122,34,.34);
 }
 
-/* The native range itself is inert on touch. The transparent guard follows the
-   finger and changes the value only after the hold delay. */
+/* The native range itself is inert on touch. The transparent guard is placed
+   exactly over the visible slider and changes the value only after the hold delay. */
 @media (hover: none), (pointer: coarse) {
   body.kp-touch-gestures-enabled input[type="range"][data-kp-touch-hardlocked] {
     pointer-events: none !important;
