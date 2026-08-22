@@ -20,14 +20,12 @@ add_action( 'wp_ajax_kp_ai_temp_image_cleanup', static function () {
     foreach ( array_slice( array_unique( array_map( 'absint', $ids ) ), 0, 50 ) as $id ) {
         if ( ! $id || 'attachment' !== get_post_type( $id ) || ! current_user_can( 'delete_post', $id ) ) { continue; }
         $file = (string) get_attached_file( $id );
-        if ( '' === $file || ! str_starts_with( basename( $file ), 'kp-ai-' ) ) { continue; }
+        if ( '' === $file || 0 !== strpos( basename( $file ), 'kp-ai-' ) ) { continue; }
         if ( wp_delete_attachment( $id, true ) ) { $deleted[] = $id; }
     }
     wp_send_json_success( array( 'deleted' => $deleted ) );
 } );
 
-// Capture the visual baseline before kp-ai-direct-editor (priority 2100) applies
-// already-saved AI replacements.
 add_action( 'wp_footer', static function () {
     if ( ! is_user_logged_in() || ! current_user_can( 'edit_pages' ) ) { return; }
     ?>
@@ -53,12 +51,10 @@ add_action( 'wp_footer', static function () {
       const cfg=window.KPAIImageDraftBaseline;
       if(!cfg)return;
       const baseline=cfg.map,attrs=cfg.attrs,key=cfg.key;
-      const generated=new Map(); // generated URL -> {attachmentId, before}
+      const generated=new Map();
       let savedVisual=new Map();
 
-      function imageByKey(k){
-        return [...document.querySelectorAll('img')].find(img=>key(img)===k)||null;
-      }
+      function imageByKey(k){return [...document.querySelectorAll('img')].find(img=>key(img)===k)||null;}
       function restoreAttrs(img,state){
         if(!img||!state)return;
         for(const name of ['src','alt','srcset','sizes']){
@@ -66,26 +62,18 @@ add_action( 'wp_footer', static function () {
           if(value===null||value===undefined||value==='')img.removeAttribute(name);else img.setAttribute(name,value);
         }
       }
-      function captureVisual(){
-        const map=new Map();document.querySelectorAll('img').forEach(img=>{const k=key(img);if(k)map.set(k,attrs(img));});return map;
-      }
+      function captureVisual(){const map=new Map();document.querySelectorAll('img').forEach(img=>{const k=key(img);if(k)map.set(k,attrs(img));});return map;}
       function visibleSrcs(){return new Set([...document.querySelectorAll('img')].map(img=>img.currentSrc||img.src||img.getAttribute('src')||''));}
       async function cleanupUnused(){
         const visible=visibleSrcs(),ids=[];
         for(const [url,entry] of generated){if(!visible.has(url)&&entry.attachmentId)ids.push(entry.attachmentId);}
         if(!ids.length)return;
-        const ai=window.KPAIEditorConfig||null;
         const ajaxUrl=window.KPOwnerWebApp?.ajaxUrl||window.KPFrontendEditorV2?.ajaxUrl||'/wp-admin/admin-ajax.php';
-        // The direct AI script keeps its nonce private, but every AI request uses
-        // the same nonce. Capture it from generated requests below.
         const nonce=cleanupUnused.nonce||'';if(!nonce)return;
         const fd=new FormData();fd.append('action','kp_ai_temp_image_cleanup');fd.append('nonce',nonce);fd.append('ids',JSON.stringify(ids));
         try{await fetch(ajaxUrl,{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});ids.forEach(id=>{for(const [url,e] of generated){if(e.attachmentId===id)generated.delete(url);}});}catch(_){}
       }
 
-      // Capture the exact image immediately before each AI request and associate
-      // it with the generated URL returned by WordPress. That makes multi-level
-      // Undo exact even after several consecutive Gemini edits.
       const inheritedFetch=window.fetch.bind(window);
       window.fetch=(input,init={})=>{
         let action='',before=null,beforeKey='',nonce='';
