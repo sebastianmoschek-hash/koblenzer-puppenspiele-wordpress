@@ -15,9 +15,6 @@ for file in "$FRONTEND" "$RUNTIME" "$CANVA_JS" "$CANVA_KEYS" "$CANVA_PHP" "$CANV
   [[ -f "$file" ]] || fail "required editor file missing: $file"
 done
 
-# Node is already present in the Playwright image, so JavaScript syntax can be
-# rejected before apt/package work consumes credits. PHP is installed one step
-# later by CircleCI; lint it here as well when the runner already has PHP.
 node --check "$FRONTEND" >/dev/null || fail 'frontend editor JavaScript syntax is invalid'
 node --check "$CANVA_JS" >/dev/null || fail 'Canva editor JavaScript syntax is invalid'
 node --check "$CANVA_KEYS" >/dev/null || fail 'Canva key bridge JavaScript syntax is invalid'
@@ -38,26 +35,20 @@ done
 grep -Fq 'const HISTORY_LIMIT = 50;' "$FRONTEND" || fail 'frontend history is not capped at 50 steps'
 grep -Fq 'window.KPFrontendEditorHistory' "$FRONTEND" || fail 'frontend instant history API missing'
 grep -Fq 'captureHistoryDom' "$FRONTEND" || fail 'exact DOM snapshot support missing'
-if grep -Fq 'kpFe2Restore' "$FRONTEND"; then
-  fail 'legacy sessionStorage + reload undo path still present'
-fi
-if grep -Fq "addEventListener('beforeunload'" "$FRONTEND" || grep -Fq 'returnValue=' "$FRONTEND"; then
-  fail 'frontend editor must never trigger a browser reload/leave confirmation'
-fi
+if grep -Fq 'kpFe2Restore' "$FRONTEND"; then fail 'legacy sessionStorage + reload undo path still present'; fi
+if grep -Fq "addEventListener('beforeunload'" "$FRONTEND" || grep -Fq 'returnValue=' "$FRONTEND"; then fail 'frontend editor must never trigger a browser reload/leave confirmation'; fi
 grep -Fq "String(type || '').toLowerCase() === 'beforeunload'" "$NO_UNLOAD" || fail 'central beforeunload blocker missing'
 
-if grep -Fq 'location.reload' "$RUNTIME"; then
-  fail 'global arrow runtime must never reload the page'
-fi
-if grep -Eq 'kp_owner_history_(undo|redo|restore)' "$RUNTIME"; then
-  fail 'global arrows must never call 48-hour server history endpoints'
-fi
+if grep -Fq 'location.reload' "$RUNTIME"; then fail 'global arrow runtime must never reload the page'; fi
+if grep -Eq 'kp_owner_history_(undo|redo|restore)' "$RUNTIME"; then fail 'global arrows must never call 48-hour server history endpoints'; fi
 
-grep -Fq 'const MAX=50;' "$RUNTIME" || fail 'global history is not capped at 50 steps'
+grep -Fq 'const MAX=50' "$RUNTIME" || fail 'global history is not capped at 50 steps'
 grep -Fq "data-kp-word-history-new" "$RUNTIME" || fail 'compact arrow controls missing'
 grep -Fq '48 Stunden' "$RUNTIME" || fail 'version-history separation copy missing'
 grep -Fq "kp:canva-layout-history-push" "$RUNTIME" || fail 'drag/pinch changes are not connected to global undo/redo'
 grep -Fq "kp:canva-image-history-push" "$RUNTIME" || fail 'image edits are not connected to global undo/redo'
+grep -Fq 'kp-image-position-controls' "$RUNTIME" || fail 'image-position controls are not connected to global undo/redo'
+grep -Fq 'register,push:pushSpecialist' "$RUNTIME" || fail 'extensible specialist undo registry missing'
 
 grep -Fq 'window.KPCanvaLayoutRuntime' "$CANVA_JS" || fail 'shared drag/pinch runtime missing'
 grep -Fq 'window.KPCanvaImageRuntime' "$CANVA_JS" || fail 'image editing runtime missing'
