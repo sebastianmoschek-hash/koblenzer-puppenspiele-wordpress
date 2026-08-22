@@ -50,10 +50,11 @@ add_action( 'wp_footer', static function () {
           const result=baseFlush?await baseFlush():{success:true};
           if(window.KPCanvaLayoutRuntime?.flush)await window.KPCanvaLayoutRuntime.flush();
           if(window.KPCanvaImageRuntime?.flush)await window.KPCanvaImageRuntime.flush();
+          if(window.KPCardDraftRuntime?.flush)await window.KPCardDraftRuntime.flush();
           if(window.KPAIEditorRuntime?.flush)await window.KPAIEditorRuntime.flush();
           return result||{success:true};
         };
-        registry.isDirty=()=>!!baseDirty?.()||!!window.KPCanvaLayoutRuntime?.isDirty?.()||!!window.KPCanvaImageRuntime?.isDirty?.()||!!window.KPAIEditorRuntime?.isDirty?.();
+        registry.isDirty=()=>!!baseDirty?.()||!!window.KPCanvaLayoutRuntime?.isDirty?.()||!!window.KPCanvaImageRuntime?.isDirty?.()||!!window.KPCardDraftRuntime?.isDirty?.()||!!window.KPAIEditorRuntime?.isDirty?.();
         registry.__kpUnifiedCoverage=true;
         return true;
       }
