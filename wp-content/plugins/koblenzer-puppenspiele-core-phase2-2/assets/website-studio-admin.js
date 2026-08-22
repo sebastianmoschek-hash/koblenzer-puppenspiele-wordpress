@@ -195,5 +195,7 @@
   });
 
   form.addEventListener('submit', () => { hasChanges = false; });
-  window.addEventListener('beforeunload', e => { if (!hasChanges) return; e.preventDefault(); e.returnValue=''; });
+  // Deliberately no beforeunload confirmation. The owner asked that navigation,
+  // reload, X and explicit commands always execute immediately without a browser
+  // "Seite neu laden?" dialog. Dirty state stays visible inside the Studio UI.
 })();
