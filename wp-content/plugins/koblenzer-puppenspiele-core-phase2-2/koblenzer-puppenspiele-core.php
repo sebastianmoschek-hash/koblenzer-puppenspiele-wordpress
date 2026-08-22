@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Koblenzer Puppenspiele – Inhalte & Design
  * Description: Einfache Verwaltung für Inhalte, direkte visuelle Bearbeitung und installierbare Besitzer-Web-App direkt auf der Website.
- * Version: 4.5.27
+ * Version: 4.5.28
  * Author: Koblenzer Puppenspiele
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KP_CORE_VERSION', '4.5.27' );
+define( 'KP_CORE_VERSION', '4.5.28' );
 define( 'KP_CORE_FILE', __FILE__ );
 define( 'KP_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'KP_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -60,6 +60,7 @@ require_once KP_CORE_DIR . 'includes/class-kp-owner-ui-polish.php';
 require_once KP_CORE_DIR . 'includes/class-kp-staging-maintenance-bridge.php';
 require_once KP_CORE_DIR . 'includes/class-kp-owner-history.php';
 require_once KP_CORE_DIR . 'includes/class-kp-owner-save-coordinator.php';
+require_once KP_CORE_DIR . 'includes/class-kp-owner-save-readback-fix.php';
 
 add_action( 'plugins_loaded', static function () {
     KP_Bundled_Images::init();
@@ -103,6 +104,7 @@ add_action( 'plugins_loaded', static function () {
     KP_Owner_UI_Polish::init();
     KP_Owner_History::init();
     KP_Owner_Save_Coordinator::init();
+    KP_Owner_Save_Readback_Fix::init();
     KP_Staging_Maintenance_Bridge::init();
 } );
 
