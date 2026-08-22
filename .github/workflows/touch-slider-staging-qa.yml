@@ -25,35 +25,74 @@ jobs:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    env:
+      FTP_SERVER: ${{ secrets.STAGING_FTP_SERVER }}
+      FTP_USERNAME: ${{ secrets.STAGING_FTP_USERNAME }}
+      LFTP_PASSWORD: ${{ secrets.STAGING_FTP_PASSWORD }}
     steps:
       - name: Check out latest main
         uses: actions/checkout@v4
         with:
           ref: main
 
-      - name: Wait for exact touch safety asset on staging
+      - name: Force-deploy exact touch slider assets to staging only
+        id: force_deploy
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FTP_SERVER:?STAGING_FTP_SERVER secret is missing}"
+          : "${FTP_USERNAME:?STAGING_FTP_USERNAME secret is missing}"
+          : "${LFTP_PASSWORD:?STAGING_FTP_PASSWORD secret is missing}"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+          base='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets'
+          remote='/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets'
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 15;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            put '$base/touch-gesture-safety.js' -o '$remote/touch-gesture-safety.js';
+            put '$base/touch-gesture-safety.css' -o '$remote/touch-gesture-safety.css';
+            bye
+          "
+          echo 'PASS: exact touch slider JS/CSS force-uploaded to staging.'
+
+      - name: Wait for exact touch safety assets on staging
+        if: always() && steps.force_deploy.outcome == 'success'
         id: staging_exact
         continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
           exec > >(tee /tmp/touch-slider-asset.log) 2>&1
-          local_asset='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js'
-          url='https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js'
-          expected=$(sha256sum "$local_asset" | awk '{print $1}')
-          echo "Expected SHA256: $expected"
-          for attempt in $(seq 1 30); do
-            if curl --fail --silent --show-error --location -H 'Cache-Control: no-cache' "$url?kp_slider_qa=${GITHUB_SHA}-${GITHUB_RUN_ID}-${attempt}" -o /tmp/touch-gesture-safety.js; then
-              actual=$(sha256sum /tmp/touch-gesture-safety.js | awk '{print $1}')
-              echo "Attempt $attempt staging SHA256: $actual"
-              if [ "$actual" = "$expected" ]; then
-                echo 'PASS: exact repository touch safety asset is live on staging.'
+          local_js='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js'
+          local_css='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-gesture-safety.css'
+          url_base='https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets'
+          expected_js=$(sha256sum "$local_js" | awk '{print $1}')
+          expected_css=$(sha256sum "$local_css" | awk '{print $1}')
+          echo "Expected JS SHA256: $expected_js"
+          echo "Expected CSS SHA256: $expected_css"
+          for attempt in $(seq 1 20); do
+            ok=1
+            curl --fail --silent --show-error --location -H 'Cache-Control: no-cache, no-store' "$url_base/touch-gesture-safety.js?kp_slider_qa=${GITHUB_SHA}-${GITHUB_RUN_ID}-${attempt}" -o /tmp/touch-gesture-safety.js || ok=0
+            curl --fail --silent --show-error --location -H 'Cache-Control: no-cache, no-store' "$url_base/touch-gesture-safety.css?kp_slider_qa=${GITHUB_SHA}-${GITHUB_RUN_ID}-${attempt}" -o /tmp/touch-gesture-safety.css || ok=0
+            if [ "$ok" = 1 ]; then
+              actual_js=$(sha256sum /tmp/touch-gesture-safety.js | awk '{print $1}')
+              actual_css=$(sha256sum /tmp/touch-gesture-safety.css | awk '{print $1}')
+              echo "Attempt $attempt JS SHA256: $actual_js"
+              echo "Attempt $attempt CSS SHA256: $actual_css"
+              if [ "$actual_js" = "$expected_js" ] && [ "$actual_css" = "$expected_css" ]; then
+                echo 'PASS: exact repository touch safety JS/CSS are live on staging.'
                 exit 0
               fi
             fi
-            sleep 4
+            sleep 3
           done
-          echo 'ERROR: staging never served the exact current touch safety asset.' >&2
+          echo 'ERROR: staging never served the exact current touch safety assets.' >&2
           exit 1
 
       - name: Install Chromium
@@ -66,12 +105,13 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
-      - name: Reproduce swipe vs hold-and-drag against staged asset
+      - name: Reproduce real hidden Design-tab slider behavior
         if: always() && steps.browser_install.outcome == 'success'
         id: behavior
         continue-on-error: true
         env:
           KP_TOUCH_SAFETY: /tmp/touch-gesture-safety.js
+          KP_TOUCH_SAFETY_CSS: /tmp/touch-gesture-safety.css
         shell: bash
         run: |
           set -uo pipefail
@@ -81,6 +121,7 @@ jobs:
       - name: Write auditable slider result
         if: always()
         env:
+          DEPLOY_OUTCOME: ${{ steps.force_deploy.outcome }}
           ASSET_OUTCOME: ${{ steps.staging_exact.outcome }}
           INSTALL_OUTCOME: ${{ steps.browser_install.outcome }}
           BEHAVIOR_OUTCOME: ${{ steps.behavior.outcome }}
@@ -91,9 +132,10 @@ jobs:
             echo '# Touch-Regler – echter Staging-Test'
             echo
             echo "Erzeugt: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-            echo "Exakte Staging-Datei: $ASSET_OUTCOME"
+            echo "Force-Deploy: $DEPLOY_OUTCOME"
+            echo "Exakte Staging-Dateien: $ASSET_OUTCOME"
             echo "Chromium bereit: $INSTALL_OUTCOME"
-            echo "Wischen / Halten+Ziehen: $BEHAVIOR_OUTCOME"
+            echo "Echter Design-Tab / Wischen / Halten+Ziehen: $BEHAVIOR_OUTCOME"
             echo
             echo '## Staging-Dateiabgleich'
             echo '```text'
@@ -120,11 +162,13 @@ jobs:
       - name: Final touch slider gate
         if: always()
         env:
+          DEPLOY_OUTCOME: ${{ steps.force_deploy.outcome }}
           ASSET_OUTCOME: ${{ steps.staging_exact.outcome }}
           INSTALL_OUTCOME: ${{ steps.browser_install.outcome }}
           BEHAVIOR_OUTCOME: ${{ steps.behavior.outcome }}
         shell: bash
         run: |
+          test "$DEPLOY_OUTCOME" = 'success'
           test "$ASSET_OUTCOME" = 'success'
           test "$INSTALL_OUTCOME" = 'success'
           test "$BEHAVIOR_OUTCOME" = 'success'
