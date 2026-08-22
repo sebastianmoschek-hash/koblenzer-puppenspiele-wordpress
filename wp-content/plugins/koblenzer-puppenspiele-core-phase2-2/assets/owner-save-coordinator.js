@@ -21,7 +21,7 @@
       const body = init?.body;
       if (activeHistoryGroup && body instanceof FormData && !body.has('kp_history_group')) {
         const action = String(body.get('action') || '');
-        if (/^kp_(owner_(design|sizes|menu_x|nav)_save|fe_v2_save|touch_(free_layout|gesture)_save|image_position_save|frontend_card_(image|button)_save|fe_v2_record_save)$/.test(action)) {
+        if (/^kp_(owner_(design|sizes|menu_x|nav)_save|fe_v2_save|touch_(free_layout|gesture)_save|image_position_save|canva_image_save|frontend_card_(image|button)_save|fe_v2_record_save)$/.test(action)) {
           body.append('kp_history_group', activeHistoryGroup);
         }
       }
