@@ -169,6 +169,15 @@ function kp_history_ext_find_version( $id ) {
 }
 
 add_action( 'plugins_loaded', static function () {
+    // AI draft persistence historically created its checkpoint inside the main
+    // AJAX handler (priority 10). Create it at priority 1 instead so the common
+    // priority-2 augmentation below can attach the pre-save AI option state to
+    // the correct unified-save group. The later in-handler checkpoint becomes a
+    // harmless no-op because KP_Owner_History only checkpoints once per request.
+    add_action( 'wp_ajax_kp_ai_draft_save', static function () {
+        if ( class_exists( 'KP_Owner_History' ) ) { KP_Owner_History::checkpoint( 'KI-Bearbeitung geändert' ); }
+    }, 1 );
+
     $actions = array(
         'kp_owner_design_save','kp_owner_sizes_save','kp_owner_menu_x_save','kp_owner_nav_save',
         'kp_fe_v2_save','kp_touch_free_layout_save','kp_touch_gesture_save','kp_image_position_save',
@@ -185,9 +194,6 @@ add_action( 'plugins_loaded', static function () {
         if ( ! is_array( $items ) || ! $items ) { return; }
         $item = end( $items );
         $state = is_array( $item ) ? ( $item['state'] ?? array() ) : array();
-        // Core history restores its native options/entity first. Extra AI and
-        // grouped entities are restored at PHP shutdown, before the AJAX request
-        // is actually finished for the browser.
         register_shutdown_function( static function () use ( $state ) {
             kp_history_ext_restore_state( $state );
         } );
@@ -200,10 +206,6 @@ add_action( 'plugins_loaded', static function () {
         if ( ! is_array( $target ) ) { return; }
         $target_state = $target['state'] ?? array();
 
-        // The core restore handler intentionally creates a fresh checkpoint of
-        // the current state before restoring the requested old version. Capture
-        // our extension state now, and inject it into that new checkpoint when
-        // the core class updates kp_owner_history_v1 a few lines later.
         $current_extra = kp_history_ext_capture_options();
         $current_entities = kp_history_ext_capture_entities_by_ids( kp_history_ext_entity_ids_from_state( $target_state ) );
         add_filter( 'pre_update_option_kp_owner_history_v1', static function ( $new_value, $old_value ) use ( $current_extra, $current_entities ) {
@@ -217,8 +219,6 @@ add_action( 'plugins_loaded', static function () {
             return $new_value;
         }, 5, 2 );
 
-        // Let the core class restore its native state first, then finish the
-        // same version with AI options and all grouped entities.
         register_shutdown_function( static function () use ( $target_state ) {
             kp_history_ext_restore_state( $target_state );
         } );
