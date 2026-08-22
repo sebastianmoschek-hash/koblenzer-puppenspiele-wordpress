@@ -13,12 +13,16 @@ jobs:
           name: Install lightweight CI tools
           command: |
             apt-get update -qq
-            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp jq php-cli ca-certificates curl
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp jq php-cli ca-certificates curl git
             npm install --no-save playwright@1.55.0
       - run:
           name: Staging deploy + real Chromium/Touch/Persistence/Visual lab
           command: bash qa/circleci-homepage-lab.sh
           no_output_timeout: 20m
+      - run:
+          name: Publish latest safe lab report back to GitHub
+          when: always
+          command: bash qa/publish-circleci-report-to-github.sh
       - store_artifacts:
           path: qa-results/circleci
           destination: circleci-lab-report
