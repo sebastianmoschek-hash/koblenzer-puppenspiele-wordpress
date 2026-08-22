@@ -7,6 +7,7 @@
   let replayingMainSave = false;
   let waitingForMainSave = false;
   let frontendDirty = false;
+  let inlineHeaderRadius = null;
 
   function editorToast(message, type = 'ok') {
     const toast = document.querySelector('.kp-fe2-toast');
@@ -15,6 +16,29 @@
     toast.className = `kp-fe2-toast is-visible is-${type}`;
     clearTimeout(editorToast.timer);
     editorToast.timer = setTimeout(() => toast.classList.remove('is-visible'), 2600);
+  }
+
+  function selectedHeaderStage() {
+    const selected = document.querySelector('.kp-fe2-selected');
+    if (!selected) return null;
+    if (selected.matches('.kp-header-stage,.kp-header-photo,.kp-header-stage img,.kp-header-photo img')) {
+      return selected.closest('.kp-header-stage') || selected.closest('.kp-header-photo') || document.querySelector('.kp-header-stage');
+    }
+    if (selected.querySelector?.('.kp-header-stage img,.kp-header-photo img')) {
+      return selected.querySelector('.kp-header-stage') || selected.querySelector('.kp-header-photo') || document.querySelector('.kp-header-stage');
+    }
+    return selected.closest('header')?.querySelector('.kp-header-stage,.kp-header-photo') || null;
+  }
+
+  function syncInlineHeaderRadius(event) {
+    const input = event.target instanceof HTMLInputElement ? event.target : null;
+    if (!input || input.dataset.style !== 'radius' || !input.closest('.kp-fe2-inspector')) return;
+    const stage = selectedHeaderStage();
+    if (!stage) return;
+    const radius = Math.max(0, Math.min(80, Number(input.value) || 0));
+    inlineHeaderRadius = radius;
+    stage.style.setProperty('border-radius', `${radius}px`, 'important');
+    stage.querySelectorAll('img').forEach(img => img.style.setProperty('border-radius', `${radius}px`, 'important'));
   }
 
   function markFrontendDirty(event) {
@@ -27,6 +51,8 @@
   document.addEventListener('input', markFrontendDirty, true);
   document.addEventListener('change', markFrontendDirty, true);
   document.addEventListener('click', markFrontendDirty, true);
+  document.addEventListener('input', syncInlineHeaderRadius, true);
+  document.addEventListener('change', syncInlineHeaderRadius, true);
 
   function setMenuOpen(nav, shouldOpen) {
     const container = nav?.querySelector('.wp-block-navigation__responsive-container');
@@ -77,8 +103,8 @@
 
   function liveDesignSettings() {
     const cfg = window.KPOwnerWebApp;
+    if (!cfg) return null;
     const controls = [...document.querySelectorAll('[data-design]')];
-    if (!cfg || !controls.length) return null;
     const settings = { ...(cfg.design || {}) };
     controls.forEach(input => {
       const key = input?.dataset?.design;
@@ -87,6 +113,7 @@
         ? (input.checked ? 1 : 0)
         : (input.type === 'range' ? Number(input.value) : input.value);
     });
+    if (inlineHeaderRadius !== null) settings.header_radius = inlineHeaderRadius;
     return settings;
   }
 
@@ -105,6 +132,7 @@
       throw new Error(json?.data?.message || 'Design konnte nicht dauerhaft gespeichert werden.');
     }
     cfg.design = { ...(json.data?.settings || settings) };
+    inlineHeaderRadius = null;
     return json.data || {};
   }
 
