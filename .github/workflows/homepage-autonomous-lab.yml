@@ -1,0 +1,327 @@
+name: Autonomous homepage lab
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
+      - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/**'
+      - 'qa/homepage-editor-lab.mjs'
+      - 'qa/owner-all-persistence-e2e.mjs'
+      - 'qa/touch-runtime-browser-test.mjs'
+      - 'visual-qa/**'
+      - 'AGENTS.md'
+      - '.github/workflows/homepage-autonomous-lab.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '27 */12 * * *'
+
+permissions:
+  contents: write
+
+# Share the existing owner-persistence lock so two temporary E2E bridges can
+# never overlap on staging.
+concurrency:
+  group: koblenzer-puppenspiele-owner-all-persistence
+  cancel-in-progress: true
+
+jobs:
+  staging-browser-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      STAGING_BASE: https://neu.koblenzer-puppenspiele.de
+      FTP_SERVER: ${{ secrets.STAGING_FTP_SERVER }}
+      FTP_USERNAME: ${{ secrets.STAGING_FTP_USERNAME }}
+      LFTP_PASSWORD: ${{ secrets.STAGING_FTP_PASSWORD }}
+    steps:
+      - name: Check out latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: PHP syntax safety gate
+        id: php_syntax
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          find wp-content/plugins/koblenzer-puppenspiele-core-phase2-2 \
+               wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7 \
+               -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Install browser and secure FTP client once
+        id: tools
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Force current plugin and theme onto staging only
+        if: always() && steps.php_syntax.outcome == 'success' && steps.tools.outcome == 'success'
+        id: deploy
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee /tmp/homepage-lab-deploy.log) 2>&1
+          : "${FTP_SERVER:?STAGING_FTP_SERVER secret is missing}"
+          : "${FTP_USERNAME:?STAGING_FTP_USERNAME secret is missing}"
+          : "${LFTP_PASSWORD:?STAGING_FTP_PASSWORD secret is missing}"
+          plugin='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
+          theme='wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            mirror -R --verbose --transfer-all --no-perms --parallel=2 '$plugin' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2';
+            mirror -R --verbose --transfer-all --no-perms --parallel=2 '$theme' '/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7';
+            bye
+          "
+          echo 'PASS: repository plugin/theme force-deployed to staging only.'
+
+      - name: Verify staging serves the current plugin
+        if: always() && steps.deploy.outcome == 'success'
+        id: ready
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee /tmp/homepage-lab-ready.log) 2>&1
+          expected=$(sed -n 's/^ \* Version: //p' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php | head -1)
+          test -n "$expected"
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --show-error --location -H 'Cache-Control: no-cache, no-store' \
+              "$STAGING_BASE/?kp_staging_bridge_health=1&kp_lab=${GITHUB_SHA}-${GITHUB_RUN_ID}-${attempt}" \
+              -o /tmp/homepage-lab-health.json \
+              && jq -e --arg version "$expected" '.success == true and .data.active == true and .data.version == $version' /tmp/homepage-lab-health.json >/dev/null 2>&1; then
+              echo "PASS: staging runs plugin $expected"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "ERROR: staging never reported plugin $expected" >&2
+          [ -s /tmp/homepage-lab-health.json ] && cat /tmp/homepage-lab-health.json >&2 || true
+          exit 1
+
+      - name: Create short-lived staging-only browser login/state bridge
+        if: always() && steps.ready.outcome == 'success'
+        id: bridge
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee /tmp/homepage-lab-bridge.log) 2>&1
+          token=$(openssl rand -hex 32)
+          expires=$(( $(date +%s) + 1100 ))
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+          cat > /tmp/kp-e2e-owner-all.php <<PHP
+          <?php
+          if ( ! defined( 'ABSPATH' ) ) { exit; }
+          define( 'KP_E2E_OWNER_TOKEN', '${token}' );
+          define( 'KP_E2E_OWNER_EXPIRES', ${expires} );
+          function kp_e2e_owner_allowed( \$raw ) {
+              return time() <= KP_E2E_OWNER_EXPIRES
+                  && 'neu.koblenzer-puppenspiele.de' === strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) )
+                  && is_string( \$raw ) && hash_equals( KP_E2E_OWNER_TOKEN, \$raw );
+          }
+          function kp_e2e_owner_map() { return array(
+              'studio'=>'kp_website_studio','sizes'=>'kp_responsive_sizes','navigation'=>'kp_owner_navigation_v1',
+              'frontend_global'=>'kp_frontend_editor_global_v1','frontend_pages'=>'kp_frontend_editor_pages_v1',
+              'free_global'=>'kp_touch_free_layout_global_v1','free_pages'=>'kp_touch_free_layout_pages_v1',
+              'gesture_global'=>'kp_touch_gestures_global_v1','gesture_pages'=>'kp_touch_gestures_pages_v1',
+              'image_global'=>'kp_image_position_global_v1','image_pages'=>'kp_image_position_pages_v1','history'=>'kp_owner_history_v1'
+          ); }
+          add_action( 'init', static function () {
+              \$raw = isset( \$_GET['kp_e2e_login'] ) ? (string) wp_unslash( \$_GET['kp_e2e_login'] ) : '';
+              if ( ! kp_e2e_owner_allowed( \$raw ) ) return;
+              \$admins = get_users( array( 'role'=>'administrator', 'number'=>1, 'fields'=>'ID' ) );
+              if ( ! \$admins ) wp_die( 'No staging administrator available.' );
+              \$id=(int)\$admins[0]; wp_set_current_user(\$id); wp_set_auth_cookie(\$id,false,is_ssl());
+              wp_safe_redirect( add_query_arg( array('kp_edit'=>'1','kp_e2e'=>'1'), home_url('/') ) ); exit;
+          }, 1 );
+          function kp_e2e_owner_guard() {
+              \$raw=isset(\$_POST['token'])?(string)wp_unslash(\$_POST['token']):'';
+              if(!current_user_can('manage_options')||!kp_e2e_owner_allowed(\$raw)) wp_send_json_error(array('message'=>'E2E denied.'),403);
+          }
+          add_action('wp_ajax_kp_e2e_owner_state',static function(){
+              kp_e2e_owner_guard(); \$data=array(); \$exists=array();
+              foreach(kp_e2e_owner_map() as \$key=>\$option){\$sentinel=new stdClass();\$value=get_option(\$option,\$sentinel);\$exists[\$key]=\$value!==\$sentinel;\$data[\$key]=\$value!==\$sentinel?\$value:array();}
+              \$data['_exists']=\$exists; wp_send_json_success(\$data);
+          });
+          add_action('wp_ajax_kp_e2e_owner_restore',static function(){
+              kp_e2e_owner_guard(); \$snapshot=isset(\$_POST['snapshot'])?json_decode(wp_unslash(\$_POST['snapshot']),true):null;
+              if(!is_array(\$snapshot)) wp_send_json_error(array('message'=>'Invalid snapshot.'),400);
+              \$exists=isset(\$snapshot['_exists'])&&is_array(\$snapshot['_exists'])?\$snapshot['_exists']:array();
+              foreach(kp_e2e_owner_map() as \$key=>\$option){if(array_key_exists(\$key,\$exists)&&!\$exists[\$key]){delete_option(\$option);continue;}update_option(\$option,isset(\$snapshot[\$key])?\$snapshot[\$key]:array(),false);}
+              if(function_exists('wp_cache_flush'))wp_cache_flush(); wp_send_json_success(array('message'=>'restored'));
+          });
+          PHP
+          php -l /tmp/kp-e2e-owner-all.php
+          lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 1; set net:timeout 15; open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER'; mkdir -p /wp-content/mu-plugins; put /tmp/kp-e2e-owner-all.php -o /wp-content/mu-plugins/kp-e2e-owner-all.php; bye"
+          echo 'PASS: short-lived staging browser bridge active.'
+
+      - name: Real staging editor lab – mobile tablet desktop
+        if: always() && steps.bridge.outcome == 'success'
+        id: editor_lab
+        continue-on-error: true
+        env:
+          KP_E2E_BASE: https://neu.koblenzer-puppenspiele.de
+          KP_E2E_TOKEN: ${{ steps.bridge.outputs.token }}
+          KP_LAB_OUT: qa-artifacts/homepage-lab
+        shell: bash
+        run: |
+          set -uo pipefail
+          node qa/homepage-editor-lab.mjs 2>&1 | tee /tmp/homepage-editor-lab.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Full save reload DB undo and 48h version test
+        if: always() && steps.bridge.outcome == 'success'
+        id: persistence
+        continue-on-error: true
+        env:
+          KP_E2E_BASE: https://neu.koblenzer-puppenspiele.de
+          KP_E2E_TOKEN: ${{ steps.bridge.outputs.token }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          node qa/owner-all-persistence-e2e.mjs 2>&1 | tee /tmp/homepage-persistence.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Local touch runtime regression suite
+        if: always() && steps.tools.outcome == 'success'
+        id: touch_runtime
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -uo pipefail
+          node qa/touch-runtime-browser-test.mjs 2>&1 | tee /tmp/homepage-touch-runtime.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Public visual QA – 50 real staging views
+        if: always() && steps.ready.outcome == 'success'
+        id: visual
+        continue-on-error: true
+        env:
+          VISUAL_QA_BASE_URL: https://neu.koblenzer-puppenspiele.de
+        shell: bash
+        run: |
+          set -uo pipefail
+          node visual-qa/capture.mjs 2>&1 | tee /tmp/homepage-visual.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Remove short-lived browser bridge
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [ -n "${FTP_SERVER:-}" ] && [ -n "${FTP_USERNAME:-}" ] && [ -n "${LFTP_PASSWORD:-}" ]; then
+            lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 1; set net:timeout 10; open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER'; rm -f /wp-content/mu-plugins/kp-e2e-owner-all.php; bye"
+          fi
+
+      - name: Upload screenshots logs and machine-readable diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: homepage-lab-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            qa-artifacts/homepage-lab/**
+            visual-qa/output/**
+            /tmp/homepage-*.log
+
+      - name: Persist one autonomous lab status for the repair agent
+        if: always()
+        env:
+          PHP_OUTCOME: ${{ steps.php_syntax.outcome }}
+          TOOLS_OUTCOME: ${{ steps.tools.outcome }}
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+          READY_OUTCOME: ${{ steps.ready.outcome }}
+          BRIDGE_OUTCOME: ${{ steps.bridge.outcome }}
+          EDITOR_OUTCOME: ${{ steps.editor_lab.outcome }}
+          PERSISTENCE_OUTCOME: ${{ steps.persistence.outcome }}
+          TOUCH_OUTCOME: ${{ steps.touch_runtime.outcome }}
+          VISUAL_OUTCOME: ${{ steps.visual.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f qa-artifacts/homepage-lab/report.json || echo '{"success":false,"failures":["homepage editor lab did not produce report.json"]}' > /tmp/homepage-lab-fallback.json
+          cp qa-artifacts/homepage-lab/report.json /tmp/homepage-lab-latest.json 2>/dev/null || cp /tmp/homepage-lab-fallback.json /tmp/homepage-lab-latest.json
+          {
+            echo '# Autonomes Homepage-Labor – letzter Staging-Stand'
+            echo
+            echo "Erzeugt: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "Commit: $GITHUB_SHA"
+            echo "PHP-Syntax: $PHP_OUTCOME"
+            echo "Browser/FTP-Werkzeuge: $TOOLS_OUTCOME"
+            echo "Staging-only Force-Deploy: $DEPLOY_OUTCOME"
+            echo "Staging-Version verifiziert: $READY_OUTCOME"
+            echo "Temporärer E2E-Zugang: $BRIDGE_OUTCOME"
+            echo "Echter Editor-Browser: $EDITOR_OUTCOME"
+            echo "Speichern/Reload/DB/Undo/48h: $PERSISTENCE_OUTCOME"
+            echo "Touch-Runtime: $TOUCH_OUTCOME"
+            echo "50-Ansichten Visual-QA: $VISUAL_OUTCOME"
+            echo
+            echo '## Echter Editor-Browser'
+            if [ -f qa-artifacts/homepage-lab/summary.md ]; then cat qa-artifacts/homepage-lab/summary.md; else echo '- Kein Editor-Lab-Bericht erzeugt.'; fi
+            echo
+            echo '## Persistenz-Test'
+            echo '```text'
+            if [ -s /tmp/homepage-persistence.log ]; then tail -n 160 /tmp/homepage-persistence.log; else echo 'Kein Persistenz-Log.'; fi
+            echo '```'
+            echo
+            echo '## Visual-QA'
+            if [ -f visual-qa/output/summary.md ]; then cat visual-qa/output/summary.md; else echo '- Kein Visual-QA-Bericht erzeugt.'; fi
+            echo
+            echo '## Touch-Runtime'
+            echo '```text'
+            if [ -s /tmp/homepage-touch-runtime.log ]; then tail -n 120 /tmp/homepage-touch-runtime.log; else echo 'Kein Touch-Log.'; fi
+            echo '```'
+          } > /tmp/homepage-lab-latest.md
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p qa-results
+          cp /tmp/homepage-lab-latest.json qa-results/homepage-lab-latest.json
+          cp /tmp/homepage-lab-latest.md qa-results/homepage-lab-latest.md
+          git add qa-results/homepage-lab-latest.json qa-results/homepage-lab-latest.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'qa: update autonomous homepage lab [skip ci]'
+            git push origin HEAD:main
+          fi
+
+      - name: Final autonomous homepage gate
+        if: always()
+        env:
+          PHP_OUTCOME: ${{ steps.php_syntax.outcome }}
+          TOOLS_OUTCOME: ${{ steps.tools.outcome }}
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+          READY_OUTCOME: ${{ steps.ready.outcome }}
+          BRIDGE_OUTCOME: ${{ steps.bridge.outcome }}
+          EDITOR_OUTCOME: ${{ steps.editor_lab.outcome }}
+          PERSISTENCE_OUTCOME: ${{ steps.persistence.outcome }}
+          TOUCH_OUTCOME: ${{ steps.touch_runtime.outcome }}
+          VISUAL_OUTCOME: ${{ steps.visual.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$PHP_OUTCOME" = success
+          test "$TOOLS_OUTCOME" = success
+          test "$DEPLOY_OUTCOME" = success
+          test "$READY_OUTCOME" = success
+          test "$BRIDGE_OUTCOME" = success
+          test "$EDITOR_OUTCOME" = success
+          test "$PERSISTENCE_OUTCOME" = success
+          test "$TOUCH_OUTCOME" = success
+          test "$VISUAL_OUTCOME" = success
