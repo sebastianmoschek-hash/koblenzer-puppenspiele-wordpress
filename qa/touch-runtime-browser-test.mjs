@@ -10,6 +10,11 @@ const assets = {
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
 const fail = message => { throw new Error(message); };
+const writes = [];
+let nativeSaveClicks = 0;
+
+await page.exposeFunction('__kpQaWrite', action => { writes.push(String(action || '')); });
+await page.exposeFunction('__kpQaNativeSave', () => { nativeSaveClicks += 1; });
 
 async function bootstrap() {
   await page.setContent(`<!doctype html><html><body>
@@ -35,11 +40,6 @@ async function bootstrap() {
   </body></html>`);
 
   await page.evaluate(() => {
-    Object.defineProperty(window, '__kpQa', {
-      value: { writes: [], nativeSaveClicks: 0 },
-      configurable: false,
-      writable: false,
-    });
     window.KPFrontendEditorV2 = { editMode: true };
     window.KPTouchGestures = { editMode:true, canEdit:true, holdMs:320, ajaxUrl:'/ajax', nonce:'nonce', pageKey:'post-1', global:{}, page:{} };
     window.KPFreeLayout = { editMode:true, canEdit:true, holdMs:320, ajaxUrl:'/ajax', nonce:'nonce', pageKey:'post-1', global:{}, page:{} };
@@ -47,23 +47,23 @@ async function bootstrap() {
     window.fetch = async (_url, init = {}) => {
       const body = init.body;
       const action = body instanceof FormData ? String(body.get('action') || '') : '';
-      window.__kpQa.writes.push(action);
+      await window.__kpQaWrite(action);
       let global = {}, page = {};
       try { global = JSON.parse(String(body?.get?.('global') || '{}')); } catch {}
       try { page = JSON.parse(String(body?.get?.('page') || '{}')); } catch {}
       const value = Number(body?.get?.('value') || 0);
       return new Response(JSON.stringify({success:true,data:{global,page,value}}), {status:200,headers:{'content-type':'application/json'}});
     };
-    document.addEventListener('click', event => {
-      if (event.target instanceof Element && event.target.closest('.kp-fe2-save')) window.__kpQa.nativeSaveClicks += 1;
-    });
+    window.addEventListener('click', event => {
+      if (event.target instanceof Element && event.target.closest('.kp-fe2-save')) window.__kpQaNativeSave();
+    }, true);
   });
 
   await page.addScriptTag({ path: assets.gestures });
   await page.addScriptTag({ path: assets.free });
   await page.addScriptTag({ path: assets.bridge });
   await page.addScriptTag({ path: assets.menuX });
-  await page.waitForTimeout(30);
+  await page.waitForTimeout(35);
 }
 
 async function drag(selector, dx, dy, hold = 380) {
@@ -94,65 +94,75 @@ async function pinch(selector, startGap=40, endGap=100) {
   },{selector,startGap,endGap});
 }
 
-const qa = () => page.evaluate(() => ({ writes: [...window.__kpQa.writes], native: window.__kpQa.nativeSaveClicks }));
 async function orangeSave() {
-  await page.locator('.kp-fe2-save').click();
-  await page.waitForTimeout(160);
+  const before = writes.length;
+  const beforeNative = nativeSaveClicks;
+  await page.locator('.kp-fe2-save').click({ noWaitAfter: true });
+  for (let i=0;i<20 && writes.length===before;i++) await page.waitForTimeout(25);
+  await page.waitForTimeout(80);
+  return { before, beforeNative, newWrites: writes.slice(before), nativeDelta: nativeSaveClicks-beforeNative };
 }
 
 try {
+  // Generic drag: draft stays local until the orange main save. The successful
+  // owner-only save intentionally reloads the editor, so assertions that need
+  // the old DOM happen before save and write assertions live outside the page.
   await bootstrap();
-
   await drag('#generic',44,26);
-  let s=await page.evaluate(()=>({move:document.querySelector('#generic')?.style.translate||'',dirty:window.KPTouchGestureRuntime?.isDirty?.(),writes:[...window.__kpQa.writes]}));
+  let s=await page.evaluate(()=>({move:document.querySelector('#generic')?.style.translate||'',dirty:window.KPTouchGestureRuntime?.isDirty?.()}));
   if(!s.dirty||!s.move||s.move==='0px 0px') fail('Generic-Drag funktioniert nicht.');
-  if(s.writes.length) fail(`Generic-Drag speichert automatisch: ${s.writes.join(', ')}`);
-  await orangeSave();
-  s=await page.evaluate(()=>({dirty:window.KPTouchGestureRuntime?.isDirty?.(),writes:[...window.__kpQa.writes],native:window.__kpQa.nativeSaveClicks}));
-  if(s.dirty||s.writes.filter(x=>x==='kp_touch_gesture_save').length!==1||s.native!==1) fail(`Orange Speichern für Generic fehlerhaft: ${JSON.stringify(s)}`);
+  if(writes.length) fail(`Generic-Drag speichert automatisch: ${writes.join(', ')}`);
+  let saved=await orangeSave();
+  if(saved.newWrites.filter(x=>x==='kp_touch_gesture_save').length!==1||saved.nativeDelta!==1) fail(`Orange Speichern für Generic fehlerhaft: ${JSON.stringify(saved)}`);
 
+  // Undo is deliberately verified before any save/reload.
+  await bootstrap();
+  await drag('#generic',44,26);
   const before=await page.locator('#generic').evaluate(el=>el.style.translate);
-  const writesBeforeUndo=(await qa()).writes.length;
   await drag('#generic',30,0);
   await page.locator('.kp-fe2-undo').click();
   await page.waitForTimeout(50);
-  const undo=await page.evaluate(()=>({move:document.querySelector('#generic')?.style.translate||'',writes:window.__kpQa.writes.length,dirty:window.KPTouchGestureRuntime?.isDirty?.()}));
-  if(undo.move!==before||undo.writes!==writesBeforeUndo||!undo.dirty) fail(`Rückgängig fehlerhaft: ${JSON.stringify(undo)}`);
-  await orangeSave();
+  const undo=await page.evaluate(()=>({move:document.querySelector('#generic')?.style.translate||'',dirty:window.KPTouchGestureRuntime?.isDirty?.()}));
+  if(undo.move!==before||!undo.dirty) fail(`Rückgängig fehlerhaft: ${JSON.stringify(undo)}`);
 
-  const writesBeforePinch=(await qa()).writes.length;
+  // Pinch remains local until the orange save.
+  await bootstrap();
+  const writesBeforePinch=writes.length;
   const scaleBefore=await page.locator('#generic').evaluate(el=>el.style.scale||'1');
   if(!await pinch('#generic')) fail('Synthetischer Pinch nicht unterstützt.');
   await page.waitForTimeout(50);
-  const ps=await page.evaluate(()=>({scale:document.querySelector('#generic')?.style.scale||'1',dirty:window.KPTouchGestureRuntime?.isDirty?.(),writes:window.__kpQa.writes.length}));
-  if(ps.scale===scaleBefore||Number(ps.scale)<=1||!ps.dirty||ps.writes!==writesBeforePinch) fail(`Pinch/Auto-Save fehlerhaft: ${JSON.stringify(ps)}`);
-  await orangeSave();
+  const ps=await page.evaluate(()=>({scale:document.querySelector('#generic')?.style.scale||'1',dirty:window.KPTouchGestureRuntime?.isDirty?.()}));
+  if(ps.scale===scaleBefore||Number(ps.scale)<=1||!ps.dirty||writes.length!==writesBeforePinch) fail(`Pinch/Auto-Save fehlerhaft: ${JSON.stringify(ps)}`);
+  saved=await orangeSave();
+  if(!saved.newWrites.includes('kp_touch_gesture_save')) fail(`Pinch wird nicht über orange Speichern persistiert: ${JSON.stringify(saved)}`);
 
+  // Free-layout menu card follows the same local-draft -> orange-save contract.
+  await bootstrap();
   const menuBefore=await page.locator('.wp-block-navigation__responsive-close').evaluate(el=>el.style.transform);
-  const menuQa=await qa();
-  const writesBeforeMenu=menuQa.writes.length, nativeBefore=menuQa.native;
+  const writesBeforeMenu=writes.length;
   await drag('.wp-block-navigation__responsive-close',52,-18);
-  const ms=await page.evaluate(()=>({transform:document.querySelector('.wp-block-navigation__responsive-close')?.style.transform||'',dirty:window.KPFreeLayoutRuntime?.isDirty?.(),writes:window.__kpQa.writes.length}));
-  if(!ms.dirty||!ms.transform||ms.transform===menuBefore||ms.writes!==writesBeforeMenu) fail(`Menükarte/Auto-Save fehlerhaft: ${JSON.stringify(ms)}`);
-  await orangeSave();
-  const saved=await page.evaluate(()=>({writes:[...window.__kpQa.writes],native:window.__kpQa.nativeSaveClicks,free:window.KPFreeLayoutRuntime?.isDirty?.(),generic:window.KPTouchGestureRuntime?.isDirty?.()}));
-  const menuWrites=saved.writes.slice(writesBeforeMenu);
-  if(!menuWrites.includes('kp_touch_free_layout_save')||saved.free||saved.generic||saved.native!==nativeBefore+1) fail(`Menü-Speichern fehlerhaft: ${JSON.stringify(saved)}`);
+  const ms=await page.evaluate(()=>({transform:document.querySelector('.wp-block-navigation__responsive-close')?.style.transform||'',dirty:window.KPFreeLayoutRuntime?.isDirty?.()}));
+  if(!ms.dirty||!ms.transform||ms.transform===menuBefore||writes.length!==writesBeforeMenu) fail(`Menükarte/Auto-Save fehlerhaft: ${JSON.stringify(ms)}`);
+  saved=await orangeSave();
+  if(!saved.newWrites.includes('kp_touch_free_layout_save')) fail(`Menükarte wird nicht über orange Speichern persistiert: ${JSON.stringify(saved)}`);
 
+  // The design panel owns its own explicit save button; menu X must update live
+  // without auto-save and persist exactly once when that button is pressed.
+  await bootstrap();
   await page.locator('#open-design').click();
   await page.waitForTimeout(60);
   const slider=page.locator('[data-kp-menu-x] input[type="range"]');
   if(await slider.count()!==1) fail('Horizontaler Handy-/Tablet-Menüregler fehlt.');
-  const writesBeforeSlider=(await qa()).writes.length;
+  const writesBeforeSlider=writes.length;
   await slider.evaluate(el=>{el.value='64';el.dispatchEvent(new Event('input',{bubbles:true}));});
-  const live=await page.evaluate(()=>({css:document.documentElement.style.getPropertyValue('--kp-owner-menu-offset-x').trim(),writes:window.__kpQa.writes.length}));
-  if(live.css!=='64px'||live.writes!==writesBeforeSlider) fail(`Menüregler Live/Auto-Save fehlerhaft: ${JSON.stringify(live)}`);
+  const live=await page.evaluate(()=>document.documentElement.style.getPropertyValue('--kp-owner-menu-offset-x').trim());
+  if(live!=='64px'||writes.length!==writesBeforeSlider) fail(`Menüregler Live/Auto-Save fehlerhaft: css=${live}, writes=${writes.length-writesBeforeSlider}`);
   await page.locator('.kp-oa-design-save').evaluate(el=>el.click());
-  await page.waitForTimeout(100);
-  const sliderNewWrites=await page.evaluate(n=>window.__kpQa.writes.slice(n),writesBeforeSlider);
+  for(let i=0;i<12 && writes.length===writesBeforeSlider;i++) await page.waitForTimeout(25);
+  const sliderNewWrites=writes.slice(writesBeforeSlider);
   if(sliderNewWrites.filter(x=>x==='kp_owner_menu_x_save').length!==1) fail(`Menüregler wird beim Design-Speichern nicht genau einmal persistiert: ${sliderNewWrites.join(', ')}`);
 
-  console.log('PASS: Drag, Pinch, Undo, Menükarte, orange Speichern und Handy-/Tablet-Menüregler funktionieren ohne Auto-Save.');
+  console.log('PASS: Drag, Pinch, Undo, Menükarte, orange Speichern/Reload und Handy-/Tablet-Menüregler funktionieren ohne Auto-Save.');
 } finally {
   await browser.close();
 }
