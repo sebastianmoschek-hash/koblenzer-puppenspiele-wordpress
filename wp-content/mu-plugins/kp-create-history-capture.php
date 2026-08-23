@@ -4,8 +4,8 @@
  * reversible create-history runtime without changing the legacy create UI.
  *
  * Safety rule: a creation is never allowed to remain published if its Undo
- * record cannot be created. In that case the new object is moved back to draft
- * and an automatically added navigation entry is removed again.
+ * record cannot be created. Registration retries are idempotent, and an abort
+ * removes any half-finished history record before deactivating the new object.
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -29,15 +29,40 @@ function kp_create_history_canonical_url( $url ) {
     return $path . $query;
 }
 
+function kp_create_history_request_key( $token ) {
+    return 'kp_create_hist_req_' . get_current_user_id() . '_' . substr( hash( 'sha256', (string) $token ), 0, 32 );
+}
+
+function kp_create_history_remove_action( $action_id ) {
+    $action_id = (string) $action_id;
+    if ( '' === $action_id ) { return; }
+    $items = get_user_meta( get_current_user_id(), 'kp_create_undo_redo_v1', true );
+    if ( ! is_array( $items ) ) { return; }
+    $filtered = array_values( array_filter( $items, static function ( $item ) use ( $action_id ) {
+        return ! is_array( $item ) || ! isset( $item['id'] ) || ! hash_equals( (string) $item['id'], $action_id );
+    } ) );
+    if ( count( $filtered ) !== count( $items ) ) {
+        update_user_meta( get_current_user_id(), 'kp_create_undo_redo_v1', $filtered );
+    }
+}
+
 add_action( 'wp_ajax_kp_create_history_record', static function () {
     kp_create_history_guard();
     $post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
     $kind = isset( $_POST['kind'] ) ? sanitize_key( wp_unslash( $_POST['kind'] ) ) : '';
     $extra = isset( $_POST['extra'] ) ? json_decode( wp_unslash( $_POST['extra'] ), true ) : array();
+    $request_token = isset( $_POST['request_token'] ) ? sanitize_text_field( wp_unslash( $_POST['request_token'] ) ) : '';
     if ( ! is_array( $extra ) ) { $extra = array(); }
-    if ( ! $post_id || ! in_array( $kind, array( 'page', 'termin', 'repertoire' ), true ) ) {
+    if ( ! $post_id || ! $request_token || ! in_array( $kind, array( 'page', 'termin', 'repertoire' ), true ) ) {
         wp_send_json_error( array( 'message' => 'Ungültiger Anlege-Schritt.' ), 400 );
     }
+
+    $request_key = kp_create_history_request_key( $request_token );
+    $existing = get_transient( $request_key );
+    if ( is_array( $existing ) && ! empty( $existing['action_id'] ) ) {
+        wp_send_json_success( $existing );
+    }
+
     if ( ! function_exists( 'kp_owner_create_history_record' ) ) {
         wp_send_json_error( array( 'message' => 'Undo-Historie ist nicht geladen.' ), 500 );
     }
@@ -45,6 +70,7 @@ add_action( 'wp_ajax_kp_create_history_record', static function () {
     if ( empty( $result['action_id'] ) ) {
         wp_send_json_error( array( 'message' => 'Anlege-Schritt konnte nicht in die Historie aufgenommen werden.' ), 500 );
     }
+    set_transient( $request_key, $result, 15 * MINUTE_IN_SECONDS );
     wp_send_json_success( $result );
 } );
 
@@ -53,11 +79,19 @@ add_action( 'wp_ajax_kp_create_history_abort', static function () {
     $post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
     $kind = isset( $_POST['kind'] ) ? sanitize_key( wp_unslash( $_POST['kind'] ) ) : '';
     $extra = isset( $_POST['extra'] ) ? json_decode( wp_unslash( $_POST['extra'] ), true ) : array();
+    $request_token = isset( $_POST['request_token'] ) ? sanitize_text_field( wp_unslash( $_POST['request_token'] ) ) : '';
     if ( ! is_array( $extra ) ) { $extra = array(); }
     $types = array( 'page' => 'page', 'termin' => 'kp_termin', 'repertoire' => 'kp_repertoire' );
-    if ( ! $post_id || ! isset( $types[ $kind ] ) || $types[ $kind ] !== get_post_type( $post_id ) || ! current_user_can( 'edit_post', $post_id ) ) {
+    if ( ! $post_id || ! $request_token || ! isset( $types[ $kind ] ) || $types[ $kind ] !== get_post_type( $post_id ) || ! current_user_can( 'edit_post', $post_id ) ) {
         wp_send_json_error( array( 'message' => 'Die fehlgeschlagene Erstellung konnte nicht sicher zugeordnet werden.' ), 409 );
     }
+
+    $request_key = kp_create_history_request_key( $request_token );
+    $recorded = get_transient( $request_key );
+    if ( is_array( $recorded ) && ! empty( $recorded['action_id'] ) ) {
+        kp_create_history_remove_action( $recorded['action_id'] );
+    }
+    delete_transient( $request_key );
 
     $result = wp_update_post( array( 'ID' => $post_id, 'post_status' => 'draft' ), true );
     if ( is_wp_error( $result ) ) {
@@ -91,6 +125,7 @@ add_action( 'wp_footer', static function () {
       const ajaxUrl=<?php echo wp_json_encode( $ajax ); ?>,nonce=<?php echo wp_json_encode( $nonce ); ?>;
       const inheritedFetch=window.fetch.bind(window);
       const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+      const requestToken=()=>globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
       function actionFrom(body){
         try{
           if(body instanceof FormData)return String(body.get('action')||'');
@@ -105,18 +140,18 @@ add_action( 'wp_footer', static function () {
           if(typeof body==='string')return new URLSearchParams(body).get(name);
         }catch(_){}return null;
       }
-      async function historyRequest(action,postId,kind,extra={}){
-        const fd=new FormData();fd.append('action',action);fd.append('nonce',nonce);fd.append('post_id',String(postId));fd.append('kind',kind);fd.append('extra',JSON.stringify(extra));
+      async function historyRequest(action,postId,kind,extra,token){
+        const fd=new FormData();fd.append('action',action);fd.append('nonce',nonce);fd.append('post_id',String(postId));fd.append('kind',kind);fd.append('extra',JSON.stringify(extra||{}));fd.append('request_token',token);
         const response=await inheritedFetch(ajaxUrl,{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});
         const json=await response.json().catch(()=>null);
         if(!response.ok||!json?.success)throw new Error(json?.data?.message||'Undo-Sicherung fehlgeschlagen.');
         return json.data||{};
       }
-      async function registerCreated(postId,kind,extra={}){
+      async function registerCreated(postId,kind,extra,token){
         let lastError=null;
         for(let attempt=0;attempt<3;attempt++){
           try{
-            const data=await historyRequest('kp_create_history_record',postId,kind,extra);
+            const data=await historyRequest('kp_create_history_record',postId,kind,extra,token);
             const id=String(data?.action_id||'');
             if(!id)throw new Error('Undo-Schritt wurde ohne Kennung gespeichert.');
             if(!window.KPCreateHistoryRuntime?.remember?.(id))throw new Error('Undo-Schritt konnte im Browser nicht aktiviert werden.');
@@ -125,10 +160,10 @@ add_action( 'wp_footer', static function () {
         }
         throw lastError||new Error('Undo-Sicherung fehlgeschlagen.');
       }
-      async function abortCreated(postId,kind,extra={}){
+      async function abortCreated(postId,kind,extra,token){
         let lastError=null;
         for(let attempt=0;attempt<3;attempt++){
-          try{await historyRequest('kp_create_history_abort',postId,kind,extra);return true}
+          try{await historyRequest('kp_create_history_abort',postId,kind,extra,token);return true}
           catch(error){lastError=error;if(attempt<2)await delay(120*(attempt+1));}
         }
         console.error('[KP] Nicht abgesicherte Erstellung konnte nicht automatisch zurückgenommen werden.',lastError);
@@ -149,9 +184,10 @@ add_action( 'wp_footer', static function () {
               kind=String(fieldFrom(init.body,'type')||'');
               if(kind!=='termin'&&kind!=='repertoire')return response;
             }
-            try{await registerCreated(json.data.id,kind,extra)}
+            const token=requestToken();
+            try{await registerCreated(json.data.id,kind,extra,token)}
             catch(error){
-              const rolledBack=await abortCreated(json.data.id,kind,extra);
+              const rolledBack=await abortCreated(json.data.id,kind,extra,token);
               const suffix=rolledBack?' Die Erstellung wurde sicher zurückgenommen.':' Die Erstellung konnte nicht sicher für Undo registriert werden.';
               throw new Error((error?.message||'Undo-Sicherung fehlgeschlagen.')+suffix);
             }
