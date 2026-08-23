@@ -64,6 +64,11 @@ add_action( 'wp_footer', static function () {
       function clearForeignRedo(kind){specialists.forEach((getter,name)=>{if(name!==kind)runtime(name)?.clearRedo?.()})}
       function push(entry){if(restoring||!entry)return false;undoStack.push(entry);if(undoStack.length>MAX)undoStack.shift();redoStack.length=0;clearForeignRedo(entry.kind||'controls');updateButtons();return true}
       function pushSpecialist(kind){if(!kind||!runtime(kind))return false;return push({kind})}
+      function discardLastControlsMarker(){
+        const entry=undoStack[undoStack.length-1];
+        if(!entry||entry.kind!=='controls')return false;
+        undoStack.pop();redoStack.length=0;pending=null;clearTimeout(pendingTimer);updateButtons();return true;
+      }
 
       function beginControlGesture(el){if(restoring||!el)return;clearTimeout(pendingTimer);pending={el,state:captureControls(),recorded:false}}
       function commitControlGesture(el){if(restoring||!el)return;if(!pending||pending.el!==el)beginControlGesture(el);if(pending&&!pending.recorded){push({kind:'controls',state:pending.state});pending.recorded=true}}
@@ -105,7 +110,7 @@ add_action( 'wp_footer', static function () {
         bar.insertBefore(back,save);bar.insertBefore(forward,save);updateButtons();
       }
       function updateButtons(){const back=q('[data-kp-word-history-new="undo"]'),forward=q('[data-kp-word-history-new="redo"]');if(back){back.disabled=undoStack.length===0;back.title=`Rückgängig (${undoStack.length} Schritt${undoStack.length===1?'':'e'})`}if(forward){forward.disabled=redoStack.length===0;forward.title=`Wiederholen (${redoStack.length} Schritt${redoStack.length===1?'':'e'})`}}
-      window.KPWordHistory={undo,redo,counts:()=>({undo:undoStack.length,redo:redoStack.length}),register,push:pushSpecialist,refresh:updateButtons};
+      window.KPWordHistory={undo,redo,counts:()=>({undo:undoStack.length,redo:redoStack.length}),register,push:pushSpecialist,discardLastControlsMarker,refresh:updateButtons};
       const observer=new MutationObserver(()=>requestAnimationFrame(install));observer.observe(document.documentElement,{childList:true,subtree:true});install();
     })();
     </script>
