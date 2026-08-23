@@ -53,7 +53,7 @@ if [[ "$mode" != 'pwa' && "$main_success" == 'true' ]]; then
     printf '\n- Echter Text-Save → Reload → DB-Readback: success\n' >> "$REPORT_MD"
   else
     tmp="$(mktemp)"
-    jq '.success=false | .checks.realTextSave=(if input_filename == "" then "failure" else "failure" end)' "$REPORT_JSON" > "$tmp" && mv "$tmp" "$REPORT_JSON"
+    jq '.success=false | .checks.realTextSave="failure"' "$REPORT_JSON" > "$tmp" && mv "$tmp" "$REPORT_JSON"
     printf '\n- Echter Text-Save → Reload → DB-Readback: failure\n' >> "$REPORT_MD"
     printf '\nDer Gesamtstatus wurde auf **FAILURE** gesetzt, weil der echte Text-Save-Gate fehlgeschlagen ist oder kein vollständiges Ergebnis erzeugt hat.\n' >> "$REPORT_MD"
   fi
