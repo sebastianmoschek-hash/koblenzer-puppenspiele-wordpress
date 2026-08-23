@@ -40,6 +40,25 @@ Der vollständige Staging-Browserlauf wurde nicht gestartet. Die genaue Ursache 
 MD
 fi
 
+# The real text Save→Reload→DB readback runs after the main browser lab on the
+# same staging deployment. Fold that result into the persisted verdict so a
+# green browser report can never hide a red/missing text-save gate.
+mode="$(jq -r '.mode // "full"' "$REPORT_JSON" 2>/dev/null || echo full)"
+main_success="$(jq -r '.success // false' "$REPORT_JSON" 2>/dev/null || echo false)"
+text_log='qa-results/circleci/text-save-staging.log'
+if [[ "$mode" != 'pwa' && "$main_success" == 'true' ]]; then
+  if [[ -s "$text_log" ]] && grep -q 'PASS: isolated staging text-save lab\.' "$text_log"; then
+    tmp="$(mktemp)"
+    jq '.checks.realTextSave="success"' "$REPORT_JSON" > "$tmp" && mv "$tmp" "$REPORT_JSON"
+    printf '\n- Echter Text-Save → Reload → DB-Readback: success\n' >> "$REPORT_MD"
+  else
+    tmp="$(mktemp)"
+    jq '.success=false | .checks.realTextSave=(if input_filename == "" then "failure" else "failure" end)' "$REPORT_JSON" > "$tmp" && mv "$tmp" "$REPORT_JSON"
+    printf '\n- Echter Text-Save → Reload → DB-Readback: failure\n' >> "$REPORT_MD"
+    printf '\nDer Gesamtstatus wurde auf **FAILURE** gesetzt, weil der echte Text-Save-Gate fehlgeschlagen ist oder kein vollständiges Ergebnis erzeugt hat.\n' >> "$REPORT_MD"
+  fi
+fi
+
 if [[ -z "${GITHUB_REPORT_TOKEN:-}" ]]; then
   echo 'GITHUB_REPORT_TOKEN is not configured; report remains available as CircleCI artifact/staging copy.'
   exit 0
@@ -52,7 +71,7 @@ cp "$REPORT_MD" /tmp/kp-circleci-report.md
 for logfile in \
   install.log preflight-summary.log word-history-contract.log unified-contract.log \
   create-undo-contract.log calendar-undo-contract.log pipeline.log editor.log session-undo.log \
-  persistence.log touch-slider.log touch-runtime.log visual.log php-syntax.log deploy.log; do
+  persistence.log text-save-staging.log touch-slider.log touch-runtime.log visual.log php-syntax.log deploy.log; do
   src="qa-results/circleci/$logfile"
   if [[ -s "$src" ]]; then
     {
