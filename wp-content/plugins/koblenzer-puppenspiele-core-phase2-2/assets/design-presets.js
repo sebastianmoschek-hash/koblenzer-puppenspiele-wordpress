@@ -36,6 +36,10 @@
     return q('.kp-oa-sheet.is-design');
   }
 
+  function menuXInput() {
+    return q('[data-kp-menu-x] input');
+  }
+
   function collectVisibleDesign() {
     const out = {...(cfg.design || {})};
     const box = designBox();
@@ -44,7 +48,17 @@
       const key = input.dataset.design;
       out[key] = input.type === 'checkbox' ? (input.checked ? 1 : 0) : (input.type === 'range' ? Number(input.value) : input.value);
     });
+    const menuX = menuXInput();
+    if (menuX) out.menu_offset_x = Number(menuX.value) || 0;
     return out;
+  }
+
+  function applyHorizontalMenuPosition(value) {
+    const input = menuXInput();
+    if (!input) return;
+    input.value = String(Math.max(-180, Math.min(180, Number(value) || 0)));
+    input.dispatchEvent(new Event('input', {bubbles:true}));
+    input.dispatchEvent(new Event('change', {bubbles:true}));
   }
 
   function applyValues(values) {
@@ -62,14 +76,11 @@
         input.dispatchEvent(new Event(input.tagName === 'SELECT' ? 'change' : 'input', {bubbles:true}));
       }
     });
+    if (Object.prototype.hasOwnProperty.call(values, 'menu_offset_x')) applyHorizontalMenuPosition(values.menu_offset_x);
   }
 
   function resetHorizontalMenuPosition() {
-    const input = q('[data-kp-menu-x] input');
-    if (!input) return;
-    input.value = '0';
-    input.dispatchEvent(new Event('input', {bubbles:true}));
-    input.dispatchEvent(new Event('change', {bubbles:true}));
+    applyHorizontalMenuPosition(0);
   }
 
   function installPresetUi() {
@@ -114,8 +125,6 @@
     }));
   }
 
-  // Factory reset is a draft action. It must reset every visible design
-  // coordinate, including the separately persisted horizontal menu offset.
   document.addEventListener('click', async (event) => {
     const btn = event.target.closest('.kp-oa-design-reset');
     if (!btn) return;
