@@ -28,6 +28,7 @@ add_action( 'wp_footer', static function () {
       }
       function value(el){return el.type==='checkbox'||el.type==='radio'?!!el.checked:String(el.value)}
       function equal(a,b){return JSON.stringify(a)===JSON.stringify(b)}
+      function assign(el,next){if(el.type==='checkbox'||el.type==='radio')el.checked=!!next;else el.value=String(next)}
       function find(k){
         if(k.startsWith('design:'))return document.querySelector(`[data-design="${CSS.escape(k.slice(7))}"]`);
         if(k.startsWith('size:'))return document.querySelector(`[data-kp-size="${CSS.escape(k.slice(5))}"]`);
@@ -47,9 +48,22 @@ add_action( 'wp_footer', static function () {
         try{return fn(el)}finally{root.remove();holder.remove()}
       }
       function remember(el,force=true){const k=key(el);if(!k)return;const old=known.get(k);if(force||!old)known.set(k,{value:value(el),ref:el});else if(el.isConnected)known.set(k,{...old,ref:el})}
+      function hydrate(el){
+        const k=key(el);if(!k)return;const old=known.get(k);
+        if(!old){remember(el,true);return}
+        known.set(k,{...old,ref:el});
+        if(equal(value(el),old.value))return;
+        applying=true;
+        try{
+          assign(el,old.value);
+          el.dispatchEvent(new Event('input',{bubbles:true}));
+          el.dispatchEvent(new Event('change',{bubbles:true}));
+          known.set(k,{value:old.value,ref:el});
+        }finally{applying=false}
+      }
       function scan(root=document){
         const list=[];if(root instanceof Element&&root.matches(selectors))list.push(root);root.querySelectorAll?.(selectors).forEach(el=>list.push(el));
-        list.forEach(el=>remember(el,true));
+        list.forEach(hydrate);
       }
       function snapshot(prefix=''){
         const out=new Map();document.querySelectorAll(selectors).forEach(el=>{const k=key(el);if(k&&(!prefix||k.startsWith(prefix)))out.set(k,{key:k,value:value(el),ref:el})});return out;
@@ -72,7 +86,7 @@ add_action( 'wp_footer', static function () {
         applying=true;
         try{
           return withConnected(el,control=>{
-            if(control.type==='checkbox'||control.type==='radio')control.checked=!!next;else control.value=String(next);
+            assign(control,next);
             known.set(change.key,{value:next,ref:control});
             control.dispatchEvent(new Event('input',{bubbles:true}));
             control.dispatchEvent(new Event('change',{bubbles:true}));
