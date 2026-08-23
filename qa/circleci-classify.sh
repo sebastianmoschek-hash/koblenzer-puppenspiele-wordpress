@@ -42,13 +42,21 @@ if [[ -z "$meaningful" ]]; then
   exit 0
 fi
 
-mode='pwa'
+# Three lanes:
+#   qa   = only CI/test harness changed: reuse already deployed staging code.
+#   pwa  = only installable-web-app files (+ optional QA files) changed.
+#   full = any real website/editor/runtime code changed.
+mode='qa'
+saw_pwa=0
 while IFS= read -r file; do
   [[ -z "$file" ]] && continue
   case "$file" in
+    .circleci/*|.github/workflows/*|qa/*|visual-qa/*)
+      ;;
     wp-content/mu-plugins/kp-webapp-branding.php|\
     wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php|\
     wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/kp-app-icon.svg)
+      saw_pwa=1
       ;;
     *)
       mode='full'
@@ -56,6 +64,10 @@ while IFS= read -r file; do
       ;;
   esac
 done <<< "$meaningful"
+
+if [[ "$mode" == 'qa' && $saw_pwa -eq 1 ]]; then
+  mode='pwa'
+fi
 
 {
   printf 'export KP_CI_MODE=%q\n' "$mode"
