@@ -1,6 +1,64 @@
 version: 2.1
 
+executors:
+  editor-contract:
+    docker:
+      - image: mcr.microsoft.com/playwright:v1.55.0-noble
+    resource_class: small
+
 jobs:
+  word-history-contract:
+    executor: editor-contract
+    steps:
+      - checkout
+      - run:
+          name: Install PHP lint
+          command: |
+            apt-get update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli
+      - run:
+          name: Word and Canva history contract
+          command: bash qa/word-history-contract.sh
+
+  unified-editor-contract:
+    executor: editor-contract
+    steps:
+      - checkout
+      - run:
+          name: Install PHP lint
+          command: |
+            apt-get update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli
+      - run:
+          name: Unified Save Undo and AI contract
+          command: bash qa/unified-editor-contract.sh
+
+  create-undo-contract:
+    executor: editor-contract
+    steps:
+      - checkout
+      - run:
+          name: Install PHP lint
+          command: |
+            apt-get update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli
+      - run:
+          name: Reversible create Undo Redo contract
+          command: bash qa/create-undo-contract.sh
+
+  calendar-undo-contract:
+    executor: editor-contract
+    steps:
+      - checkout
+      - run:
+          name: Install PHP lint
+          command: |
+            apt-get update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli
+      - run:
+          name: Reversible calendar Undo Redo contract
+          command: bash qa/calendar-undo-contract.sh
+
   homepage-staging-lab:
     docker:
       - image: mcr.microsoft.com/playwright:v1.55.0-noble
@@ -26,9 +84,6 @@ jobs:
               fi
             } 2>&1 | tee qa-results/circleci/install.log
       - run:
-          name: Run deterministic editor preflight
-          command: bash qa/editor-preflight-contracts.sh
-      - run:
           name: Protect shared staging design colors
           command: node qa/neutralize-staging-color-mutations.mjs
       - run:
@@ -52,10 +107,30 @@ jobs:
 workflows:
   autonomous-homepage-lab:
     jobs:
+      - word-history-contract:
+          filters:
+            branches:
+              only: main
+      - unified-editor-contract:
+          filters:
+            branches:
+              only: main
+      - create-undo-contract:
+          filters:
+            branches:
+              only: main
+      - calendar-undo-contract:
+          filters:
+            branches:
+              only: main
       - homepage-staging-lab:
-          # Staging is one shared mutable environment. Serializing the complete
-          # job prevents concurrent deploys and temporary E2E login bridges from
-          # overwriting each other. Newer pipeline numbers keep precedence.
+          requires:
+            - word-history-contract
+            - unified-editor-contract
+            - create-undo-contract
+            - calendar-undo-contract
+          # Staging is one shared mutable environment. Only the real deploy/browser
+          # job is serialized; deterministic contracts are safe to run in parallel.
           serial-group: << pipeline.project.slug >>/homepage-staging-lab
           filters:
             branches:
