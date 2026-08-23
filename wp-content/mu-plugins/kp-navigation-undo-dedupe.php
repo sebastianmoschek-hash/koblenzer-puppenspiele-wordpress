@@ -6,8 +6,9 @@
  * green path. Navigation has its own specialist before/after history, so a
  * trusted input event can otherwise create both a generic controls marker and
  * a navigation marker. Track the global count at the start of a navigation
- * typing gesture and remove only that just-created generic marker immediately
- * before the specialist marker is registered.
+ * typing gesture and discard only that duplicate generic marker immediately
+ * before the specialist marker is registered. Discarding must not execute an
+ * Undo, because that would visibly restore the control while the user types.
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -35,7 +36,7 @@ add_action( 'wp_footer', static function () {
         wrapped=function(kind){
           if(kind==='navigation'&&baseline!==null&&isNavInput(document.activeElement)){
             const now=Number(history.counts?.().undo||0);
-            if(now>baseline)history.undo?.();
+            if(now>baseline)history.discardLastControlsMarker?.();
           }
           const ok=original(kind);
           if(kind==='navigation')baseline=Number(history.counts?.().undo||0);
