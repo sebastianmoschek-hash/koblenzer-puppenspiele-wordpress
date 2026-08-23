@@ -43,9 +43,7 @@ add_action( 'wp_footer', static function () {
       }
       function isDirectControl(target){
         if(!(target instanceof Element))return null;
-        const el=target.closest('.kp-oa-sheet input,.kp-oa-sheet select,.kp-oa-sheet textarea,.kp-fe2-inspector .kp-image-position-controls input,.kp-fe2-inspector .kp-image-position-controls select,.kp-fe2-inspector .kp-image-position-controls textarea');
-        if(!el||el.closest('.kp-history-sheet,.kp-canva-image-panel,[data-kp-navigation-draft]'))return null;
-        return el;
+        return target.closest('.kp-oa-sheet input,.kp-oa-sheet select,.kp-oa-sheet textarea,.kp-fe2-inspector .kp-image-position-controls input,.kp-fe2-inspector .kp-image-position-controls select,.kp-fe2-inspector .kp-image-position-controls textarea');
       }
       function controlKey(el){
         const data=[...el.attributes].filter(a=>a.name.startsWith('data-')).map(a=>`${a.name}=${a.value}`).sort().join('|');
@@ -75,7 +73,7 @@ add_action( 'wp_footer', static function () {
       document.addEventListener('input',e=>{if(!e.isTrusted)return;const el=isDirectControl(e.target);if(el)commitControlGesture(el)},true);
       document.addEventListener('change',e=>{if(!e.isTrusted)return;const el=isDirectControl(e.target);if(el)commitControlGesture(el)},true);
       document.addEventListener('pointerup',endControlGesture,true);document.addEventListener('pointercancel',endControlGesture,true);document.addEventListener('focusout',endControlGesture,true);
-      document.addEventListener('click',e=>{if(restoring||!e.isTrusted)return;const btn=e.target instanceof Element?e.target.closest('.kp-oa-sheet button'):null;if(!btn||btn.closest('.kp-history-sheet,.kp-canva-image-panel,[data-kp-navigation-draft]'))return;const text=(btn.textContent||'').replace(/\s+/g,' ').trim(),cls=String(btn.className||'');if(/reset/i.test(cls)||/zurücksetzen|standardwerte|auf 100|standard/i.test(text))push({kind:'controls',state:captureControls()})},true);
+      document.addEventListener('click',e=>{if(restoring||!e.isTrusted)return;const btn=e.target instanceof Element?e.target.closest('.kp-oa-sheet button'):null;if(!btn||btn.closest('.kp-history-sheet,.kp-canva-image-panel'))return;const text=(btn.textContent||'').replace(/\s+/g,' ').trim(),cls=String(btn.className||'');if(/reset/i.test(cls)||/zurücksetzen|standardwerte|auf 100|standard/i.test(text))push({kind:'controls',state:captureControls()})},true);
 
       window.addEventListener('kp:frontend-history-push',()=>pushSpecialist('frontend'));
       window.addEventListener('kp:frontend-history-change',updateButtons);
