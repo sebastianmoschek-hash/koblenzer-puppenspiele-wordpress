@@ -67,7 +67,11 @@ add_action( 'wp_footer', static function () {
       function discardLastControlsMarker(){
         const entry=undoStack[undoStack.length-1];
         if(!entry||entry.kind!=='controls')return false;
-        undoStack.pop();redoStack.length=0;pending=null;clearTimeout(pendingTimer);updateButtons();return true;
+        // Keep the active gesture (including recorded=true) intact. Navigation
+        // only removes the duplicate global marker; clearing pending here would
+        // let the next keystroke in the same typing gesture create a new generic
+        // marker with no specialist push left to deduplicate it.
+        undoStack.pop();redoStack.length=0;updateButtons();return true;
       }
 
       function beginControlGesture(el){if(restoring||!el)return;clearTimeout(pendingTimer);pending={el,state:captureControls(),recorded:false}}
