@@ -27,8 +27,13 @@ sync_mu_plugins(){
   fi
 }
 
-if [[ "$MODE" != 'pwa' ]]; then
+if [[ "$MODE" == 'full' ]]; then
   sync_mu_plugins
+  exec bash qa/circleci-homepage-lab.sh
+fi
+
+if [[ "$MODE" == 'qa' ]]; then
+  echo 'CircleCI QA-only mode: repository website code is unchanged; reusing current staging deployment.'
   exec bash qa/circleci-homepage-lab.sh
 fi
 
