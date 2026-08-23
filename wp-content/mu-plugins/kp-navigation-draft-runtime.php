@@ -41,7 +41,14 @@ add_action( 'wp_footer', static function () {
       function openBox(){return q('.kp-oa-sheet')}
       function closeSheet(){q('.kp-oa-backdrop')?.classList.remove('is-open');document.body.classList.remove('kp-oa-open');gesture=null}
       function applyState(state){current=clone(state);applyNavigation(current);mark();renderIfOpen();return true}
-      function push(before,after){if(same(before,after))return false;const entry={before:clone(before),after:clone(after)};history.push(entry);if(history.length>MAX)history.shift();redo.length=0;window.KPWordHistory?.push?.('navigation');return entry}
+      function push(before,after,genericBaseline=null){
+        if(same(before,after))return false;
+        if(genericBaseline!==null&&window.KPWordHistory?.counts){
+          const now=Number(window.KPWordHistory.counts().undo||0);
+          if(now>genericBaseline)window.KPWordHistory.discardLastControlsMarker?.();
+        }
+        const entry={before:clone(before),after:clone(after)};history.push(entry);if(history.length>MAX)history.shift();redo.length=0;window.KPWordHistory?.push?.('navigation');return entry;
+      }
       function undo(){const e=history.pop();if(!e)return false;applyState(e.before);redo.push(e);if(redo.length>MAX)redo.shift();return true}
       function redoStep(){const e=redo.pop();if(!e)return false;applyState(e.after);history.push(e);if(history.length>MAX)history.shift();return true}
       function clearRedo(){redo.length=0}
@@ -52,11 +59,11 @@ add_action( 'wp_footer', static function () {
         qa('[data-kp-nav-index]',list).forEach(row=>{
           const index=()=>Number(row.dataset.kpNavIndex);
           qa('[data-kp-nav-field]',row).forEach(input=>{
-            const begin=()=>{if(!gesture||gesture.input!==input)gesture={input,before:clone(current),entry:null}};
+            const begin=()=>{if(!gesture||gesture.input!==input)gesture={input,before:clone(current),entry:null,globalUndo:Number(window.KPWordHistory?.counts?.().undo||0)}};
             input.addEventListener('pointerdown',begin);input.addEventListener('focusin',begin);
             input.addEventListener('input',()=>{
               begin();const i=index(),key=input.dataset.kpNavField;if(!current[i])return;current[i][key]=input.value;applyNavigation(current);mark();
-              if(!gesture.entry)gesture.entry=push(gesture.before,current);else gesture.entry.after=clone(current);
+              if(!gesture.entry)gesture.entry=push(gesture.before,current,gesture.globalUndo);else gesture.entry.after=clone(current);
             });
             const end=()=>{gesture=null};input.addEventListener('change',end);input.addEventListener('focusout',end);input.addEventListener('pointerup',end);input.addEventListener('pointercancel',end);
           });
@@ -67,9 +74,10 @@ add_action( 'wp_footer', static function () {
       function renderIfOpen(){if(q('[data-kp-navigation-draft]',openBox()))renderRows()}
       function openNavigation(){
         const box=openBox();if(!box)return;
-        // data-kp-word-history-new tells the generic owner-control history to
-        // ignore these inputs. Navigation owns its own before/after snapshots,
-        // so one typing gesture creates exactly one global ↶ marker.
+        // Navigation owns its before/after snapshots. The generic owner-control
+        // listener may observe the same trusted input first; the gesture stores
+        // the global baseline and removes only that duplicate marker before the
+        // specialist navigation marker is registered.
         box.className='kp-oa-sheet';box.innerHTML=`<div data-kp-navigation-draft="1" data-kp-word-history-new="navigation"><div class="kp-oa-head"><div><span class="kp-oa-kicker">Menü</span><h2>Navigation</h2><p>Änderungen erscheinen sofort als Vorschau. ↶/↷ funktioniert direkt; dauerhaft wird alles erst mit dem orangefarbenen Speichern-Button.</p></div><button type="button" class="kp-oa-close" data-kp-nav-close>×</button></div><div class="kp-oa-nav-list kp-nav-draft-list"></div><div class="kp-oa-actions"><button type="button" class="kp-oa-secondary" data-kp-nav-add>＋ Menüpunkt</button><button type="button" class="kp-oa-primary" data-kp-nav-done>Fertig</button></div></div>`;
         renderRows();
         q('[data-kp-nav-close]',box)?.addEventListener('click',closeSheet);q('[data-kp-nav-done]',box)?.addEventListener('click',closeSheet);
