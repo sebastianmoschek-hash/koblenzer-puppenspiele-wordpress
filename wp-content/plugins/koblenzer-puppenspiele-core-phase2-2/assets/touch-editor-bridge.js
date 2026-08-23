@@ -4,10 +4,44 @@
   const editor = window.KPFrontendEditorV2;
   if (!editor?.editMode) return;
 
+  const SAVE_TIMEOUT_MS = 12000;
   let replayingMainSave = false;
   let waitingForMainSave = false;
   let frontendDirty = false;
   let inlineHeaderRadius = null;
+
+  // A failed/slow admin-ajax request must never leave the orange Save button in
+  // an endless spinner. FE2 text persistence is the final request in the save
+  // chain, so give it a deterministic watchdog and let the native editor show
+  // the resulting error/re-enable the button.
+  const inheritedFetch = window.fetch.bind(window);
+  function requestAction(body) {
+    try {
+      if (body instanceof FormData) return String(body.get('action') || '');
+      if (body instanceof URLSearchParams) return String(body.get('action') || '');
+      if (typeof body === 'string') return String(new URLSearchParams(body).get('action') || '');
+    } catch (_) {}
+    return '';
+  }
+  window.fetch = (input, init = {}) => {
+    if (requestAction(init?.body) !== 'kp_fe_v2_save' || init?.signal) return inheritedFetch(input, init);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS);
+    return inheritedFetch(input, {...init, signal: controller.signal})
+      .catch(error => {
+        if (controller.signal.aborted) throw new Error('Textspeichern hat zu lange gedauert. Bitte erneut versuchen.');
+        throw error;
+      })
+      .finally(() => clearTimeout(timer));
+  };
+
+  function withTimeout(promise, message, ms = SAVE_TIMEOUT_MS) {
+    let timer = 0;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), ms);
+    });
+    return Promise.race([Promise.resolve(promise), timeout]).finally(() => clearTimeout(timer));
+  }
 
   function editorToast(message, type = 'ok') {
     const toast = document.querySelector('.kp-fe2-toast');
@@ -193,15 +227,22 @@
 
   async function flushTouchDrafts() {
     const owner = window.KPOwnerSaveRegistry;
-    if (owner?.flushAll) await owner.flushAll();
+    // The unified registry already covers design, responsive/menu positioning,
+    // Canva layout/image, navigation, social, cards, records, header image and
+    // AI. Do not immediately run the same fallbacks a second/third time.
+    if (owner?.flushAll) {
+      await owner.flushAll();
+      return;
+    }
+
+    // Compatibility fallback for a partially loaded/older editor bundle.
     await persistLiveDesignFallback();
     await persistResponsiveFallback();
     await persistMenuXFallback();
-
     const generic = window.KPTouchGestureRuntime;
     const free = window.KPFreeLayoutRuntime;
     if (generic?.flush) await generic.flush();
-    if (free?.flush) await free.flush();
+    if (free?.flush && free !== generic) await free.flush();
   }
 
   window.addEventListener('click', async event => {
@@ -232,20 +273,23 @@
     saveButton.innerHTML = '<span class="dashicons dashicons-update"></span><span>Alles sichern…</span>';
 
     try {
-      await flushTouchDrafts();
+      await withTimeout(
+        flushTouchDrafts(),
+        'Das vorbereitende Speichern dauert ungewöhnlich lange. Bitte erneut versuchen.'
+      );
 
       // Owner/design/size/menu/touch-only edits are already durably persisted by
-      // the specialist flushes above. Reload directly instead of synthesising a
-      // second click through multiple capture listeners. This makes the orange
-      // Save deterministic on mobile and guarantees the visible post-save reload.
+      // the unified registry. Reload directly when FE2 page content is untouched.
       if (!frontendDirty) {
         saveButton.innerHTML = '<span class="dashicons dashicons-saved"></span><span>Gespeichert ✓</span>';
         window.location.reload();
         return;
       }
 
-      // If the user also edited actual page content, replay the native FE2 save
-      // so its private draft payload is persisted before the editor reloads.
+      // Actual page text/image/style lives in FE2's private draft. Replay exactly
+      // one native FE2 save after all specialist drafts are safely flushed. The
+      // kp_fe_v2_save fetch above has its own 12s watchdog, so this branch can no
+      // longer leave the UI spinning indefinitely.
       replayingMainSave = true;
       saveButton.disabled = false;
       saveButton.innerHTML = originalHtml;
