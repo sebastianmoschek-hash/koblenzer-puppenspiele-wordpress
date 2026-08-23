@@ -15,8 +15,8 @@ meaningful_files(){
 }
 
 # Report commits are pushed back to main with [skip ci]. They must never make a
-# still-valid code pipeline look superseded. Resolve the newest *meaningful*
-# main commit instead of comparing against the raw branch head.
+# still-valid code pipeline look superseded. Resolve the newest meaningful main
+# commit instead of comparing against the raw branch head.
 if [[ -n "$SHA" ]]; then
   git fetch origin main --quiet --depth=80 2>/dev/null || true
   latest_meaningful=''
@@ -38,6 +38,29 @@ fi
 meaningful="$(meaningful_files "${SHA:-HEAD}")"
 if [[ -z "$meaningful" ]]; then
   echo 'CircleCI: report/docs-only commit; no staging lab needed.'
+  circleci-agent step halt
+  exit 0
+fi
+
+# Pure pipeline wiring changes are already validated by CircleCI parsing the
+# config and by the editor-contracts job. They do not justify occupying the
+# serialized staging lane at all.
+pipeline_only=1
+while IFS= read -r file; do
+  [[ -z "$file" ]] && continue
+  case "$file" in
+    .circleci/*|qa/circleci-classify.sh)
+      ;;
+    *)
+      pipeline_only=0
+      break
+      ;;
+  esac
+done <<< "$meaningful"
+
+if [[ $pipeline_only -eq 1 ]]; then
+  bash -n qa/circleci-classify.sh
+  echo 'CircleCI: pipeline-only change; static gates are sufficient, staging job halted before install/deploy.'
   circleci-agent step halt
   exit 0
 fi
