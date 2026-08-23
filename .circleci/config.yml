@@ -95,13 +95,19 @@ jobs:
             else
               echo 'PWA-fast mode: no editor text-save browser round needed.'
             fi
+            printf 'lab_rc=%s\ntext_rc=%s\n' "$lab_rc" "$text_rc" > qa-results/circleci/runner-exit.txt
             set -e
-            if [[ $lab_rc -ne 0 || $text_rc -ne 0 ]]; then exit 1; fi
+            # Component verdict jobs below turn individual report sections red.
+            # Keep this runner alive so its report/workspace is always available.
+            exit 0
           no_output_timeout: 20m
       - run:
           name: Publish latest safe lab report back to GitHub
-          when: always
           command: bash qa/publish-circleci-report-to-github.sh
+      - persist_to_workspace:
+          root: .
+          paths:
+            - qa-results/circleci/report.json
       - store_artifacts:
           path: qa-results/circleci
           destination: circleci-lab-report
@@ -111,6 +117,56 @@ jobs:
       - store_artifacts:
           path: visual-qa/output
           destination: visual-qa
+
+  staging-infra-verdict:
+    executor: editor-contract
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Staging deploy ready bridge verdict
+          command: node qa/staging-verdict-check.mjs infra
+
+  staging-editor-verdict:
+    executor: editor-contract
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Mobile tablet desktop editor verdict
+          command: node qa/staging-verdict-check.mjs editor
+
+  staging-persistence-verdict:
+    executor: editor-contract
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Save reload DB Undo 48h and text-save verdict
+          command: node qa/staging-verdict-check.mjs persistence
+
+  staging-touch-verdict:
+    executor: editor-contract
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Chromium touch and slider verdict
+          command: node qa/staging-verdict-check.mjs touch
+
+  staging-visual-verdict:
+    executor: editor-contract
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Visual QA verdict
+          command: node qa/staging-verdict-check.mjs visual
 
 workflows:
   autonomous-homepage-lab:
@@ -123,6 +179,36 @@ workflows:
           requires:
             - editor-contracts
           serial-group: << pipeline.project.slug >>/homepage-staging-lab
+          filters:
+            branches:
+              only: main
+      - staging-infra-verdict:
+          requires:
+            - homepage-staging-lab
+          filters:
+            branches:
+              only: main
+      - staging-editor-verdict:
+          requires:
+            - homepage-staging-lab
+          filters:
+            branches:
+              only: main
+      - staging-persistence-verdict:
+          requires:
+            - homepage-staging-lab
+          filters:
+            branches:
+              only: main
+      - staging-touch-verdict:
+          requires:
+            - homepage-staging-lab
+          filters:
+            branches:
+              only: main
+      - staging-visual-verdict:
+          requires:
+            - homepage-staging-lab
           filters:
             branches:
               only: main
