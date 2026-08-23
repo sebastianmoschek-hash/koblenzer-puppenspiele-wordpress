@@ -61,25 +61,6 @@ jobs:
           name: Reversible calendar Undo Redo contract
           command: bash qa/calendar-undo-contract.sh
 
-  text-save-staging-lab:
-    docker:
-      - image: mcr.microsoft.com/playwright:v1.55.0-noble
-    resource_class: small
-    environment:
-      STAGING_BASE: https://neu.koblenzer-puppenspiele.de
-    steps:
-      - checkout
-      - run:
-          name: Install staging text-save tools
-          command: |
-            apt-get update -qq
-            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp php-cli ca-certificates
-            npm install --no-save --no-audit --no-fund --prefer-offline playwright@1.55.0
-      - run:
-          name: Real text edit save reload and restore
-          command: bash qa/text-save-staging-lab.sh
-          no_output_timeout: 12m
-
   homepage-staging-lab:
     docker:
       - image: mcr.microsoft.com/playwright:v1.55.0-noble
@@ -91,19 +72,31 @@ jobs:
       - run:
           name: Classify change and stop superseded work
           command: bash qa/circleci-classify.sh
+      - restore_cache:
+          keys:
+            - kp-playwright-1-55-v2-{{ arch }}
       - run:
           name: Install lightweight CI tools
           command: |
-            mkdir -p qa-results/circleci
+            mkdir -p qa-results/circleci ~/.npm
             {
               apt-get update -qq
               DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp jq php-cli ca-certificates curl git
               if [[ "${KP_CI_MODE:-full}" != "pwa" ]]; then
-                npm install --no-save --no-audit --no-fund --prefer-offline playwright@1.55.0
+                if node -e "const p=require('./node_modules/playwright/package.json');process.exit(p.version==='1.55.0'?0:1)" >/dev/null 2>&1; then
+                  echo 'Playwright 1.55.0 restored from CircleCI cache.'
+                else
+                  npm install --no-save --no-audit --no-fund --prefer-offline playwright@1.55.0
+                fi
               else
                 echo 'PWA-fast mode: skipping Playwright npm install.'
               fi
             } 2>&1 | tee qa-results/circleci/install.log
+      - save_cache:
+          key: kp-playwright-1-55-v2-{{ arch }}
+          paths:
+            - ~/.npm
+            - node_modules
       - run:
           name: Protect shared staging design colors
           command: node qa/neutralize-staging-color-mutations.mjs
@@ -111,8 +104,29 @@ jobs:
           name: Align browser lab with guarded mobile interactions
           command: python3 qa/align-guarded-mobile-interactions.py
       - run:
-          name: Smart staging deploy + homepage lab
-          command: bash qa/circleci-homepage-lab-smart.sh
+          name: Smart staging deploy + homepage lab + real text save
+          command: |
+            mkdir -p qa-results/circleci
+            set +e
+            bash qa/circleci-homepage-lab-smart.sh
+            lab_rc=$?
+            text_rc=0
+            if [[ $lab_rc -eq 0 && "${KP_CI_MODE:-full}" != "pwa" ]]; then
+              echo '== text-save-staging =='
+              KP_TEXT_SAVE_SKIP_DEPLOY=1 bash qa/text-save-staging-lab.sh > >(tee qa-results/circleci/text-save-staging.log) 2>&1
+              text_rc=$?
+              if [[ $text_rc -eq 0 ]]; then
+                echo 'PASS text-save-staging'
+              else
+                echo "FAIL text-save-staging (exit $text_rc)"
+              fi
+            elif [[ $lab_rc -ne 0 ]]; then
+              echo 'Skipping extra text-save round because the main staging lab is already red.'
+            else
+              echo 'PWA-fast mode: no editor text-save browser round needed.'
+            fi
+            set -e
+            if [[ $lab_rc -ne 0 || $text_rc -ne 0 ]]; then exit 1; fi
           no_output_timeout: 20m
       - run:
           name: Publish latest safe lab report back to GitHub
@@ -147,27 +161,14 @@ workflows:
           filters:
             branches:
               only: main
-      - text-save-staging-lab:
-          requires:
-            - word-history-contract
-            - unified-editor-contract
-            - create-undo-contract
-            - calendar-undo-contract
-          # The text test mutates staging briefly and restores its snapshot.
-          # Keep it in the same serialized lane as the full browser laboratory.
-          serial-group: << pipeline.project.slug >>/homepage-staging-lab
-          filters:
-            branches:
-              only: main
       - homepage-staging-lab:
           requires:
             - word-history-contract
             - unified-editor-contract
             - create-undo-contract
             - calendar-undo-contract
-            - text-save-staging-lab
-          # Staging is one shared mutable environment. Only real staging jobs are
-          # serialized; deterministic contracts are safe to run in parallel.
+          # Staging is one shared mutable environment. The formerly separate
+          # text-save round now reuses this same serialized deployment and runner.
           serial-group: << pipeline.project.slug >>/homepage-staging-lab
           filters:
             branches:
