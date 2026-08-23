@@ -8,13 +8,20 @@ on:
       - 'qa/**'
       - '.circleci/**'
       - '.github/workflows/editor-independent-preflight.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'wp-content/**'
+      - 'qa/**'
+      - '.circleci/**'
+      - '.github/workflows/editor-independent-preflight.yml'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: editor-independent-preflight-main
+  group: editor-independent-preflight-${{ github.event.pull_request.number || 'main' }}
   cancel-in-progress: true
 
 jobs:
@@ -113,7 +120,7 @@ jobs:
           echo 'PASS: no leave-confirmation regression.'
 
       - name: Persist independent report
-        if: always()
+        if: always() && github.event_name == 'push'
         env:
           WORD: ${{ steps.word.outcome }}
           UNIFIED: ${{ steps.unified.outcome }}
@@ -142,23 +149,7 @@ jobs:
             echo "| PHP syntax | $PHP_SYNTAX |"
             echo "| JavaScript syntax | $JS_SYNTAX |"
             echo "| No leave-confirmation | $UNLOAD |"
-            for pair in \
-              'Word / Canva history:/tmp/word-history.log' \
-              'Unified Save / Undo / AI:/tmp/unified-editor.log' \
-              'Create Undo / Redo:/tmp/create-undo.log' \
-              'Calendar Undo / Redo:/tmp/calendar-undo.log' \
-              'PHP syntax:/tmp/php-syntax.log' \
-              'JavaScript syntax:/tmp/js-syntax.log' \
-              'No leave-confirmation:/tmp/no-unload.log'; do
-              title=${pair%%:*}; file=${pair#*:}
-              echo
-              echo "## $title"
-              echo '```text'
-              if [[ -s "$file" ]]; then cat "$file"; else echo 'No log produced.'; fi
-              echo '```'
-            done
           } > "$report"
-
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin main --quiet
