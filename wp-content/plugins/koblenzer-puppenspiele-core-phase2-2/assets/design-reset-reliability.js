@@ -3,6 +3,14 @@
 
   const isReset = target => target instanceof Element ? target.closest('.kp-oa-design-reset') : null;
 
+  function resetHorizontalMenuPosition(sheet) {
+    const input = sheet?.querySelector('[data-kp-menu-x] input');
+    if (!input) return;
+    input.value = '0';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
   function applyDefaults(button) {
     if (!button || button.dataset.kpResetApplying === '1') return false;
     const sheet = button.closest('.kp-oa-sheet.is-design');
@@ -28,6 +36,7 @@
           input.dispatchEvent(new Event(eventType, { bubbles: true }));
         }
       });
+      resetHorizontalMenuPosition(sheet);
       return true;
     } finally {
       delete button.dataset.kpResetApplying;
