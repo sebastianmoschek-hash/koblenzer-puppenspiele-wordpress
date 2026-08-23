@@ -4,6 +4,7 @@ set -euo pipefail
 MODE="${KP_CI_MODE:-full}"
 STAGING_BASE="${STAGING_BASE:-https://neu.koblenzer-puppenspiele.de}"
 PLUGIN='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
+THEME='wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
 MU='wp-content/mu-plugins'
 REPORT_DIR='qa-results/circleci'
 REMOTE_REPORT='/wp-content/uploads/kp-homepage-lab/latest'
@@ -27,13 +28,33 @@ sync_mu_plugins(){
   fi
 }
 
+staging_matches_repo(){
+  local expected
+  expected="$(sed -n 's/^ \* Version: //p' "$PLUGIN/koblenzer-puppenspiele-core.php" | head -1)"
+  [[ -n "$expected" ]] || return 1
+  curl --fail --silent --show-error --location -H 'Cache-Control: no-cache, no-store' \
+    "$STAGING_BASE/?kp_staging_bridge_health=1&kp_circleci=${SHA}-${RUN_ID}-reuse" -o "$REPORT_DIR/qa-reuse-health.json" \
+    && jq -e --arg version "$expected" '.success == true and .data.active == true and .data.version == $version' "$REPORT_DIR/qa-reuse-health.json" >/dev/null 2>&1
+}
+
+sync_full_website(){
+  echo 'Syncing repository plugin/theme to staging recovery path.'
+  sync_mu_plugins
+  ftp_cmd "mirror -R --verbose --transfer-all --no-perms --parallel=2 '$PLUGIN' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'; mirror -R --verbose --transfer-all --no-perms --parallel=2 '$THEME' '/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'" >/tmp/kp-qa-recovery-deploy.log 2>&1
+}
+
 if [[ "$MODE" == 'full' ]]; then
   sync_mu_plugins
   exec bash qa/circleci-homepage-lab.sh
 fi
 
 if [[ "$MODE" == 'qa' ]]; then
-  echo 'CircleCI QA-only mode: repository website code is unchanged; reusing current staging deployment.'
+  if staging_matches_repo; then
+    echo 'CircleCI QA-only mode: staging already matches repository website code; reusing current deployment.'
+  else
+    echo 'CircleCI QA-only mode: staging is stale or unhealthy; performing one staging-only recovery deploy.'
+    sync_full_website
+  fi
   exec bash qa/circleci-homepage-lab.sh
 fi
 
