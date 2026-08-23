@@ -286,16 +286,23 @@
         return;
       }
 
-      // Actual page text/image/style lives in FE2's private draft. Replay exactly
-      // one native FE2 save after all specialist drafts are safely flushed. The
-      // kp_fe_v2_save fetch above has its own 12s watchdog, so this branch can no
-      // longer leave the UI spinning indefinitely.
+      // Actual page text/image/style lives in FE2's private draft. The small head
+      // bridge captured FE2's real listener when the editor built this button.
+      // Call that function directly instead of dispatching another DOM click
+      // through every capture listener a second time.
+      const nativeSave = window.KPFrontendEditorNativeSave;
+      if (typeof nativeSave !== 'function') throw new Error('Textspeichern ist noch nicht bereit. Bitte Seite neu laden.');
       replayingMainSave = true;
       saveButton.disabled = false;
       saveButton.innerHTML = originalHtml;
-      saveButton.click();
+      await withTimeout(
+        nativeSave(),
+        'Textspeichern dauert ungewöhnlich lange. Bitte erneut versuchen.',
+        SAVE_TIMEOUT_MS + 1000
+      );
     } catch (error) {
       saveButton.disabled = false;
+      saveButton.classList.remove('is-saving');
       saveButton.innerHTML = originalHtml;
       editorToast(error?.message || 'Eine Änderung konnte nicht dauerhaft gespeichert werden.', 'error');
     } finally {
