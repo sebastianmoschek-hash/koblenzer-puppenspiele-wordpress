@@ -7,56 +7,26 @@ executors:
     resource_class: small
 
 jobs:
-  word-history-contract:
+  editor-contracts:
     executor: editor-contract
     steps:
       - checkout
       - run:
-          name: Install PHP lint
+          name: Install PHP lint once
           command: |
             apt-get update -qq
             DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli
       - run:
           name: Word and Canva history contract
           command: bash qa/word-history-contract.sh
-
-  unified-editor-contract:
-    executor: editor-contract
-    steps:
-      - checkout
       - run:
-          name: Install PHP lint
-          command: |
-            apt-get update -qq
-            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli
-      - run:
-          name: Unified Save Undo and AI contract
+          name: Unified Save Undo AI and text-save contract
           command: |
             bash qa/unified-editor-contract.sh
             bash qa/text-save-contract.sh
-
-  create-undo-contract:
-    executor: editor-contract
-    steps:
-      - checkout
-      - run:
-          name: Install PHP lint
-          command: |
-            apt-get update -qq
-            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli
       - run:
           name: Reversible create Undo Redo contract
           command: bash qa/create-undo-contract.sh
-
-  calendar-undo-contract:
-    executor: editor-contract
-    steps:
-      - checkout
-      - run:
-          name: Install PHP lint
-          command: |
-            apt-get update -qq
-            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli
       - run:
           name: Reversible calendar Undo Redo contract
           command: bash qa/calendar-undo-contract.sh
@@ -145,30 +115,13 @@ jobs:
 workflows:
   autonomous-homepage-lab:
     jobs:
-      - word-history-contract:
-          filters:
-            branches:
-              only: main
-      - unified-editor-contract:
-          filters:
-            branches:
-              only: main
-      - create-undo-contract:
-          filters:
-            branches:
-              only: main
-      - calendar-undo-contract:
+      - editor-contracts:
           filters:
             branches:
               only: main
       - homepage-staging-lab:
           requires:
-            - word-history-contract
-            - unified-editor-contract
-            - create-undo-contract
-            - calendar-undo-contract
-          # Staging is one shared mutable environment. The formerly separate
-          # text-save round now reuses this same serialized deployment and runner.
+            - editor-contracts
           serial-group: << pipeline.project.slug >>/homepage-staging-lab
           filters:
             branches:
