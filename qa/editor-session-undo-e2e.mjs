@@ -17,7 +17,7 @@ try{
   // on the homepage. Wrappers only count calls; a freshly loaded clean editor
   // makes every flush a no-op and therefore writes no site data.
   const coverage=await page.evaluate(async()=>{
-    const required=['KPCanvaLayoutRuntime','KPCanvaImageRuntime','KPAIEditorRuntime','KPRecordDraftRuntime','KPHeaderImageDraftRuntime'];
+    const required=['KPCanvaLayoutRuntime','KPCanvaImageRuntime','KPAIEditorRuntime','KPRecordDraftRuntime','KPHeaderImageDraftRuntime','KPNavigationDraftRuntime'];
     const optional=['KPCardDraftRuntime'];
     const counts={},present={};
     for(const name of [...required,...optional]){
@@ -75,6 +75,33 @@ try{
         if(await design.inputValue()!==old)fail('Undo stellte den KI-geänderten Designregler nicht wieder her.');
       }
       const close=page.locator('.kp-oa-close').first();if(await close.count())await close.click({force:true});
+    }
+  }
+
+  // Navigation owns its own specialist history. One real text edit must create
+  // exactly one global marker; Undo restores the field and visible menu without
+  // a save request or page reload.
+  const toolsNav=page.locator('.kp-oa-tools').first();
+  if(await toolsNav.count()){
+    await toolsNav.click({force:true});
+    const navAction=page.locator('[data-action="nav"]').first();
+    if(await navAction.count()){
+      await navAction.click({force:true});
+      await page.waitForFunction(()=>!!window.KPNavigationDraftRuntime,{timeout:10000});
+      const navInput=page.locator('[data-kp-navigation-draft] [data-kp-nav-field="label"]').first();
+      if(await navInput.count()){
+        const original=await navInput.inputValue();
+        const before=await page.evaluate(()=>window.KPWordHistory.counts());
+        await navInput.fill(`${original} TEST`);
+        await page.waitForTimeout(120);
+        const after=await page.evaluate(()=>window.KPWordHistory.counts());
+        if(Number(after.undo)!==Number(before.undo)+1)fail(`Navigation erzeugte nicht genau einen Undo-Schritt: before=${JSON.stringify(before)} after=${JSON.stringify(after)}`);
+        if(!await page.evaluate(()=>window.KPWordHistory.undo()))fail('Navigation-Undo fehlgeschlagen.');
+        await page.waitForTimeout(120);
+        const restored=page.locator('[data-kp-navigation-draft] [data-kp-nav-field="label"]').first();
+        if(await restored.inputValue()!==original)fail(`Navigation-Undo stellte den Namen nicht wieder her: ${await restored.inputValue()} != ${original}`);
+      }
+      const closeNav=page.locator('[data-kp-nav-close]').first();if(await closeNav.count())await closeNav.click({force:true});
     }
   }
 
@@ -171,7 +198,7 @@ try{
     if(((await cardButton.textContent())||'').trim()!==original)fail('Karten-Button-Undo stellte die Beschriftung nicht wieder her.');
   }
 
-  console.log('PASS: unified Save + AI/design/drag/image-position/record/card Undo and Discard work without reload or persistent QA mutation.');
+  console.log('PASS: unified Save + AI/design/navigation/drag/image-position/record/card Undo and Discard work without reload or persistent QA mutation.');
 } finally {
   await context.close();await browser.close();
 }
