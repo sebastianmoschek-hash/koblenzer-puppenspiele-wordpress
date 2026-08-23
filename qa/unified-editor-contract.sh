@@ -53,6 +53,7 @@ node --check "$PRESETS" >/dev/null || fail 'design preset JavaScript syntax is i
 contains "$SAVE" 'KPCanvaLayoutRuntime.*flush' 'unified Save does not flush layout drafts'
 contains "$SAVE" 'KPCanvaImageRuntime.*flush' 'unified Save does not flush image drafts'
 contains "$SAVE" 'KPNavigationDraftRuntime.*flush' 'unified Save does not flush navigation drafts'
+contains "$SAVE" 'KPSocialDraftRuntime.*flush' 'unified Save does not flush social drafts'
 contains "$SAVE" 'KPCardDraftRuntime.*flush' 'unified Save does not flush repertoire-card drafts'
 contains "$SAVE" 'KPRecordDraftRuntime.*flush' 'unified Save does not flush Termin/Stück drafts'
 contains "$SAVE" 'KPHeaderImageDraftRuntime.*flush' 'unified Save does not flush header-image drafts'
@@ -89,7 +90,6 @@ contains "$IMAGE_POS" 'KPWordHistory.*push.*image-position' 'image-position chan
 contains "$IMAGE_POS" 'undo, redo:redoStep' 'image-position runtime lacks Undo/Redo'
 
 contains "$SOCIAL" 'KPSocialDraftRuntime' 'social settings still lack a draft runtime'
-contains "$SOCIAL" "KPOwnerSaveRegistry.register('social'" 'social settings are not included in the orange unified Save'
 contains "$SOCIAL" "KPWordHistory.register('social'" 'social settings are not included in global Undo/Redo'
 contains "$SOCIAL" 'data-social-done' 'social dialog still uses an immediate standalone Save action'
 if grep -q 'data-social-save' "$SOCIAL"; then fail 'legacy immediate Social Save button is still present'; fi
