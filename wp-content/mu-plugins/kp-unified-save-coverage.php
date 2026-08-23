@@ -14,7 +14,7 @@ add_action( 'wp_footer', static function () {
     <script id="kp-unified-save-coverage">
     (()=>{
       'use strict';
-      const ACTION_RE=/^kp_(owner_(design|sizes|menu_x|nav)_save|fe_v2_save|touch_(free_layout|gesture)_save|image_position_save|canva_image_save|frontend_card_(image|button)_save|fe_v2_record_save|ai_.*_save)$/;
+      const ACTION_RE=/^kp_(owner_(design|sizes|menu_x|nav|social_menu)_save|fe_v2_save|touch_(free_layout|gesture)_save|image_position_save|canva_image_save|frontend_card_(image|button)_save|fe_v2_record_save|ai_.*_save)$/;
       let saveGroup='',groupTimer=0,contextSaving=false;
       const makeGroup=()=>`save-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
       function beginGroup(){clearTimeout(groupTimer);saveGroup=makeGroup();groupTimer=setTimeout(()=>{saveGroup=''},12000);return saveGroup}
