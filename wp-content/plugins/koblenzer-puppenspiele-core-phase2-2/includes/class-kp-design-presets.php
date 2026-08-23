@@ -66,6 +66,10 @@ final class KP_Design_Presets {
         }
         if ( ! in_array( $clean['body_font'] ?? '', array( 'system', 'humanist', 'classic' ), true ) ) { $clean['body_font'] = $defaults['body_font']; }
         if ( ! in_array( $clean['heading_font'] ?? '', array( 'georgia', 'palatino', 'system' ), true ) ) { $clean['heading_font'] = $defaults['heading_font']; }
+        // Horizontal menu position is persisted by a dedicated runtime and is
+        // therefore not part of KP_Website_Studio::defaults(), but it is still
+        // visual design and must travel with an owner design preset.
+        $clean['menu_offset_x'] = max( -180, min( 180, (int) ( $raw['menu_offset_x'] ?? 0 ) ) );
         return $clean;
     }
 
@@ -110,6 +114,7 @@ final class KP_Design_Presets {
         $defaults = KP_Website_Studio::defaults();
         // Keep current header image while resetting visual controls in the live editor.
         unset( $defaults['header_image_id'] );
+        $defaults['menu_offset_x'] = 0;
         wp_send_json_success( array(
             'message' => 'Ursprüngliche Werkseinstellungen geladen – zum Übernehmen „Design speichern“ drücken.',
             'settings' => $defaults,
