@@ -51,13 +51,14 @@ add_action( 'wp_footer', static function () {
           if(window.KPCanvaLayoutRuntime?.flush)await window.KPCanvaLayoutRuntime.flush();
           if(window.KPCanvaImageRuntime?.flush)await window.KPCanvaImageRuntime.flush();
           if(window.KPNavigationDraftRuntime?.flush)await window.KPNavigationDraftRuntime.flush();
+          if(window.KPSocialDraftRuntime?.flush)await window.KPSocialDraftRuntime.flush();
           if(window.KPCardDraftRuntime?.flush)await window.KPCardDraftRuntime.flush();
           if(window.KPRecordDraftRuntime?.flush)await window.KPRecordDraftRuntime.flush();
           if(window.KPHeaderImageDraftRuntime?.flush)await window.KPHeaderImageDraftRuntime.flush();
           if(window.KPAIEditorRuntime?.flush)await window.KPAIEditorRuntime.flush();
           return result||{success:true};
         };
-        registry.isDirty=()=>!!baseDirty?.()||!!window.KPCanvaLayoutRuntime?.isDirty?.()||!!window.KPCanvaImageRuntime?.isDirty?.()||!!window.KPNavigationDraftRuntime?.isDirty?.()||!!window.KPCardDraftRuntime?.isDirty?.()||!!window.KPRecordDraftRuntime?.isDirty?.()||!!window.KPHeaderImageDraftRuntime?.isDirty?.()||!!window.KPAIEditorRuntime?.isDirty?.();
+        registry.isDirty=()=>!!baseDirty?.()||!!window.KPCanvaLayoutRuntime?.isDirty?.()||!!window.KPCanvaImageRuntime?.isDirty?.()||!!window.KPNavigationDraftRuntime?.isDirty?.()||!!window.KPSocialDraftRuntime?.isDirty?.()||!!window.KPCardDraftRuntime?.isDirty?.()||!!window.KPRecordDraftRuntime?.isDirty?.()||!!window.KPHeaderImageDraftRuntime?.isDirty?.()||!!window.KPAIEditorRuntime?.isDirty?.();
         registry.__kpUnifiedCoverage=true;
         return true;
       }
@@ -69,10 +70,6 @@ add_action( 'wp_footer', static function () {
         el.textContent=message;el.classList.add('is-visible','is-'+type);setTimeout(()=>el.classList.remove('is-visible'),1800);
       }
 
-      // Contextual design/size buttons used to persist only their own subsystem
-      // and then reload, which could throw away an unsaved text/card/AI draft.
-      // Route them through the real main Save gesture whenever it exists. The
-      // touch/editor bridge then persists FE2 content plus every registry runtime.
       window.addEventListener('click',async e=>{
         const t=e.target instanceof Element?e.target:null;if(!t)return;
         const button=t.closest('.kp-oa-design-save,.kp-oa-size-save');
@@ -82,8 +79,6 @@ add_action( 'wp_footer', static function () {
         const mainSave=document.querySelector('.kp-fe2-save');
         if(mainSave&&mainSave!==button){
           mainSave.click();
-          // If the main Save reports an error it deliberately stays on-page;
-          // release this contextual button again rather than trapping the user.
           setTimeout(()=>{if(button.isConnected){button.disabled=false;button.innerHTML=html;contextSaving=false;}},7000);
           return;
         }
