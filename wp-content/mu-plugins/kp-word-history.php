@@ -28,7 +28,7 @@ add_action( 'wp_footer', static function () {
       const cfg=window.KPOwnerWebApp;
       if(!cfg?.canEdit)return;
       const MAX=50,undoStack=[],redoStack=[],specialists=new Map();
-      let restoring=false,pending=null,pendingTimer=0;
+      let restoring=false,pending=null,pendingTimer=0,historyBusy=false;
       const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>[...r.querySelectorAll(s)];
 
       function register(kind,getter){if(kind&&typeof getter==='function')specialists.set(kind,getter);updateButtons()}
@@ -68,6 +68,17 @@ add_action( 'wp_footer', static function () {
       function clearForeignRedo(kind){specialists.forEach((getter,name)=>{if(name!==kind)runtime(name)?.clearRedo?.()})}
       function push(entry){if(restoring||!entry)return false;undoStack.push(entry);if(undoStack.length>MAX)undoStack.shift();redoStack.length=0;clearForeignRedo(entry.kind||'controls');updateButtons();return true}
       function pushSpecialist(kind){if(!kind||!runtime(kind))return false;return push({kind})}
+      function seedSpecialist(kind,undoCount=0,redoCount=0){
+        if(!kind||!runtime(kind))return false;
+        for(let i=undoStack.length-1;i>=0;i--)if(undoStack[i]?.kind===kind)undoStack.splice(i,1);
+        for(let i=redoStack.length-1;i>=0;i--)if(redoStack[i]?.kind===kind)redoStack.splice(i,1);
+        const u=Math.max(0,Math.min(MAX,Number(undoCount)||0)),r=Math.max(0,Math.min(MAX,Number(redoCount)||0));
+        for(let i=0;i<u;i++)undoStack.push({kind});
+        for(let i=0;i<r;i++)redoStack.push({kind});
+        if(undoStack.length>MAX)undoStack.splice(0,undoStack.length-MAX);
+        if(redoStack.length>MAX)redoStack.splice(0,redoStack.length-MAX);
+        updateButtons();return true;
+      }
       function discardLastControlsMarker(){
         const entry=undoStack[undoStack.length-1];
         if(!entry||entry.kind!=='controls')return false;
@@ -96,17 +107,29 @@ add_action( 'wp_footer', static function () {
       window.addEventListener('kp:canva-image-history-push',()=>pushSpecialist('image'));
       window.addEventListener('kp:canva-image-history-change',updateButtons);
 
-      function undo(){
-        const entry=undoStack.pop();if(!entry){updateButtons();return false}
-        if(entry.kind==='controls'){const current=captureControls();restoreControls(entry.state);redoStack.push({kind:'controls',state:current})}
-        else{const ok=!!runtime(entry.kind)?.undo?.();if(!ok){undoStack.push(entry);updateButtons();return false}redoStack.push({kind:entry.kind})}
-        if(redoStack.length>MAX)redoStack.shift();updateButtons();return true;
+      async function callSpecialist(entry,method){
+        const instance=runtime(entry.kind),fn=instance?.[method];if(typeof fn!=='function')return false;
+        try{const result=fn.call(instance);return !!(result&&typeof result.then==='function'?await result:result)}catch(_){return false}
       }
-      function redo(){
+      async function undo(){
+        if(historyBusy)return false;
+        const entry=undoStack.pop();if(!entry){updateButtons();return false}
+        historyBusy=true;updateButtons();
+        try{
+          if(entry.kind==='controls'){const current=captureControls();restoreControls(entry.state);redoStack.push({kind:'controls',state:current})}
+          else{const ok=await callSpecialist(entry,'undo');if(!ok){undoStack.push(entry);return false}redoStack.push({kind:entry.kind})}
+          if(redoStack.length>MAX)redoStack.shift();return true;
+        }finally{historyBusy=false;updateButtons()}
+      }
+      async function redo(){
+        if(historyBusy)return false;
         const entry=redoStack.pop();if(!entry){updateButtons();return false}
-        if(entry.kind==='controls'){const current=captureControls();restoreControls(entry.state);undoStack.push({kind:'controls',state:current})}
-        else{const ok=!!runtime(entry.kind)?.redo?.();if(!ok){redoStack.push(entry);updateButtons();return false}undoStack.push({kind:entry.kind})}
-        if(undoStack.length>MAX)undoStack.shift();updateButtons();return true;
+        historyBusy=true;updateButtons();
+        try{
+          if(entry.kind==='controls'){const current=captureControls();restoreControls(entry.state);undoStack.push({kind:'controls',state:current})}
+          else{const ok=await callSpecialist(entry,'redo');if(!ok){redoStack.push(entry);return false}undoStack.push({kind:entry.kind})}
+          if(undoStack.length>MAX)undoStack.shift();return true;
+        }finally{historyBusy=false;updateButtons()}
       }
       function findBar(){const direct=q('.kp-oa-sticky-actions');if(direct)return direct;const candidates=qa('div,nav,footer').filter(el=>{const text=(el.textContent||'').replace(/\s+/g,' ').trim();return /Vorschau/i.test(text)&&/Speichern/i.test(text)&&el.querySelectorAll('button,a').length>=2});return candidates.sort((a,b)=>a.children.length-b.children.length)[0]||null}
       function removeLegacyControls(bar){qa('[data-kp-history-undo]').forEach(el=>el.remove());if(!bar)return;qa('[data-kp-v3],[data-kp-word-undo],[data-kp-word-redo],.kp-oa-history-nav,.kp-word-history-icon',bar).forEach(el=>el.remove());qa('button,a',bar).forEach(el=>{if(el.dataset.kpWordHistoryNew)return;const t=(el.textContent||'').replace(/\s+/g,' ').trim();if(/^(?:↶\s*)?(?:Rückgängig|Zurück)$/i.test(t)||/^(?:↷\s*)?(?:Vor|Wiederholen)$/i.test(t))el.remove()})}
@@ -114,12 +137,12 @@ add_action( 'wp_footer', static function () {
       function install(){
         const bar=findBar();removeLegacyControls(bar);updateVersionCopy();if(!bar)return;
         let back=q('[data-kp-word-history-new="undo"]',bar),forward=q('[data-kp-word-history-new="redo"]',bar);const controls=qa('button,a',bar),preview=controls.find(el=>/Vorschau/i.test(el.textContent||'')),save=controls.find(el=>/Speichern/i.test(el.textContent||''));if(!preview||!save)return;
-        if(!back){back=document.createElement('button');back.type='button';back.className='kp-oa-secondary kp-word-history-button';back.dataset.kpWordHistoryNew='undo';back.setAttribute('aria-label','Rückgängig');back.textContent='↶';back.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();undo()})}
-        if(!forward){forward=document.createElement('button');forward.type='button';forward.className='kp-oa-secondary kp-word-history-button';forward.dataset.kpWordHistoryNew='redo';forward.setAttribute('aria-label','Wiederholen');forward.textContent='↷';forward.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();redo()})}
+        if(!back){back=document.createElement('button');back.type='button';back.className='kp-oa-secondary kp-word-history-button';back.dataset.kpWordHistoryNew='undo';back.setAttribute('aria-label','Rückgängig');back.textContent='↶';back.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();void undo()})}
+        if(!forward){forward=document.createElement('button');forward.type='button';forward.className='kp-oa-secondary kp-word-history-button';forward.dataset.kpWordHistoryNew='redo';forward.setAttribute('aria-label','Wiederholen');forward.textContent='↷';forward.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();void redo()})}
         bar.insertBefore(back,save);bar.insertBefore(forward,save);updateButtons();
       }
-      function updateButtons(){const back=q('[data-kp-word-history-new="undo"]'),forward=q('[data-kp-word-history-new="redo"]');if(back){back.disabled=undoStack.length===0;back.title=`Rückgängig (${undoStack.length} Schritt${undoStack.length===1?'':'e'})`}if(forward){forward.disabled=redoStack.length===0;forward.title=`Wiederholen (${redoStack.length} Schritt${redoStack.length===1?'':'e'})`}}
-      window.KPWordHistory={undo,redo,counts:()=>({undo:undoStack.length,redo:redoStack.length}),register,push:pushSpecialist,discardLastControlsMarker,refresh:updateButtons};
+      function updateButtons(){const back=q('[data-kp-word-history-new="undo"]'),forward=q('[data-kp-word-history-new="redo"]');if(back){back.disabled=historyBusy||undoStack.length===0;back.title=`Rückgängig (${undoStack.length} Schritt${undoStack.length===1?'':'e'})`}if(forward){forward.disabled=historyBusy||redoStack.length===0;forward.title=`Wiederholen (${redoStack.length} Schritt${redoStack.length===1?'':'e'})`}}
+      window.KPWordHistory={undo,redo,counts:()=>({undo:undoStack.length,redo:redoStack.length}),register,push:pushSpecialist,seedSpecialist,discardLastControlsMarker,refresh:updateButtons};
       const observer=new MutationObserver(()=>requestAnimationFrame(install));observer.observe(document.documentElement,{childList:true,subtree:true});install();
     })();
     </script>
