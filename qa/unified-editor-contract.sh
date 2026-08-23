@@ -20,6 +20,7 @@ PHP_FILES=(
   wp-content/mu-plugins/kp-record-draft-runtime.php
   wp-content/mu-plugins/kp-header-image-draft-runtime.php
   wp-content/mu-plugins/kp-owner-history-extension.php
+  wp-content/mu-plugins/kp-social-history-bridge.php
 )
 for file in "${PHP_FILES[@]}"; do
   [[ -f "$file" ]] || fail "required file missing: $file"
@@ -35,6 +36,7 @@ AI='wp-content/mu-plugins/kp-ai-direct-editor.php'
 AI_PLAN='wp-content/mu-plugins/kp-ai-plan-interactions.php'
 AI_IMAGE_SAFE='wp-content/mu-plugins/kp-ai-image-draft-safety.php'
 HISTORY_EXT='wp-content/mu-plugins/kp-owner-history-extension.php'
+SOCIAL_HISTORY='wp-content/mu-plugins/kp-social-history-bridge.php'
 CANVA='wp-content/mu-plugins/kp-canva-editor.js'
 CARD='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-card-controls.js'
 SYNTH='wp-content/mu-plugins/kp-synthetic-control-history.php'
@@ -56,6 +58,7 @@ contains "$SAVE" 'KPRecordDraftRuntime.*flush' 'unified Save does not flush Term
 contains "$SAVE" 'KPHeaderImageDraftRuntime.*flush' 'unified Save does not flush header-image drafts'
 contains "$SAVE" 'KPAIEditorRuntime.*flush' 'unified Save does not flush AI drafts'
 contains "$SAVE" 'kp_history_group' 'unified Save transaction/history group missing'
+contains "$SAVE" 'social_menu' 'social Save is not attached to the unified history group'
 contains "$SAVE" 'mainSave.click' 'contextual design/size Save is not routed through the main Save gesture'
 
 contains "$HISTORY" 'register,push:pushSpecialist' 'extensible specialist Undo registry missing'
@@ -90,6 +93,8 @@ contains "$SOCIAL" "KPOwnerSaveRegistry.register('social'" 'social settings are 
 contains "$SOCIAL" "KPWordHistory.register('social'" 'social settings are not included in global Undo/Redo'
 contains "$SOCIAL" 'data-social-done' 'social dialog still uses an immediate standalone Save action'
 if grep -q 'data-social-save' "$SOCIAL"; then fail 'legacy immediate Social Save button is still present'; fi
+contains "$SOCIAL_HISTORY" 'kp_owner_social_menu_save' 'Social-only Save does not create a 48-hour history checkpoint'
+contains "$SOCIAL_HISTORY" 'KP_Owner_History::checkpoint' 'Social history checkpoint is not linked to owner history'
 contains "$PRESETS" 'resetHorizontalMenuPosition' 'factory design reset does not include horizontal menu position'
 
 contains "$AI" 'KP_GEMINI_API_KEY' 'Gemini server-side API key support missing'
