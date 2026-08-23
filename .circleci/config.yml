@@ -31,7 +31,9 @@ jobs:
             DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli
       - run:
           name: Unified Save Undo and AI contract
-          command: bash qa/unified-editor-contract.sh
+          command: |
+            bash qa/unified-editor-contract.sh
+            bash qa/text-save-contract.sh
 
   create-undo-contract:
     executor: editor-contract
