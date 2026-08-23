@@ -61,6 +61,25 @@ jobs:
           name: Reversible calendar Undo Redo contract
           command: bash qa/calendar-undo-contract.sh
 
+  text-save-staging-lab:
+    docker:
+      - image: mcr.microsoft.com/playwright:v1.55.0-noble
+    resource_class: small
+    environment:
+      STAGING_BASE: https://neu.koblenzer-puppenspiele.de
+    steps:
+      - checkout
+      - run:
+          name: Install staging text-save tools
+          command: |
+            apt-get update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp php-cli ca-certificates
+            npm install --no-save --no-audit --no-fund --prefer-offline playwright@1.55.0
+      - run:
+          name: Real text edit save reload and restore
+          command: bash qa/text-save-staging-lab.sh
+          no_output_timeout: 12m
+
   homepage-staging-lab:
     docker:
       - image: mcr.microsoft.com/playwright:v1.55.0-noble
@@ -125,14 +144,27 @@ workflows:
           filters:
             branches:
               only: main
+      - text-save-staging-lab:
+          requires:
+            - word-history-contract
+            - unified-editor-contract
+            - create-undo-contract
+            - calendar-undo-contract
+          # The text test mutates staging briefly and restores its snapshot.
+          # Keep it in the same serialized lane as the full browser laboratory.
+          serial-group: << pipeline.project.slug >>/homepage-staging-lab
+          filters:
+            branches:
+              only: main
       - homepage-staging-lab:
           requires:
             - word-history-contract
             - unified-editor-contract
             - create-undo-contract
             - calendar-undo-contract
-          # Staging is one shared mutable environment. Only the real deploy/browser
-          # job is serialized; deterministic contracts are safe to run in parallel.
+            - text-save-staging-lab
+          # Staging is one shared mutable environment. Only real staging jobs are
+          # serialized; deterministic contracts are safe to run in parallel.
           serial-group: << pipeline.project.slug >>/homepage-staging-lab
           filters:
             branches:
