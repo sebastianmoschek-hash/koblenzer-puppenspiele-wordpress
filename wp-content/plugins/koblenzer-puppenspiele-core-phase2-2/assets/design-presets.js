@@ -64,6 +64,14 @@
     });
   }
 
+  function resetHorizontalMenuPosition() {
+    const input = q('[data-kp-menu-x] input');
+    if (!input) return;
+    input.value = '0';
+    input.dispatchEvent(new Event('input', {bubbles:true}));
+    input.dispatchEvent(new Event('change', {bubbles:true}));
+  }
+
   function installPresetUi() {
     const box = designBox();
     if (!box || q('.kp-oa-preset-panel', box)) return;
@@ -106,7 +114,8 @@
     }));
   }
 
-  // Fix the existing reset bug before its target-level click handler can run.
+  // Factory reset is a draft action. It must reset every visible design
+  // coordinate, including the separately persisted horizontal menu offset.
   document.addEventListener('click', async (event) => {
     const btn = event.target.closest('.kp-oa-design-reset');
     if (!btn) return;
@@ -116,6 +125,7 @@
     try {
       const data = await api('kp_design_factory_defaults');
       applyValues(data.settings || {});
+      resetHorizontalMenuPosition();
       toast(data.message || 'Werkseinstellungen geladen', 'ok');
     } catch (e) {
       toast(e.message, 'error');
