@@ -34,6 +34,9 @@ jobs:
           name: Verify reversible create Undo Redo contract
           command: bash qa/create-undo-contract.sh
       - run:
+          name: Verify reversible calendar Undo Redo contract
+          command: bash qa/calendar-undo-contract.sh
+      - run:
           name: Protect shared staging design colors
           command: node qa/neutralize-staging-color-mutations.mjs
       - run:
