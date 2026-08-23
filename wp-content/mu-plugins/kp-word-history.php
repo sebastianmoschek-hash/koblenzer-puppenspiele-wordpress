@@ -37,18 +37,22 @@ add_action( 'wp_footer', static function () {
       register('image',()=>window.KPCanvaImageRuntime||null);
 
       function runtime(kind){try{return specialists.get(kind)?.()||null}catch(_){return null}}
+      function isSpecialistOwnerControl(el){
+        return !!(el?.matches?.('[data-design],[data-kp-size],[data-social]')||el?.closest?.('[data-kp-menu-x]'));
+      }
       function directControls(){
-        return qa('.kp-oa-sheet input,.kp-oa-sheet select,.kp-oa-sheet textarea,.kp-fe2-inspector .kp-image-position-controls input,.kp-fe2-inspector .kp-image-position-controls select,.kp-fe2-inspector .kp-image-position-controls textarea')
-          .filter(el=>!el.closest('.kp-history-sheet')&&!el.closest('[data-kp-word-history-new]')&&!el.closest('.kp-canva-image-panel'));
+        return qa('.kp-oa-sheet input,.kp-oa-sheet select,.kp-oa-sheet textarea')
+          .filter(el=>!el.closest('.kp-history-sheet')&&!el.closest('[data-kp-word-history-new]')&&!el.closest('.kp-canva-image-panel')&&!isSpecialistOwnerControl(el));
       }
       function isDirectControl(target){
         if(!(target instanceof Element))return null;
-        return target.closest('.kp-oa-sheet input,.kp-oa-sheet select,.kp-oa-sheet textarea,.kp-fe2-inspector .kp-image-position-controls input,.kp-fe2-inspector .kp-image-position-controls select,.kp-fe2-inspector .kp-image-position-controls textarea');
+        const el=target.closest('.kp-oa-sheet input,.kp-oa-sheet select,.kp-oa-sheet textarea');
+        if(!el||isSpecialistOwnerControl(el))return null;
+        return el;
       }
       function controlKey(el){
         const data=[...el.attributes].filter(a=>a.name.startsWith('data-')).map(a=>`${a.name}=${a.value}`).sort().join('|');
-        const zone=el.closest('.kp-image-position-controls')?'image-position':'owner';
-        return [zone,el.tagName,el.type||'',el.name||'',el.id||'',data].join('::');
+        return ['owner',el.tagName,el.type||'',el.name||'',el.id||'',data].join('::');
       }
       function captureControls(){
         const seen=new Map();
@@ -67,10 +71,6 @@ add_action( 'wp_footer', static function () {
       function discardLastControlsMarker(){
         const entry=undoStack[undoStack.length-1];
         if(!entry||entry.kind!=='controls')return false;
-        // Keep the active gesture (including recorded=true) intact. Navigation
-        // only removes the duplicate global marker; clearing pending here would
-        // let the next keystroke in the same typing gesture create a new generic
-        // marker with no specialist push left to deduplicate it.
         undoStack.pop();redoStack.length=0;updateButtons();return true;
       }
 
@@ -82,7 +82,12 @@ add_action( 'wp_footer', static function () {
       document.addEventListener('input',e=>{if(!e.isTrusted)return;const el=isDirectControl(e.target);if(el)commitControlGesture(el)},true);
       document.addEventListener('change',e=>{if(!e.isTrusted)return;const el=isDirectControl(e.target);if(el)commitControlGesture(el)},true);
       document.addEventListener('pointerup',endControlGesture,true);document.addEventListener('pointercancel',endControlGesture,true);document.addEventListener('focusout',endControlGesture,true);
-      document.addEventListener('click',e=>{if(restoring||!e.isTrusted)return;const btn=e.target instanceof Element?e.target.closest('.kp-oa-sheet button'):null;if(!btn||btn.closest('.kp-history-sheet,.kp-canva-image-panel'))return;const text=(btn.textContent||'').replace(/\s+/g,' ').trim(),cls=String(btn.className||'');if(/reset/i.test(cls)||/zurücksetzen|standardwerte|auf 100|standard/i.test(text))push({kind:'controls',state:captureControls()})},true);
+      document.addEventListener('click',e=>{
+        if(restoring||!e.isTrusted)return;const btn=e.target instanceof Element?e.target.closest('.kp-oa-sheet button'):null;
+        if(!btn||btn.closest('.kp-history-sheet,.kp-canva-image-panel')||btn.closest('.kp-oa-design-reset,.kp-oa-size-reset'))return;
+        const text=(btn.textContent||'').replace(/\s+/g,' ').trim(),cls=String(btn.className||'');
+        if(/reset/i.test(cls)||/zurücksetzen|standardwerte|auf 100|standard/i.test(text))push({kind:'controls',state:captureControls()});
+      },true);
 
       window.addEventListener('kp:frontend-history-push',()=>pushSpecialist('frontend'));
       window.addEventListener('kp:frontend-history-change',updateButtons);
