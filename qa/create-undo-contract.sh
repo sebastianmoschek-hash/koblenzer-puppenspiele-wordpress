@@ -33,7 +33,14 @@ if grep -q 'wp_delete_post' "$CREATE"; then fail 'create Undo must never permane
 contains "$CAPTURE" 'kp_owner_record_create' 'Termin/Stück creation is not captured'
 contains "$CAPTURE" 'kp_owner_page_create' 'page creation is not captured'
 contains "$CAPTURE" 'kp_create_history_record' 'successful creation is not registered on the server'
+contains "$CAPTURE" 'kp_create_history_abort' 'failed Undo registration does not roll a new object back'
+contains "$CAPTURE" 'request_token' 'create-history retries are not idempotent'
+contains "$CAPTURE" 'get_transient' 'idempotent create-history retry cache missing'
+contains "$CAPTURE" 'kp_create_history_remove_action' 'aborted create cannot remove a half-finished history entry'
+contains "$CAPTURE" "'post_status' => 'draft'" 'failed create-history registration does not deactivate the new object'
 contains "$CAPTURE" 'add_nav' 'automatic page-navigation creation is not included in the reversible action'
 contains "$CAPTURE" 'response.clone().json' 'capture bridge does not verify successful create responses'
+contains "$CAPTURE" 'await abortCreated' 'browser create bridge does not wait for rollback before reporting failure'
+if grep -q 'wp_delete_post' "$CAPTURE"; then fail 'failed create-history registration must never permanently delete content'; fi
 
-echo 'PASS: page/Termin/Stück creation is reversible through the global 50-step Undo/Redo arrows.'
+echo 'PASS: page/Termin/Stück creation is transactional, idempotent and reversible through the global 50-step Undo/Redo arrows.'
