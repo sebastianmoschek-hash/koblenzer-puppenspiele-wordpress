@@ -9,9 +9,15 @@
     return {...v};
   };
   const cloneObject = (v) => JSON.parse(JSON.stringify(asObject(v)));
+  const MAX = 50;
   let draftGlobal = cloneObject(cfg.global);
   let draftPage = cloneObject(cfg.page);
+  let savedGlobal = cloneObject(draftGlobal);
+  let savedPage = cloneObject(draftPage);
   let dirty = false;
+  const history = [];
+  const redo = [];
+  let gesture = null;
 
   function device() {
     const w = window.innerWidth;
@@ -22,7 +28,9 @@
   }
 
   function activeEditorDevice() {
-    const b = document.querySelector('.kp-fe-device.is-active,.kp-fe2-device.is-active,[data-panel-device].is-active');
+    const select = document.querySelector('.kp-fe2-device');
+    if (select?.value) return select.value;
+    const b = document.querySelector('.kp-fe-device.is-active,[data-panel-device].is-active');
     return (b && (b.dataset.device || b.dataset.panelDevice)) || device();
   }
 
@@ -45,12 +53,16 @@
     return '';
   }
 
-  function isGlobal(el) {
-    return !!(el && el.closest('header,footer'));
+  function scopeFor(el) {
+    return el?.closest?.('header,footer') ? 'global' : 'page';
+  }
+
+  function storeForScope(scope) {
+    return scope === 'global' ? draftGlobal : draftPage;
   }
 
   function storeFor(el) {
-    return isGlobal(el) ? draftGlobal : draftPage;
+    return storeForScope(scopeFor(el));
   }
 
   function getX(el, d) {
@@ -59,18 +71,28 @@
     return key && store[key] && store[key][d] !== undefined ? +store[key][d] : 50;
   }
 
+  function syncDirty() {
+    dirty = JSON.stringify(draftGlobal) !== JSON.stringify(savedGlobal) || JSON.stringify(draftPage) !== JSON.stringify(savedPage);
+    document.querySelector('.kp-fe2-save,.kp-fe-save')?.classList.toggle('is-dirty', dirty || !!window.KPOwnerSaveRegistry?.isDirty?.());
+  }
+
   function markDirty() {
     dirty = true;
     document.querySelector('.kp-fe2-save,.kp-fe-save')?.classList.add('is-dirty');
   }
 
-  function setX(el, d, x) {
-    const key = keyFor(el);
-    if (!key) return;
-    const store = storeFor(el);
+  function setStored(scope, key, d, x) {
+    if (!key) return 50;
+    const store = storeForScope(scope);
+    const value = Math.max(0, Math.min(100, Math.round(+x || 0)));
     store[key] = store[key] || {};
-    store[key][d] = Math.max(0, Math.min(100, Math.round(+x || 0)));
+    store[key][d] = value;
     markDirty();
+    return value;
+  }
+
+  function setX(el, d, x) {
+    return setStored(scopeFor(el), keyFor(el), d, x);
   }
 
   function applyPosition(el, x) {
@@ -102,10 +124,103 @@
       if (!imageTarget(el)) return;
       const key = keyFor(el);
       if (!key) return;
-      const store = isGlobal(el) ? draftGlobal : draftPage;
+      const store = storeFor(el);
       if (store[key] && store[key][d] !== undefined) applyPosition(el, +store[key][d]);
     });
   }
+
+  function targetForEntry(entry) {
+    if (entry?.target?.isConnected && keyFor(entry.target) === entry.key && scopeFor(entry.target) === entry.scope) return entry.target;
+    const selectors = [`[data-kp-edit-key="${CSS.escape(entry.key)}"]`,`[data-kp-dom-key="${CSS.escape(entry.key)}"]`];
+    for (const selector of selectors) {
+      const el = [...document.querySelectorAll(selector)].find(node => scopeFor(node) === entry.scope && imageTarget(node));
+      if (el) return el;
+    }
+    const img = [...document.querySelectorAll(`img[data-kp-dom-key="${CSS.escape(entry.key)}"]`)].find(node => scopeFor(node) === entry.scope);
+    return img || null;
+  }
+
+  function syncVisibleControl(entry, value) {
+    const current = selectedElement();
+    if (!current || keyFor(current) !== entry.key || scopeFor(current) !== entry.scope) return;
+    const wrap = document.querySelector('.kp-image-position-controls');
+    const range = wrap?.querySelector('.kp-image-position-range');
+    const out = wrap?.querySelector('.kp-image-position-value');
+    if (range) range.value = String(value);
+    if (out) out.textContent = value + '%';
+    wrap?.querySelectorAll('.kp-image-align-buttons button').forEach(btn => btn.classList.toggle('is-active', +btn.dataset.x === +value));
+  }
+
+  function applyHistory(entry, value) {
+    if (!entry) return false;
+    const target = targetForEntry(entry);
+    if (!target) return false;
+    const next = setStored(entry.scope, entry.key, entry.device, value);
+    applyPosition(target, next);
+    syncVisibleControl(entry, next);
+    syncDirty();
+    return true;
+  }
+
+  function pushHistory(entry, genericBaseline = null) {
+    if (!entry || entry.before === entry.after) return null;
+    if (genericBaseline !== null && window.KPWordHistory?.counts) {
+      const now = Number(window.KPWordHistory.counts().undo || 0);
+      if (now > genericBaseline) window.KPWordHistory.discardLastControlsMarker?.();
+    }
+    history.push(entry);
+    if (history.length > MAX) history.shift();
+    redo.length = 0;
+    window.KPWordHistory?.push?.('image-position');
+    return entry;
+  }
+
+  function undo() {
+    const entry = history.pop();
+    if (!entry) return false;
+    if (!applyHistory(entry, entry.before)) { history.push(entry); return false; }
+    redo.push(entry);
+    if (redo.length > MAX) redo.shift();
+    return true;
+  }
+
+  function redoStep() {
+    const entry = redo.pop();
+    if (!entry) return false;
+    if (!applyHistory(entry, entry.after)) { redo.push(entry); return false; }
+    history.push(entry);
+    if (history.length > MAX) history.shift();
+    return true;
+  }
+
+  function clearRedo() { redo.length = 0; }
+
+  function beginGesture(el, d) {
+    if (!el || !imageTarget(el)) return;
+    gesture = {
+      target: el,
+      scope: scopeFor(el),
+      key: keyFor(el),
+      device: d,
+      before: getX(el, d),
+      entry: null,
+      genericBaseline: Number(window.KPWordHistory?.counts?.().undo || 0)
+    };
+  }
+
+  function updateGesture(el, d, next) {
+    if (!gesture || gesture.target !== el || gesture.device !== d) beginGesture(el, d);
+    const value = setX(el, d, next);
+    applyPosition(el, value);
+    if (!gesture.entry && value !== gesture.before) {
+      gesture.entry = pushHistory({target:el, scope:gesture.scope, key:gesture.key, device:d, before:gesture.before, after:value}, gesture.genericBaseline);
+    } else if (gesture.entry) {
+      gesture.entry.after = value;
+    }
+    return value;
+  }
+
+  function endGesture() { gesture = null; }
 
   function injectControls() {
     if (!cfg.editMode) return;
@@ -140,20 +255,32 @@
 
     const range = wrap.querySelector('.kp-image-position-range');
     const value = wrap.querySelector('.kp-image-position-value');
-    const update = (next) => {
-      const current = selectedElement();
-      if (!current || !imageTarget(current)) return;
-      const dev = activeEditorDevice();
-      setX(current, dev, next);
-      applyPosition(current, +next);
-      range.value = next;
+    const currentTarget = () => selectedElement();
+    const currentDevice = () => activeEditorDevice();
+    const updateUi = (next) => {
+      range.value = String(next);
       value.textContent = next + '%';
       wrap.querySelectorAll('.kp-image-align-buttons button').forEach(btn => btn.classList.toggle('is-active', +btn.dataset.x === +next));
     };
-    range.addEventListener('input', () => update(+range.value));
-    wrap.querySelectorAll('.kp-image-align-buttons button').forEach(btn => btn.addEventListener('click', () => update(+btn.dataset.x)));
-    range.value = x;
-    value.textContent = x + '%';
+    const begin = () => { const current=currentTarget(); if(current) beginGesture(current,currentDevice()); };
+    range.addEventListener('pointerdown', begin);
+    range.addEventListener('focusin', begin);
+    range.addEventListener('input', () => {
+      const current=currentTarget(); if(!current)return;
+      const next=updateGesture(current,currentDevice(),+range.value); updateUi(next);
+    });
+    range.addEventListener('pointerup', endGesture);
+    range.addEventListener('pointercancel', endGesture);
+    range.addEventListener('change', () => setTimeout(endGesture, 0));
+    range.addEventListener('focusout', () => setTimeout(endGesture, 0));
+    wrap.querySelectorAll('.kp-image-align-buttons button').forEach(btn => btn.addEventListener('click', () => {
+      const current=currentTarget(); if(!current)return;
+      const dev=currentDevice(), before=getX(current,dev), next=Number(btn.dataset.x), baseline=Number(window.KPWordHistory?.counts?.().undo||0);
+      const valueNow=setX(current,dev,next);applyPosition(current,valueNow);updateUi(valueNow);
+      pushHistory({target:current,scope:scopeFor(current),key:keyFor(current),device:dev,before,after:valueNow},baseline);
+      endGesture();
+    }));
+    updateUi(x);
   }
 
   async function flush() {
@@ -169,6 +296,8 @@
     if (!response.ok || !json?.success) throw new Error(json?.data?.message || 'Bildposition konnte nicht gespeichert werden.');
     draftGlobal = cloneObject(json.data?.global ?? draftGlobal);
     draftPage = cloneObject(json.data?.page ?? draftPage);
+    savedGlobal = cloneObject(draftGlobal);
+    savedPage = cloneObject(draftPage);
     cfg.global = cloneObject(draftGlobal);
     cfg.page = cloneObject(draftPage);
     dirty = false;
@@ -189,7 +318,9 @@
   addCss();
   applySaved();
   window.addEventListener('resize', () => requestAnimationFrame(applySaved), {passive:true});
-  window.KPImagePositionRuntime = {flush, isDirty:() => dirty};
+  window.KPImagePositionRuntime = {flush, isDirty:() => dirty, undo, redo:redoStep, clearRedo, counts:()=>({undo:history.length,redo:redo.length})};
+  function registerHistory(){ if(window.KPWordHistory?.register){window.KPWordHistory.register('image-position',()=>window.KPImagePositionRuntime);return true}return false; }
+  registerHistory();setInterval(registerHistory,500);
 
   if (!cfg.editMode) return;
   const observer = new MutationObserver(() => requestAnimationFrame(injectControls));
