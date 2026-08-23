@@ -1,0 +1,80 @@
+name: Editor independent preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wp-content/**'
+      - 'qa/**'
+      - '.circleci/**'
+      - '.github/workflows/editor-independent-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: editor-independent-preflight-main
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Editor contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact commit
+        uses: actions/checkout@v4
+
+      - name: Runtime versions
+        run: |
+          set -euo pipefail
+          node --version
+          php --version
+          bash --version | head -1
+
+      - name: Word / Canva history contract
+        run: bash qa/word-history-contract.sh
+
+      - name: Unified Save / Undo / AI contract
+        run: bash qa/unified-editor-contract.sh
+
+      - name: Create Undo / Redo contract
+        run: bash qa/create-undo-contract.sh
+
+      - name: Calendar Undo / Redo contract
+        run: bash qa/calendar-undo-contract.sh
+
+      - name: PHP syntax for editor MU plugins
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            php -l "$file" >/dev/null || { echo "PHP syntax failed: $file"; exit 1; }
+          done < <(find wp-content/mu-plugins -maxdepth 1 -type f -name 'kp-*.php' -print0)
+          echo 'PASS: editor MU-plugin PHP syntax.'
+
+      - name: JavaScript syntax for editor runtimes
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            wp-content/mu-plugins/kp-canva-editor.js
+            wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js
+            wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/image-position.js
+            wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-card-controls.js
+            wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-app-extensions.js
+            wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/design-presets.js
+          )
+          for file in "${files[@]}"; do node --check "$file"; done
+          echo 'PASS: editor JavaScript syntax.'
+
+      - name: No browser leave-confirmation regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R --include='*.js' --include='*.php' -nE "event\.returnValue\s*=|returnValue\s*=\s*['\"]" wp-content/mu-plugins wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets; then
+            echo 'FAIL: browser leave-confirmation code found.' >&2
+            exit 1
+          fi
+          echo 'PASS: no leave-confirmation regression.'
