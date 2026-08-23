@@ -49,8 +49,13 @@ if [[ "$MODE" == 'full' ]]; then
 fi
 
 if [[ "$MODE" == 'qa' ]]; then
+  # QA-only commits can supersede a just-landed website commit before its staging
+  # job starts. The plugin version health check cannot see MU-plugin additions, so
+  # always sync repository MU-plugins before reusing staging. This is staging-only
+  # and does not delete host-specific MU files.
+  sync_mu_plugins
   if staging_matches_repo; then
-    echo 'CircleCI QA-only mode: staging already matches repository website code; reusing current deployment.'
+    echo 'CircleCI QA-only mode: plugin/theme version matches; MU-plugins refreshed, reusing current deployment.'
   else
     echo 'CircleCI QA-only mode: staging is stale or unhealthy; performing one staging-only recovery deploy.'
     sync_full_website
