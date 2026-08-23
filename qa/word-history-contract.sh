@@ -2,6 +2,7 @@
 set -euo pipefail
 
 FRONTEND='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js'
+IMAGE_POS='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/image-position.js'
 RUNTIME='wp-content/mu-plugins/kp-word-history.php'
 CANVA_JS='wp-content/mu-plugins/kp-canva-editor.js'
 CANVA_KEYS='wp-content/mu-plugins/kp-canva-keys.js'
@@ -11,11 +12,12 @@ NO_UNLOAD='wp-content/mu-plugins/kp-editor-no-beforeunload.php'
 
 fail(){ echo "FAIL word-history contract: $*" >&2; exit 1; }
 
-for file in "$FRONTEND" "$RUNTIME" "$CANVA_JS" "$CANVA_KEYS" "$CANVA_PHP" "$CANVA_CSS" "$NO_UNLOAD"; do
+for file in "$FRONTEND" "$IMAGE_POS" "$RUNTIME" "$CANVA_JS" "$CANVA_KEYS" "$CANVA_PHP" "$CANVA_CSS" "$NO_UNLOAD"; do
   [[ -f "$file" ]] || fail "required editor file missing: $file"
 done
 
 node --check "$FRONTEND" >/dev/null || fail 'frontend editor JavaScript syntax is invalid'
+node --check "$IMAGE_POS" >/dev/null || fail 'image-position JavaScript syntax is invalid'
 node --check "$CANVA_JS" >/dev/null || fail 'Canva editor JavaScript syntax is invalid'
 node --check "$CANVA_KEYS" >/dev/null || fail 'Canva key bridge JavaScript syntax is invalid'
 if command -v php >/dev/null 2>&1; then
@@ -47,8 +49,11 @@ grep -Fq "data-kp-word-history-new" "$RUNTIME" || fail 'compact arrow controls m
 grep -Fq '48 Stunden' "$RUNTIME" || fail 'version-history separation copy missing'
 grep -Fq "kp:canva-layout-history-push" "$RUNTIME" || fail 'drag/pinch changes are not connected to global undo/redo'
 grep -Fq "kp:canva-image-history-push" "$RUNTIME" || fail 'image edits are not connected to global undo/redo'
-grep -Fq 'kp-image-position-controls' "$RUNTIME" || fail 'image-position controls are not connected to global undo/redo'
 grep -Fq 'register,push:pushSpecialist' "$RUNTIME" || fail 'extensible specialist undo registry missing'
+
+grep -Fq "KPWordHistory?.push?.('image-position')" "$IMAGE_POS" || fail 'image-position controls are not connected to global undo/redo'
+grep -Fq 'targetForEntry' "$IMAGE_POS" || fail 'image-position history is not tied to the originally edited image'
+grep -Fq 'undo, redo:redoStep' "$IMAGE_POS" || fail 'image-position specialist undo/redo missing'
 
 grep -Fq 'window.KPCanvaLayoutRuntime' "$CANVA_JS" || fail 'shared drag/pinch runtime missing'
 grep -Fq 'window.KPCanvaImageRuntime' "$CANVA_JS" || fail 'image editing runtime missing'
