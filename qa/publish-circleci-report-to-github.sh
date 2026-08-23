@@ -50,7 +50,8 @@ cp "$REPORT_MD" /tmp/kp-circleci-report.md
 
 : > /tmp/kp-circleci-diagnostics.txt
 for logfile in \
-  word-history-contract.log unified-contract.log pipeline.log editor.log session-undo.log \
+  install.log preflight-summary.log word-history-contract.log unified-contract.log \
+  create-undo-contract.log calendar-undo-contract.log pipeline.log editor.log session-undo.log \
   persistence.log touch-slider.log touch-runtime.log visual.log php-syntax.log deploy.log; do
   src="qa-results/circleci/$logfile"
   if [[ -s "$src" ]]; then

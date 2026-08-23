@@ -13,29 +13,21 @@ jobs:
           name: Classify change and stop superseded work
           command: bash qa/circleci-classify.sh
       - run:
-          name: Verify instant Word history safety contract
-          command: |
-            mkdir -p qa-results/circleci
-            bash qa/word-history-contract.sh 2>&1 | tee qa-results/circleci/word-history-contract.log
-      - run:
           name: Install lightweight CI tools
           command: |
-            apt-get update -qq
-            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp jq php-cli ca-certificates curl git
-            if [[ "${KP_CI_MODE:-full}" != "pwa" ]]; then
-              npm install --no-save --no-audit --no-fund --prefer-offline playwright@1.55.0
-            else
-              echo 'PWA-fast mode: skipping Playwright npm install.'
-            fi
+            mkdir -p qa-results/circleci
+            {
+              apt-get update -qq
+              DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp jq php-cli ca-certificates curl git
+              if [[ "${KP_CI_MODE:-full}" != "pwa" ]]; then
+                npm install --no-save --no-audit --no-fund --prefer-offline playwright@1.55.0
+              else
+                echo 'PWA-fast mode: skipping Playwright npm install.'
+              fi
+            } 2>&1 | tee qa-results/circleci/install.log
       - run:
-          name: Verify unified Save Undo and AI contract
-          command: bash qa/unified-editor-contract.sh
-      - run:
-          name: Verify reversible create Undo Redo contract
-          command: bash qa/create-undo-contract.sh
-      - run:
-          name: Verify reversible calendar Undo Redo contract
-          command: bash qa/calendar-undo-contract.sh
+          name: Run deterministic editor preflight
+          command: bash qa/editor-preflight-contracts.sh
       - run:
           name: Protect shared staging design colors
           command: node qa/neutralize-staging-color-mutations.mjs
