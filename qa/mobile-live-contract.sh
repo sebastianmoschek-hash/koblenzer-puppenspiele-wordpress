@@ -20,13 +20,17 @@ grep -q 'editButton.setOnClickListener' "$KOTLIN/MainActivity.kt"
 grep -q 'wp-login.php' "$KOTLIN/MainActivity.kt"
 grep -q 'wordpress_logged_in_' "$KOTLIN/MainActivity.kt"
 
-# Direct Gemini Live: ephemeral server token, raw WebSocket, microphone/video and true barge-in.
+# Direct Gemini Live: ephemeral server token, current v1beta WebSocket, microphone/video and true barge-in.
 grep -q 'kp_mobile_live_bootstrap' "$BRIDGE"
 grep -q 'generativelanguage.googleapis.com/v1beta/auth_tokens' "$BRIDGE"
 grep -q "'uses'[[:space:]]*=>[[:space:]]*1" "$BRIDGE"
 grep -q 'KoblenzerPuppenspieleTechnician/' "$BRIDGE"
 grep -q 'bridge.bootstrap()' "$KOTLIN/GeminiLiveTechnician.kt"
-grep -q 'BidiGenerateContentConstrained' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'v1beta.GenerativeService.BidiGenerateContent' "$KOTLIN/GeminiLiveTechnician.kt"
+if grep -q 'BidiGenerateContentConstrained' "$KOTLIN/GeminiLiveTechnician.kt"; then
+  echo 'FAIL mobile-live: obsolete constrained Gemini Live WebSocket endpoint is still present.' >&2
+  exit 1
+fi
 grep -q 'access_token=' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'START_OF_ACTIVITY_INTERRUPTS' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'serverContent' "$KOTLIN/GeminiLiveTechnician.kt"
@@ -36,6 +40,7 @@ grep -q 'AudioTrack' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'audio/pcm;rate=16000' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'ScreenFrameBus.jpegFrames' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'image/jpeg' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'mediaChunks' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'startBackgroundRepair' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'SYSTEMSTATUS:' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'du kannst weiterreden' "$KOTLIN/GeminiLiveTechnician.kt"
@@ -77,4 +82,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS mobile-live: direct ephemeral Gemini Live, barge-in, continuous microphone/video, background repair analysis and protected CI-gated code repair are present.'
+echo 'PASS mobile-live: current v1beta ephemeral Gemini Live, mediaChunks, barge-in, continuous microphone/video, background repair analysis and protected CI-gated code repair are present.'
