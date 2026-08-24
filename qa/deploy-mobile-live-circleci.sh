@@ -16,6 +16,7 @@ files=(
   'kp-mobile-live-image-tools.php'
   'kp-mobile-live-image-adapter.php'
   'kp-mobile-local-ai-repair.php'
+  'kp-mobile-local-image-tools.php'
   'kp-local-ai-desktop.php'
   'kp-local-ai-marker.php'
 )
@@ -39,6 +40,7 @@ put '$MU/kp-mobile-live-protocol-marker.php' -o '/wp-content/mu-plugins/kp-mobil
 put '$MU/kp-mobile-live-image-tools.php' -o '/wp-content/mu-plugins/kp-mobile-live-image-tools.php';
 put '$MU/kp-mobile-live-image-adapter.php' -o '/wp-content/mu-plugins/kp-mobile-live-image-adapter.php';
 put '$MU/kp-mobile-local-ai-repair.php' -o '/wp-content/mu-plugins/kp-mobile-local-ai-repair.php';
+put '$MU/kp-mobile-local-image-tools.php' -o '/wp-content/mu-plugins/kp-mobile-local-image-tools.php';
 put '$MU/kp-local-ai-desktop.php' -o '/wp-content/mu-plugins/kp-local-ai-desktop.php';
 put '$MU/kp-local-ai-marker.php' -o '/wp-content/mu-plugins/kp-local-ai-marker.php';
 bye
@@ -82,7 +84,7 @@ done
 
 bootstrap="$(mktemp)"
 http_code="$(curl --silent --show-error --location \
-  -A 'KoblenzerPuppenspieleTechnician/0.3-localai' \
+  -A 'KoblenzerPuppenspieleTechnician/0.6-chatwindow' \
   -o "$bootstrap" -w '%{http_code}' \
   -X POST -d 'action=kp_mobile_local_bootstrap' \
   "$STAGING_BASE/wp-admin/admin-ajax.php")"
