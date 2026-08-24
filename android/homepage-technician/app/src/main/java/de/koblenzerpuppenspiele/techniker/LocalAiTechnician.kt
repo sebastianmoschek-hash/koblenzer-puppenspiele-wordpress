@@ -9,6 +9,7 @@ import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.SamplerConfig
+import com.google.ai.edge.litertlm.ThinkingConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -52,6 +53,8 @@ class LocalAiTechnician(
     private val modelManager = LocalModelManager(context)
     private val history = ArrayDeque<ChatTurn>()
     private var engine: Engine? = null
+    private var engineBackend = ""
+    private var preferCpu = false
 
     fun modelState(): ModelState = modelManager.state()
 
@@ -152,31 +155,102 @@ class LocalAiTechnician(
     }
 
     fun release() {
-        runCatching { engine?.close() }
-        engine = null
+        resetEngine()
         history.clear()
     }
 
     private fun buildPlannerPrompt(request: String, page: String, elements: String, capabilities: String): String {
-        val prior = history.takeLast(4).joinToString("\n") { "NUTZER: ${it.user}\nKI: ${it.assistant}" }
-        return """
-            AKTUELLER WUNSCH:
-            $request
+        val prior = history.takeLast(3)
+            .joinToString("\n") { "NUTZER: ${it.user.take(500)}\nKI: ${it.assistant.take(700)}" }
+            .take(1800)
+        val compactPage = page.take(3200)
+        val compactElements = compactEditableElements(elements)
+        val compactCapabilities = capabilities.take(1800)
+        return boundPrompt(
+            """
+                AUFGABE: Erzeuge einen kleinen ausführbaren JSON-Plan. Verwende nur live_id-Werte aus dem kompakten Elementkontext. Wenn eine Eigenschaft dort nicht angeboten wird, verwende request_code_change.
 
-            LETZTE UNTERHALTUNG:
-            ${prior.ifBlank { "Noch keine." }}
+                AKTUELLER WUNSCH:
+                ${request.take(1400)}
 
-            SEITENKONTEXT:
-            $page
+                LETZTE UNTERHALTUNG:
+                ${prior.ifBlank { "Noch keine." }}
 
-            SICHTBARE ELEMENTE:
-            $elements
+                SEITENKONTEXT:
+                $compactPage
 
-            EDITOR-FÄHIGKEITEN:
-            $capabilities
+                SICHTBARE ELEMENTE (kompakt):
+                $compactElements
 
-            Liefere ausschließlich den JSON-Plan. Nutze live_id exakt aus den sichtbaren Elementen. Für Editor-UI, PHP, JavaScript, CSS oder nicht direkt unterstützte Eigenschaften verwende request_code_change statt so zu tun, als sei die Änderung schon erledigt.
-        """.trimIndent()
+                EDITOR-FÄHIGKEITEN:
+                $compactCapabilities
+
+                Liefere ausschließlich den JSON-Plan. Nutze live_id exakt aus den sichtbaren Elementen. Für Editor-UI, PHP, JavaScript, CSS oder nicht direkt unterstützte Eigenschaften verwende request_code_change statt so zu tun, als sei die Änderung schon erledigt.
+            """.trimIndent(),
+            MAX_MODEL_PROMPT_CHARS,
+        )
+    }
+
+    private fun compactEditableElements(raw: String): String = runCatching {
+        val source = JSONObject(raw)
+        val out = JSONObject()
+        out.put("editMode", source.optBoolean("editMode", false))
+
+        val contentSource = source.optJSONArray("content") ?: JSONArray()
+        val content = JSONArray()
+        for (i in 0 until minOf(contentSource.length(), MAX_CONTENT_ELEMENTS)) {
+            val element = contentSource.optJSONObject(i) ?: continue
+            val compact = JSONObject()
+                .put("liveId", element.optString("liveId"))
+                .put("kind", element.optString("kind"))
+                .put("tag", element.optString("tag"))
+                .put("text", element.optString("text").take(160))
+            element.optJSONArray("properties")?.let { compact.put("properties", it) }
+            element.optJSONObject("rect")?.let { rect ->
+                compact.put(
+                    "rect",
+                    JSONObject()
+                        .put("x", rect.optInt("x"))
+                        .put("y", rect.optInt("y"))
+                        .put("width", rect.optInt("width"))
+                        .put("height", rect.optInt("height")),
+                )
+            }
+            element.optJSONObject("style")?.let { style ->
+                compact.put(
+                    "style",
+                    JSONObject()
+                        .put("fontSize", style.optString("fontSize"))
+                        .put("color", style.optString("color"))
+                        .put("background", style.optString("background")),
+                )
+            }
+            content.put(compact)
+        }
+
+        val uiSource = source.optJSONArray("editorUi") ?: JSONArray()
+        val editorUi = JSONArray()
+        for (i in 0 until minOf(uiSource.length(), MAX_EDITOR_UI_ELEMENTS)) {
+            val element = uiSource.optJSONObject(i) ?: continue
+            editorUi.put(
+                JSONObject()
+                    .put("liveId", element.optString("liveId"))
+                    .put("kind", "editor-ui")
+                    .put("text", element.optString("text").take(120))
+                    .put("properties", element.optJSONArray("properties") ?: JSONArray()),
+            )
+        }
+        out.put("content", content)
+        out.put("editorUi", editorUi)
+        out.put("count", content.length() + editorUi.length())
+        out.toString()
+    }.getOrElse { raw.take(7000) }
+
+    private fun boundPrompt(text: String, maxChars: Int): String {
+        if (text.length <= maxChars) return text
+        val head = (maxChars * 3) / 4
+        val tail = maxChars - head
+        return text.take(head) + "\n\n[Kontext aus Speichergründen gekürzt]\n\n" + text.takeLast(tail)
     }
 
     private fun remember(user: String, assistant: String) {
@@ -188,37 +262,84 @@ class LocalAiTechnician(
         "(?i)\\b(speicher(?:n|e|t)?|übernehm(?:en|e|t)?|dauerhaft|veröffentlich(?:en|e|t)?)\\b"
     ).containsMatchIn(text)
 
+    private fun cpuBackend(): Backend.CPU = Backend.CPU(
+        threadCount = minOf(4, Runtime.getRuntime().availableProcessors().coerceAtLeast(1)),
+    )
+
     private fun ensureEngine(): Engine {
         engine?.let { return it }
         val model = modelManager.modelFile()
         if (!modelManager.isInstalled()) throw IllegalStateException("Lokales KI-Modell fehlt.")
         status("Lokale KI wird geladen …")
 
-        fun initialize(backend: Backend): Engine {
+        fun initialize(backend: Backend, label: String): Engine {
             val candidate = Engine(
                 EngineConfig(
                     modelPath = model.absolutePath,
                     backend = backend,
+                    maxNumTokens = LOCAL_MAX_TOKENS,
                     cacheDir = File(context.cacheDir, "litertlm").apply { mkdirs() }.absolutePath,
                 )
             )
-            candidate.initialize()
-            return candidate
+            return try {
+                candidate.initialize()
+                engineBackend = label
+                candidate
+            } catch (error: Throwable) {
+                runCatching { candidate.close() }
+                throw error
+            }
         }
 
-        val active = runCatching { initialize(Backend.GPU()) }
-            .recoverCatching { initialize(Backend.CPU()) }
-            .getOrElse { throw IllegalStateException("Das lokale KI-Modell konnte auf diesem Gerät nicht gestartet werden: ${it.message}", it) }
+        val active = if (preferCpu) {
+            initialize(cpuBackend(), "CPU")
+        } else {
+            runCatching { initialize(Backend.GPU(), "GPU") }
+                .getOrElse {
+                    preferCpu = true
+                    status("GPU nicht verfügbar · lokale KI nutzt CPU")
+                    initialize(cpuBackend(), "CPU")
+                }
+        }
         engine = active
         return active
     }
 
+    private fun resetEngine() {
+        runCatching { engine?.close() }
+        engine = null
+        engineBackend = ""
+    }
+
     private fun oneShotJson(system: String, prompt: String, temperature: Double): JSONObject {
-        val active = ensureEngine()
+        val safePrompt = boundPrompt(prompt, MAX_MODEL_PROMPT_CHARS)
+        return try {
+            oneShotJsonWithEngine(ensureEngine(), system, safePrompt, temperature)
+        } catch (error: Throwable) {
+            if (!isNativeInferenceFailure(error)) throw error
+            val failedBackend = engineBackend
+            resetEngine()
+            if (failedBackend == "GPU") {
+                preferCpu = true
+                status("Lokale KI: GPU-Inferenz fehlgeschlagen · einmaliger CPU-Fallback …")
+                return try {
+                    oneShotJsonWithEngine(ensureEngine(), system, safePrompt, temperature)
+                } catch (cpuError: Throwable) {
+                    throw friendlyNativeFailure(cpuError)
+                }
+            }
+            throw friendlyNativeFailure(error)
+        }
+    }
+
+    private fun oneShotJsonWithEngine(active: Engine, system: String, prompt: String, temperature: Double): JSONObject {
+        val noThinking = ThinkingConfig(enableThinking = false, thinkingTokenBudget = 0)
         active.createConversation(
             ConversationConfig(
                 systemInstruction = Contents.of(system),
                 samplerConfig = SamplerConfig(topK = 20, topP = 0.82, temperature = temperature),
+                maxOutputToken = MAX_OUTPUT_TOKENS,
+                thinkingConfig = noThinking,
             )
         ).use { conversation ->
             val firstText = conversation.sendMessage(prompt).text
@@ -236,6 +357,26 @@ class LocalAiTechnician(
                 ?: throw IllegalStateException("Die lokale KI konnte den Änderungsplan nach einem automatischen Reparaturversuch nicht strukturiert ausgeben. Bitte denselben Wunsch noch einmal senden.")
         }
     }
+
+    private fun isNativeInferenceFailure(error: Throwable): Boolean {
+        var current: Throwable? = error
+        repeat(6) {
+            val type = current?.javaClass?.simpleName.orEmpty()
+            val message = current?.message.orEmpty()
+            if (type.contains("LiteRtLmJni", ignoreCase = true) ||
+                message.contains("nativeSendMessage", ignoreCase = true) ||
+                message.contains("resource exhausted", ignoreCase = true) ||
+                message.contains("kv cache", ignoreCase = true)
+            ) return true
+            current = current?.cause
+        }
+        return false
+    }
+
+    private fun friendlyNativeFailure(error: Throwable): IllegalStateException = IllegalStateException(
+        "Das lokale Modell konnte den kompakten Seitenkontext gerade nicht berechnen. Die App hat bereits GPU/CPU-Fallback und einen kleineren Kontext versucht. Bitte denselben Wunsch noch einmal senden; wenn es erneut passiert, kannst du vorübergehend Notfall Gemini verwenden.",
+        error,
+    )
 
     private fun parseJsonObjectOrNull(text: String): JSONObject? {
         val normalized = text
@@ -331,6 +472,12 @@ class LocalAiTechnician(
     }
 
     companion object {
+        private const val LOCAL_MAX_TOKENS = 6144
+        private const val MAX_OUTPUT_TOKENS = 384
+        private const val MAX_MODEL_PROMPT_CHARS = 12000
+        private const val MAX_CONTENT_ELEMENTS = 28
+        private const val MAX_EDITOR_UI_ELEMENTS = 6
+
         private val PLANNER_SYSTEM = """
             Du bist die lokale, kostenlose Homepage-KI der Koblenzer Puppenspiele. Antworte ausschließlich als JSON ohne Markdown:
             {
