@@ -27,4 +27,7 @@ if grep -Eq "file_put_contents\(|WP_Filesystem\(|unlink\(" "$FILE"; then
   exit 1
 fi
 
+# The local browser/phone planner must preserve the same protected repair boundary.
+bash qa/local-ai-contract.sh
+
 echo 'AI repair lab contract PASS'
