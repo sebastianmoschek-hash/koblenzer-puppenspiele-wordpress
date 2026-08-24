@@ -93,8 +93,9 @@ class WebRepairBridge(private val webView: WebView) {
           undo:!!window.KPRepairMobile?.undo,
           redo:!!window.KPRepairMobile?.redo,
           localTechnicalRepair:true,
+          localAndroidSelfRepair:true,
           cloudPlanner:false,
-          capabilities:['inspect-elements','text','links','font','padding','width','radius','color','background','global-design','move','section-order','responsive-editor','undo','redo','save','local-technical-code-repair']
+          capabilities:['inspect-elements','text','links','font','padding','width','radius','color','background','global-design','move','section-order','responsive-editor','undo','redo','save','local-technical-code-repair','android-self-repair-via-pr']
         }))())
         """.trimIndent()
     )
@@ -150,7 +151,7 @@ class WebRepairBridge(private val webView: WebView) {
     )
 
     suspend fun createRepairBranch(proposalId: String): JsonObject =
-        repairPost("kp_ai_repair_create_pr", mapOf("proposal_id" to proposalId))
+        repairPost("kp_local_ai_repair_create_pr", mapOf("proposal_id" to proposalId))
 
     suspend fun status(pr: String): JsonObject =
         repairPost("kp_ai_repair_status", mapOf("pr" to pr))
