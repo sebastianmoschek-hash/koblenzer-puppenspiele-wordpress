@@ -1,7 +1,8 @@
 {
-  "generatedAt":"2026-08-24T11:43:55Z",
-  "commit":"a2e1a9f375e8688c56ab5850725155fbfb48d4e0",
+  "generatedAt":"2026-08-24T11:44:16Z",
+  "commit":"f016fee18fd140c0be5fdb450b75884abd30834d",
   "state":"success",
+  "apkArtifact":true,
   "checks":{
     "toolchain":0,
     "securityContract":0,
