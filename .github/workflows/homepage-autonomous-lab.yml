@@ -61,6 +61,7 @@ jobs:
           echo "require_owner=$plugin" >> "$GITHUB_OUTPUT"
           echo "require_touch=$touch" >> "$GITHUB_OUTPUT"
           echo "force_suite=$force_suite" >> "$GITHUB_OUTPUT"
+          echo "started_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
           printf 'Source: %s\nRequire owner: %s\nRequire touch: %s\nChanged:\n%s\n' "$source" "$plugin" "$touch" "$changed"
 
       - name: Start full browser suite for infrastructure/manual checks
@@ -79,20 +80,32 @@ jobs:
           SOURCE_SHA: ${{ steps.plan.outputs.source }}
           REQUIRE_OWNER: ${{ steps.plan.outputs.require_owner }}
           REQUIRE_TOUCH: ${{ steps.plan.outputs.require_touch }}
+          FORCE_SUITE: ${{ steps.plan.outputs.force_suite }}
+          STARTED_AT: ${{ steps.plan.outputs.started_at }}
         shell: bash
         run: |
           set -euo pipefail
           repo="$GITHUB_REPOSITORY"
           get_run() {
             local wf="$1"
-            gh api -X GET "repos/$repo/actions/workflows/$wf/runs?head_sha=$SOURCE_SHA&per_page=20" \
-              --jq '[.workflow_runs[] | select(.status == "completed")][0] | if . == null then "" else [.id,.conclusion,.event,.created_at] | @tsv end'
+            if [ "$FORCE_SUITE" = 1 ]; then
+              # workflow_dispatch resolves --ref main when the dispatch request is
+              # accepted. QA bots may advance main after this lab started, so a
+              # strict SOURCE_SHA filter can orphan the runs we just requested.
+              # For force/manual suites, bind to the newest completed dispatch
+              # created after this lab began instead.
+              gh api -X GET "repos/$repo/actions/workflows/$wf/runs?event=workflow_dispatch&per_page=20" \
+                --jq "[.workflow_runs[] | select(.status == \"completed\" and .created_at >= \"$STARTED_AT\")][0] | if . == null then \"\" else [.id,.conclusion,.event,.created_at,.head_sha] | @tsv end"
+            else
+              gh api -X GET "repos/$repo/actions/workflows/$wf/runs?head_sha=$SOURCE_SHA&per_page=20" \
+                --jq '[.workflow_runs[] | select(.status == "completed")][0] | if . == null then "" else [.id,.conclusion,.event,.created_at,.head_sha] | @tsv end'
+            fi
           }
           deploy=''; owner=''; touch=''
           for attempt in $(seq 1 72); do
             deploy=$(get_run deploy-staging.yml || true)
-            if [ "$REQUIRE_OWNER" = 1 ]; then owner=$(get_run owner-all-persistence-staging-qa.yml || true); else owner=$'0\tnot-required\tn/a\tn/a'; fi
-            if [ "$REQUIRE_TOUCH" = 1 ]; then touch=$(get_run touch-slider-staging-qa.yml || true); else touch=$'0\tnot-required\tn/a\tn/a'; fi
+            if [ "$REQUIRE_OWNER" = 1 ]; then owner=$(get_run owner-all-persistence-staging-qa.yml || true); else owner=$'0\tnot-required\tn/a\tn/a\tn/a'; fi
+            if [ "$REQUIRE_TOUCH" = 1 ]; then touch=$(get_run touch-slider-staging-qa.yml || true); else touch=$'0\tnot-required\tn/a\tn/a\tn/a'; fi
             if [ -n "$deploy" ] && [ -n "$owner" ] && [ -n "$touch" ]; then break; fi
             sleep 10
           done
