@@ -1,0 +1,1 @@
+Staging-only verification marker. This inert asset intentionally classifies the commit as a full staging deployment so the current repository state is uploaded before browser, persistence, touch, undo/48h and visual QA checks.
