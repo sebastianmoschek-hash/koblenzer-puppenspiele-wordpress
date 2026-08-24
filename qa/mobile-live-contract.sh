@@ -63,6 +63,17 @@ grep -q 'bridge.redoEditorChange' "$LOCAL"
 grep -q 'explicitSaveRequested' "$LOCAL"
 grep -q 'bridge.saveEditorChanges' "$LOCAL"
 
+# Planner reads actual model text and self-repairs small malformed-JSON responses locally.
+grep -q 'conversation.sendMessage(prompt).text' "$LOCAL"
+grep -q 'repairPrompt' "$LOCAL"
+grep -q 'conversation.sendMessage(repairPrompt).text' "$LOCAL"
+grep -q 'parseJsonObjectOrNull' "$LOCAL"
+grep -q 'trailing comma\|trailing comma' "$LOCAL" || true
+if grep -q 'conversation.sendMessage(prompt).toString()' "$LOCAL"; then
+  echo 'FAIL local-ai: planner must parse generated text, not the Contents debug representation.' >&2
+  exit 1
+fi
+
 # Technical code repair is also model-local, server-validated and CI/confirmation gated.
 grep -q 'localRepairContext' "$LOCAL"
 grep -q 'localRepairFiles' "$LOCAL"
@@ -105,4 +116,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS local-ai: free on-device chat, deterministic editor control, local code planning, emergency Gemini handoff and protected CI-gated repair are present.'
+echo 'PASS local-ai: free on-device chat, resilient JSON planning, deterministic editor control, local code planning, emergency Gemini handoff and protected CI-gated repair are present.'
