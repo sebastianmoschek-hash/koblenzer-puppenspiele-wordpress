@@ -42,14 +42,17 @@ if [[ -z "$meaningful" ]]; then
   exit 0
 fi
 
-# Pure pipeline wiring changes are already validated by CircleCI parsing the
-# config and by the editor-contracts job. They do not justify occupying the
-# serialized staging lane at all.
+# Pure pipeline wiring/reporting changes are already validated by CircleCI
+# parsing the config and by the editor-contracts job. They must not occupy the
+# shared staging lane or trigger browser tests that cannot validate these files.
 pipeline_only=1
 while IFS= read -r file; do
   [[ -z "$file" ]] && continue
   case "$file" in
-    .circleci/*|qa/circleci-classify.sh)
+    .circleci/*|\
+    qa/circleci-classify.sh|\
+    qa/publish-circleci-report-to-github.sh|\
+    qa/staging-verdict-check.mjs)
       ;;
     *)
       pipeline_only=0
@@ -60,7 +63,8 @@ done <<< "$meaningful"
 
 if [[ $pipeline_only -eq 1 ]]; then
   bash -n qa/circleci-classify.sh
-  echo 'CircleCI: pipeline-only change; static gates are sufficient, staging job halted before install/deploy.'
+  [[ ! -f qa/publish-circleci-report-to-github.sh ]] || bash -n qa/publish-circleci-report-to-github.sh
+  echo 'CircleCI: pipeline/report-only change; static gates are sufficient, staging job halted before install/deploy.'
   circleci-agent step halt
   exit 0
 fi
