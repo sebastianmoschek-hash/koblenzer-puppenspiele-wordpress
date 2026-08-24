@@ -23,6 +23,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
@@ -41,6 +42,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.random.Random
 
 /** Direct Gemini Live client using short-lived WordPress-issued ephemeral tokens. */
 class GeminiLiveTechnician(
@@ -52,6 +54,8 @@ class GeminiLiveTechnician(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client = OkHttpClient.Builder().build()
     private val running = AtomicBoolean(false)
+    private val sessionStarted = AtomicBoolean(false)
+    private val reconnecting = AtomicBoolean(false)
     private val modelSpeaking = AtomicBoolean(false)
     private val suppressModelAudio = AtomicBoolean(false)
     private val handlerJobs = ConcurrentHashMap<String, Job>()
@@ -64,9 +68,13 @@ class GeminiLiveTechnician(
     @Volatile private var audioTrack: AudioTrack? = null
     @Volatile private var echoCanceler: AcousticEchoCanceler? = null
     @Volatile private var noiseSuppressor: NoiseSuppressor? = null
+    @Volatile private var currentToken: String = ""
+    @Volatile private var currentModel: String = "gemini-3.1-flash-live-preview"
+    @Volatile private var resumptionHandle: String = ""
     private var audioJob: Job? = null
     private var playbackJob: Job? = null
     private var frameJob: Job? = null
+    private var reconnectJob: Job? = null
     private var localSpeechFrames = 0
 
     private data class RepairJobState(
@@ -82,71 +90,29 @@ class GeminiLiveTechnician(
             throw IllegalStateException("Mikrofonzugriff fehlt.")
         }
 
-        status("Live v1beta-u1 · Zugang wird vorbereitet …")
-        val bootstrap = bridge.bootstrap()
-        bootstrap["error"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let {
-            throw IllegalStateException(it)
-        }
-        val protocol = bootstrap["liveProtocol"]?.jsonPrimitive?.content.orEmpty()
-        if (protocol != "v1beta-u1") {
-            throw IllegalStateException("Staging-Live-Protokoll ist noch nicht aktuell ($protocol).")
-        }
-        val token = bootstrap["liveToken"]?.jsonPrimitive?.content.orEmpty()
-        if (token.isBlank()) throw IllegalStateException("WordPress hat kein kurzlebiges Gemini-Live-Token geliefert.")
-        val model = bootstrap["model"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
-            ?: "gemini-3.1-flash-live-preview"
-
-        status("Live v1beta-u1 · Gemini-Verbindung wird geöffnet …")
-        val ready = CompletableDeferred<Unit>()
-        setupReady = ready
         running.set(true)
+        sessionStarted.set(false)
+        reconnecting.set(false)
+        resumptionHandle = ""
         modelSpeaking.set(false)
         suppressModelAudio.set(false)
         localSpeechFrames = 0
-        val request = Request.Builder()
-            .url("wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=$token")
-            .build()
-
-        socket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                webSocket.send(buildSetup(model).toString())
-            }
-
-            override fun onMessage(webSocket: WebSocket, text: String) = handleServerMessage(text)
-            override fun onMessage(webSocket: WebSocket, bytes: ByteString) = handleServerMessage(bytes.utf8())
-
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                if (running.get()) status("Gemini Live v1beta-u1 beendet ($code): ${reason.ifBlank { "ohne Begründung" }}")
-                webSocket.close(code, reason)
-            }
-
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                if (running.get()) {
-                    running.set(false)
-                    val message = "Gemini Live v1beta-u1 wurde beendet ($code): ${reason.ifBlank { "Verbindung geschlossen" }}"
-                    ready.completeExceptionally(IllegalStateException(message))
-                    status(message)
-                }
-            }
-
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                val detail = response?.let { "HTTP ${it.code}" } ?: (t.message ?: t.javaClass.simpleName)
-                ready.completeExceptionally(IllegalStateException("Direkte Gemini-Live-Verbindung fehlgeschlagen: $detail", t))
-                if (running.get()) status("Gemini Live v1beta-u1: $detail")
-                running.set(false)
-            }
-        })
 
         try {
+            status("KI · Zugang wird vorbereitet …")
+            refreshBootstrap()
+            status("KI · Gemini Live wird verbunden …")
+            val ready = openConnection()
             withTimeout(15_000) { ready.await() }
             startPlayback()
             startMicrophone()
             frameJob = scope.launch {
                 ScreenFrameBus.jpegFrames.collectLatest { jpeg ->
-                    if (running.get()) sendRealtimeBlob("image/jpeg", jpeg)
+                    if (running.get() && socket != null) sendRealtimeBlob("image/jpeg", jpeg)
                 }
             }
-            status("KI live · voller Editorzugriff · sprich jederzeit dazwischen")
+            sessionStarted.set(true)
+            status("KI live · direkter Editorzugriff · sprich einfach mit mir")
         } catch (error: Throwable) {
             stop()
             throw error
@@ -155,6 +121,9 @@ class GeminiLiveTechnician(
 
     fun stop() {
         running.set(false)
+        sessionStarted.set(false)
+        reconnecting.set(false)
+        reconnectJob?.cancel(); reconnectJob = null
         modelSpeaking.set(false)
         suppressModelAudio.set(false)
         localSpeechFrames = 0
@@ -165,9 +134,12 @@ class GeminiLiveTechnician(
         handlerJobs.clear()
         drainPlaybackQueue()
         stopAudio()
-        socket?.close(1000, "Nutzer hat KI-Live beendet")
+        val old = socket
         socket = null
+        old?.close(1000, "Nutzer hat KI-Live beendet")
         setupReady = null
+        currentToken = ""
+        resumptionHandle = ""
         status("KI-Live beendet")
     }
 
@@ -179,91 +151,167 @@ class GeminiLiveTechnician(
         scope.cancel()
     }
 
-    private fun buildSetup(model: String): JSONObject {
+    private suspend fun refreshBootstrap() {
+        val bootstrap = bridge.bootstrap()
+        bootstrap["error"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
+        val protocol = bootstrap["liveProtocol"]?.jsonPrimitive?.content.orEmpty()
+        if (protocol != "v1beta-u1") throw IllegalStateException("Staging-Live-Protokoll ist noch nicht aktuell ($protocol).")
+        currentToken = bootstrap["liveToken"]?.jsonPrimitive?.content.orEmpty()
+        if (currentToken.isBlank()) throw IllegalStateException("WordPress hat kein kurzlebiges Gemini-Live-Token geliefert.")
+        currentModel = bootstrap["model"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
+            ?: "gemini-3.1-flash-live-preview"
+    }
+
+    private fun openConnection(): CompletableDeferred<Unit> {
+        val ready = CompletableDeferred<Unit>()
+        setupReady = ready
+        val token = currentToken
+        val model = currentModel
+        val request = Request.Builder()
+            .url("wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=$token")
+            .build()
+
+        val webSocket = client.newWebSocket(request, object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                if (!running.get()) return
+                webSocket.send(buildSetup(model, resumptionHandle).toString())
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                if (socket === webSocket) handleServerMessage(text)
+            }
+
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                if (socket === webSocket) handleServerMessage(bytes.utf8())
+            }
+
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                webSocket.close(code, reason)
+            }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                if (socket !== webSocket) return
+                socket = null
+                if (!ready.isCompleted) ready.completeExceptionally(IllegalStateException("Gemini Live wurde beendet ($code): ${reason.ifBlank { "Verbindung geschlossen" }}"))
+                if (running.get() && sessionStarted.get()) requestReconnect("Verbindung wurde geschlossen")
+            }
+
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                if (socket !== webSocket) return
+                socket = null
+                val detail = response?.let { "HTTP ${it.code}" } ?: (t.message ?: t.javaClass.simpleName)
+                if (!ready.isCompleted) ready.completeExceptionally(IllegalStateException("Direkte Gemini-Live-Verbindung fehlgeschlagen: $detail", t))
+                if (running.get() && sessionStarted.get()) requestReconnect(detail)
+            }
+        })
+        socket = webSocket
+        return ready
+    }
+
+    private fun requestReconnect(reason: String) {
+        if (!running.get() || !sessionStarted.get()) return
+        if (!reconnecting.compareAndSet(false, true)) return
+        val old = socket
+        socket = null
+        old?.close(1000, "Session wird fortgesetzt")
+        drainPlaybackQueue()
+        modelSpeaking.set(false)
+        suppressModelAudio.set(false)
+        reconnectJob = scope.launch {
+            var lastError = reason
+            for (attempt in 0 until 5) {
+                if (!running.get()) break
+                val base = if (attempt == 0) 450L else 1_000L shl (attempt - 1)
+                delay(base + Random.nextLong(0, 450))
+                try {
+                    status(if (attempt == 0) "KI-Verbindung wird automatisch fortgesetzt …" else "KI-Verbindung · neuer Versuch ${attempt + 1}/5 …")
+                    refreshBootstrap()
+                    if (attempt >= 2) resumptionHandle = ""
+                    val ready = openConnection()
+                    withTimeout(15_000) { ready.await() }
+                    reconnecting.set(false)
+                    status(if (resumptionHandle.isNotBlank()) "KI live · Sitzung fortgesetzt" else "KI live · wieder verbunden")
+                    return@launch
+                } catch (error: Throwable) {
+                    lastError = error.message ?: error.javaClass.simpleName
+                    val failed = socket
+                    socket = null
+                    failed?.cancel()
+                }
+            }
+            reconnecting.set(false)
+            sessionStarted.set(false)
+            status("KI-Verbindung konnte nicht wiederhergestellt werden · $lastError")
+        }
+    }
+
+    private fun buildSetup(model: String, handle: String): JSONObject {
         val declarations = JSONArray().apply {
-            put(function("inspect_homepage", "Untersuche die aktuell sichtbare Homepage und den verfügbaren Seitenkontext."))
-            put(function("inspect_editor_capabilities", "Prüfe, welche visuellen Bearbeitungs-, Speicher-, Undo- und Code-Reparaturwerkzeuge auf der aktuellen Seite verfügbar sind."))
+            put(function("inspect_homepage", "Untersuche die sichtbare Homepage, Browserfehler und den aktuellen Editorzustand."))
+            put(function("inspect_editable_elements", "Liste sichtbare bearbeitbare Homepage-Elemente und sichtbare Editor-Bedienelemente mit live_id, Position, Typ, Text und verfügbaren Eigenschaften."))
+            put(function("inspect_editor_capabilities", "Prüfe die verfügbaren direkten Editor-, Speicher-, Undo-/Redo- und Code-Reparaturwerkzeuge."))
             put(function(
-                "edit_homepage",
-                "Setze einen Wunsch zu Text, Bild, Farbe, Größe, Abstand, Position, Navigation, Menü, Header, responsivem Layout oder anderem sichtbaren Design direkt im Homepage-Editor um. Änderungen bleiben zunächst ungespeichert.",
-                mapOf("request" to "Konkreter deutscher Änderungswunsch. Beschreibe sichtbare Referenzen wie 'die beiden Pfeile unten' möglichst genau."),
-                listOf("request"),
+                "edit_element",
+                "Ändere genau eine Eigenschaft eines sichtbaren Homepage-Elements direkt im bestehenden manuellen Editor, ohne eine zweite Gemini-Planungsanfrage. Wenn das Ziel zur Editor-Oberfläche gehört oder die Eigenschaft nicht direkt unterstützt wird, liefert das Werkzeug codeRequired=true.",
+                mapOf(
+                    "live_id" to "live_id aus inspect_editable_elements.",
+                    "property" to "Eine verfügbare Eigenschaft: text, label, url, font_percent, padding_percent, width_percent, radius_px, color, background, move_x, move_y, section_up oder section_down.",
+                    "value" to "Neuer Wert. Farben als #RRGGBB, Größen als Zahl, Verschiebungen in Pixel. Für section_up/down kann value leer sein."
+                ),
+                listOf("live_id", "property", "value"),
             ))
-            put(function("save_homepage", "Speichere die aktuell ungespeicherten Homepage- oder KI-Editor-Änderungen dauerhaft."))
-            put(function("undo_homepage", "Nimm die letzte noch nicht gespeicherte Editor-Änderung zurück."))
-            put(function("redo_homepage", "Stelle die zuletzt zurückgenommene Editor-Änderung wieder her."))
+            put(function(
+                "set_global_design",
+                "Ändere eine globale Design-Einstellung direkt im Website-Designpanel, ohne zweite Gemini-Anfrage.",
+                mapOf(
+                    "key" to "Design-Key, z.B. accent_color, background_color, content_width, wide_width, card_radius, button_radius, body_font, heading_font, header_max_width, menu_width, menu_radius, menu_button_size, menu_font_delta.",
+                    "value" to "Neuer Wert passend zum Design-Key."
+                ),
+                listOf("key", "value"),
+            ))
+            put(function("save_homepage", "Speichere die aktuell ungespeicherten direkten Homepage- oder Designänderungen dauerhaft."))
+            put(function("undo_homepage", "Nimm die letzte Editoränderung zurück."))
+            put(function("redo_homepage", "Stelle die zuletzt zurückgenommene Editoränderung wieder her."))
             put(function(
                 "analyze_homepage_error",
-                "Starte eine geschützte technische Codeanalyse im Hintergrund. Nutze dies auch dann, wenn eine gewünschte Design- oder Editor-Änderung mit edit_homepage nicht möglich ist und dafür Theme-, Plugin-, CSS-, JavaScript- oder PHP-Code geändert werden muss. Kehre sofort mit einer job_id zurück.",
-                mapOf("description" to "Präzise deutsche Beschreibung des sichtbaren, funktionalen oder gestalterischen Fehlers bzw. der benötigten Codeänderung."),
+                "Starte eine geschützte technische Codeanalyse im Hintergrund. Nutze dies auch für gewünschte Änderungen an Editor-Bedienelementen oder Eigenschaften, die edit_element/set_global_design mit codeRequired=true melden.",
+                mapOf("description" to "Präzise deutsche Beschreibung des Fehlers oder der benötigten Code-/Editoränderung."),
                 listOf("description"),
             ))
-            put(function(
-                "get_repair_job",
-                "Prüfe den Stand einer zuvor gestarteten Hintergrund-Codeanalyse.",
-                mapOf("job_id" to "job_id aus analyze_homepage_error."),
-                listOf("job_id"),
-            ))
-            put(function(
-                "create_repair_branch",
-                "Erstelle nach ausdrücklicher Bestätigung aus einem sicheren Reparaturvorschlag einen isolierten Prüfbranch und Pull Request.",
-                mapOf("proposal_id" to "proposal_id aus einer abgeschlossenen Codeanalyse."),
-                listOf("proposal_id"),
-            ))
-            put(function(
-                "check_repair_status",
-                "Prüfe CI und Merge-Bereitschaft eines Reparatur-Pull-Requests.",
-                mapOf("pr" to "Pull-Request-Nummer."),
-                listOf("pr"),
-            ))
-            put(function(
-                "merge_repair",
-                "Übernimm nach ausdrücklicher Bestätigung einen Reparatur-PR, sofern CI grün ist.",
-                mapOf("pr" to "Pull-Request-Nummer."),
-                listOf("pr"),
-            ))
+            put(function("get_repair_job", "Prüfe den Stand einer Hintergrund-Codeanalyse.", mapOf("job_id" to "job_id aus analyze_homepage_error."), listOf("job_id")))
+            put(function("create_repair_branch", "Erstelle nach ausdrücklicher Bestätigung einen isolierten Prüfbranch und Pull Request.", mapOf("proposal_id" to "proposal_id aus der abgeschlossenen Codeanalyse."), listOf("proposal_id")))
+            put(function("check_repair_status", "Prüfe CI und Merge-Bereitschaft eines Reparatur-Pull-Requests.", mapOf("pr" to "Pull-Request-Nummer."), listOf("pr")))
+            put(function("merge_repair", "Übernimm nach ausdrücklicher Bestätigung einen Reparatur-PR, sofern CI grün ist.", mapOf("pr" to "Pull-Request-Nummer."), listOf("pr")))
             put(function("list_technical_repairs", "Liste bisherige technische KI-Reparaturen."))
-            put(function(
-                "rollback_technical_repair",
-                "Erstelle nach ausdrücklicher Bestätigung einen abgesicherten Rücknahme-PR.",
-                mapOf("repair_pr" to "Nummer des früheren Reparatur-PRs."),
-                listOf("repair_pr"),
-            ))
+            put(function("rollback_technical_repair", "Erstelle nach ausdrücklicher Bestätigung einen abgesicherten Rücknahme-PR.", mapOf("repair_pr" to "Nummer des früheren Reparatur-PRs."), listOf("repair_pr")))
         }
 
         val instruction = """
-            Du bist der deutschsprachige, einheitliche Live-Homepage-Agent der Koblenzer Puppenspiele. Der Nutzer zeigt dir seinen Android-Bildschirm live und spricht mit dir. Höre dauerhaft zu. Wenn der Nutzer dich unterbricht, höre sofort auf zu reden und gehe auf seine neue Aussage ein.
+            Du bist der einzige deutschsprachige KI-Homepage-Agent der Koblenzer Puppenspiele. Der Nutzer zeigt dir seinen Android-Bildschirm live und spricht mit dir. Höre dauerhaft zu und lasse dich jederzeit unterbrechen.
 
-            Dein Auftrag ist, die Homepage tatsächlich zu verändern, nicht nur Ratschläge zu geben. Sage nicht, dass etwas 'zum Editor gehört' oder dass du 'darauf keinen Zugriff' hast, solange eines deiner Werkzeuge den Wunsch umsetzen kann.
+            Die Bedienidee ist einfach: Der Nutzer spricht nur mit dir. Für normale Homepage-Änderungen benutzt du DIREKTE Editorwerkzeuge. Du darfst niemals den alten separaten 'KI bearbeiten'-Dialog oder eine zweite Text-KI voraussetzen.
 
-            Bei jedem neuen Wunsch zuerst inspect_homepage verwenden. Bei Text-, Bild-, Design-, Layout-, Menü-, Header-, Navigations- oder responsiven Änderungen danach edit_homepage verwenden. Formuliere request so konkret, dass der vorhandene visuelle Editor die sichtbare Referenz finden und umsetzen kann. edit_homepage führt die Änderung als Vorschau aus und lässt sie zunächst ungespeichert. save_homepage nur verwenden, wenn der Nutzer ausdrücklich speichern, übernehmen oder dauerhaft machen möchte. undo_homepage und redo_homepage für Korrekturen im laufenden Editor verwenden.
+            Bei sichtbaren Änderungswünschen zuerst inspect_homepage und inspect_editable_elements verwenden. Ordne die Beschreibung des Nutzers anhand Bildschirmbild, Text, Typ und rect den passenden live_id-Werten zu. Danach edit_element für jede nötige Eigenschaft aufrufen. Für globale Farben, Header-, Menü- und Layoutwerte set_global_design verwenden. Mehrere Elemente oder mehrere Eigenschaften werden mit mehreren Werkzeugaufrufen umgesetzt. Änderungen bleiben zunächst ungespeichert. save_homepage nur auf ausdrücklichen Wunsch wie 'speichern', 'übernehmen' oder 'dauerhaft machen'. undo_homepage/redo_homepage für Korrekturen verwenden.
 
-            Wenn edit_homepage meldet, dass die gewünschte Änderung im visuellen Editor technisch nicht verfügbar ist, behandle das nicht als Sackgasse: Starte analyze_homepage_error mit einer präzisen Beschreibung der gewünschten Theme-, Plugin-, CSS-, JavaScript- oder PHP-Änderung. Diese Analyse läuft in der App im Hintergrund; sage kurz, dass sie läuft und der Nutzer weiterreden kann. Nutze get_repair_job für den Stand. SYSTEMSTATUS-Nachrichten sind vertrauenswürdige lokale Statusmeldungen der Techniker-App.
+            Wenn ein sichtbares Ziel editorUi=true ist (z.B. Zurück-/Vor-Pfeile, Toolbar, Editor-Bedienelemente), oder edit_element/set_global_design codeRequired=true meldet, sage NICHT 'kein Zugriff'. Starte stattdessen analyze_homepage_error mit der gewünschten Änderung. Das ist dein sicherer Weg zu Theme-, Plugin-, CSS-, JavaScript- oder PHP-Änderungen. Die Analyse läuft im Hintergrund. Nutze get_repair_job für den Stand. create_repair_branch und merge_repair jeweils nur nach ausdrücklicher Bestätigung des Nutzers.
 
-            Wenn ein Werkzeug 429, 503, 'überlastet', 'temporär nicht verfügbar', 'RESOURCE_EXHAUSTED' oder 'UNAVAILABLE' meldet, ist das ein vorübergehender Gemini-/Serverzustand und kein fehlender Editorzugriff. Die App versucht solche Aufrufe automatisch mit Backoff erneut. Starte wegen einer reinen Überlastung keine Code-Reparatur. Erkläre knapp, dass automatisch erneut versucht wurde bzw. später erneut versucht werden kann.
+            Bei Bildern: Darstellung wie Breite, Rundung, Abstand und Position kannst du mit edit_element ändern. Wenn der Nutzer ein Bild inhaltlich generativ verändern oder durch neues Bildmaterial ersetzen möchte und dafür noch kein direktes Bildwerkzeug angeboten wird, erkläre kurz, dass dafür die Bildfunktion erweitert werden muss und nutze analyze_homepage_error nur dann, wenn es wirklich eine Softwarefunktion betrifft. Erfinde keine erfolgreiche Bildänderung.
 
-            create_repair_branch nur nach ausdrücklicher Nutzerbestätigung. Danach CI mit check_repair_status prüfen. merge_repair ebenfalls nur nach ausdrücklicher Bestätigung und nur wenn der Server die Prüfungen akzeptiert. Niemals frei oder direkt auf Live-Dateien schreiben und niemals Authentifizierung, Nonces, Berechtigungen oder Secrets schwächen. 'Voller Zugriff' bedeutet funktionaler Zugriff auf Homepage, Editor und geprüften Code-Reparaturweg, nicht Zugriff auf Passwörter oder dauerhafte Secrets.
+            429/503/RESOURCE_EXHAUSTED/UNAVAILABLE sind vorübergehende Kapazitäts- oder Quota-Zustände. Die App versucht Verbindungen und WordPress-Aufrufe automatisch erneut. Starte wegen reiner Überlastung keine Code-Reparatur.
 
-            Behaupte niemals, etwas sei geändert, gespeichert oder repariert, bevor ein Tool das bestätigt. Sprich knapp und natürlich, damit der Nutzer dich leicht unterbrechen kann.
+            Behaupte nie, eine Änderung sei umgesetzt, gespeichert oder repariert, bevor ein Werkzeug das bestätigt. 'Voller Zugriff' bedeutet funktionaler Zugriff auf Homepage, Editor und den geprüften Code-Reparaturweg, niemals Zugriff auf Passwörter oder dauerhafte Secrets. Sprich knapp und natürlich.
         """.trimIndent()
 
         return JSONObject().put("setup", JSONObject().apply {
             put("model", "models/$model")
             put("generationConfig", JSONObject().apply {
                 put("responseModalities", JSONArray().put("AUDIO"))
-                put(
-                    "speechConfig",
-                    JSONObject().put(
-                        "voiceConfig",
-                        JSONObject().put(
-                            "prebuiltVoiceConfig",
-                            JSONObject().put("voiceName", "Fenrir")
-                        )
-                    )
-                )
+                put("speechConfig", JSONObject().put("voiceConfig", JSONObject().put("prebuiltVoiceConfig", JSONObject().put("voiceName", "Fenrir"))))
             })
             put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", instruction))))
             put("tools", JSONArray().put(JSONObject().put("functionDeclarations", declarations)))
+            put("sessionResumption", JSONObject().apply { if (handle.isNotBlank()) put("handle", handle) })
+            put("contextWindowCompression", JSONObject().put("slidingWindow", JSONObject()))
             put("realtimeInputConfig", JSONObject().apply {
                 put("automaticActivityDetection", JSONObject().apply {
                     put("disabled", false)
@@ -289,9 +337,7 @@ class GeminiLiveTechnician(
         put("parameters", JSONObject().apply {
             put("type", "object")
             put("properties", JSONObject().apply {
-                stringParams.forEach { (param, desc) ->
-                    put(param, JSONObject().put("type", "string").put("description", desc))
-                }
+                stringParams.forEach { (param, desc) -> put(param, JSONObject().put("type", "string").put("description", desc)) }
             })
             if (required.isNotEmpty()) put("required", JSONArray(required))
         })
@@ -303,7 +349,18 @@ class GeminiLiveTechnician(
         data.optJSONObject("error")?.let { error ->
             val message = error.optString("message").ifBlank { "Unbekannter Gemini-Live-Protokollfehler." }
             setupReady?.completeExceptionally(IllegalStateException(message))
-            status("Gemini Live v1beta-u1: $message")
+            status("Gemini Live: $message")
+            return
+        }
+
+        data.optJSONObject("sessionResumptionUpdate")?.let { update ->
+            if (update.optBoolean("resumable", false)) {
+                update.optString("newHandle").takeIf { it.isNotBlank() }?.let { resumptionHandle = it }
+            }
+        }
+
+        data.optJSONObject("goAway")?.let {
+            if (running.get() && sessionStarted.get()) requestReconnect("Gemini wechselt die Live-Verbindung")
             return
         }
 
@@ -316,9 +373,7 @@ class GeminiLiveTechnician(
             for (i in 0 until calls.length()) {
                 val call = calls.optJSONObject(i) ?: continue
                 val id = call.optString("id").ifBlank { UUID.randomUUID().toString() }
-                val job = scope.launch {
-                    handleFunctionCall(id, call.optString("name"), call.optJSONObject("args") ?: JSONObject())
-                }
+                val job = scope.launch { handleFunctionCall(id, call.optString("name"), call.optJSONObject("args") ?: JSONObject()) }
                 handlerJobs[id] = job
                 job.invokeOnCompletion { handlerJobs.remove(id) }
             }
@@ -335,7 +390,7 @@ class GeminiLiveTechnician(
             localSpeechFrames = 0
             interruptPlayback("KI hört zu · Gemini wurde unterbrochen")
         }
-        if (server.optBoolean("turnComplete", false)) {
+        if (server.optBoolean("turnComplete", false) || server.optBoolean("generationComplete", false)) {
             modelSpeaking.set(false)
             suppressModelAudio.set(false)
             localSpeechFrames = 0
@@ -356,57 +411,31 @@ class GeminiLiveTechnician(
                     status("KI: Seite wird untersucht …")
                     jsonToObject(bridge.context())
                 }
-                "inspect_editor_capabilities" -> {
-                    status("KI: Editorzugriff wird geprüft …")
-                    jsonToObject(bridge.editorCapabilities())
+                "inspect_editable_elements" -> {
+                    status("KI: bearbeitbare Elemente werden erkannt …")
+                    jsonToObject(bridge.editableElements())
                 }
-                "edit_homepage" -> {
-                    val request = args.optString("request")
-                    if (request.isBlank()) {
-                        errorObject("Änderungswunsch fehlt.")
-                    } else {
-                        status("KI: Homepage wird visuell geändert …")
-                        val out = bridge.visualEdit(request)
-                        val error = out["error"]?.jsonPrimitive?.content.orEmpty()
-                        if (error.isNotBlank() && isTransientGeminiMessage(error)) {
-                            JSONObject()
-                                .put("success", false)
-                                .put("temporary_overload", true)
-                                .put("error", error)
-                                .put("message", "Der Gemini-/Editor-Dienst war nach automatischen Wiederholungen noch vorübergehend überlastet.")
-                        } else if (error.isNotBlank()) {
-                            JSONObject()
-                                .put("success", false)
-                                .put("visual_editor_failed", true)
-                                .put("requires_code_repair", true)
-                                .put("error", error)
-                                .put("message", "Diese Änderung braucht wahrscheinlich den geprüften Code-Reparaturweg. Nutze analyze_homepage_error mit dem ursprünglichen Wunsch.")
-                        } else {
-                            jsonToObject(out)
-                        }
-                    }
+                "inspect_editor_capabilities" -> jsonToObject(bridge.editorCapabilities())
+                "edit_element" -> {
+                    status("KI: Änderung wird direkt im Editor umgesetzt …")
+                    jsonToObject(bridge.editElement(args.optString("live_id"), args.optString("property"), args.optString("value")))
+                }
+                "set_global_design" -> {
+                    status("KI: globales Design wird angepasst …")
+                    jsonToObject(bridge.setGlobalDesign(args.optString("key"), args.optString("value")))
                 }
                 "save_homepage" -> {
                     status("KI: Homepage wird gespeichert …")
                     jsonToObject(bridge.saveEditorChanges())
                 }
-                "undo_homepage" -> {
-                    status("KI: letzte Änderung wird zurückgenommen …")
-                    jsonToObject(bridge.undoEditorChange())
-                }
-                "redo_homepage" -> {
-                    status("KI: Änderung wird wiederhergestellt …")
-                    jsonToObject(bridge.redoEditorChange())
-                }
+                "undo_homepage" -> jsonToObject(bridge.undoEditorChange())
+                "redo_homepage" -> jsonToObject(bridge.redoEditorChange())
                 "analyze_homepage_error" -> startBackgroundRepair(args.optString("description"))
                 "get_repair_job" -> repairJobResult(args.optString("job_id"))
                 "create_repair_branch" -> {
                     val proposal = args.optString("proposal_id")
                     if (proposal.isBlank()) errorObject("proposal_id fehlt.")
-                    else if (!confirm(
-                            "Prüfbranch erstellen?",
-                            "Gemini möchte den vorbereiteten Fix auf einem isolierten Prüfbranch anlegen. Live-Dateien werden nicht direkt geändert."
-                        )) {
+                    else if (!confirm("Prüfbranch erstellen?", "Gemini möchte den vorbereiteten Fix auf einem isolierten Prüfbranch anlegen. Live-Dateien werden nicht direkt geändert.")) {
                         JSONObject().put("cancelled", true).put("message", "Nutzer hat die Erstellung abgelehnt.")
                     } else {
                         status("KI: Prüfbranch wird erstellt …")
@@ -419,10 +448,7 @@ class GeminiLiveTechnician(
                 }
                 "merge_repair" -> {
                     val pr = args.optString("pr")
-                    if (!confirm(
-                            "Geprüften Fix übernehmen?",
-                            "Der Reparaturserver übernimmt PR #$pr nur, wenn alle CI-Prüfungen grün sind."
-                        )) {
+                    if (!confirm("Geprüften Fix übernehmen?", "Der Reparaturserver übernimmt PR #$pr nur, wenn alle CI-Prüfungen grün sind.")) {
                         JSONObject().put("cancelled", true).put("message", "Nutzer hat den Merge abgelehnt.")
                     } else {
                         status("KI: geprüfter Fix wird übernommen …")
@@ -432,18 +458,13 @@ class GeminiLiveTechnician(
                 "list_technical_repairs" -> jsonToObject(bridge.technicalHistory())
                 "rollback_technical_repair" -> {
                     val pr = args.optString("repair_pr")
-                    if (!confirm(
-                            "Technik-Reparatur zurücknehmen?",
-                            "Gemini möchte für Reparatur #$pr einen abgesicherten Rücknahme-PR erstellen."
-                        )) {
+                    if (!confirm("Technik-Reparatur zurücknehmen?", "Gemini möchte für Reparatur #$pr einen abgesicherten Rücknahme-PR erstellen.")) {
                         JSONObject().put("cancelled", true).put("message", "Nutzer hat die Rücknahme abgelehnt.")
-                    } else {
-                        jsonToObject(bridge.rollbackRepair(pr))
-                    }
+                    } else jsonToObject(bridge.rollbackRepair(pr))
                 }
-                else -> errorObject("Unbekannte Techniker-Funktion: $name")
+                else -> errorObject("Unbekannte KI-Funktion: $name")
             }
-        }.getOrElse { errorObject(it.message ?: "Techniker-Funktion fehlgeschlagen.") }
+        }.getOrElse { errorObject(it.message ?: "KI-Funktion fehlgeschlagen.") }
         sendToolResponse(id, name, result)
     }
 
@@ -455,11 +476,7 @@ class GeminiLiveTechnician(
         status("KI: Codeanalyse läuft im Hintergrund · du kannst weiterreden")
         scope.launch {
             val result = runCatching { bridge.analyze(description) }
-                .getOrElse {
-                    kotlinx.serialization.json.buildJsonObject {
-                        put("error", it.message ?: "Codeanalyse fehlgeschlagen.")
-                    }
-                }
+                .getOrElse { kotlinx.serialization.json.buildJsonObject { put("error", it.message ?: "Codeanalyse fehlgeschlagen.") } }
             state.result = result
             val error = result["error"]?.jsonPrimitive?.content
             if (!error.isNullOrBlank()) {
@@ -473,49 +490,32 @@ class GeminiLiveTechnician(
             }
             sendRealtimeText(
                 "SYSTEMSTATUS: Hintergrund-Codeanalyse job_id=$jobId ist ${state.state}. Ergebnis: $result. " +
-                    "Informiere den Nutzer kurz über das Ergebnis. Frage vor create_repair_branch ausdrücklich um Bestätigung."
+                    "Informiere den Nutzer knapp. Frage vor create_repair_branch ausdrücklich um Bestätigung."
             )
         }
-        return JSONObject()
-            .put("started", true)
-            .put("job_id", jobId)
-            .put("message", "Codeanalyse läuft im Hintergrund. Du kannst das Gespräch fortsetzen.")
+        return JSONObject().put("started", true).put("job_id", jobId).put("message", "Codeanalyse läuft im Hintergrund. Du kannst das Gespräch fortsetzen.")
     }
 
     private fun repairJobResult(jobId: String): JSONObject {
         val job = repairJobs[jobId] ?: return errorObject("Unbekannte job_id.")
-        return JSONObject()
-            .put("job_id", jobId)
-            .put("state", job.state)
-            .put("message", job.message)
-            .put("result", job.result?.let(::jsonToObject) ?: JSONObject.NULL)
+        return JSONObject().put("job_id", jobId).put("state", job.state).put("message", job.message).put("result", job.result?.let(::jsonToObject) ?: JSONObject.NULL)
     }
 
     private fun sendToolResponse(id: String, name: String, result: JSONObject) {
-        val response = JSONObject()
-            .put("id", id)
-            .put("name", name)
-            .put("response", JSONObject().put("result", result))
+        val response = JSONObject().put("id", id).put("name", name).put("response", JSONObject().put("result", result))
         send(JSONObject().put("toolResponse", JSONObject().put("functionResponses", JSONArray().put(response))))
     }
 
     private fun sendRealtimeText(text: String) {
-        if (!running.get()) return
+        if (!running.get() || socket == null) return
         send(JSONObject().put("realtimeInput", JSONObject().put("text", text)))
     }
 
-    /** Current Live API uses explicit realtimeInput.audio / realtimeInput.video blobs. */
     private fun sendRealtimeBlob(mime: String, bytes: ByteArray) {
-        if (!running.get() || bytes.isEmpty()) return
-        val blob = JSONObject()
-            .put("mimeType", mime)
-            .put("data", Base64.encodeToString(bytes, Base64.NO_WRAP))
+        if (!running.get() || socket == null || bytes.isEmpty()) return
+        val blob = JSONObject().put("mimeType", mime).put("data", Base64.encodeToString(bytes, Base64.NO_WRAP))
         val realtime = JSONObject()
-        if (mime.startsWith("audio/")) {
-            realtime.put("audio", blob)
-        } else {
-            realtime.put("video", blob)
-        }
+        if (mime.startsWith("audio/")) realtime.put("audio", blob) else realtime.put("video", blob)
         send(JSONObject().put("realtimeInput", realtime))
     }
 
@@ -526,30 +526,16 @@ class GeminiLiveTechnician(
     @SuppressLint("MissingPermission")
     private fun startMicrophone() {
         val sampleRate = 16_000
-        val minBuffer = AudioRecord.getMinBufferSize(
-            sampleRate,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-        )
+        val minBuffer = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (minBuffer <= 0) throw IllegalStateException("Mikrofon-Puffer konnte nicht bestimmt werden.")
-        val record = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-            sampleRate,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-            max(minBuffer * 2, 6_400),
-        )
+        val record = AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, max(minBuffer * 2, 6_400))
         if (record.state != AudioRecord.STATE_INITIALIZED) {
             record.release()
             throw IllegalStateException("Mikrofon konnte nicht initialisiert werden.")
         }
         audioRecord = record
-        echoCanceler = if (AcousticEchoCanceler.isAvailable()) {
-            runCatching { AcousticEchoCanceler.create(record.audioSessionId)?.apply { enabled = true } }.getOrNull()
-        } else null
-        noiseSuppressor = if (NoiseSuppressor.isAvailable()) {
-            runCatching { NoiseSuppressor.create(record.audioSessionId)?.apply { enabled = true } }.getOrNull()
-        } else null
+        echoCanceler = if (AcousticEchoCanceler.isAvailable()) runCatching { AcousticEchoCanceler.create(record.audioSessionId)?.apply { enabled = true } }.getOrNull() else null
+        noiseSuppressor = if (NoiseSuppressor.isAvailable()) runCatching { NoiseSuppressor.create(record.audioSessionId)?.apply { enabled = true } }.getOrNull() else null
         record.startRecording()
         audioJob = scope.launch {
             val chunk = ByteArray(3_200)
@@ -564,9 +550,7 @@ class GeminiLiveTechnician(
                         localSpeechFrames = 0
                         triggerLocalBargeIn()
                     }
-                } else {
-                    localSpeechFrames = 0
-                }
+                } else localSpeechFrames = 0
                 sendRealtimeBlob("audio/pcm;rate=16000", pcm)
             }
         }
@@ -574,25 +558,10 @@ class GeminiLiveTechnician(
 
     private fun startPlayback() {
         val sampleRate = 24_000
-        val minBuffer = AudioTrack.getMinBufferSize(
-            sampleRate,
-            AudioFormat.CHANNEL_OUT_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-        )
+        val minBuffer = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
         val track = AudioTrack.Builder()
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build()
-            )
-            .setAudioFormat(
-                AudioFormat.Builder()
-                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(sampleRate)
-                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                    .build()
-            )
+            .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+            .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(sampleRate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
             .setBufferSizeInBytes(max(minBuffer * 4, 19_200))
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
@@ -603,8 +572,7 @@ class GeminiLiveTechnician(
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         audioManager.mode = AudioManager.MODE_NORMAL
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val speaker = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-                .firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+            val speaker = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
             if (speaker != null) runCatching { track.setPreferredDevice(speaker) }
         }
         track.setVolume(1.0f)
@@ -633,20 +601,12 @@ class GeminiLiveTechnician(
     }
 
     private fun interruptPlayback(message: String) {
-        audioTrack?.let { track ->
-            runCatching {
-                track.pause()
-                track.flush()
-                if (running.get()) track.play()
-            }
-        }
+        audioTrack?.let { track -> runCatching { track.pause(); track.flush(); if (running.get()) track.play() } }
         status(message)
     }
 
     private fun drainPlaybackQueue() {
-        while (playbackQueue.tryReceive().isSuccess) {
-            // Drop already-buffered model audio so local barge-in is audible immediately.
-        }
+        while (playbackQueue.tryReceive().isSuccess) { /* drop buffered model audio */ }
     }
 
     private fun averageAbsolutePcm16(bytes: ByteArray): Int {
@@ -664,10 +624,6 @@ class GeminiLiveTechnician(
         }
         return if (samples == 0) 0 else (sum / samples).toInt()
     }
-
-    private fun isTransientGeminiMessage(message: String): Boolean =
-        Regex("überlast|unavailable|temporar|temporary|503|429|rate.?limit|resource.?exhaust|server busy|try again", RegexOption.IGNORE_CASE)
-            .containsMatchIn(message)
 
     private fun stopAudio() {
         echoCanceler?.release(); echoCanceler = null
@@ -689,11 +645,8 @@ class GeminiLiveTechnician(
         }
     }
 
-    private fun jsonToObject(value: JsonObject): JSONObject =
-        runCatching { JSONObject(value.toString()) }.getOrElse { errorObject("Ungültige Tool-Antwort.") }
-
-    private fun errorObject(message: String): JSONObject =
-        JSONObject().put("success", false).put("error", message)
+    private fun jsonToObject(value: JsonObject): JSONObject = runCatching { JSONObject(value.toString()) }.getOrElse { errorObject("Ungültige Tool-Antwort.") }
+    private fun errorObject(message: String): JSONObject = JSONObject().put("success", false).put("error", message)
 
     companion object {
         private const val LOCAL_BARGE_IN_LEVEL = 900
