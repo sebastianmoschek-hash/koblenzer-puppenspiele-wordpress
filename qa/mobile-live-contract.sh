@@ -26,16 +26,19 @@ grep -q 'generativelanguage.googleapis.com/v1beta/auth_tokens' "$BRIDGE"
 grep -q "'uses'[[:space:]]*=>[[:space:]]*1" "$BRIDGE"
 grep -q 'KoblenzerPuppenspieleTechnician/' "$BRIDGE"
 grep -q 'bridge.bootstrap()' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'liveProtocol' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'v1beta-u1' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'v1beta.GenerativeService.BidiGenerateContentConstrained' "$KOTLIN/GeminiLiveTechnician.kt"
 if grep -q 'v1alpha.GenerativeService.BidiGenerateContentConstrained' "$KOTLIN/GeminiLiveTechnician.kt"; then
   echo 'FAIL mobile-live: obsolete v1alpha ephemeral WebSocket endpoint is still present.' >&2
   exit 1
 fi
-grep -q 'Live v1beta-C' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'access_token=' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'START_OF_ACTIVITY_INTERRUPTS' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'TURN_INCLUDES_AUDIO_ACTIVITY_AND_ALL_VIDEO' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'serverContent' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'interrupted' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'turnComplete' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'AudioRecord' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'AudioTrack' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'audio/pcm;rate=16000' "$KOTLIN/GeminiLiveTechnician.kt"
@@ -49,6 +52,25 @@ if grep -q 'mediaChunks' "$KOTLIN/GeminiLiveTechnician.kt"; then
   echo 'FAIL mobile-live: deprecated mediaChunks payload is still present.' >&2
   exit 1
 fi
+
+# Gemini speech must use the normal loudspeaker/media stream, not the quiet telephony earpiece stream.
+grep -q 'setUsage(AudioAttributes.USAGE_MEDIA)' "$KOTLIN/GeminiLiveTechnician.kt"
+if grep -q 'setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)' "$KOTLIN/GeminiLiveTechnician.kt"; then
+  echo 'FAIL mobile-live: Gemini playback must not use the telephony voice-communication output stream.' >&2
+  exit 1
+fi
+grep -q 'AudioDeviceInfo.TYPE_BUILTIN_SPEAKER' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'track.setPreferredDevice(speaker)' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'volumeControlStream = AudioManager.STREAM_MUSIC' "$KOTLIN/MainActivity.kt"
+
+# Barge-in is double-protected: Gemini server VAD plus immediate local PCM speech detection and playback flushing.
+grep -q 'playbackQueue' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'triggerLocalBargeIn' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'averageAbsolutePcm16' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'LOCAL_BARGE_IN_LEVEL' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'drainPlaybackQueue' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'Unterbrechung erkannt' "$KOTLIN/GeminiLiveTechnician.kt"
+
 grep -q 'startBackgroundRepair' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'SYSTEMSTATUS:' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'du kannst weiterreden' "$KOTLIN/GeminiLiveTechnician.kt"
@@ -90,4 +112,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS mobile-live: documented v1beta constrained ephemeral WebSocket, lowercase tool schema, explicit audio/video, barge-in, background repair analysis and protected CI-gated code repair are present.'
+echo 'PASS mobile-live: v1beta-u1 ephemeral Live, loudspeaker/media audio, immediate local + server barge-in, background repair analysis and protected CI-gated code repair are present.'
