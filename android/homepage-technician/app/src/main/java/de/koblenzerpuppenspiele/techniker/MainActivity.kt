@@ -1,11 +1,13 @@
 package de.koblenzerpuppenspiele.techniker
 
+import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -25,6 +27,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,10 +40,17 @@ import kotlin.coroutines.resume
  * Homepage-Hilfe has two primary paths:
  * 1) manual visual editing and 2) a free on-device AI chat.
  *
- * The local model never needs a Gemini/OpenAI API key. Difficult tasks can be
- * copied to the normal Gemini consumer app through the explicit emergency button.
+ * Inside the AI panel the same local model can also run as a conversational
+ * on-device Live mode. The microphone is transcribed only by Android's explicit
+ * on-device recognizer; every turn re-reads the currently visible homepage and
+ * editor DOM. No Gemini/OpenAI API is required. Difficult tasks can be copied to
+ * the normal Gemini consumer app through the explicit emergency button.
  */
 class MainActivity : Activity() {
+    companion object {
+        private const val REQ_AUDIO = 601
+    }
+
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var webView: WebView
     private lateinit var statusView: TextView
@@ -53,10 +63,13 @@ class MainActivity : Activity() {
     private lateinit var transcriptScroll: ScrollView
     private lateinit var textInput: EditText
     private lateinit var sendButton: Button
+    private lateinit var liveVoiceButton: Button
     private lateinit var emergencyButton: Button
     private lateinit var repairBridge: WebRepairBridge
     private lateinit var localAi: LocalAiTechnician
+    private lateinit var voiceController: LocalVoiceController
     private var aiOpen = false
+    private var liveLocal = false
     private var busy = false
     private var lastRequest = ""
     @Volatile private var currentPageTrusted = false
@@ -75,11 +88,17 @@ class MainActivity : Activity() {
             confirm = ::confirmAction,
             status = ::showStatus,
         )
+        voiceController = LocalVoiceController(
+            context = this,
+            onUserText = { text -> runOnUiThread { handleVoiceText(text) } },
+            onStatus = ::showStatus,
+        )
 
         editButton.setOnClickListener { openEditor() }
         aiButton.setOnClickListener { toggleAi() }
         installButton.setOnClickListener { installLocalModel() }
         sendButton.setOnClickListener { sendLocalMessage() }
+        liveVoiceButton.setOnClickListener { toggleLocalLive() }
         emergencyButton.setOnClickListener { openEmergencyGemini() }
         textInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEND) {
@@ -134,7 +153,7 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             textSize = 14f
             setPadding(dp(8), dp(8), dp(8), dp(8))
-            text = "Lokale KI: Schreib einfach, was an der Homepage geändert werden soll."
+            text = "Lokale KI: Schreib einfach, was an der Homepage geändert werden soll. Für ein Gespräch kannst du Live lokal starten."
         }
         transcriptScroll = ScrollView(this).apply {
             addView(transcript)
@@ -167,6 +186,14 @@ class MainActivity : Activity() {
         composer.addView(textInput, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         composer.addView(sendButton)
         aiPanel.addView(composer)
+
+        liveVoiceButton = Button(this).apply {
+            text = "🎤 Live lokal · sprechen + Seite zeigen"
+            isAllCaps = false
+            isEnabled = false
+            contentDescription = "Lokales Gespräch starten. Die aktuelle Homepage wird bei jedem Satz neu gelesen."
+        }
+        aiPanel.addView(liveVoiceButton)
 
         emergencyButton = Button(this).apply {
             text = "Notfall Gemini"
@@ -221,7 +248,7 @@ class MainActivity : Activity() {
             allowFileAccess = false
             allowContentAccess = false
             setSupportMultipleWindows(false)
-            userAgentString = userAgentString + " KoblenzerPuppenspieleTechnician/0.3-localai"
+            userAgentString = userAgentString + " KoblenzerPuppenspieleTechnician/0.4-locallive"
         }
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -286,10 +313,11 @@ class MainActivity : Activity() {
         aiPanel.visibility = View.VISIBLE
         aiButton.text = "✕ KI"
         refreshModelState()
-        showStatus("Lokale KI · keine API-Kosten")
+        showStatus("Lokale KI · Chat oder Live lokal · keine KI-API-Kosten")
     }
 
     private fun hideAi() {
+        if (liveLocal) stopLocalLive(silent = true)
         aiOpen = false
         aiPanel.visibility = View.GONE
         aiButton.text = "✦ KI"
@@ -302,10 +330,12 @@ class MainActivity : Activity() {
         val state = localAi.modelState()
         val freeGb = state.freeBytes / 1_000_000_000.0
         val ramGb = state.totalRamBytes / 1_000_000_000.0
+        val voiceSupported = ::voiceController.isInitialized && voiceController.isSupported()
         if (state.installed) {
             modelInfo.text = buildString {
                 append("Lokale KI installiert · ${"%.1f".format(state.modelBytes / 1_000_000_000.0)} GB Modell · ${"%.1f".format(freeGb)} GB frei")
                 if (!state.recommendedRam) append(" · RAM ${"%.1f".format(ramGb)} GB: kann langsamer sein")
+                if (!voiceSupported) append(" · Live-Sprache auf diesem Gerät nicht verfügbar")
             }
             installButton.visibility = View.GONE
             textInput.isEnabled = !busy
@@ -321,6 +351,8 @@ class MainActivity : Activity() {
             textInput.isEnabled = false
             sendButton.isEnabled = false
         }
+        liveVoiceButton.text = if (liveLocal) "■ Live lokal beenden" else "🎤 Live lokal · sprechen + Seite zeigen"
+        liveVoiceButton.isEnabled = liveLocal || (state.installed && !busy && voiceSupported)
         emergencyButton.isEnabled = !busy
     }
 
@@ -328,7 +360,7 @@ class MainActivity : Activity() {
         if (busy) return
         busy = true
         refreshModelState()
-        appendTranscript("System", "Das lokale Modell wird einmalig heruntergeladen. Danach läuft der Chat ohne KI-API-Kosten.")
+        appendTranscript("System", "Das lokale Modell wird einmalig heruntergeladen. Danach laufen Chat und Live lokal ohne KI-API-Kosten.")
         uiScope.launch {
             try {
                 localAi.downloadModel { downloaded, total ->
@@ -351,22 +383,39 @@ class MainActivity : Activity() {
         if (busy) return
         val message = textInput.text?.toString()?.trim().orEmpty()
         if (message.isBlank()) return
+        textInput.text?.clear()
+        processLocalRequest(message, if (liveLocal) "Du (Chat)" else "Du", speakReply = liveLocal)
+    }
+
+    private fun handleVoiceText(message: String) {
+        if (!liveLocal) return
+        if (busy) {
+            voiceController.continueListening(600L)
+            return
+        }
+        processLocalRequest(message, "Du (Live)", speakReply = true)
+    }
+
+    private fun processLocalRequest(message: String, who: String, speakReply: Boolean) {
+        if (busy) return
         if (!localAi.modelState().installed) {
             showStatus("Bitte zuerst die lokale KI installieren.")
             return
         }
         lastRequest = message
-        textInput.text?.clear()
-        appendTranscript("Du", message)
+        appendTranscript(who, message)
         busy = true
         refreshModelState()
         uiScope.launch {
             try {
                 val reply = localAi.send(message)
                 appendTranscript("KI", reply)
+                if (speakReply && liveLocal) voiceController.speak(reply)
             } catch (error: Throwable) {
-                appendTranscript("KI", "Fehler: ${error.message ?: error.javaClass.simpleName}")
-                showStatus("Lokale KI: ${error.message ?: error.javaClass.simpleName}")
+                val errorText = error.message ?: error.javaClass.simpleName
+                appendTranscript("KI", "Fehler: $errorText")
+                showStatus("Lokale KI: $errorText")
+                if (liveLocal) voiceController.speak("Es gab einen Fehler. Die Meldung steht im Chat.")
             } finally {
                 busy = false
                 refreshModelState()
@@ -374,13 +423,65 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun toggleLocalLive() {
+        if (liveLocal) {
+            stopLocalLive()
+            return
+        }
+        startLocalLive()
+    }
+
+    private fun startLocalLive() {
+        if (!localAi.modelState().installed) {
+            showStatus("Bitte zuerst die lokale KI installieren.")
+            return
+        }
+        if (!voiceController.isSupported()) {
+            appendTranscript("System", "Dieses Android-Gerät bietet keine lokale On-Device-Spracherkennung. Der Textchat bleibt vollständig nutzbar.")
+            showStatus("Live lokal nicht verfügbar · Chat funktioniert weiterhin")
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_AUDIO)
+            return
+        }
+        liveLocal = true
+        appendTranscript("System", "Live lokal gestartet. Sprich einfach. Bei jedem Satz liest die KI die aktuell sichtbare Homepage und die Editorinformationen neu. Audio wird nicht an Gemini/OpenAI gesendet.")
+        runCatching { voiceController.start() }
+            .onFailure {
+                liveLocal = false
+                appendTranscript("System", it.message ?: "Live lokal konnte nicht gestartet werden.")
+            }
+        refreshModelState()
+    }
+
+    private fun stopLocalLive(silent: Boolean = false) {
+        voiceController.stop()
+        liveLocal = false
+        if (!silent) appendTranscript("System", "Live lokal beendet. Der normale KI-Chat bleibt geöffnet.")
+        refreshModelState()
+        showStatus("Lokale KI · Chat bereit")
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQ_AUDIO) return
+        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            startLocalLive()
+        } else {
+            appendTranscript("System", "Ohne Mikrofonberechtigung bleibt Live lokal aus. Schreiben funktioniert weiterhin.")
+            showStatus("Mikrofonzugriff abgelehnt · Chat bleibt verfügbar")
+        }
+    }
+
     private fun openEmergencyGemini() {
         if (busy) return
         val request = textInput.text?.toString()?.trim().orEmpty().ifBlank { lastRequest }
         if (request.isBlank()) {
-            appendTranscript("System", "Schreib zuerst die Aufgabe ins Feld. Dann kann ich sie für Gemini vorbereiten.")
+            appendTranscript("System", "Schreib oder sprich zuerst die Aufgabe. Dann kann ich sie für Gemini vorbereiten.")
             return
         }
+        if (liveLocal) stopLocalLive(silent = true)
         busy = true
         refreshModelState()
         uiScope.launch {
@@ -484,6 +585,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        if (::voiceController.isInitialized) voiceController.release()
         if (::localAi.isInitialized) localAi.release()
         if (::webView.isInitialized) {
             webView.removeJavascriptInterface("KPRepairResult")
