@@ -76,7 +76,7 @@ class LocalVoiceController(
     fun selectedVoiceId(): String = currentVoice()?.name.orEmpty()
 
     fun selectedVoiceLabel(): String {
-        val voice = currentVoice() ?: return if (ttsReady) "keine deutsche Offline-Stimme" else "wird geladen"
+        val voice = currentVoice() ?: return if (ttsReady) "keine deutsche Offline-Stimme" else "Stimme wird geladen"
         val index = offlineVoices.indexOfFirst { it.name == voice.name }.takeIf { it >= 0 } ?: 0
         return "Stimme ${index + 1} · ${voice.locale.toLanguageTag()}"
     }
@@ -310,7 +310,7 @@ class LocalVoiceController(
 
                 override fun onResults(results: Bundle?) {
                     listening = false
-                    consumeRecognition(bestText(results), final = true)
+                    consumeRecognition(bestText(results), keepSession = false)
                 }
 
                 override fun onPartialResults(partialResults: Bundle?) {
@@ -323,7 +323,7 @@ class LocalVoiceController(
                 }
 
                 override fun onSegmentResults(segmentResults: Bundle) {
-                    consumeRecognition(bestText(segmentResults), final = true)
+                    consumeRecognition(bestText(segmentResults), keepSession = true)
                 }
 
                 override fun onEndOfSegmentedSession() {
@@ -336,15 +336,15 @@ class LocalVoiceController(
         }
     }
 
-    private fun consumeRecognition(text: String, final: Boolean) {
+    private fun consumeRecognition(text: String, keepSession: Boolean) {
         if (!active) return
         val clean = text.trim()
         if (clean.isBlank()) {
-            if (final) continueListening(80L)
+            if (!keepSession) continueListening(80L)
             return
         }
         if (looksLikeOwnVoice(clean)) {
-            if (final) continueListening(80L)
+            if (!keepSession) continueListening(80L)
             return
         }
         if (speaking) stopSpeakingForBargeIn()
@@ -352,12 +352,12 @@ class LocalVoiceController(
         val normalized = normalize(clean)
         val now = System.currentTimeMillis()
         if (normalized == lastDeliveredNormalized && now - lastDeliveredAt < DUPLICATE_WINDOW_MS) {
-            if (final) continueListening(80L)
+            if (!keepSession) continueListening(80L)
             return
         }
         lastDeliveredNormalized = normalized
         lastDeliveredAt = now
-        listening = false
+        if (!keepSession) listening = false
         onStatus("Live lokal · verstanden · KI bearbeitet die aktuelle Seite …")
         onUserText(clean)
     }
@@ -380,12 +380,15 @@ class LocalVoiceController(
         return overlap >= ECHO_WORD_OVERLAP
     }
 
-    private fun speechFriendly(text: String): String = text
-        .replace(Regex("https?://\\S+"), "")
-        .replace(Regex("[`*_#]+"), "")
-        .replace(Regex("\\s+"), " ")
-        .trim()
-        .take(MAX_SPOKEN_CHARS)
+    private fun speechFriendly(text: String): String {
+        val cleaned = text
+            .replace(Regex("https?://\\S+"), "")
+            .replace(Regex("[`*_#]+"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        val concise = cleaned.split(Regex("(?<=[.!?])\\s+")).take(2).joinToString(" ")
+        return concise.take(MAX_SPOKEN_CHARS)
+    }
 
     private fun normalize(text: String): String = Normalizer.normalize(text.lowercase(Locale.GERMAN), Normalizer.Form.NFD)
         .replace(Regex("\\p{M}+"), "")
@@ -395,7 +398,7 @@ class LocalVoiceController(
 
     companion object {
         private const val MAX_VOICE_OPTIONS = 8
-        private const val MAX_SPOKEN_CHARS = 900
+        private const val MAX_SPOKEN_CHARS = 520
         private const val BARGE_IN_LISTEN_DELAY_MS = 320L
         private const val SEGMENT_SILENCE_MS = 720
         private const val DUPLICATE_WINDOW_MS = 1800L
