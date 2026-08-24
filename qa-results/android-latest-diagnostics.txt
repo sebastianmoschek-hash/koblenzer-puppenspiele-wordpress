@@ -153,47 +153,46 @@ e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/d
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:34:16 Unresolved reference 'serialization'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:35:16 Unresolved reference 'serialization'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:36:16 Unresolved reference 'serialization'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:135:32 Suspend function 'suspend fun close(): Unit' can only be called from a coroutine or another suspend function.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:146:24 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:146:24 Not enough information to infer type argument for 'T'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:147:13 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:147:13 Not enough information to infer type argument for 'R'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:148:17 Not enough information to infer type argument for 'K'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:151:43 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:151:48 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:151:69 Unresolved reference 'jsonPrimitive'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:152:25 Not enough information to infer type argument for 'K'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:156:34 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:156:39 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:156:60 Unresolved reference 'jsonPrimitive'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:157:25 Not enough information to infer type argument for 'K'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:159:32 Not enough information to infer type argument for 'K'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:160:29 Unresolved reference 'buildJsonObject'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:160:47 Unresolved reference 'put'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:160:71 Unresolved reference 'put'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:166:34 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:166:39 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:166:51 Unresolved reference 'jsonPrimitive'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:167:25 Not enough information to infer type argument for 'K'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:160:24 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:160:24 Not enough information to infer type argument for 'T'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:161:13 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:161:13 Not enough information to infer type argument for 'R'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:162:17 Not enough information to infer type argument for 'K'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:165:43 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:165:48 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:165:69 Unresolved reference 'jsonPrimitive'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:166:25 Not enough information to infer type argument for 'K'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:170:34 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:170:39 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:170:51 Unresolved reference 'jsonPrimitive'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:170:60 Unresolved reference 'jsonPrimitive'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:171:25 Not enough information to infer type argument for 'K'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:173:32 Not enough information to infer type argument for 'K'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:174:29 Unresolved reference 'buildJsonObject'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:174:47 Unresolved reference 'put'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:174:71 Unresolved reference 'put'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:181:15 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:181:15 Not enough information to infer type argument for 'R'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:181:15 Not enough information to infer type argument for 'T'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:183:16 Cannot access class 'JsonObject'. Check your module classpath for missing or conflicting dependencies.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:186:47 Unresolved reference 'JsonObject'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:186:60 Unresolved reference 'JsonObject'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:187:9 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:188:23 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:188:26 Unresolved reference 'JsonPrimitive'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:189:21 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:189:24 Unresolved reference 'JsonPrimitive'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:180:34 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:180:39 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:180:51 Unresolved reference 'jsonPrimitive'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:181:25 Not enough information to infer type argument for 'K'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:184:34 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:184:39 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:184:51 Unresolved reference 'jsonPrimitive'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:185:25 Not enough information to infer type argument for 'K'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:187:32 Not enough information to infer type argument for 'K'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:188:29 Unresolved reference 'buildJsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:188:47 Unresolved reference 'put'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:188:71 Unresolved reference 'put'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:195:15 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:195:15 Not enough information to infer type argument for 'R'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:195:15 Not enough information to infer type argument for 'T'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:197:16 Cannot access class 'JsonObject'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:200:47 Unresolved reference 'JsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:200:60 Unresolved reference 'JsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:201:9 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:202:23 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:202:26 Unresolved reference 'JsonPrimitive'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:203:21 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:203:24 Unresolved reference 'JsonPrimitive'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:6:16 Unresolved reference 'serialization'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:7:16 Unresolved reference 'serialization'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:8:16 Unresolved reference 'serialization'.
@@ -448,5 +447,5 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 2m 47s
+BUILD FAILED in 2m 53s
 14 actionable tasks: 14 executed
