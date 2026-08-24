@@ -72,7 +72,7 @@ class LocalAiTechnician(
             val prompt = buildPlannerPrompt(request, page.toString(), elements.toString(), capabilities.toString())
 
             status("Lokale KI denkt …")
-            val plan = oneShotJson(PLANNER_SYSTEM, prompt, temperature = 0.25)
+            val plan = oneShotJson(PLANNER_SYSTEM, prompt, temperature = 0.12)
             val results = mutableListOf<String>()
             var codeRequest = ""
             val actions = plan.optJSONArray("actions") ?: JSONArray()
@@ -218,20 +218,43 @@ class LocalAiTechnician(
         active.createConversation(
             ConversationConfig(
                 systemInstruction = Contents.of(system),
-                samplerConfig = SamplerConfig(topK = 24, topP = 0.88, temperature = temperature),
+                samplerConfig = SamplerConfig(topK = 20, topP = 0.82, temperature = temperature),
             )
         ).use { conversation ->
-            val text = conversation.sendMessage(prompt).toString()
-            return parseJsonObject(text)
+            val firstText = conversation.sendMessage(prompt).text
+            parseJsonObjectOrNull(firstText)?.let { return it }
+
+            // Small local models occasionally emit a bare word, trailing comma or explanatory
+            // sentence despite the JSON-only instruction. Ask the same on-device conversation
+            // to repair its own output before surfacing an error to the user. This costs no API.
+            val repairPrompt = """
+                Deine vorige Antwort war kein gültiges JSON. Gib EXAKT denselben Inhalt jetzt noch einmal als syntaktisch gültiges JSON aus.
+                Keine Erklärung, kein Markdown, keine Kommentare. Alle Textwerte müssen in doppelten Anführungszeichen stehen.
+            """.trimIndent()
+            val repairedText = conversation.sendMessage(repairPrompt).text
+            return parseJsonObjectOrNull(repairedText)
+                ?: throw IllegalStateException("Die lokale KI konnte den Änderungsplan nach einem automatischen Reparaturversuch nicht strukturiert ausgeben. Bitte denselben Wunsch noch einmal senden.")
         }
     }
 
-    private fun parseJsonObject(text: String): JSONObject {
-        val clean = text.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-        val start = clean.indexOf('{')
-        val end = clean.lastIndexOf('}')
-        if (start < 0 || end <= start) throw IllegalStateException("Die lokale KI hat keinen strukturierten Plan geliefert.")
-        return JSONObject(clean.substring(start, end + 1))
+    private fun parseJsonObjectOrNull(text: String): JSONObject? {
+        val normalized = text
+            .trim()
+            .removePrefix("```json")
+            .removePrefix("```JSON")
+            .removePrefix("```")
+            .removeSuffix("```")
+            .trim()
+            .replace('“', '"')
+            .replace('”', '"')
+            .replace('„', '"')
+            .replace('\u00a0', ' ')
+        val start = normalized.indexOf('{')
+        val end = normalized.lastIndexOf('}')
+        if (start < 0 || end <= start) return null
+        val candidate = normalized.substring(start, end + 1)
+            .replace(Regex(",\\s*([}\\]])"), "$1")
+        return runCatching { JSONObject(candidate) }.getOrNull()
     }
 
     private suspend fun prepareLocalCodeRepair(description: String): String {
@@ -253,7 +276,7 @@ class LocalAiTechnician(
             ERLAUBTE DATEIEN (Pfad und Größe):
             $catalog
         """.trimIndent()
-        val selection = oneShotJson(SELECTION_SYSTEM, selectionPrompt, temperature = 0.15)
+        val selection = oneShotJson(SELECTION_SYSTEM, selectionPrompt, temperature = 0.08)
         val filesArray = selection.optJSONArray("files") ?: JSONArray()
         val selected = mutableListOf<String>()
         for (i in 0 until minOf(filesArray.length(), 3)) {
@@ -277,7 +300,7 @@ class LocalAiTechnician(
             DATEIINHALTE:
             $codeJson
         """.trimIndent()
-        val plan = oneShotJson(PATCH_SYSTEM, patchPrompt, temperature = 0.1)
+        val plan = oneShotJson(PATCH_SYSTEM, patchPrompt, temperature = 0.05)
         val proposal = bridge.submitLocalRepairProposal(plan.toString())
         val proposalId = proposal["proposal_id"]?.jsonPrimitive?.content.orEmpty()
         if (proposalId.isBlank()) {
@@ -322,13 +345,13 @@ class LocalAiTechnician(
                 {"type":"request_code_change","description":"präzise technische Änderung"}
               ]
             }
-            Regeln: Höchstens 10 Aktionen. Nutze nur sichtbare live_id-Werte und angebotene Eigenschaften. Für normale Texte, Links, Größe, Abstand, Radius, Farben, Position, Reihenfolge und globale Designwerte direkte Aktionen verwenden. Für Editor-Bedienelemente, PHP/JavaScript/CSS, neue Funktionen oder nicht angebotene Eigenschaften request_code_change verwenden. Nie behaupten, etwas sei geändert oder gespeichert, wenn keine passende Aktion vorhanden ist. save nur setzen/ausgeben, wenn der Nutzer ausdrücklich speichern, übernehmen oder dauerhaft machen verlangt. Generative Bildinhalte sind lokal noch nicht verfügbar; dafür in reply „Notfall Gemini“ nennen, aber keine Cloud-Aktion erfinden.
+            Regeln: Höchstens 10 Aktionen. Nutze nur sichtbare live_id-Werte und angebotene Eigenschaften. Für normale Texte, Links, Größe, Abstand, Radius, Farben, Position, Reihenfolge und globale Designwerte direkte Aktionen verwenden. ALLE String-Werte müssen in doppelten Anführungszeichen stehen; Farben als Hex-Strings wie "#0000FF", niemals als nacktes Wort. Für Editor-Bedienelemente, PHP/JavaScript, CSS, neue Funktionen oder nicht angebotene Eigenschaften request_code_change verwenden. Nie behaupten, etwas sei geändert oder gespeichert, wenn keine passende Aktion vorhanden ist. save nur setzen/ausgeben, wenn der Nutzer ausdrücklich speichern, übernehmen oder dauerhaft machen verlangt. Generative Bildinhalte sind lokal noch nicht verfügbar; dafür in reply „Notfall Gemini“ nennen, aber keine Cloud-Aktion erfinden.
         """.trimIndent()
 
         private val SELECTION_SYSTEM = """
             Du bist ein lokaler Code-Diagnostiker. Antworte ausschließlich als JSON ohne Markdown:
             {"reply":"kurz","diagnosis":"präzise Diagnose","confidence":"low|medium|high","files":["pfad1","pfad2"]}
-            Wähle höchstens 3 Dateien und ausschließlich Pfade aus dem bereitgestellten Katalog. Bevorzuge die kleinste plausible Menge. Keine Secrets erfinden.
+            Wähle höchstens 3 Dateien und ausschließlich Pfade aus dem bereitgestellten Katalog. Bevorzuge die kleinste plausible Menge. Keine Secrets erfinden. Alle String-Werte müssen in doppelten Anführungszeichen stehen.
         """.trimIndent()
 
         private val PATCH_SYSTEM = """
@@ -342,7 +365,7 @@ class LocalAiTechnician(
                 {"path":"exakter Pfad","reason":"warum","operations":[{"search":"exakter vorhandener Block","replace":"vollständiger Ersatzblock"}]}
               ]
             }
-            Regeln: höchstens 4 Dateien, höchstens 8 Operationen je Datei. search muss ein exakter, ausreichend eindeutiger Ausschnitt aus dem gelieferten Code sein. Ändere so wenig wie möglich. Entferne niemals Berechtigungs-, Nonce-, Authentifizierungs- oder Sicherheitsprüfungen. Keine eval/shell/system-Aufrufe, keine Secrets, keine erfundenen Dateien. Wenn der gezeigte Code nicht reicht, liefere changes als leeres Array.
+            Regeln: höchstens 4 Dateien, höchstens 8 Operationen je Datei. search muss ein exakter, ausreichend eindeutiger Ausschnitt aus dem gelieferten Code sein. Ändere so wenig wie möglich. Entferne niemals Berechtigungs-, Nonce-, Authentifizierungs- oder Sicherheitsprüfungen. Keine eval/shell/system-Aufrufe, keine Secrets, keine erfundenen Dateien. Wenn der gezeigte Code nicht reicht, liefere changes als leeres Array. Alle String-Werte müssen in doppelten Anführungszeichen stehen.
         """.trimIndent()
     }
 }
