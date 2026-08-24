@@ -149,7 +149,7 @@ class GeminiLiveTechnician(
             speechConfig = SpeechConfig(voice = Voice("FENRIR"))
         }
         val model = Firebase.ai(backend = GenerativeBackend.googleAI()).liveModel(
-            modelName = "gemini-2.5-flash-native-audio-preview-12-2025",
+            modelName = "gemini-3.1-flash-live-preview",
             generationConfig = generation,
             tools = listOf(tools),
             systemInstruction = content {
