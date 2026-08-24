@@ -10,7 +10,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * Bootstrap the native technician even when the public template is broken before wp_footer.
  * This action intentionally does not require a pre-existing nonce: it requires an authenticated
  * WordPress session with the repair capability and only returns short-lived/single-session material.
- * A cross-origin page cannot read the response because admin-ajax is same-origin protected.
  */
 add_action( 'wp_ajax_kp_mobile_live_bootstrap', static function () {
     if ( ! is_user_logged_in() || ! current_user_can( 'kp_ai_repair_code' ) ) {
@@ -28,11 +27,18 @@ add_action( 'wp_ajax_kp_mobile_live_bootstrap', static function () {
         wp_send_json_error( array( 'message' => 'Gemini ist serverseitig noch nicht verbunden.' ), 409 );
     }
 
+    $model = 'gemini-3.1-flash-live-preview';
     $now = time();
     $payload = array(
         'uses'                 => 1,
         'expireTime'           => gmdate( 'Y-m-d\\TH:i:s\\Z', $now + 30 * MINUTE_IN_SECONDS ),
         'newSessionExpireTime' => gmdate( 'Y-m-d\\TH:i:s\\Z', $now + 2 * MINUTE_IN_SECONDS ),
+        'liveConnectConstraints' => array(
+            'model' => 'models/' . $model,
+            'config' => array(
+                'responseModalities' => array( 'AUDIO' ),
+            ),
+        ),
     );
     $response = wp_remote_post( 'https://generativelanguage.googleapis.com/v1beta/auth_tokens', array(
         'timeout' => 20,
@@ -60,7 +66,7 @@ add_action( 'wp_ajax_kp_mobile_live_bootstrap', static function () {
     $github_connected = function_exists( 'kp_ai_repair_token' ) && (bool) kp_ai_repair_token();
     wp_send_json_success( array(
         'liveToken'       => sanitize_text_field( (string) $body['name'] ),
-        'model'           => 'gemini-2.5-flash-native-audio-preview-12-2025',
+        'model'           => $model,
         'repairNonce'     => wp_create_nonce( KP_AI_REPAIR_NONCE ),
         'ownerNonce'      => $owner_nonce,
         'githubConnected' => $github_connected,
