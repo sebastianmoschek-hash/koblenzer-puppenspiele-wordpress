@@ -1,0 +1,1 @@
+Full staging verification marker for merged Android Homepage-Hilfe, editor Undo/Redo, 48h saved versions and protected AI repair rollback integration.
