@@ -37,6 +37,7 @@ class MainActivity : Activity() {
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var webView: WebView
     private lateinit var statusView: TextView
+    private lateinit var editButton: Button
     private lateinit var liveButton: Button
     private lateinit var repairBridge: WebRepairBridge
     private lateinit var technician: GeminiLiveTechnician
@@ -58,6 +59,7 @@ class MainActivity : Activity() {
             status = ::showStatus,
         )
 
+        editButton.setOnClickListener { openEditor() }
         liveButton.setOnClickListener {
             if (live) stopLive() else beginLive()
         }
@@ -93,6 +95,10 @@ class MainActivity : Activity() {
             textSize = 13f
             maxLines = 2
         }
+        editButton = Button(this).apply {
+            text = "✎ Bearbeiten"
+            isAllCaps = false
+        }
         liveButton = Button(this).apply {
             text = "✦ KI live zeigen"
             isAllCaps = false
@@ -101,6 +107,7 @@ class MainActivity : Activity() {
             statusView,
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
         )
+        bar.addView(editButton)
         bar.addView(liveButton)
         root.addView(
             bar,
@@ -135,8 +142,13 @@ class MainActivity : Activity() {
                 super.onPageFinished(view, url)
                 val uri = url?.let { runCatching { Uri.parse(it) }.getOrNull() }
                 currentPageTrusted = uri?.scheme == "https" && isTrustedHost(uri.host)
+                val signedIn = hasWordPressSession()
+                editButton.text = if (signedIn) "✎ Bearbeiten" else "✎ Anmelden"
                 if (!live && currentPageTrusted) {
-                    showStatus("Homepage bereit · KI kann live zugeschaltet werden")
+                    showStatus(
+                        if (signedIn) "Homepage bereit · Bearbeiten oder KI live starten"
+                        else "Homepage bereit · zum Bearbeiten bitte anmelden"
+                    )
                 }
             }
         }
@@ -155,6 +167,34 @@ class MainActivity : Activity() {
         }
         currentPageTrusted = false
         webView.loadUrl(url)
+    }
+
+    private fun openEditor() {
+        if (hasWordPressSession()) {
+            showStatus("Bearbeitungsmodus wird geöffnet …")
+            webView.loadUrl(BuildConfig.HOMEPAGE_URL)
+        } else {
+            showStatus("Bitte einmal bei WordPress anmelden …")
+            webView.loadUrl(editorLoginUrl())
+        }
+    }
+
+    private fun hasWordPressSession(): Boolean {
+        val uri = runCatching { Uri.parse(BuildConfig.HOMEPAGE_URL) }.getOrNull() ?: return false
+        val cookieUrl = "${uri.scheme}://${uri.authority}/"
+        val cookies = CookieManager.getInstance().getCookie(cookieUrl).orEmpty()
+        return cookies.split(';').any { it.trim().startsWith("wordpress_logged_in_") }
+    }
+
+    private fun editorLoginUrl(): String {
+        val editor = Uri.parse(BuildConfig.HOMEPAGE_URL)
+        return Uri.Builder()
+            .scheme(editor.scheme ?: "https")
+            .encodedAuthority(editor.authority)
+            .path("/wp-login.php")
+            .appendQueryParameter("redirect_to", BuildConfig.HOMEPAGE_URL)
+            .build()
+            .toString()
     }
 
     private fun beginLive() {
@@ -203,7 +243,7 @@ class MainActivity : Activity() {
         uiScope.launch {
             try {
                 technician.start()
-                showStatus("KI live · zeig und beschreibe jetzt den Fehler")
+                showStatus("KI live · zeig einen Fehler oder sag, was geändert werden soll")
             } catch (error: Throwable) {
                 runCatching {
                     startService(Intent(this@MainActivity, ScreenCaptureService::class.java).apply {
