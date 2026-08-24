@@ -5,19 +5,14 @@ import android.content.Context
 import android.os.Build
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Contents
-import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
-import com.google.ai.edge.litertlm.OpenApiTool
 import com.google.ai.edge.litertlm.SamplerConfig
-import com.google.ai.edge.litertlm.tool
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -28,12 +23,13 @@ import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
 
 /**
- * Free, on-device primary AI for Homepage-Hilfe.
+ * Free on-device primary AI for Homepage-Hilfe.
  *
- * Gemma runs locally through LiteRT-LM. Normal page changes are executed through
- * the existing deterministic editor bridge. Technical code changes are also
- * prepared locally, then handed to the existing protected branch -> CI -> merge
- * workflow. No Gemini/OpenAI API call is required by this class.
+ * Gemma runs locally through LiteRT-LM. It produces a small JSON action plan;
+ * the existing deterministic editor bridge executes that plan. Technical code
+ * changes are also prepared locally, validated by WordPress and only enter the
+ * existing branch -> CI -> explicit merge path. No Gemini/OpenAI API call is
+ * required by this class.
  */
 class LocalAiTechnician(
     private val context: Context,
@@ -50,11 +46,12 @@ class LocalAiTechnician(
         val arm64: Boolean,
     )
 
+    private data class ChatTurn(val user: String, val assistant: String)
+
     private val lock = Mutex()
     private val modelManager = LocalModelManager(context)
+    private val history = ArrayDeque<ChatTurn>()
     private var engine: Engine? = null
-    private var conversation: Conversation? = null
-    @Volatile private var pendingCodeRequest: String? = null
 
     fun modelState(): ModelState = modelManager.state()
 
@@ -63,38 +60,86 @@ class LocalAiTechnician(
     }
 
     suspend fun send(userText: String): String = lock.withLock {
-        val prompt = userText.trim()
-        if (prompt.isBlank()) return@withLock "Bitte schreib mir, was ich ändern soll."
+        val request = userText.trim()
+        if (request.isBlank()) return@withLock "Bitte schreib mir, was ich ändern soll."
         if (!modelManager.isInstalled()) throw IllegalStateException("Das lokale KI-Modell ist noch nicht installiert.")
 
         withContext(Dispatchers.IO) {
-            val chat = ensureConversation()
-            pendingCodeRequest = null
+            status("Lokale KI untersucht die Homepage …")
+            val page = bridge.context()
+            val elements = bridge.editableElements()
+            val capabilities = bridge.editorCapabilities()
+            val prompt = buildPlannerPrompt(request, page.toString(), elements.toString(), capabilities.toString())
+
             status("Lokale KI denkt …")
-            val answer = chat.sendMessage(prompt).text.trim().ifBlank { "Erledigt." }
-            val codeRequest = pendingCodeRequest?.trim().orEmpty()
-            pendingCodeRequest = null
-            if (codeRequest.isBlank()) {
-                status("Lokale KI bereit · kostenlos auf dem Handy")
-                return@withContext answer
+            val plan = oneShotJson(PLANNER_SYSTEM, prompt, temperature = 0.25)
+            val results = mutableListOf<String>()
+            var codeRequest = ""
+            val actions = plan.optJSONArray("actions") ?: JSONArray()
+
+            for (i in 0 until minOf(actions.length(), 10)) {
+                val action = actions.optJSONObject(i) ?: continue
+                when (action.optString("type")) {
+                    "edit_element" -> {
+                        val result = bridge.editElement(
+                            action.optString("live_id"),
+                            action.optString("property"),
+                            action.optString("value"),
+                        )
+                        results += result.toString()
+                        val codeRequired = result["codeRequired"]?.jsonPrimitive?.content?.equals("true", ignoreCase = true) == true
+                        if (codeRequired && codeRequest.isBlank()) {
+                            codeRequest = "$request. Direkte Editoränderung war nicht verfügbar: $result"
+                        }
+                    }
+                    "set_global_design" -> {
+                        val result = bridge.setGlobalDesign(action.optString("key"), action.optString("value"))
+                        results += result.toString()
+                        val codeRequired = result["codeRequired"]?.jsonPrimitive?.content?.equals("true", ignoreCase = true) == true
+                        if (codeRequired && codeRequest.isBlank()) {
+                            codeRequest = "$request. Globale Designsteuerung war nicht verfügbar: $result"
+                        }
+                    }
+                    "undo" -> results += bridge.undoEditorChange().toString()
+                    "redo" -> results += bridge.redoEditorChange().toString()
+                    "request_code_change" -> if (codeRequest.isBlank()) codeRequest = action.optString("description").trim().ifBlank { request }
+                    "save" -> {
+                        if (explicitSaveRequested(request)) results += bridge.saveEditorChanges().toString()
+                        else results += "{\"saved\":false,\"message\":\"Speichern wurde nicht ausgeführt, weil der Nutzer es nicht ausdrücklich verlangt hat.\"}"
+                    }
+                }
             }
 
-            val repairText = runCatching { prepareLocalCodeRepair(codeRequest) }
-                .getOrElse { error ->
-                    "Die lokale Code-Reparatur konnte nicht vorbereitet werden: ${error.message ?: error.javaClass.simpleName}. Nutze dafür bei Bedarf „Notfall Gemini“."
-                }
-            status("Lokale KI bereit · kostenlos auf dem Handy")
-            listOf(answer, repairText).filter { it.isNotBlank() }.joinToString("\n\n")
+            if (plan.optBoolean("save", false) && explicitSaveRequested(request)) {
+                results += bridge.saveEditorChanges().toString()
+            }
+
+            var repairResult = ""
+            if (codeRequest.isNotBlank()) {
+                repairResult = runCatching { prepareLocalCodeRepair(codeRequest) }
+                    .getOrElse { error ->
+                        "Die lokale Code-Reparatur konnte nicht sicher vorbereitet werden: ${error.message ?: error.javaClass.simpleName}. Für diesen Ausnahmefall kannst du „Notfall Gemini“ verwenden."
+                    }
+            }
+
+            val reply = plan.optString("reply").trim().ifBlank {
+                if (results.isNotEmpty()) "Die gewünschte Änderung wurde im Editor vorbereitet." else "Ich brauche noch eine genauere Beschreibung der gewünschten Änderung."
+            }
+            val finalText = listOf(reply, repairResult).filter { it.isNotBlank() }.joinToString("\n\n")
+            remember(request, finalText)
+            status("Lokale KI bereit · kostenlos auf dem Gerät")
+            finalText
         }
     }
 
     suspend fun emergencyPrompt(userText: String): String = withContext(Dispatchers.IO) {
+        val request = userText.trim().ifBlank { "Untersuche die aktuelle Homepage und hilf mir bei der gewünschten Änderung." }
         val page = runCatching { bridge.context().toString() }.getOrDefault("{}")
         val elements = runCatching { bridge.editableElements().toString() }.getOrDefault("{}")
         """
             Ich bearbeite die Homepage der Koblenzer Puppenspiele. Bitte hilf mir bei dieser Aufgabe:
 
-            ${userText.trim().ifBlank { "Untersuche die aktuelle Homepage und hilf mir bei der gewünschten Änderung." }}
+            $request
 
             Aktueller Seitenkontext:
             $page
@@ -102,33 +147,51 @@ class LocalAiTechnician(
             Sichtbare/bearbeitbare Elemente:
             $elements
 
-            Bitte antworte konkret auf Deutsch. Wenn Code nötig ist, nenne die betroffenen Dateien und liefere möglichst kleine, sichere Änderungen. Entferne keine Berechtigungs-, Nonce- oder Sicherheitsprüfungen.
+            Bitte antworte konkret auf Deutsch. Wenn Code nötig ist, nenne die betroffenen Dateien und liefere möglichst kleine, sichere Änderungen. Entferne keine Berechtigungs-, Nonce-, Authentifizierungs- oder Sicherheitsprüfungen. Diese Aufgabe wird anschließend über einen Prüfbranch und CI kontrolliert.
         """.trimIndent().take(30000)
     }
 
     fun release() {
-        runCatching { conversation?.close() }
-        conversation = null
         runCatching { engine?.close() }
         engine = null
+        history.clear()
     }
 
-    private fun ensureConversation(): Conversation {
-        conversation?.let { return it }
-        val activeEngine = ensureEngine()
-        val config = ConversationConfig(
-            systemInstruction = Contents.of(SYSTEM_INSTRUCTION),
-            samplerConfig = SamplerConfig(topK = 32, topP = 0.9, temperature = 0.35),
-            tools = homepageTools(),
-            automaticToolCalling = true,
-        )
-        return activeEngine.createConversation(config).also { conversation = it }
+    private fun buildPlannerPrompt(request: String, page: String, elements: String, capabilities: String): String {
+        val prior = history.takeLast(4).joinToString("\n") { "NUTZER: ${it.user}\nKI: ${it.assistant}" }
+        return """
+            AKTUELLER WUNSCH:
+            $request
+
+            LETZTE UNTERHALTUNG:
+            ${prior.ifBlank { "Noch keine." }}
+
+            SEITENKONTEXT:
+            $page
+
+            SICHTBARE ELEMENTE:
+            $elements
+
+            EDITOR-FÄHIGKEITEN:
+            $capabilities
+
+            Liefere ausschließlich den JSON-Plan. Nutze live_id exakt aus den sichtbaren Elementen. Für Editor-UI, PHP, JavaScript, CSS oder nicht direkt unterstützte Eigenschaften verwende request_code_change statt so zu tun, als sei die Änderung schon erledigt.
+        """.trimIndent()
     }
+
+    private fun remember(user: String, assistant: String) {
+        history.addLast(ChatTurn(user.take(1200), assistant.take(2400)))
+        while (history.size > 6) history.removeFirst()
+    }
+
+    private fun explicitSaveRequested(text: String): Boolean = Regex(
+        "(?i)\\b(speicher(?:n|e|t)?|übernehm(?:en|e|t)?|dauerhaft|veröffentlich(?:en|e|t)?)\\b"
+    ).containsMatchIn(text)
 
     private fun ensureEngine(): Engine {
         engine?.let { return it }
         val model = modelManager.modelFile()
-        if (!model.isFile()) throw IllegalStateException("Lokales KI-Modell fehlt.")
+        if (!modelManager.isInstalled()) throw IllegalStateException("Lokales KI-Modell fehlt.")
         status("Lokale KI wird geladen …")
 
         fun initialize(backend: Backend): Engine {
@@ -145,88 +208,31 @@ class LocalAiTechnician(
 
         val active = runCatching { initialize(Backend.GPU()) }
             .recoverCatching { initialize(Backend.CPU()) }
-            .getOrElse { throw IllegalStateException("Das lokale KI-Modell konnte auf diesem Handy nicht gestartet werden: ${it.message}", it) }
+            .getOrElse { throw IllegalStateException("Das lokale KI-Modell konnte auf diesem Gerät nicht gestartet werden: ${it.message}", it) }
         engine = active
         return active
     }
 
-    private fun homepageTools() = listOf(
-        tool(JsonTool(
-            schema("inspect_homepage", "Lies den sichtbaren Seiten-, Browser- und Editorzustand."),
-        ) { bridge.context().toString() }),
-        tool(JsonTool(
-            schema("inspect_editable_elements", "Liste sichtbare bearbeitbare Homepage-Elemente mit live_id, Text, Position und verfügbaren Eigenschaften."),
-        ) { bridge.editableElements().toString() }),
-        tool(JsonTool(
-            schema("inspect_editor_capabilities", "Prüfe direkte Editor-, Speicher-, Undo-/Redo- und Reparaturmöglichkeiten."),
-        ) { bridge.editorCapabilities().toString() }),
-        tool(JsonTool(
-            schema(
-                "edit_element",
-                "Ändere eine Eigenschaft eines sichtbaren Homepage-Elements direkt. Für inhaltliche Bildgenerierung darf image_prompt im kostenlosen lokalen Modus NICHT benutzt werden.",
-                mapOf(
-                    "live_id" to "live_id aus inspect_editable_elements",
-                    "property" to "text, label, url, font_percent, padding_percent, width_percent, radius_px, color, background, move_x, move_y, section_up oder section_down",
-                    "value" to "Neuer Wert"
-                ),
-                listOf("live_id", "property", "value")
+    private fun oneShotJson(system: String, prompt: String, temperature: Double): JSONObject {
+        val active = ensureEngine()
+        active.createConversation(
+            ConversationConfig(
+                systemInstruction = Contents.of(system),
+                samplerConfig = SamplerConfig(topK = 24, topP = 0.88, temperature = temperature),
             )
-        ) { args ->
-            val property = args.optString("property")
-            if (property == "image_prompt") {
-                JSONObject().put("success", false).put("codeRequired", true)
-                    .put("message", "Generative Bildänderung benötigt den Notfall-Gemini-Weg oder eine spätere lokale Bild-KI.").toString()
-            } else {
-                bridge.editElement(args.optString("live_id"), property, args.optString("value")).toString()
-            }
-        }),
-        tool(JsonTool(
-            schema(
-                "set_global_design",
-                "Ändere eine globale Design-Einstellung direkt.",
-                mapOf("key" to "Design-Key", "value" to "Neuer Wert"),
-                listOf("key", "value")
-            )
-        ) { args -> bridge.setGlobalDesign(args.optString("key"), args.optString("value")).toString() }),
-        tool(JsonTool(
-            schema("save_homepage", "Speichere ungespeicherte Homepage- oder Designänderungen dauerhaft."),
-        ) { bridge.saveEditorChanges().toString() }),
-        tool(JsonTool(schema("undo_homepage", "Nimm die letzte Editoränderung zurück.")) { bridge.undoEditorChange().toString() }),
-        tool(JsonTool(schema("redo_homepage", "Stelle die letzte zurückgenommene Editoränderung wieder her.")) { bridge.redoEditorChange().toString() }),
-        tool(JsonTool(
-            schema(
-                "request_code_change",
-                "Fordere eine technische Änderung an WordPress/PHP/JavaScript/CSS/Editor-Code an, wenn direkte Editorwerkzeuge nicht reichen.",
-                mapOf("description" to "Präzise Beschreibung der gewünschten Codeänderung oder des Fehlers"),
-                listOf("description")
-            )
-        ) { args ->
-            val description = args.optString("description").trim()
-            if (description.isNotBlank()) pendingCodeRequest = description
-            JSONObject().put("queued", description.isNotBlank())
-                .put("message", "Die lokale KI bereitet die Codeänderung nach dieser Antwort über den geschützten Prüfbranch-Weg vor.").toString()
-        }),
-        tool(JsonTool(
-            schema(
-                "check_repair_status",
-                "Prüfe CI und Merge-Bereitschaft eines technischen Reparatur-PRs.",
-                mapOf("pr" to "Pull-Request-Nummer"),
-                listOf("pr")
-            )
-        ) { args -> bridge.status(args.optString("pr")).toString() }),
-        tool(JsonTool(
-            schema(
-                "merge_repair",
-                "Übernimm einen technischen Reparatur-PR nur nach ausdrücklicher Nutzerbestätigung und nur wenn CI grün ist.",
-                mapOf("pr" to "Pull-Request-Nummer"),
-                listOf("pr")
-            )
-        ) { args ->
-            val pr = args.optString("pr")
-            val allowed = confirm("Geprüften Fix übernehmen?", "PR #$pr wird nur übernommen, wenn die CI-Prüfungen grün sind.")
-            if (!allowed) JSONObject().put("cancelled", true).toString() else bridge.merge(pr).toString()
-        }),
-    )
+        ).use { conversation ->
+            val text = conversation.sendMessage(prompt).toString()
+            return parseJsonObject(text)
+        }
+    }
+
+    private fun parseJsonObject(text: String): JSONObject {
+        val clean = text.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+        val start = clean.indexOf('{')
+        val end = clean.lastIndexOf('}')
+        if (start < 0 || end <= start) throw IllegalStateException("Die lokale KI hat keinen strukturierten Plan geliefert.")
+        return JSONObject(clean.substring(start, end + 1))
+    }
 
     private suspend fun prepareLocalCodeRepair(description: String): String {
         status("Lokale KI untersucht den Code …")
@@ -247,7 +253,7 @@ class LocalAiTechnician(
             ERLAUBTE DATEIEN (Pfad und Größe):
             $catalog
         """.trimIndent()
-        val selection = oneShotJson(SELECTION_SYSTEM, selectionPrompt)
+        val selection = oneShotJson(SELECTION_SYSTEM, selectionPrompt, temperature = 0.15)
         val filesArray = selection.optJSONArray("files") ?: JSONArray()
         val selected = mutableListOf<String>()
         for (i in 0 until minOf(filesArray.length(), 3)) {
@@ -257,8 +263,8 @@ class LocalAiTechnician(
 
         status("Lokale KI liest ${selected.size} Reparaturdatei(en) …")
         val codeJson = bridge.localRepairFiles(selected)
-        val rawFiles = codeJson.toString()
-        if (rawFiles.contains("\"error\"")) throw IllegalStateException(codeJson["error"]?.jsonPrimitive?.content ?: "Code konnte nicht geladen werden.")
+        val error = codeJson["error"]?.jsonPrimitive?.content.orEmpty()
+        if (error.isNotBlank()) throw IllegalStateException(error)
 
         status("Lokale KI erstellt einen sicheren Patch …")
         val patchPrompt = """
@@ -269,9 +275,9 @@ class LocalAiTechnician(
             ${selection.optString("diagnosis")}
 
             DATEIINHALTE:
-            $rawFiles
+            $codeJson
         """.trimIndent()
-        val plan = oneShotJson(PATCH_SYSTEM, patchPrompt)
+        val plan = oneShotJson(PATCH_SYSTEM, patchPrompt, temperature = 0.1)
         val proposal = bridge.submitLocalRepairProposal(plan.toString())
         val proposalId = proposal["proposal_id"]?.jsonPrimitive?.content.orEmpty()
         if (proposalId.isBlank()) {
@@ -292,75 +298,31 @@ class LocalAiTechnician(
         val pr = bridge.createRepairBranch(proposalId)
         val prObject = JSONObject(pr.toString())
         val number = prObject.optString("pr").ifBlank { prObject.optString("number") }
-        val url = prObject.optString("url")
+        val url = prObject.optString("url").ifBlank { prObject.optString("html_url") }
         return buildString {
-            append("Lokale Code-Reparatur vorbereitet und als Prüfbranch angelegt")
+            append("Lokale Code-Reparatur als Prüfbranch angelegt")
             if (number.isNotBlank()) append(" (PR #$number)")
             append(". Vor einer Übernahme muss die CI grün sein und du musst den Merge nochmals bestätigen.")
             if (url.isNotBlank()) append("\n$url")
         }
     }
 
-    private fun oneShotJson(system: String, prompt: String): JSONObject {
-        val active = ensureEngine()
-        active.createConversation(
-            ConversationConfig(
-                systemInstruction = Contents.of(system),
-                samplerConfig = SamplerConfig(topK = 24, topP = 0.85, temperature = 0.2),
-            )
-        ).use { temp ->
-            val text = temp.sendMessage(prompt).text
-            return parseJsonObject(text)
-        }
-    }
-
-    private fun parseJsonObject(text: String): JSONObject {
-        val clean = text.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-        val start = clean.indexOf('{')
-        val end = clean.lastIndexOf('}')
-        if (start < 0 || end <= start) throw IllegalStateException("Die lokale KI hat keinen strukturierten Reparaturplan geliefert.")
-        return JSONObject(clean.substring(start, end + 1))
-    }
-
-    private class JsonTool(
-        private val description: String,
-        private val block: suspend (JSONObject) -> String,
-    ) : OpenApiTool {
-        constructor(description: String, block: suspend () -> String) : this(description, { block() })
-
-        override fun getToolDescriptionJsonString(): String = description
-
-        override fun execute(paramsJsonString: String): String = runBlocking {
-            block(runCatching { JSONObject(paramsJsonString) }.getOrElse { JSONObject() })
-        }
-    }
-
-    private fun schema(
-        name: String,
-        description: String,
-        params: Map<String, String> = emptyMap(),
-        required: List<String> = emptyList(),
-    ): String = JSONObject().apply {
-        put("name", name)
-        put("description", description)
-        put("parameters", JSONObject().apply {
-            put("type", "object")
-            put("properties", JSONObject().apply {
-                params.forEach { (key, desc) -> put(key, JSONObject().put("type", "string").put("description", desc)) }
-            })
-            if (required.isNotEmpty()) put("required", JSONArray(required))
-        })
-    }.toString()
-
     companion object {
-        private val SYSTEM_INSTRUCTION = """
-            Du bist die lokale, kostenlose Homepage-KI der Koblenzer Puppenspiele. Du läufst direkt auf dem Android-Handy. Antworte knapp, freundlich und auf Deutsch.
-
-            Du darfst normale Homepage-Wünsche selbst ausführen. Untersuche dafür zuerst inspect_homepage und inspect_editable_elements und benutze dann edit_element oder set_global_design. Behaupte eine Änderung erst, wenn das Werkzeug Erfolg gemeldet hat. Änderungen bleiben zunächst ungespeichert; save_homepage nur wenn der Nutzer ausdrücklich „speichern“, „übernehmen“ oder „dauerhaft“ sagt. Undo/Redo stehen zur Verfügung.
-
-            Wenn das Ziel ein Editor-Bedienelement, PHP/JavaScript/CSS oder eine Funktion ist, die mit den direkten Werkzeugen nicht möglich ist, sage nicht „kein Zugriff“. Rufe request_code_change mit einer präzisen Beschreibung auf. Danach bereitet die App die Änderung ebenfalls lokal vor und führt sie nur über Prüfbranch + CI + ausdrückliche Bestätigung aus.
-
-            Im kostenlosen lokalen Modus darfst du image_prompt nicht aufrufen, weil die bisherige generative Bildfunktion eine Cloud-API benutzen würde. Für eine rein generative Bildänderung erkläre kurz, dass „Notfall Gemini“ genutzt werden kann. Normale Bildgröße, Position, Radius usw. dürfen direkt geändert werden.
+        private val PLANNER_SYSTEM = """
+            Du bist die lokale, kostenlose Homepage-KI der Koblenzer Puppenspiele. Antworte ausschließlich als JSON ohne Markdown:
+            {
+              "reply":"kurze deutsche Antwort",
+              "save":false,
+              "actions":[
+                {"type":"edit_element","live_id":"live-1","property":"text","value":"Neuer Text"},
+                {"type":"set_global_design","key":"accent_color","value":"#D97706"},
+                {"type":"undo"},
+                {"type":"redo"},
+                {"type":"save"},
+                {"type":"request_code_change","description":"präzise technische Änderung"}
+              ]
+            }
+            Regeln: Höchstens 10 Aktionen. Nutze nur sichtbare live_id-Werte und angebotene Eigenschaften. Für normale Texte, Links, Größe, Abstand, Radius, Farben, Position, Reihenfolge und globale Designwerte direkte Aktionen verwenden. Für Editor-Bedienelemente, PHP/JavaScript/CSS, neue Funktionen oder nicht angebotene Eigenschaften request_code_change verwenden. Nie behaupten, etwas sei geändert oder gespeichert, wenn keine passende Aktion vorhanden ist. save nur setzen/ausgeben, wenn der Nutzer ausdrücklich speichern, übernehmen oder dauerhaft machen verlangt. Generative Bildinhalte sind lokal noch nicht verfügbar; dafür in reply „Notfall Gemini“ nennen, aber keine Cloud-Aktion erfinden.
         """.trimIndent()
 
         private val SELECTION_SYSTEM = """
@@ -387,9 +349,11 @@ class LocalAiTechnician(
 
 private class LocalModelManager(private val context: Context) {
     companion object {
-        const val MODEL_BYTES = 2_588_147_712L
-        private const val REQUIRED_FREE_BYTES = 3_700_000_000L
-        private const val RECOMMENDED_RAM_BYTES = 8_000_000_000L
+        const val REFERENCE_MODEL_BYTES = 2_588_147_712L
+        private const val MIN_VALID_MODEL_BYTES = 2_400_000_000L
+        private const val MAX_VALID_MODEL_BYTES = 3_100_000_000L
+        private const val REQUIRED_FREE_BYTES = 4_500_000_000L
+        private const val RECOMMENDED_RAM_BYTES = 6_000_000_000L
         private const val MODEL_URL = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/6e5c4f1e395deb959c494953478fa5cec4b8008f/gemma-4-E2B-it.litertlm?download=true"
     }
 
@@ -400,17 +364,18 @@ private class LocalModelManager(private val context: Context) {
 
     fun modelFile(): File = File(File(context.filesDir, "local-ai").apply { mkdirs() }, "gemma-4-E2B-it.litertlm")
 
-    fun isInstalled(): Boolean = modelFile().let { it.isFile && it.length() == MODEL_BYTES }
+    fun isInstalled(): Boolean = modelFile().let { it.isFile && it.length() in MIN_VALID_MODEL_BYTES..MAX_VALID_MODEL_BYTES }
 
     fun state(): LocalAiTechnician.ModelState {
         val memory = (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).let { manager ->
             ActivityManager.MemoryInfo().also(manager::getMemoryInfo)
         }
+        val file = modelFile()
         val free = context.filesDir.usableSpace
         val arm64 = Build.SUPPORTED_64_BIT_ABIS.any { it.equals("arm64-v8a", ignoreCase = true) }
         return LocalAiTechnician.ModelState(
             installed = isInstalled(),
-            modelBytes = MODEL_BYTES,
+            modelBytes = if (isInstalled()) file.length() else REFERENCE_MODEL_BYTES,
             freeBytes = free,
             totalRamBytes = memory.totalMem,
             recommendedRam = memory.totalMem >= RECOMMENDED_RAM_BYTES,
@@ -424,7 +389,7 @@ private class LocalModelManager(private val context: Context) {
             throw IllegalStateException("Die lokale KI benötigt derzeit ein 64-Bit-ARM-Handy.")
         }
         if (context.filesDir.usableSpace < REQUIRED_FREE_BYTES) {
-            throw IllegalStateException("Für das lokale KI-Modell werden mindestens etwa 3,7 GB freier Gerätespeicher benötigt.")
+            throw IllegalStateException("Für das lokale KI-Modell werden mindestens etwa 4,5 GB freier Gerätespeicher benötigt.")
         }
 
         val target = modelFile()
@@ -434,8 +399,8 @@ private class LocalModelManager(private val context: Context) {
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IllegalStateException("Modell-Download fehlgeschlagen (HTTP ${response.code}).")
             val body = response.body
-            val announced = body.contentLength().takeIf { it > 0 } ?: MODEL_BYTES
-            if (announced in 1 until 100_000_000L) {
+            val announced = body.contentLength().takeIf { it > 0 } ?: REFERENCE_MODEL_BYTES
+            if (announced !in MIN_VALID_MODEL_BYTES..MAX_VALID_MODEL_BYTES) {
                 throw IllegalStateException("Der Modellserver hat keine gültige Modelldatei geliefert.")
             }
             body.byteStream().use { input ->
@@ -458,10 +423,10 @@ private class LocalModelManager(private val context: Context) {
                 }
             }
         }
-        if (part.length() != MODEL_BYTES) {
+        if (part.length() !in MIN_VALID_MODEL_BYTES..MAX_VALID_MODEL_BYTES) {
             val got = part.length()
             part.delete()
-            throw IllegalStateException("Modelldatei ist unvollständig (${got / 1_000_000} MB statt ${MODEL_BYTES / 1_000_000} MB).")
+            throw IllegalStateException("Modelldatei ist unvollständig (${got / 1_000_000} MB).")
         }
         if (target.exists()) target.delete()
         if (!part.renameTo(target)) {
