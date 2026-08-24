@@ -11,12 +11,9 @@ meaningful_files(){
   if [[ -z "$changed" ]]; then
     changed="$(git show --pretty='' --name-only "$commit" 2>/dev/null || true)"
   fi
-  printf '%s\n' "$changed" | sed '/^$/d' | grep -Ev '^(qa-results/|README\.md$|AGENTS\.md$)' || true
+  printf '%s\n' "$changed" | sed '/^$/d' | grep -Ev '^(qa-results/|qa-artifacts/homepage-lab/\.gitkeep$|visual-qa/output/\.gitkeep$|README\.md$|AGENTS\.md$)' || true
 }
 
-# Report commits are pushed back to main with [skip ci]. They must never make a
-# still-valid code pipeline look superseded. Resolve the newest meaningful main
-# commit instead of comparing against the raw branch head.
 if [[ -n "$SHA" ]]; then
   git fetch origin main --quiet --depth=80 2>/dev/null || true
   latest_meaningful=''
@@ -37,14 +34,11 @@ fi
 
 meaningful="$(meaningful_files "${SHA:-HEAD}")"
 if [[ -z "$meaningful" ]]; then
-  echo 'CircleCI: report/docs-only commit; no staging lab needed.'
+  echo 'CircleCI: report/docs/artifact-placeholder-only commit; no staging lab needed.'
   circleci-agent step halt
   exit 0
 fi
 
-# Pure pipeline wiring/reporting changes are already validated by CircleCI
-# parsing the config and by the editor-contracts job. They must not occupy the
-# shared staging lane or trigger browser tests that cannot validate these files.
 pipeline_only=1
 while IFS= read -r file; do
   [[ -z "$file" ]] && continue
@@ -64,15 +58,14 @@ done <<< "$meaningful"
 if [[ $pipeline_only -eq 1 ]]; then
   bash -n qa/circleci-classify.sh
   [[ ! -f qa/publish-circleci-report-to-github.sh ]] || bash -n qa/publish-circleci-report-to-github.sh
-  echo 'CircleCI: pipeline/report-only change; static gates are sufficient, staging job halted before install/deploy.'
-  circleci-agent step halt
+  {
+    printf 'export KP_CI_MODE=%q\n' 'ci'
+    printf 'export KP_CI_CHANGED_FILES=%q\n' "$meaningful"
+  } >> "$BASH_ENV_FILE"
+  echo 'CircleCI: pipeline/report-only change; staging will be represented by a synthetic no-deploy verdict so downstream verdict jobs remain valid.'
   exit 0
 fi
 
-# Three lanes:
-#   qa   = only CI/test harness changed: reuse already deployed staging code.
-#   pwa  = only installable-web-app files (+ optional QA files) changed.
-#   full = any real website/editor/runtime code changed.
 mode='qa'
 saw_pwa=0
 while IFS= read -r file; do
