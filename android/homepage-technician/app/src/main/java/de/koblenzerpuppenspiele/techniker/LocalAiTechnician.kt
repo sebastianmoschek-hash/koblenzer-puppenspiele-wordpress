@@ -31,6 +31,12 @@ import java.util.concurrent.TimeUnit
  * changes are also prepared locally, validated by WordPress and only enter the
  * existing branch -> CI -> explicit merge path. No Gemini/OpenAI API call is
  * required by this class.
+ *
+ * One important reliability rule: every inference uses exactly ONE
+ * Conversation.sendMessage(). Several Android/SoC combinations have shown native
+ * instability on a second sequential send in the same LiteRT conversation. JSON
+ * cleanup therefore happens deterministically in Kotlin instead of asking the
+ * model for a second repair turn.
  */
 class LocalAiTechnician(
     private val context: Context,
@@ -78,6 +84,9 @@ class LocalAiTechnician(
             val plan = oneShotJson(PLANNER_SYSTEM, prompt, temperature = 0.12)
             val results = mutableListOf<String>()
             var codeRequest = ""
+            var directChanges = 0
+            var saved = false
+            var historyAction = ""
             val actions = plan.optJSONArray("actions") ?: JSONArray()
 
             for (i in 0 until minOf(actions.length(), 10)) {
@@ -91,6 +100,8 @@ class LocalAiTechnician(
                         )
                         results += result.toString()
                         val codeRequired = result["codeRequired"]?.jsonPrimitive?.content?.equals("true", ignoreCase = true) == true
+                        val success = result["success"]?.jsonPrimitive?.content?.equals("true", ignoreCase = true) == true
+                        if (success) directChanges++
                         if (codeRequired && codeRequest.isBlank()) {
                             codeRequest = "$request. Direkte Editoränderung war nicht verfügbar: $result"
                         }
@@ -99,22 +110,37 @@ class LocalAiTechnician(
                         val result = bridge.setGlobalDesign(action.optString("key"), action.optString("value"))
                         results += result.toString()
                         val codeRequired = result["codeRequired"]?.jsonPrimitive?.content?.equals("true", ignoreCase = true) == true
+                        val success = result["success"]?.jsonPrimitive?.content?.equals("true", ignoreCase = true) == true
+                        if (success) directChanges++
                         if (codeRequired && codeRequest.isBlank()) {
                             codeRequest = "$request. Globale Designsteuerung war nicht verfügbar: $result"
                         }
                     }
-                    "undo" -> results += bridge.undoEditorChange().toString()
-                    "redo" -> results += bridge.redoEditorChange().toString()
-                    "request_code_change" -> if (codeRequest.isBlank()) codeRequest = action.optString("description").trim().ifBlank { request }
+                    "undo" -> {
+                        results += bridge.undoEditorChange().toString()
+                        historyAction = "Rückgängig ausgeführt."
+                    }
+                    "redo" -> {
+                        results += bridge.redoEditorChange().toString()
+                        historyAction = "Wiederholen ausgeführt."
+                    }
+                    "request_code_change" -> if (codeRequest.isBlank()) {
+                        codeRequest = action.optString("description").trim().ifBlank { request }
+                    }
                     "save" -> {
-                        if (explicitSaveRequested(request)) results += bridge.saveEditorChanges().toString()
-                        else results += "{\"saved\":false,\"message\":\"Speichern wurde nicht ausgeführt, weil der Nutzer es nicht ausdrücklich verlangt hat.\"}"
+                        if (explicitSaveRequested(request)) {
+                            results += bridge.saveEditorChanges().toString()
+                            saved = true
+                        } else {
+                            results += "{\"saved\":false,\"message\":\"Speichern wurde nicht ausgeführt, weil der Nutzer es nicht ausdrücklich verlangt hat.\"}"
+                        }
                     }
                 }
             }
 
-            if (plan.optBoolean("save", false) && explicitSaveRequested(request)) {
+            if (plan.optBoolean("save", false) && explicitSaveRequested(request) && !saved) {
                 results += bridge.saveEditorChanges().toString()
+                saved = true
             }
 
             var repairResult = ""
@@ -128,7 +154,12 @@ class LocalAiTechnician(
             val reply = plan.optString("reply").trim().ifBlank {
                 if (results.isNotEmpty()) "Die gewünschte Änderung wurde im Editor vorbereitet." else "Ich brauche noch eine genauere Beschreibung der gewünschten Änderung."
             }
-            val finalText = listOf(reply, repairResult).filter { it.isNotBlank() }.joinToString("\n\n")
+            val execution = buildList {
+                if (directChanges > 0) add("Ausgeführt: $directChanges direkte ${if (directChanges == 1) "Änderung" else "Änderungen"} im Editor${if (saved) " und gespeichert" else " (noch nicht gespeichert)"}.")
+                if (historyAction.isNotBlank()) add(historyAction)
+                if (saved && directChanges == 0) add("Speichern wurde ausgeführt.")
+            }.joinToString(" ")
+            val finalText = listOf(reply, execution, repairResult).filter { it.isNotBlank() }.joinToString("\n\n")
             remember(request, finalText)
             status("Lokale KI bereit · kostenlos auf dem Gerät")
             finalText
@@ -140,7 +171,7 @@ class LocalAiTechnician(
         val page = runCatching { bridge.context().toString() }.getOrDefault("{}")
         val elements = runCatching { bridge.editableElements().toString() }.getOrDefault("{}")
         """
-            Ich bearbeite die Homepage der Koblenzer Puppenspiele. Bitte hilf mir bei dieser Aufgabe:
+            Ich bearbeite die Homepage und die Homepage-Hilfe-App der Koblenzer Puppenspiele. Bitte hilf mir bei dieser Aufgabe:
 
             $request
 
@@ -162,10 +193,10 @@ class LocalAiTechnician(
     private fun buildPlannerPrompt(request: String, page: String, elements: String, capabilities: String): String {
         val prior = history.takeLast(3)
             .joinToString("\n") { "NUTZER: ${it.user.take(500)}\nKI: ${it.assistant.take(700)}" }
-            .take(1800)
-        val compactPage = page.take(3200)
+            .take(1600)
+        val compactPage = page.take(2600)
         val compactElements = compactEditableElements(elements)
-        val compactCapabilities = capabilities.take(1800)
+        val compactCapabilities = capabilities.take(1400)
         return boundPrompt(
             """
                 AUFGABE: Erzeuge einen kleinen ausführbaren JSON-Plan. Verwende nur live_id-Werte aus dem kompakten Elementkontext. Wenn eine Eigenschaft dort nicht angeboten wird, verwende request_code_change.
@@ -185,7 +216,7 @@ class LocalAiTechnician(
                 EDITOR-FÄHIGKEITEN:
                 $compactCapabilities
 
-                Liefere ausschließlich den JSON-Plan. Nutze live_id exakt aus den sichtbaren Elementen. Für Editor-UI, PHP, JavaScript, CSS oder nicht direkt unterstützte Eigenschaften verwende request_code_change statt so zu tun, als sei die Änderung schon erledigt.
+                Liefere ausschließlich den JSON-Plan. Nutze live_id exakt aus den sichtbaren Elementen. Für Editor-UI, App-Programmierung, PHP, JavaScript, CSS, komplette Umbauten oder nicht direkt unterstützte Eigenschaften verwende request_code_change statt so zu tun, als sei die Änderung schon erledigt.
             """.trimIndent(),
             MAX_MODEL_PROMPT_CHARS,
         )
@@ -204,7 +235,7 @@ class LocalAiTechnician(
                 .put("liveId", element.optString("liveId"))
                 .put("kind", element.optString("kind"))
                 .put("tag", element.optString("tag"))
-                .put("text", element.optString("text").take(160))
+                .put("text", element.optString("text").take(140))
             element.optJSONArray("properties")?.let { compact.put("properties", it) }
             element.optJSONObject("rect")?.let { rect ->
                 compact.put(
@@ -236,7 +267,7 @@ class LocalAiTechnician(
                 JSONObject()
                     .put("liveId", element.optString("liveId"))
                     .put("kind", "editor-ui")
-                    .put("text", element.optString("text").take(120))
+                    .put("text", element.optString("text").take(100))
                     .put("properties", element.optJSONArray("properties") ?: JSONArray()),
             )
         }
@@ -244,7 +275,7 @@ class LocalAiTechnician(
         out.put("editorUi", editorUi)
         out.put("count", content.length() + editorUi.length())
         out.toString()
-    }.getOrElse { raw.take(7000) }
+    }.getOrElse { raw.take(5200) }
 
     private fun boundPrompt(text: String, maxChars: Int): String {
         if (text.length <= maxChars) return text
@@ -254,8 +285,8 @@ class LocalAiTechnician(
     }
 
     private fun remember(user: String, assistant: String) {
-        history.addLast(ChatTurn(user.take(1200), assistant.take(2400)))
-        while (history.size > 6) history.removeFirst()
+        history.addLast(ChatTurn(user.take(1000), assistant.take(2000)))
+        while (history.size > 5) history.removeFirst()
     }
 
     private fun explicitSaveRequested(text: String): Boolean = Regex(
@@ -312,7 +343,8 @@ class LocalAiTechnician(
     }
 
     private fun oneShotJson(system: String, prompt: String, temperature: Double): JSONObject {
-        val safePrompt = boundPrompt(prompt, MAX_MODEL_PROMPT_CHARS)
+        val initialLimit = if (preferCpu) MAX_CPU_FALLBACK_PROMPT_CHARS else MAX_MODEL_PROMPT_CHARS
+        val safePrompt = boundPrompt(prompt, initialLimit)
         return try {
             oneShotJsonWithEngine(ensureEngine(), system, safePrompt, temperature)
         } catch (error: Throwable) {
@@ -321,9 +353,10 @@ class LocalAiTechnician(
             resetEngine()
             if (failedBackend == "GPU") {
                 preferCpu = true
-                status("Lokale KI: GPU-Inferenz fehlgeschlagen · einmaliger CPU-Fallback …")
+                val compactCpuPrompt = boundPrompt(prompt, MAX_CPU_FALLBACK_PROMPT_CHARS)
+                status("Lokale KI: GPU-Inferenz fehlgeschlagen · CPU-Fallback mit kleinerem Kontext …")
                 return try {
-                    oneShotJsonWithEngine(ensureEngine(), system, safePrompt, temperature)
+                    oneShotJsonWithEngine(ensureEngine(), system, compactCpuPrompt, temperature)
                 } catch (cpuError: Throwable) {
                     throw friendlyNativeFailure(cpuError)
                 }
@@ -332,29 +365,22 @@ class LocalAiTechnician(
         }
     }
 
+    /** Exactly one native sendMessage per conversation for Android stability. */
     private fun oneShotJsonWithEngine(active: Engine, system: String, prompt: String, temperature: Double): JSONObject {
         val noThinking = ThinkingConfig(enableThinking = false, thinkingTokenBudget = 0)
         active.createConversation(
             ConversationConfig(
                 systemInstruction = Contents.of(system),
-                samplerConfig = SamplerConfig(topK = 20, topP = 0.82, temperature = temperature),
+                samplerConfig = SamplerConfig(topK = 16, topP = 0.78, temperature = temperature),
                 maxOutputToken = MAX_OUTPUT_TOKENS,
                 thinkingConfig = noThinking,
             )
         ).use { conversation ->
-            val firstText = conversation.sendMessage(prompt).text
-            parseJsonObjectOrNull(firstText)?.let { return it }
-
-            // Small local models occasionally emit a bare word, trailing comma or explanatory
-            // sentence despite the JSON-only instruction. Ask the same on-device conversation
-            // to repair its own output before surfacing an error to the user. This costs no API.
-            val repairPrompt = """
-                Deine vorige Antwort war kein gültiges JSON. Gib EXAKT denselben Inhalt jetzt noch einmal als syntaktisch gültiges JSON aus.
-                Keine Erklärung, kein Markdown, keine Kommentare. Alle Textwerte müssen in doppelten Anführungszeichen stehen.
-            """.trimIndent()
-            val repairedText = conversation.sendMessage(repairPrompt).text
-            return parseJsonObjectOrNull(repairedText)
-                ?: throw IllegalStateException("Die lokale KI konnte den Änderungsplan nach einem automatischen Reparaturversuch nicht strukturiert ausgeben. Bitte denselben Wunsch noch einmal senden.")
+            val rawText = conversation.sendMessage(prompt).text
+            return parseJsonObjectOrNull(rawText)
+                ?: throw IllegalStateException(
+                    "Die lokale KI hat geantwortet, aber der Änderungsplan war nicht eindeutig strukturiert. Ich habe ihn lokal repariert, ohne einen zweiten Modellaufruf zu starten. Bitte formuliere den Wunsch etwas kürzer oder konkreter."
+                )
         }
     }
 
@@ -366,7 +392,9 @@ class LocalAiTechnician(
             if (type.contains("LiteRtLmJni", ignoreCase = true) ||
                 message.contains("nativeSendMessage", ignoreCase = true) ||
                 message.contains("resource exhausted", ignoreCase = true) ||
-                message.contains("kv cache", ignoreCase = true)
+                message.contains("kv cache", ignoreCase = true) ||
+                message.contains("command queue", ignoreCase = true) ||
+                message.contains("opencl", ignoreCase = true)
             ) return true
             current = current?.cause
         }
@@ -374,7 +402,7 @@ class LocalAiTechnician(
     }
 
     private fun friendlyNativeFailure(error: Throwable): IllegalStateException = IllegalStateException(
-        "Das lokale Modell konnte den kompakten Seitenkontext gerade nicht berechnen. Die App hat bereits GPU/CPU-Fallback und einen kleineren Kontext versucht. Bitte denselben Wunsch noch einmal senden; wenn es erneut passiert, kannst du vorübergehend Notfall Gemini verwenden.",
+        "Das lokale Modell konnte die Aufgabe auf diesem Gerät gerade nicht berechnen. Die App hat nach einem GPU-Fehler automatisch auf CPU und einen deutlich kleineren Seitenkontext gewechselt. Bitte denselben Wunsch noch einmal senden. Wenn auch CPU scheitert, bleibt Notfall Gemini als Ausnahmeweg verfügbar.",
         error,
     )
 
@@ -393,9 +421,46 @@ class LocalAiTechnician(
         val start = normalized.indexOf('{')
         val end = normalized.lastIndexOf('}')
         if (start < 0 || end <= start) return null
-        val candidate = normalized.substring(start, end + 1)
+
+        val original = normalized.substring(start, end + 1)
+        val candidates = linkedSetOf<String>()
+        candidates += original
+        candidates += original.replace(Regex(",\\s*([}\\]])"), "$1")
+        candidates += repairJsonCandidate(original)
+
+        for (candidate in candidates) {
+            runCatching { JSONObject(candidate) }.getOrNull()?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * Conservative local cleanup for common small-model JSON slips. No model
+     * inference is performed here, so it cannot trigger a second native send.
+     */
+    private fun repairJsonCandidate(raw: String): String {
+        var out = raw
+            .replace(Regex("(?i)\\bTrue\\b"), "true")
+            .replace(Regex("(?i)\\bFalse\\b"), "false")
+            .replace(Regex("(?i)\\bNone\\b"), "null")
             .replace(Regex(",\\s*([}\\]])"), "$1")
-        return runCatching { JSONObject(candidate) }.getOrNull()
+            .replace(
+                Regex("([\\{,]\\s*)([A-Za-z_][A-Za-z0-9_]*)(\\s*:)")
+            ) { match -> "${match.groupValues[1]}\"${match.groupValues[2]}\"${match.groupValues[3]}" }
+
+        val stringKeys = listOf(
+            "reply", "type", "live_id", "property", "value", "key", "description",
+            "summary", "diagnosis", "risk", "confidence", "path", "reason"
+        )
+        for (key in stringKeys) {
+            val pattern = Regex("(\\\"${Regex.escape(key)}\\\"\\s*:\\s*)([^\\\"\\{\\[0-9tfn-][^,}\\]\\n]*)(?=\\s*[,}\\]])")
+            out = pattern.replace(out) { match ->
+                val prefix = match.groupValues[1]
+                val value = match.groupValues[2].trim()
+                if (value.isBlank()) match.value else prefix + JSONObject.quote(value)
+            }
+        }
+        return out
     }
 
     private suspend fun prepareLocalCodeRepair(description: String): String {
@@ -474,12 +539,13 @@ class LocalAiTechnician(
     companion object {
         private const val LOCAL_MAX_TOKENS = 6144
         private const val MAX_OUTPUT_TOKENS = 384
-        private const val MAX_MODEL_PROMPT_CHARS = 12000
-        private const val MAX_CONTENT_ELEMENTS = 28
-        private const val MAX_EDITOR_UI_ELEMENTS = 6
+        private const val MAX_MODEL_PROMPT_CHARS = 9000
+        private const val MAX_CPU_FALLBACK_PROMPT_CHARS = 5200
+        private const val MAX_CONTENT_ELEMENTS = 24
+        private const val MAX_EDITOR_UI_ELEMENTS = 5
 
         private val PLANNER_SYSTEM = """
-            Du bist die lokale, kostenlose Homepage-KI der Koblenzer Puppenspiele. Antworte ausschließlich als JSON ohne Markdown:
+            Du bist die lokale, kostenlose Allround-Homepage-KI der Koblenzer Puppenspiele. Antworte ausschließlich als syntaktisch gültiges JSON ohne Markdown:
             {
               "reply":"kurze deutsche Antwort",
               "save":false,
@@ -492,17 +558,17 @@ class LocalAiTechnician(
                 {"type":"request_code_change","description":"präzise technische Änderung"}
               ]
             }
-            Regeln: Höchstens 10 Aktionen. Nutze nur sichtbare live_id-Werte und angebotene Eigenschaften. Für normale Texte, Links, Größe, Abstand, Radius, Farben, Position, Reihenfolge und globale Designwerte direkte Aktionen verwenden. ALLE String-Werte müssen in doppelten Anführungszeichen stehen; Farben als Hex-Strings wie "#0000FF", niemals als nacktes Wort. Für Editor-Bedienelemente, PHP/JavaScript, CSS, neue Funktionen oder nicht angebotene Eigenschaften request_code_change verwenden. Nie behaupten, etwas sei geändert oder gespeichert, wenn keine passende Aktion vorhanden ist. save nur setzen/ausgeben, wenn der Nutzer ausdrücklich speichern, übernehmen oder dauerhaft machen verlangt. Generative Bildinhalte sind lokal noch nicht verfügbar; dafür in reply „Notfall Gemini“ nennen, aber keine Cloud-Aktion erfinden.
+            Regeln: Höchstens 10 Aktionen. Nutze nur sichtbare live_id-Werte und angebotene Eigenschaften. Für normale Texte, Links, Größe, Abstand, Radius, Farben, Position, Reihenfolge und globale Designwerte direkte Aktionen verwenden. ALLE String-Werte müssen in doppelten Anführungszeichen stehen; Farben als Hex-Strings wie "#0000FF", niemals als nacktes Wort. Für Editor-Bedienelemente, komplette Umgestaltung, App-Programmierung, PHP/JavaScript/CSS, neue Funktionen oder nicht angebotene Eigenschaften request_code_change verwenden. Nie behaupten, etwas sei geändert oder gespeichert, wenn keine passende Aktion vorhanden ist. save nur setzen/ausgeben, wenn der Nutzer ausdrücklich speichern, übernehmen oder dauerhaft machen verlangt. Wenn eine Bildaufgabe mit den angebotenen Bild-Eigenschaften nicht möglich ist, erkläre knapp, dass ein Spezialwerkzeug oder Notfall Gemini nötig ist; erfinde keine Cloud-Aktion.
         """.trimIndent()
 
         private val SELECTION_SYSTEM = """
-            Du bist ein lokaler Code-Diagnostiker. Antworte ausschließlich als JSON ohne Markdown:
+            Du bist ein lokaler Code-Diagnostiker für Website UND Android-App. Antworte ausschließlich als syntaktisch gültiges JSON ohne Markdown:
             {"reply":"kurz","diagnosis":"präzise Diagnose","confidence":"low|medium|high","files":["pfad1","pfad2"]}
             Wähle höchstens 3 Dateien und ausschließlich Pfade aus dem bereitgestellten Katalog. Bevorzuge die kleinste plausible Menge. Keine Secrets erfinden. Alle String-Werte müssen in doppelten Anführungszeichen stehen.
         """.trimIndent()
 
         private val PATCH_SYSTEM = """
-            Du bist ein lokaler sicherer Code-Patcher. Antworte ausschließlich als JSON ohne Markdown:
+            Du bist ein lokaler sicherer Code-Patcher für WordPress und die Android Homepage-Hilfe. Antworte ausschließlich als syntaktisch gültiges JSON ohne Markdown:
             {
               "summary":"kurz",
               "diagnosis":"warum",
