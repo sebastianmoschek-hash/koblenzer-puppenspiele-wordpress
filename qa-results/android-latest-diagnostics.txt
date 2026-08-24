@@ -135,7 +135,6 @@ Daemon will be stopped at the end of the build
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
 > Task :app:generateDebugBuildConfig
 > Task :app:generateDebugResources
-> Task :app:processDebugGoogleServices
 > Task :app:packageDebugResources
 > Task :app:processDebugNavigationResources
 > Task :app:javaPreCompileDebug
@@ -147,6 +146,7 @@ Daemon will be stopped at the end of the build
 > Task :app:generateDebugGlobalSynthetics
 > Task :app:checkDebugDuplicateClasses
 > Task :app:desugarDebugFileDependencies
+
 > Task :app:compileDebugKotlin
 w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/MainActivity.kt:296:62 'fun onBackPressed(): Unit' is deprecated. Deprecated in Java.
 
@@ -156,15 +156,15 @@ w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/d
 > Task :app:mergeLibDexDebug
 > Task :app:checkDebugAarMetadata
 > Task :app:mapDebugSourceSetPaths
-> Task :app:compileDebugNavigationResources
 > Task :app:mergeDebugJavaResource
+> Task :app:compileDebugNavigationResources
 > Task :app:createDebugCompatibleScreenManifests
 > Task :app:extractDeepLinksDebug
+> Task :app:mergeDebugResources
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
-> Task :app:processDebugManifestForPackage
 > Task :app:mergeDebugJniLibFolders
-> Task :app:mergeDebugResources
+> Task :app:processDebugManifestForPackage
 > Task :app:mergeDebugNativeLibs
 
 > Task :app:stripDebugDebugSymbols
@@ -180,6 +180,6 @@ Unable to strip the following libraries, packaging them as they are: libdatastor
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 2m 57s
-39 actionable tasks: 39 executed
+BUILD SUCCESSFUL in 2m 31s
+38 actionable tasks: 38 executed
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.5.0/userguide/configuration_cache_enabling.html
