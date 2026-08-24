@@ -125,7 +125,7 @@ OS:            Linux 7.0.0-1009-aws amd64
 
 
 ===== contract.log =====
-PASS mobile-live: screen sharing, editor Undo/Redo, 48h versions, protected code rollback and confirmation gates are present.
+PASS mobile-live: screen sharing, reversible live visual editing, editor Undo/Redo, 48h versions, protected code rollback and confirmation gates are present.
 
 ===== build.log =====
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
@@ -148,7 +148,7 @@ Daemon will be stopped at the end of the build
 > Task :app:checkDebugDuplicateClasses
 > Task :app:desugarDebugFileDependencies
 > Task :app:compileDebugKotlin
-w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/MainActivity.kt:296:62 'fun onBackPressed(): Unit' is deprecated. Deprecated in Java.
+w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/MainActivity.kt:336:62 'fun onBackPressed(): Unit' is deprecated. Deprecated in Java.
 
 > Task :app:mergeExtDexDebug
 > Task :app:compileDebugJavaWithJavac
@@ -160,11 +160,11 @@ w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/d
 > Task :app:mergeDebugJavaResource
 > Task :app:createDebugCompatibleScreenManifests
 > Task :app:extractDeepLinksDebug
-> Task :app:mergeDebugResources
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
-> Task :app:mergeDebugJniLibFolders
 > Task :app:processDebugManifestForPackage
+> Task :app:mergeDebugJniLibFolders
+> Task :app:mergeDebugResources
 > Task :app:mergeDebugNativeLibs
 
 > Task :app:stripDebugDebugSymbols
@@ -180,6 +180,6 @@ Unable to strip the following libraries, packaging them as they are: libdatastor
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 4m 8s
+BUILD SUCCESSFUL in 3m 21s
 39 actionable tasks: 39 executed
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.5.0/userguide/configuration_cache_enabling.html
