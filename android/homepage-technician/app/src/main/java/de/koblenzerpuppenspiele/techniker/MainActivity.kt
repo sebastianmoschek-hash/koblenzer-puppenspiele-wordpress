@@ -41,6 +41,7 @@ class MainActivity : Activity() {
     private lateinit var repairBridge: WebRepairBridge
     private lateinit var technician: GeminiLiveTechnician
     private var live = false
+    @Volatile private var currentPageTrusted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -125,14 +126,18 @@ class MainActivity : Activity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val uri = request?.url ?: return false
-                if (isTrustedHost(uri.host)) return false
+                if (uri.scheme == "https" && isTrustedHost(uri.host)) return false
                 runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
                 return true
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                if (!live) showStatus("Homepage bereit · KI kann live zugeschaltet werden")
+                val uri = url?.let { runCatching { Uri.parse(it) }.getOrNull() }
+                currentPageTrusted = uri?.scheme == "https" && isTrustedHost(uri.host)
+                if (!live && currentPageTrusted) {
+                    showStatus("Homepage bereit · KI kann live zugeschaltet werden")
+                }
             }
         }
     }
@@ -148,6 +153,7 @@ class MainActivity : Activity() {
         } else {
             BuildConfig.HOMEPAGE_URL
         }
+        currentPageTrusted = false
         webView.loadUrl(url)
     }
 
@@ -160,23 +166,19 @@ class MainActivity : Activity() {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_AUDIO)
             return
         }
-        connectGeminiAndAskForScreen()
+        askForScreenShare()
     }
 
-    private fun connectGeminiAndAskForScreen() {
+    private fun askForScreenShare() {
         liveButton.isEnabled = false
-        uiScope.launch {
-            try {
-                technician.start()
-                val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                @Suppress("DEPRECATION")
-                startActivityForResult(manager.createScreenCaptureIntent(), REQ_SCREEN)
-            } catch (error: Throwable) {
-                technician.stop()
-                showStatus(error.message ?: "Gemini Live konnte nicht gestartet werden.")
-            } finally {
-                liveButton.isEnabled = true
-            }
+        try {
+            val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            @Suppress("DEPRECATION")
+            startActivityForResult(manager.createScreenCaptureIntent(), REQ_SCREEN)
+        } catch (error: Throwable) {
+            showStatus(error.message ?: "Bildschirmfreigabe konnte nicht gestartet werden.")
+        } finally {
+            liveButton.isEnabled = true
         }
     }
 
@@ -185,7 +187,6 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != REQ_SCREEN) return
         if (resultCode != RESULT_OK || data == null) {
-            technician.stop()
             showStatus("Bildschirmfreigabe wurde nicht gestartet.")
             return
         }
@@ -196,15 +197,34 @@ class MainActivity : Activity() {
         }
         ContextCompat.startForegroundService(this, serviceIntent)
         live = true
+        liveButton.isEnabled = false
         liveButton.text = "■ Live beenden"
-        showStatus("KI live · zeig und beschreibe jetzt den Fehler")
+        showStatus("Bildschirm geteilt · Gemini Live wird verbunden …")
+        uiScope.launch {
+            try {
+                technician.start()
+                showStatus("KI live · zeig und beschreibe jetzt den Fehler")
+            } catch (error: Throwable) {
+                runCatching {
+                    startService(Intent(this@MainActivity, ScreenCaptureService::class.java).apply {
+                        action = ScreenCaptureService.ACTION_STOP
+                    })
+                }
+                technician.stop()
+                live = false
+                liveButton.text = "✦ KI live zeigen"
+                showStatus(error.message ?: "Gemini Live konnte nicht gestartet werden.")
+            } finally {
+                liveButton.isEnabled = true
+            }
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != REQ_AUDIO) return
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            connectGeminiAndAskForScreen()
+            askForScreenShare()
         } else {
             showStatus("Mikrofonzugriff wird für das Live-Gespräch benötigt.")
         }
@@ -244,10 +264,10 @@ class MainActivity : Activity() {
         runOnUiThread { if (::statusView.isInitialized) statusView.text = text }
     }
 
-    private fun isTrustedWebPage(): Boolean = runCatching {
-        val uri = Uri.parse(webView.url ?: return false)
-        uri.scheme == "https" && isTrustedHost(uri.host)
-    }.getOrDefault(false)
+    private fun isTrustedWebPage(): Boolean {
+        val uri = runCatching { Uri.parse(webView.url ?: return false) }.getOrNull() ?: return false
+        return uri.scheme == "https" && isTrustedHost(uri.host)
+    }
 
     private fun isTrustedHost(host: String?): Boolean {
         val value = host?.lowercase().orEmpty()
@@ -257,18 +277,18 @@ class MainActivity : Activity() {
     private inner class NativeLiveBridge {
         @JavascriptInterface
         fun startLive() {
-            if (!isTrustedWebPage()) return
+            if (!currentPageTrusted) return
             runOnUiThread { if (!live) beginLive() }
         }
 
         @JavascriptInterface
         fun stopLive() {
-            if (!isTrustedWebPage()) return
+            if (!currentPageTrusted) return
             runOnUiThread { if (live) this@MainActivity.stopLive() }
         }
 
         @JavascriptInterface
-        fun isAvailable(): Boolean = isTrustedWebPage()
+        fun isAvailable(): Boolean = currentPageTrusted
     }
 
     @Deprecated("Legacy back handling keeps minSdk implementation compact")
