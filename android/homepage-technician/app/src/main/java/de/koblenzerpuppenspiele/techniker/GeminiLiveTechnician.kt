@@ -131,14 +131,28 @@ class GeminiLiveTechnician(
     fun stop() {
         frameJob?.cancel()
         frameJob = null
-        runCatching { session?.stopAudioConversation() }
-        runCatching { session?.close() }
+        val active = session
         session = null
+        runCatching { active?.stopAudioConversation() }
+        if (active != null) {
+            scope.launch {
+                runCatching { active.close() }
+            }
+        }
         status("KI-Live beendet")
     }
 
     fun release() {
-        stop()
+        frameJob?.cancel()
+        frameJob = null
+        val active = session
+        session = null
+        runCatching { active?.stopAudioConversation() }
+        if (active != null) {
+            runBlocking(Dispatchers.IO) {
+                runCatching { active.close() }
+            }
+        }
         scope.cancel()
     }
 
