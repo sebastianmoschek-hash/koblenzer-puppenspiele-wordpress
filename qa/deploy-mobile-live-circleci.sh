@@ -13,6 +13,7 @@ files=(
   'kp-mobile-live-bridge.php'
   'kp-mobile-live-bootstrap-v2.php'
   'kp-mobile-live-protocol-marker.php'
+  'kp-mobile-live-image-tools.php'
 )
 
 for name in "${files[@]}"; do
@@ -31,6 +32,7 @@ mkdir -p /wp-content/mu-plugins;
 put '$MU/kp-mobile-live-bridge.php' -o '/wp-content/mu-plugins/kp-mobile-live-bridge.php';
 put '$MU/kp-mobile-live-bootstrap-v2.php' -o '/wp-content/mu-plugins/kp-mobile-live-bootstrap-v2.php';
 put '$MU/kp-mobile-live-protocol-marker.php' -o '/wp-content/mu-plugins/kp-mobile-live-protocol-marker.php';
+put '$MU/kp-mobile-live-image-tools.php' -o '/wp-content/mu-plugins/kp-mobile-live-image-tools.php';
 bye
 "
 
