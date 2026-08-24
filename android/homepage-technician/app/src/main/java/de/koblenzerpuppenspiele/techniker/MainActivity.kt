@@ -9,10 +9,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.text.InputType
 import android.view.Gravity
 import android.view.View
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.CookieManager
@@ -40,11 +43,11 @@ import kotlin.coroutines.resume
  * Homepage-Hilfe has two primary paths:
  * 1) manual visual editing and 2) a free on-device AI chat.
  *
- * The same local model also powers an interruptible conversational Live mode.
- * Android's explicit on-device recognizer stays warm while the model thinks and
- * while local TTS speaks, so the user can naturally continue or interrupt. Every
- * accepted turn re-reads the visible homepage/editor DOM. No Gemini/OpenAI API is
- * required; emergency Gemini remains an explicit optional handoff.
+ * The AI opens as a real full-height chat window above the persistent editor bar.
+ * Android resizes the chat around the software keyboard, so the composer and the
+ * latest answer remain visible while typing. The same local model powers an
+ * interruptible conversational Live mode. No Gemini/OpenAI API is required;
+ * emergency Gemini remains an explicit optional handoff.
  */
 class MainActivity : Activity() {
     companion object {
@@ -52,23 +55,28 @@ class MainActivity : Activity() {
     }
 
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
     private lateinit var webView: WebView
     private lateinit var statusView: TextView
     private lateinit var editButton: Button
     private lateinit var aiButton: Button
+
     private lateinit var aiPanel: LinearLayout
+    private lateinit var chatProgress: TextView
     private lateinit var modelInfo: TextView
     private lateinit var installButton: Button
-    private lateinit var transcript: TextView
     private lateinit var transcriptScroll: ScrollView
+    private lateinit var messageList: LinearLayout
     private lateinit var textInput: EditText
     private lateinit var sendButton: Button
     private lateinit var liveVoiceButton: Button
     private lateinit var voiceSelectButton: Button
     private lateinit var emergencyButton: Button
+
     private lateinit var repairBridge: WebRepairBridge
     private lateinit var localAi: LocalAiTechnician
     private lateinit var voiceController: LocalVoiceController
+
     private var aiOpen = false
     private var liveLocal = false
     private var busy = false
@@ -78,6 +86,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         buildUi()
         configureWebView()
 
@@ -107,8 +116,14 @@ class MainActivity : Activity() {
             if (actionId == EditorInfo.IME_ACTION_SEND) {
                 sendLocalMessage()
                 true
-            } else false
+            } else {
+                false
+            }
         }
+        textInput.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) transcriptScroll.post { transcriptScroll.fullScroll(View.FOCUS_DOWN) }
+        }
+
         loadInitialUrl(intent)
     }
 
@@ -119,7 +134,10 @@ class MainActivity : Activity() {
     }
 
     private fun buildUi() {
-        val root = FrameLayout(this)
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+        }
+
         webView = WebView(this)
         root.addView(
             webView,
@@ -129,22 +147,52 @@ class MainActivity : Activity() {
             )
         )
 
-        val bottom = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-
         aiPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(10), dp(8), dp(10), dp(8))
-            setBackgroundColor(Color.argb(248, 24, 18, 15))
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            setBackgroundColor(Color.rgb(22, 18, 16))
             visibility = View.GONE
         }
 
-        modelInfo = TextView(this).apply {
-            setTextColor(Color.WHITE)
-            textSize = 13f
-            text = "Lokale KI wird geprüft …"
-            setPadding(dp(4), 0, dp(4), dp(4))
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-        aiPanel.addView(modelInfo)
+        val headerText = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val title = TextView(this).apply {
+            text = "Lokale KI"
+            setTextColor(Color.WHITE)
+            textSize = 21f
+        }
+        modelInfo = TextView(this).apply {
+            text = "Lokales Modell wird geprüft …"
+            setTextColor(Color.rgb(205, 205, 205))
+            textSize = 12f
+            maxLines = 2
+        }
+        headerText.addView(title)
+        headerText.addView(modelInfo)
+        header.addView(headerText, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        val closeChat = Button(this).apply {
+            text = "✕"
+            isAllCaps = false
+            contentDescription = "KI-Chat schließen"
+            setOnClickListener { hideAi() }
+        }
+        header.addView(closeChat, LinearLayout.LayoutParams(dp(56), LinearLayout.LayoutParams.WRAP_CONTENT))
+        aiPanel.addView(header)
+
+        chatProgress = TextView(this).apply {
+            text = "Bereit · schreibe, was geändert werden soll"
+            setTextColor(Color.rgb(240, 156, 79))
+            textSize = 12f
+            maxLines = 2
+            setPadding(dp(2), dp(6), dp(2), dp(6))
+        }
+        aiPanel.addView(chatProgress)
 
         installButton = Button(this).apply {
             text = "Lokale KI installieren (~2,6 GB)"
@@ -152,59 +200,89 @@ class MainActivity : Activity() {
         }
         aiPanel.addView(installButton)
 
-        transcript = TextView(this).apply {
-            setTextColor(Color.WHITE)
-            textSize = 14f
-            setPadding(dp(8), dp(8), dp(8), dp(8))
-            text = "Lokale KI: Schreib einfach, was geändert werden soll. Live lokal hört weiter zu, während die KI denkt und spricht – du kannst jederzeit reinreden."
+        messageList = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(2), dp(6), dp(2), dp(8))
         }
         transcriptScroll = ScrollView(this).apply {
-            addView(transcript)
             isFillViewport = true
+            addView(
+                messageList,
+                ScrollView.LayoutParams(
+                    ScrollView.LayoutParams.MATCH_PARENT,
+                    ScrollView.LayoutParams.WRAP_CONTENT,
+                )
+            )
         }
         aiPanel.addView(
             transcriptScroll,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(180)),
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f,
+            )
+        )
+
+        addChatBubble(
+            who = "KI",
+            text = "Hallo. Schreib mir einfach, was an der Homepage oder App geändert werden soll. Ich zeige dir hier immer, was ich verstanden habe und was ich gerade mache.",
+            user = false,
         )
 
         val composer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.BOTTOM
+            setPadding(0, dp(6), 0, dp(4))
         }
         textInput = EditText(this).apply {
-            hint = "Änderungswunsch schreiben …"
-            setHintTextColor(Color.rgb(175, 175, 175))
+            hint = "Nachricht an die lokale KI …"
+            setHintTextColor(Color.rgb(155, 155, 155))
             setTextColor(Color.WHITE)
-            setSingleLine(true)
+            textSize = 16f
+            minLines = 1
+            maxLines = 4
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             imeOptions = EditorInfo.IME_ACTION_SEND
-            textSize = 15f
-            setPadding(dp(12), dp(8), dp(12), dp(8))
+            setPadding(dp(12), dp(10), dp(12), dp(10))
             isEnabled = false
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(38, 33, 30))
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), Color.rgb(95, 83, 75))
+            }
         }
         sendButton = Button(this).apply {
             text = "Senden"
             isAllCaps = false
             isEnabled = false
         }
-        composer.addView(textInput, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        composer.addView(
+            textInput,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = dp(8)
+            }
+        )
         composer.addView(sendButton)
         aiPanel.addView(composer)
 
+        val voiceRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
         liveVoiceButton = Button(this).apply {
-            text = "🎤 Live lokal · natürlich sprechen"
+            text = "🎤 Live lokal"
             isAllCaps = false
             isEnabled = false
-            contentDescription = "Lokales Gespräch starten. Die Homepage wird fortlaufend mitgelesen und Antworten sind unterbrechbar."
+            contentDescription = "Natürliches lokales Gespräch starten"
         }
-        aiPanel.addView(liveVoiceButton)
-
         voiceSelectButton = Button(this).apply {
-            text = "🔊 Lokale Stimme auswählen"
+            text = "🔊 Stimme"
             isAllCaps = false
             isEnabled = false
-            contentDescription = "Eine installierte deutsche Offline-Stimme auswählen und anhören"
+            contentDescription = "Deutsche Offline-Stimme auswählen"
         }
-        aiPanel.addView(voiceSelectButton)
+        voiceRow.addView(liveVoiceButton, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        voiceRow.addView(voiceSelectButton, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        aiPanel.addView(voiceRow)
 
         emergencyButton = Button(this).apply {
             text = "Notfall Gemini"
@@ -212,18 +290,27 @@ class MainActivity : Activity() {
             contentDescription = "Aktuelle Aufgabe für die normale Gemini-App vorbereiten"
         }
         aiPanel.addView(emergencyButton)
-        bottom.addView(aiPanel)
+
+        root.addView(
+            aiPanel,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ).apply {
+                bottomMargin = dp(72)
+            }
+        )
 
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(10), dp(8), dp(10), dp(8))
-            setBackgroundColor(Color.argb(236, 24, 18, 15))
+            setPadding(dp(10), dp(7), dp(10), dp(7))
+            setBackgroundColor(Color.argb(248, 24, 18, 15))
             gravity = Gravity.CENTER_VERTICAL
         }
         statusView = TextView(this).apply {
             text = "Homepage bereit"
             setTextColor(Color.WHITE)
-            textSize = 13f
+            textSize = 12f
             maxLines = 2
         }
         editButton = Button(this).apply {
@@ -237,17 +324,52 @@ class MainActivity : Activity() {
         bar.addView(statusView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         bar.addView(editButton)
         bar.addView(aiButton)
-        bottom.addView(bar)
 
         root.addView(
-            bottom,
+            bar,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM,
             )
         )
+
         setContentView(root)
+    }
+
+    private fun addChatBubble(who: String, text: String, user: Boolean): TextView {
+        val bubble = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            setPadding(dp(12), dp(9), dp(12), dp(9))
+            maxWidth = (resources.displayMetrics.widthPixels * 0.88f).toInt()
+            this.text = "$who\n${text.trim()}"
+            background = GradientDrawable().apply {
+                setColor(if (user) Color.rgb(79, 62, 49) else Color.rgb(45, 39, 35))
+                cornerRadius = dp(15).toFloat()
+                setStroke(dp(1), if (user) Color.rgb(166, 104, 54) else Color.rgb(76, 68, 63))
+            }
+        }
+        val params = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            gravity = if (user) Gravity.END else Gravity.START
+            topMargin = dp(5)
+            bottomMargin = dp(5)
+            marginStart = if (user) dp(42) else 0
+            marginEnd = if (user) 0 else dp(42)
+        }
+        messageList.addView(bubble, params)
+        transcriptScroll.post { transcriptScroll.fullScroll(View.FOCUS_DOWN) }
+        return bubble
+    }
+
+    private fun removeChatBubble(view: TextView?) {
+        if (view == null) return
+        runOnUiThread {
+            if (view.parent === messageList) messageList.removeView(view)
+        }
     }
 
     private fun configureWebView() {
@@ -259,7 +381,7 @@ class MainActivity : Activity() {
             allowFileAccess = false
             allowContentAccess = false
             setSupportMultipleWindows(false)
-            userAgentString = userAgentString + " KoblenzerPuppenspieleTechnician/0.5-naturallive"
+            userAgentString = userAgentString + " KoblenzerPuppenspieleTechnician/0.6-chatwindow"
         }
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -277,7 +399,7 @@ class MainActivity : Activity() {
                 editButton.text = if (signedIn) "✎ Bearbeiten" else "✎ Anmelden"
                 if (!aiOpen && currentPageTrusted) {
                     showStatus(
-                        if (signedIn) "Homepage bereit · Bearbeiten oder kostenlose KI verwenden"
+                        if (signedIn) "Homepage bereit · Bearbeiten oder KI verwenden"
                         else "Bitte anmelden · danach stehen Bearbeiten und KI bereit"
                     )
                 }
@@ -324,7 +446,9 @@ class MainActivity : Activity() {
         aiPanel.visibility = View.VISIBLE
         aiButton.text = "✕ KI"
         refreshModelState()
-        showStatus("Lokale KI · Chat oder natürliches Live · keine KI-API-Kosten")
+        showStatus("Lokale KI · Chat bereit")
+        textInput.requestFocus()
+        transcriptScroll.post { transcriptScroll.fullScroll(View.FOCUS_DOWN) }
     }
 
     private fun hideAi() {
@@ -334,7 +458,7 @@ class MainActivity : Activity() {
         aiButton.text = "✦ KI"
         val keyboard = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         keyboard.hideSoftInputFromWindow(textInput.windowToken, 0)
-        showStatus("Homepage bereit · Bearbeiten oder kostenlose KI verwenden")
+        showStatus("Homepage bereit · Bearbeiten oder KI verwenden")
     }
 
     private fun refreshModelState() {
@@ -342,30 +466,30 @@ class MainActivity : Activity() {
         val freeGb = state.freeBytes / 1_000_000_000.0
         val ramGb = state.totalRamBytes / 1_000_000_000.0
         val voiceSupported = ::voiceController.isInitialized && voiceController.isSupported()
+
         if (state.installed) {
             modelInfo.text = buildString {
-                append("Lokale KI installiert · ${"%.1f".format(state.modelBytes / 1_000_000_000.0)} GB Modell · ${"%.1f".format(freeGb)} GB frei")
-                if (!state.recommendedRam) append(" · RAM ${"%.1f".format(ramGb)} GB: kann langsamer sein")
-                if (!voiceSupported) append(" · Live-Sprache auf diesem Gerät nicht verfügbar")
+                append("Lokal · ${"%.1f".format(state.modelBytes / 1_000_000_000.0)} GB Modell · ${"%.1f".format(freeGb)} GB frei")
+                if (!state.recommendedRam) append(" · ${"%.1f".format(ramGb)} GB RAM")
             }
             installButton.visibility = View.GONE
             textInput.isEnabled = !busy
             sendButton.isEnabled = !busy
         } else {
             modelInfo.text = buildString {
-                append("Einmaliger Download: ca. 2,6 GB · frei ${"%.1f".format(freeGb)} GB")
-                if (!state.arm64) append(" · dieses Gerät ist nicht ARM64-kompatibel")
-                if (!state.recommendedRam) append(" · ${"%.1f".format(ramGb)} GB RAM: Testbetrieb")
+                append("Einmaliger Download ca. 2,6 GB · ${"%.1f".format(freeGb)} GB frei")
+                if (!state.arm64) append(" · Gerät nicht ARM64-kompatibel")
             }
             installButton.visibility = View.VISIBLE
             installButton.isEnabled = !busy && state.arm64
             textInput.isEnabled = false
             sendButton.isEnabled = false
         }
-        liveVoiceButton.text = if (liveLocal) "■ Live lokal beenden" else "🎤 Live lokal · natürlich sprechen"
+
+        liveVoiceButton.text = if (liveLocal) "■ Live beenden" else "🎤 Live lokal"
         liveVoiceButton.isEnabled = liveLocal || (state.installed && !busy && voiceSupported)
-        voiceSelectButton.text = "🔊 ${voiceController.selectedVoiceLabel()} · Stimme wählen"
-        voiceSelectButton.isEnabled = !busy && voiceController.hasOfflineGermanVoices()
+        voiceSelectButton.text = if (::voiceController.isInitialized) "🔊 ${voiceController.selectedVoiceLabel()}" else "🔊 Stimme"
+        voiceSelectButton.isEnabled = !busy && ::voiceController.isInitialized && voiceController.hasOfflineGermanVoices()
         emergencyButton.isEnabled = !busy
     }
 
@@ -373,17 +497,17 @@ class MainActivity : Activity() {
         if (busy) return
         busy = true
         refreshModelState()
-        appendTranscript("System", "Das lokale Modell wird einmalig heruntergeladen. Danach laufen Chat und Live lokal ohne KI-API-Kosten.")
+        addChatBubble("System", "Das lokale Modell wird einmalig heruntergeladen. Danach läuft der normale Chat ohne KI-API-Kosten.", false)
         uiScope.launch {
             try {
                 localAi.downloadModel { downloaded, total ->
                     val pct = if (total > 0) ((downloaded * 100) / total).coerceIn(0, 100) else 0
                     showStatus("Lokale KI wird geladen · $pct %")
                 }
-                appendTranscript("System", "Lokale KI ist installiert und bereit.")
+                addChatBubble("System", "Lokale KI ist installiert und bereit.", false)
                 showStatus("Lokale KI bereit · kostenlos auf dem Gerät")
             } catch (error: Throwable) {
-                appendTranscript("System", error.message ?: "Modell konnte nicht installiert werden.")
+                addChatBubble("System", error.message ?: "Modell konnte nicht installiert werden.", false)
                 showStatus("Lokale KI: ${error.message ?: error.javaClass.simpleName}")
             } finally {
                 busy = false
@@ -393,7 +517,10 @@ class MainActivity : Activity() {
     }
 
     private fun sendLocalMessage() {
-        if (busy) return
+        if (busy) {
+            showStatus("Die lokale KI arbeitet noch · deine nächste Nachricht kann gleich danach gesendet werden")
+            return
+        }
         val message = textInput.text?.toString()?.trim().orEmpty()
         if (message.isBlank()) return
         textInput.text?.clear()
@@ -405,7 +532,7 @@ class MainActivity : Activity() {
         if (busy) {
             queuedLiveRequest = (queuedLiveRequest + " " + message.trim()).trim().take(800)
             voiceController.stopSpeakingForBargeIn()
-            showStatus("Live lokal · ich habe dich gehört · dein Nachtrag kommt sofort als Nächstes")
+            showStatus("Live lokal · Nachtrag verstanden · kommt direkt als Nächstes")
             voiceController.continueListening(140L)
             return
         }
@@ -418,25 +545,44 @@ class MainActivity : Activity() {
             showStatus("Bitte zuerst die lokale KI installieren.")
             return
         }
-        lastRequest = message
-        appendTranscript(who, message)
+
+        val clean = message.trim()
+        lastRequest = clean
+        addChatBubble(who, clean, true)
+        val thinking = addChatBubble(
+            "KI",
+            "Verstanden: „${clean.take(220)}“\nIch lese die aktuelle Seite und prüfe jetzt, welche Änderung sicher ausgeführt werden kann …",
+            false,
+        )
+
         busy = true
         refreshModelState()
+        showStatus("Lokale KI denkt und prüft die Seite …")
         if (liveLocal) voiceController.continueListening(160L)
+
         uiScope.launch {
             try {
-                val reply = localAi.send(message, voiceMode = speakReply)
-                appendTranscript("KI", reply)
+                val reply = localAi.send(clean)
+                removeChatBubble(thinking)
+                addChatBubble("KI", reply, false)
+                showStatus("Lokale KI bereit")
                 if (speakReply && liveLocal && queuedLiveRequest.isBlank()) {
                     voiceController.speak(reply)
                 } else if (liveLocal && queuedLiveRequest.isNotBlank()) {
-                    showStatus("Live lokal · Unterbrechung berücksichtigt · ich höre erst deinen Nachtrag")
+                    showStatus("Live lokal · Unterbrechung berücksichtigt · dein Nachtrag kommt jetzt")
                 }
             } catch (error: Throwable) {
+                removeChatBubble(thinking)
                 val errorText = error.message ?: error.javaClass.simpleName
-                appendTranscript("KI", "Fehler: $errorText")
+                addChatBubble(
+                    "KI",
+                    "Ich konnte den lokalen Modellaufruf gerade nicht abschließen.\n\n$errorText",
+                    false,
+                )
                 showStatus("Lokale KI: $errorText")
-                if (liveLocal && queuedLiveRequest.isBlank()) voiceController.speak("Es gab einen Fehler. Die Meldung steht im Chat.")
+                if (liveLocal && queuedLiveRequest.isBlank()) {
+                    voiceController.speak("Der lokale Modellaufruf ist fehlgeschlagen. Die genaue Meldung steht im Chat.")
+                }
             } finally {
                 busy = false
                 refreshModelState()
@@ -463,7 +609,7 @@ class MainActivity : Activity() {
             return
         }
         if (!voiceController.isSupported()) {
-            appendTranscript("System", "Dieses Android-Gerät bietet keine lokale On-Device-Spracherkennung. Der Textchat bleibt vollständig nutzbar.")
+            addChatBubble("System", "Dieses Android-Gerät bietet keine lokale On-Device-Spracherkennung. Der Textchat bleibt vollständig nutzbar.", false)
             showStatus("Live lokal nicht verfügbar · Chat funktioniert weiterhin")
             return
         }
@@ -471,16 +617,18 @@ class MainActivity : Activity() {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_AUDIO)
             return
         }
+
         liveLocal = true
         queuedLiveRequest = ""
-        appendTranscript(
+        addChatBubble(
             "System",
-            "Live lokal gestartet. Du kannst frei sprechen und der KI ins Wort fallen. Sie hört auch beim Denken und Sprechen weiter zu. Die aktuelle Homepage wird bei jedem Turn neu gelesen. Audio wird nicht an Gemini/OpenAI gesendet."
+            "Live lokal gestartet. Sprich frei; deine erkannten Sätze erscheinen hier im Chat. Du kannst der KI ins Wort fallen. Audio wird nicht an Gemini/OpenAI gesendet.",
+            false,
         )
         runCatching { voiceController.start() }
             .onFailure {
                 liveLocal = false
-                appendTranscript("System", it.message ?: "Live lokal konnte nicht gestartet werden.")
+                addChatBubble("System", it.message ?: "Live lokal konnte nicht gestartet werden.", false)
             }
         refreshModelState()
     }
@@ -489,7 +637,7 @@ class MainActivity : Activity() {
         queuedLiveRequest = ""
         voiceController.stop()
         liveLocal = false
-        if (!silent) appendTranscript("System", "Live lokal beendet. Der normale KI-Chat bleibt geöffnet.")
+        if (!silent) addChatBubble("System", "Live lokal beendet. Der normale KI-Chat bleibt geöffnet.", false)
         refreshModelState()
         showStatus("Lokale KI · Chat bereit")
     }
@@ -497,21 +645,23 @@ class MainActivity : Activity() {
     private fun showVoicePicker() {
         val options = voiceController.voiceOptions()
         if (options.isEmpty()) {
-            appendTranscript("System", "Auf diesem Gerät ist derzeit keine deutsche Offline-Stimme installiert. In den Android-Sprach-/TTS-Einstellungen kannst du weitere Stimmen laden.")
+            addChatBubble("System", "Auf diesem Gerät ist derzeit keine deutsche Offline-Stimme installiert. Weitere Stimmen lassen sich in den Android-TTS-Einstellungen installieren.", false)
             showStatus("Keine deutsche Offline-Stimme gefunden")
             return
         }
+
         val selectedId = voiceController.selectedVoiceId()
         val labels = options.map { option ->
             if (option.id == selectedId) "✓ ${option.label}" else option.label
         }.toTypedArray()
+
         AlertDialog.Builder(this)
             .setTitle("Lokale Stimme auswählen")
-            .setMessage("Android kennzeichnet Stimmen nicht zuverlässig als männlich oder weiblich. Tippe eine Stimme an: Sie wird sofort lokal vorgespielt und gespeichert.")
+            .setMessage("Tippe eine Stimme an. Sie wird sofort lokal vorgespielt und gespeichert.")
             .setItems(labels) { dialog, which ->
                 val option = options[which]
                 if (voiceController.previewVoice(option.id)) {
-                    appendTranscript("System", "${option.label} ausgewählt. Die Vorschau läuft lokal auf dem Gerät.")
+                    addChatBubble("System", "${option.label} ausgewählt. Die Vorschau läuft lokal.", false)
                     showStatus("${option.label} ausgewählt")
                 } else {
                     showStatus("Diese lokale Stimme konnte nicht gestartet werden.")
@@ -529,7 +679,7 @@ class MainActivity : Activity() {
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
             startLocalLive()
         } else {
-            appendTranscript("System", "Ohne Mikrofonberechtigung bleibt Live lokal aus. Schreiben funktioniert weiterhin.")
+            addChatBubble("System", "Ohne Mikrofonberechtigung bleibt Live lokal aus. Schreiben funktioniert weiterhin.", false)
             showStatus("Mikrofonzugriff abgelehnt · Chat bleibt verfügbar")
         }
     }
@@ -538,10 +688,11 @@ class MainActivity : Activity() {
         if (busy) return
         val request = textInput.text?.toString()?.trim().orEmpty().ifBlank { lastRequest }
         if (request.isBlank()) {
-            appendTranscript("System", "Schreib oder sprich zuerst die Aufgabe. Dann kann ich sie für Gemini vorbereiten.")
+            addChatBubble("System", "Schreib oder sprich zuerst die Aufgabe. Dann kann ich sie für Gemini vorbereiten.", false)
             return
         }
         if (liveLocal) stopLocalLive(silent = true)
+
         busy = true
         refreshModelState()
         uiScope.launch {
@@ -550,23 +701,16 @@ class MainActivity : Activity() {
                 val prompt = localAi.emergencyPrompt(request)
                 val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("Homepage-Aufgabe für Gemini", prompt))
-                appendTranscript("System", "Aufgabe samt Seitenkontext wurde kopiert. In Gemini nur noch Einfügen drücken.")
+                addChatBubble("System", "Aufgabe samt Seitenkontext wurde kopiert. In Gemini nur noch Einfügen drücken.", false)
                 Toast.makeText(this@MainActivity, "Gemini-Aufgabe kopiert", Toast.LENGTH_LONG).show()
                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://gemini.google.com/app")))
                 showStatus("Notfall Gemini geöffnet · Aufgabe ist in der Zwischenablage")
             } catch (error: Throwable) {
-                appendTranscript("System", "Gemini konnte nicht geöffnet werden: ${error.message ?: error.javaClass.simpleName}")
+                addChatBubble("System", "Gemini konnte nicht geöffnet werden: ${error.message ?: error.javaClass.simpleName}", false)
             } finally {
                 busy = false
                 refreshModelState()
             }
-        }
-    }
-
-    private fun appendTranscript(who: String, text: String) {
-        runOnUiThread {
-            transcript.append("\n\n$who: ${text.trim()}")
-            transcriptScroll.post { transcriptScroll.fullScroll(View.FOCUS_DOWN) }
         }
     }
 
@@ -607,7 +751,10 @@ class MainActivity : Activity() {
     }
 
     private fun showStatus(text: String) {
-        runOnUiThread { if (::statusView.isInitialized) statusView.text = text }
+        runOnUiThread {
+            if (::statusView.isInitialized) statusView.text = text
+            if (::chatProgress.isInitialized && aiOpen) chatProgress.text = text
+        }
     }
 
     private fun isTrustedWebPage(): Boolean {
