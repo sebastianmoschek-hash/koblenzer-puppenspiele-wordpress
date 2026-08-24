@@ -2,10 +2,6 @@ plugins {
     id("com.android.application")
 }
 
-if (file("google-services.json").exists()) {
-    apply(plugin = "com.google.gms.google-services")
-}
-
 android {
     namespace = "de.koblenzerpuppenspiele.techniker"
     compileSdk = 36
@@ -14,8 +10,8 @@ android {
         applicationId = "de.koblenzerpuppenspiele.techniker"
         minSdk = 23
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0-local"
     }
 
     buildFeatures {
@@ -43,11 +39,6 @@ android {
 }
 
 dependencies {
-    implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
-    implementation("com.google.firebase:firebase-ai")
-    implementation("com.google.firebase:firebase-appcheck-playintegrity")
-    debugImplementation("com.google.firebase:firebase-appcheck-debug")
-
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.0")
     implementation("com.squareup.okhttp3:okhttp:5.1.0")
