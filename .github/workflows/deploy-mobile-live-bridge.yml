@@ -1,0 +1,107 @@
+name: Deploy mobile Live bridge to staging
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wp-content/mu-plugins/kp-mobile-live-bridge.php'
+      - '.github/workflows/deploy-mobile-live-bridge.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: koblenzer-puppenspiele-mobile-live-staging
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-live-bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      FTP_SERVER: srv26.dsbsrv.de
+      LIVE_BRIDGE: wp-content/mu-plugins/kp-mobile-live-bridge.php
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: PHP syntax safety check
+        shell: bash
+        run: php -l "$LIVE_BRIDGE"
+
+      - name: Install FTPS client
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+
+      - name: Upload Gemini Live bridge only
+        env:
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FTP_USERNAME:?FTP_USERNAME secret is missing}"
+          : "${LFTP_PASSWORD:?FTP_PASSWORD secret is missing}"
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            mkdir -p '/wp-content/mu-plugins';
+            put '$LIVE_BRIDGE' -o '/wp-content/mu-plugins/kp-mobile-live-bridge.php';
+            bye
+          "
+
+      - name: Verify bootstrap auth gate on staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(mktemp)"
+          status="$(curl --silent --show-error --location \
+            --retry 5 --retry-all-errors --retry-delay 2 --max-time 60 \
+            -o "$body" -w '%{http_code}' \
+            -X POST \
+            --data-urlencode 'action=kp_mobile_live_bootstrap' \
+            'https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php')"
+          cat "$body"
+          test "$status" = '401'
+          php -r '$j=json_decode(file_get_contents($argv[1]), true); if (!is_array($j) || ($j["success"] ?? true) !== false || !str_contains((string)($j["data"]["message"] ?? ""), "Bitte zuerst bei WordPress anmelden")) { exit(1); }' "$body"
+          echo 'PASS: Gemini Live bootstrap is active and protected on staging.'
+
+      - name: Publish successful staging marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          generated="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          source_sha="$GITHUB_SHA"
+          cat > /tmp/mobile-live-staging.json <<JSON
+          {
+            "generatedAt":"$generated",
+            "sourceCommit":"$source_sha",
+            "staging":"https://neu.koblenzer-puppenspiele.de",
+            "liveBridge":"success",
+            "bootstrapAuthGate":"success"
+          }
+          JSON
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main --quiet
+          git checkout -B main origin/main --quiet
+          mkdir -p qa-results
+          cp /tmp/mobile-live-staging.json qa-results/mobile-live-staging.json
+          git add qa-results/mobile-live-staging.json
+          if git diff --cached --quiet; then
+            echo 'Staging marker already current.'
+            exit 0
+          fi
+          git commit -m 'qa: confirm mobile Live bridge staging [skip ci]' --quiet
+          git pull --rebase origin main --quiet
+          git push origin HEAD:main --quiet
+          echo 'PASS: staging marker published.'
