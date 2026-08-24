@@ -1,1 +1,2 @@
-This QA marker intentionally classifies as qa-mode so the latest meaningful main commit receives the full staging browser, persistence, touch, undo/48h and visual gates after pipeline-only changes.
+This marker intentionally forces FULL staging validation for the exact current main snapshot: staging-only deploy, Mobile/Tablet/Desktop browser editor, Save→Reload→DB readback, Undo/Redo + 48h persistence, Chromium touch gates, and the 50-view visual QA. Production must never be touched.
+Validation request: 2026-08-24T15:45Z
