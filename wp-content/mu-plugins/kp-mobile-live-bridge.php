@@ -1,8 +1,8 @@
 <?php
 /**
  * Bridge between the authenticated owner web app and the Android Homepage-Hilfe app.
- * The native app never receives WordPress/GitHub credentials; it calls this same-origin
- * runtime which remains protected by WordPress capabilities and nonces.
+ * The native app never receives WordPress/GitHub credentials; it calls same-origin
+ * runtimes protected by WordPress capabilities and nonces.
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -14,9 +14,14 @@ add_action( 'wp_footer', static function () {
     if ( ! $can_repair ) { return; }
     if ( ! defined( 'KP_AI_REPAIR_NONCE' ) ) { return; }
 
+    $owner_nonce = '';
+    if ( class_exists( 'KP_Owner_Web_App' ) && defined( 'KP_Owner_Web_App::NONCE_ACTION' ) ) {
+        $owner_nonce = wp_create_nonce( KP_Owner_Web_App::NONCE_ACTION );
+    }
     $config = array(
-        'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-        'nonce'   => wp_create_nonce( KP_AI_REPAIR_NONCE ),
+        'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
+        'nonce'      => wp_create_nonce( KP_AI_REPAIR_NONCE ),
+        'ownerNonce' => $owner_nonce,
     );
     ?>
     <style id="kp-mobile-live-bridge-style">
@@ -51,16 +56,21 @@ add_action( 'wp_footer', static function () {
       }
       function editorHistory(){const counts=window.KPWordHistory?.counts?.()||{undo:0,redo:0};return{undo:Number(counts.undo)||0,redo:Number(counts.redo)||0,savedVersions:document.querySelectorAll('.kp-history-sheet .kp-history-row').length}}
       function context(){return{url:location.href,title:document.title,viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},online:navigator.onLine,userAgent:navigator.userAgent.slice(0,500),insideTechnicianApp:/KoblenzerPuppenspieleTechnician\//.test(navigator.userAgent),selected:selectedContext(),editorHistory:editorHistory(),browserErrors:errors.slice(),networkErrors:network.slice()}}
-      async function api(action,fields={}){if(!originalFetch)throw new Error('Browser-Fetch ist nicht verfügbar.');const fd=new FormData();fd.append('action',action);fd.append('nonce',cfg.nonce);for(const[k,v]of Object.entries(fields))fd.append(k,typeof v==='string'?v:JSON.stringify(v));const response=await originalFetch(cfg.ajaxUrl,{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});const json=await response.json().catch(()=>null);if(!response.ok||!json?.success)throw new Error(json?.data?.message||'Homepage-Reparaturaufruf fehlgeschlagen.');return json.data||{}}
+      async function post(action,nonce,fields={}){if(!originalFetch)throw new Error('Browser-Fetch ist nicht verfügbar.');if(!nonce)throw new Error('Die benötigte Website-Sitzung ist nicht bereit.');const fd=new FormData();fd.append('action',action);fd.append('nonce',nonce);for(const[k,v]of Object.entries(fields))fd.append(k,typeof v==='string'?v:JSON.stringify(v));const response=await originalFetch(cfg.ajaxUrl,{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});const json=await response.json().catch(()=>null);if(!response.ok||!json?.success)throw new Error(json?.data?.message||'Homepage-Aufruf fehlgeschlagen.');return json.data||{}}
+      const api=(action,fields={})=>post(action,cfg.nonce,fields);
+      const ownerApi=(action,fields={})=>post(action,cfg.ownerNonce,fields);
       async function analyze(description){return api('kp_ai_repair_analyze',{request:String(description||''),browser:JSON.stringify(context())})}
       async function createPr(proposalId){return api('kp_ai_repair_create_pr',{proposal_id:String(proposalId||'')})}
       async function status(pr){return api('kp_ai_repair_status',{pr:String(pr||'')})}
       async function merge(pr){return api('kp_ai_repair_merge',{pr:String(pr||'')})}
       async function undo(){if(typeof window.KPWordHistory?.undo!=='function')throw new Error('Undo ist auf dieser Seite noch nicht bereit.');const changed=await window.KPWordHistory.undo();return{changed:!!changed,history:editorHistory()}}
       async function redo(){if(typeof window.KPWordHistory?.redo!=='function')throw new Error('Redo ist auf dieser Seite noch nicht bereit.');const changed=await window.KPWordHistory.redo();return{changed:!!changed,history:editorHistory()}}
+      async function savedHistory(){return ownerApi('kp_owner_history_list')}
+      async function undoSaved(){const out=await ownerApi('kp_owner_history_undo');setTimeout(()=>location.reload(),700);return out}
+      async function restoreSavedVersion(versionId){const out=await ownerApi('kp_owner_history_restore',{version_id:String(versionId||'')});setTimeout(()=>location.reload(),700);return out}
       async function technicalHistory(){return api('kp_ai_repair_history')}
       async function rollbackRepair(repairPr){return api('kp_ai_repair_rollback',{repair_pr:String(repairPr||'')})}
-      window.KPRepairMobile={ready:true,context,editorHistory,analyze,createPr,status,merge,undo,redo,technicalHistory,rollbackRepair};
+      window.KPRepairMobile={ready:true,context,editorHistory,analyze,createPr,status,merge,undo,redo,savedHistory,undoSaved,restoreSavedVersion,technicalHistory,rollbackRepair};
 
       function launchLive(){
         try{if(window.KPAndroidTechnician?.isAvailable?.()){window.KPAndroidTechnician.startLive();return}}catch{}
