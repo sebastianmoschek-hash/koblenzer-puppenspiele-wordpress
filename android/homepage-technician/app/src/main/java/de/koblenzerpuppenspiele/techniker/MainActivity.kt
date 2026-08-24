@@ -40,11 +40,11 @@ import kotlin.coroutines.resume
  * Homepage-Hilfe has two primary paths:
  * 1) manual visual editing and 2) a free on-device AI chat.
  *
- * Inside the AI panel the same local model can also run as a conversational
- * on-device Live mode. The microphone is transcribed only by Android's explicit
- * on-device recognizer; every turn re-reads the currently visible homepage and
- * editor DOM. No Gemini/OpenAI API is required. Difficult tasks can be copied to
- * the normal Gemini consumer app through the explicit emergency button.
+ * The same local model also powers an interruptible conversational Live mode.
+ * Android's explicit on-device recognizer stays warm while the model thinks and
+ * while local TTS speaks, so the user can naturally continue or interrupt. Every
+ * accepted turn re-reads the visible homepage/editor DOM. No Gemini/OpenAI API is
+ * required; emergency Gemini remains an explicit optional handoff.
  */
 class MainActivity : Activity() {
     companion object {
@@ -64,6 +64,7 @@ class MainActivity : Activity() {
     private lateinit var textInput: EditText
     private lateinit var sendButton: Button
     private lateinit var liveVoiceButton: Button
+    private lateinit var voiceSelectButton: Button
     private lateinit var emergencyButton: Button
     private lateinit var repairBridge: WebRepairBridge
     private lateinit var localAi: LocalAiTechnician
@@ -72,6 +73,7 @@ class MainActivity : Activity() {
     private var liveLocal = false
     private var busy = false
     private var lastRequest = ""
+    private var queuedLiveRequest = ""
     @Volatile private var currentPageTrusted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -99,6 +101,7 @@ class MainActivity : Activity() {
         installButton.setOnClickListener { installLocalModel() }
         sendButton.setOnClickListener { sendLocalMessage() }
         liveVoiceButton.setOnClickListener { toggleLocalLive() }
+        voiceSelectButton.setOnClickListener { showVoicePicker() }
         emergencyButton.setOnClickListener { openEmergencyGemini() }
         textInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEND) {
@@ -153,7 +156,7 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             textSize = 14f
             setPadding(dp(8), dp(8), dp(8), dp(8))
-            text = "Lokale KI: Schreib einfach, was an der Homepage geändert werden soll. Für ein Gespräch kannst du Live lokal starten."
+            text = "Lokale KI: Schreib einfach, was geändert werden soll. Live lokal hört weiter zu, während die KI denkt und spricht – du kannst jederzeit reinreden."
         }
         transcriptScroll = ScrollView(this).apply {
             addView(transcript)
@@ -188,12 +191,20 @@ class MainActivity : Activity() {
         aiPanel.addView(composer)
 
         liveVoiceButton = Button(this).apply {
-            text = "🎤 Live lokal · sprechen + Seite zeigen"
+            text = "🎤 Live lokal · natürlich sprechen"
             isAllCaps = false
             isEnabled = false
-            contentDescription = "Lokales Gespräch starten. Die aktuelle Homepage wird bei jedem Satz neu gelesen."
+            contentDescription = "Lokales Gespräch starten. Die Homepage wird fortlaufend mitgelesen und Antworten sind unterbrechbar."
         }
         aiPanel.addView(liveVoiceButton)
+
+        voiceSelectButton = Button(this).apply {
+            text = "🔊 Lokale Stimme auswählen"
+            isAllCaps = false
+            isEnabled = false
+            contentDescription = "Eine installierte deutsche Offline-Stimme auswählen und anhören"
+        }
+        aiPanel.addView(voiceSelectButton)
 
         emergencyButton = Button(this).apply {
             text = "Notfall Gemini"
@@ -248,7 +259,7 @@ class MainActivity : Activity() {
             allowFileAccess = false
             allowContentAccess = false
             setSupportMultipleWindows(false)
-            userAgentString = userAgentString + " KoblenzerPuppenspieleTechnician/0.4-locallive"
+            userAgentString = userAgentString + " KoblenzerPuppenspieleTechnician/0.5-naturallive"
         }
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -313,7 +324,7 @@ class MainActivity : Activity() {
         aiPanel.visibility = View.VISIBLE
         aiButton.text = "✕ KI"
         refreshModelState()
-        showStatus("Lokale KI · Chat oder Live lokal · keine KI-API-Kosten")
+        showStatus("Lokale KI · Chat oder natürliches Live · keine KI-API-Kosten")
     }
 
     private fun hideAi() {
@@ -351,8 +362,10 @@ class MainActivity : Activity() {
             textInput.isEnabled = false
             sendButton.isEnabled = false
         }
-        liveVoiceButton.text = if (liveLocal) "■ Live lokal beenden" else "🎤 Live lokal · sprechen + Seite zeigen"
+        liveVoiceButton.text = if (liveLocal) "■ Live lokal beenden" else "🎤 Live lokal · natürlich sprechen"
         liveVoiceButton.isEnabled = liveLocal || (state.installed && !busy && voiceSupported)
+        voiceSelectButton.text = "🔊 ${voiceController.selectedVoiceLabel()} · Stimme wählen"
+        voiceSelectButton.isEnabled = !busy && voiceController.hasOfflineGermanVoices()
         emergencyButton.isEnabled = !busy
     }
 
@@ -388,9 +401,12 @@ class MainActivity : Activity() {
     }
 
     private fun handleVoiceText(message: String) {
-        if (!liveLocal) return
+        if (!liveLocal || message.isBlank()) return
         if (busy) {
-            voiceController.continueListening(600L)
+            queuedLiveRequest = (queuedLiveRequest + " " + message.trim()).trim().take(800)
+            voiceController.stopSpeakingForBargeIn()
+            showStatus("Live lokal · ich habe dich gehört · dein Nachtrag kommt sofort als Nächstes")
+            voiceController.continueListening(140L)
             return
         }
         processLocalRequest(message, "Du (Live)", speakReply = true)
@@ -406,29 +422,39 @@ class MainActivity : Activity() {
         appendTranscript(who, message)
         busy = true
         refreshModelState()
+        if (liveLocal) voiceController.continueListening(160L)
         uiScope.launch {
             try {
-                val reply = localAi.send(message)
+                val reply = localAi.send(message, voiceMode = speakReply)
                 appendTranscript("KI", reply)
-                if (speakReply && liveLocal) voiceController.speak(reply)
+                if (speakReply && liveLocal && queuedLiveRequest.isBlank()) {
+                    voiceController.speak(reply)
+                } else if (liveLocal && queuedLiveRequest.isNotBlank()) {
+                    showStatus("Live lokal · Unterbrechung berücksichtigt · ich höre erst deinen Nachtrag")
+                }
             } catch (error: Throwable) {
                 val errorText = error.message ?: error.javaClass.simpleName
                 appendTranscript("KI", "Fehler: $errorText")
                 showStatus("Lokale KI: $errorText")
-                if (liveLocal) voiceController.speak("Es gab einen Fehler. Die Meldung steht im Chat.")
+                if (liveLocal && queuedLiveRequest.isBlank()) voiceController.speak("Es gab einen Fehler. Die Meldung steht im Chat.")
             } finally {
                 busy = false
                 refreshModelState()
+                if (liveLocal) {
+                    val queued = queuedLiveRequest.trim()
+                    if (queued.isNotBlank()) {
+                        queuedLiveRequest = ""
+                        processLocalRequest(queued, "Du (Live)", speakReply = true)
+                    } else {
+                        voiceController.continueListening(100L)
+                    }
+                }
             }
         }
     }
 
     private fun toggleLocalLive() {
-        if (liveLocal) {
-            stopLocalLive()
-            return
-        }
-        startLocalLive()
+        if (liveLocal) stopLocalLive() else startLocalLive()
     }
 
     private fun startLocalLive() {
@@ -446,7 +472,11 @@ class MainActivity : Activity() {
             return
         }
         liveLocal = true
-        appendTranscript("System", "Live lokal gestartet. Sprich einfach. Bei jedem Satz liest die KI die aktuell sichtbare Homepage und die Editorinformationen neu. Audio wird nicht an Gemini/OpenAI gesendet.")
+        queuedLiveRequest = ""
+        appendTranscript(
+            "System",
+            "Live lokal gestartet. Du kannst frei sprechen und der KI ins Wort fallen. Sie hört auch beim Denken und Sprechen weiter zu. Die aktuelle Homepage wird bei jedem Turn neu gelesen. Audio wird nicht an Gemini/OpenAI gesendet."
+        )
         runCatching { voiceController.start() }
             .onFailure {
                 liveLocal = false
@@ -456,11 +486,41 @@ class MainActivity : Activity() {
     }
 
     private fun stopLocalLive(silent: Boolean = false) {
+        queuedLiveRequest = ""
         voiceController.stop()
         liveLocal = false
         if (!silent) appendTranscript("System", "Live lokal beendet. Der normale KI-Chat bleibt geöffnet.")
         refreshModelState()
         showStatus("Lokale KI · Chat bereit")
+    }
+
+    private fun showVoicePicker() {
+        val options = voiceController.voiceOptions()
+        if (options.isEmpty()) {
+            appendTranscript("System", "Auf diesem Gerät ist derzeit keine deutsche Offline-Stimme installiert. In den Android-Sprach-/TTS-Einstellungen kannst du weitere Stimmen laden.")
+            showStatus("Keine deutsche Offline-Stimme gefunden")
+            return
+        }
+        val selectedId = voiceController.selectedVoiceId()
+        val labels = options.map { option ->
+            if (option.id == selectedId) "✓ ${option.label}" else option.label
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Lokale Stimme auswählen")
+            .setMessage("Android kennzeichnet Stimmen nicht zuverlässig als männlich oder weiblich. Tippe eine Stimme an: Sie wird sofort lokal vorgespielt und gespeichert.")
+            .setItems(labels) { dialog, which ->
+                val option = options[which]
+                if (voiceController.previewVoice(option.id)) {
+                    appendTranscript("System", "${option.label} ausgewählt. Die Vorschau läuft lokal auf dem Gerät.")
+                    showStatus("${option.label} ausgewählt")
+                } else {
+                    showStatus("Diese lokale Stimme konnte nicht gestartet werden.")
+                }
+                dialog.dismiss()
+                refreshModelState()
+            }
+            .setNegativeButton("Schließen", null)
+            .show()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
