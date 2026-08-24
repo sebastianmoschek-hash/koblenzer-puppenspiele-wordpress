@@ -1,0 +1,2 @@
+Force a fresh CircleCI staging verification for the current repository and staging state.
+Expected scope: QA-only; no production changes.
