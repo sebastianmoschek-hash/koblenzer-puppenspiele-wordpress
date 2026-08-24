@@ -15,6 +15,11 @@ grep -q 'createScreenCaptureIntent' "$KOTLIN/MainActivity.kt"
 grep -q 'KoblenzerPuppenspieleTechnician/0.1' "$KOTLIN/MainActivity.kt"
 grep -q 'endsWith(".koblenzer-puppenspiele.de")' "$KOTLIN/MainActivity.kt"
 grep -q 'sendVideoRealtime' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'gemini-3.1-flash-live-preview' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'edit_page_visually' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'bridge.visualEdit' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'kp-ai-request' "$KOTLIN/WebRepairBridge.kt"
+grep -q 'noch nicht gespeichert' "$KOTLIN/WebRepairBridge.kt"
 grep -q 'create_repair_branch' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'merge_repair' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'undo_last_editor_change' "$KOTLIN/GeminiLiveTechnician.kt"
@@ -55,4 +60,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS mobile-live: screen sharing, editor Undo/Redo, 48h versions, protected code rollback and confirmation gates are present.'
+echo 'PASS mobile-live: screen sharing, reversible live visual editing, editor Undo/Redo, 48h versions, protected code rollback and confirmation gates are present.'
