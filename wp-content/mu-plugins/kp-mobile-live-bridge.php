@@ -49,13 +49,18 @@ add_action( 'wp_footer', static function () {
         const rect=el.getBoundingClientRect(),style=getComputedStyle(el);
         return{tag:el.tagName,id:el.id||'',classes:[...el.classList].filter(x=>!/^kp-fe2-selected$/.test(x)).slice(0,12),text:safeText(el instanceof HTMLImageElement?(el.alt||''):el.textContent).slice(0,1200),rect:{x:Math.round(rect.x),y:Math.round(rect.y),width:Math.round(rect.width),height:Math.round(rect.height)},style:{display:style.display,position:style.position,fontSize:style.fontSize,color:style.color,background:style.backgroundColor,width:style.width,height:style.height}};
       }
-      function context(){return{url:location.href,title:document.title,viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},online:navigator.onLine,userAgent:navigator.userAgent.slice(0,500),insideTechnicianApp:/KoblenzerPuppenspieleTechnician\//.test(navigator.userAgent),selected:selectedContext(),browserErrors:errors.slice(),networkErrors:network.slice()}}
-      async function api(action,fields={}){const fd=new FormData();fd.append('action',action);fd.append('nonce',cfg.nonce);for(const[k,v]of Object.entries(fields))fd.append(k,typeof v==='string'?v:JSON.stringify(v));const response=await originalFetch(cfg.ajaxUrl,{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});const json=await response.json().catch(()=>null);if(!response.ok||!json?.success)throw new Error(json?.data?.message||'Homepage-Reparaturaufruf fehlgeschlagen.');return json.data||{}}
+      function editorHistory(){const counts=window.KPWordHistory?.counts?.()||{undo:0,redo:0};return{undo:Number(counts.undo)||0,redo:Number(counts.redo)||0,savedVersions:document.querySelectorAll('.kp-history-sheet .kp-history-row').length}}
+      function context(){return{url:location.href,title:document.title,viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},online:navigator.onLine,userAgent:navigator.userAgent.slice(0,500),insideTechnicianApp:/KoblenzerPuppenspieleTechnician\//.test(navigator.userAgent),selected:selectedContext(),editorHistory:editorHistory(),browserErrors:errors.slice(),networkErrors:network.slice()}}
+      async function api(action,fields={}){if(!originalFetch)throw new Error('Browser-Fetch ist nicht verfügbar.');const fd=new FormData();fd.append('action',action);fd.append('nonce',cfg.nonce);for(const[k,v]of Object.entries(fields))fd.append(k,typeof v==='string'?v:JSON.stringify(v));const response=await originalFetch(cfg.ajaxUrl,{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});const json=await response.json().catch(()=>null);if(!response.ok||!json?.success)throw new Error(json?.data?.message||'Homepage-Reparaturaufruf fehlgeschlagen.');return json.data||{}}
       async function analyze(description){return api('kp_ai_repair_analyze',{request:String(description||''),browser:JSON.stringify(context())})}
       async function createPr(proposalId){return api('kp_ai_repair_create_pr',{proposal_id:String(proposalId||'')})}
       async function status(pr){return api('kp_ai_repair_status',{pr:String(pr||'')})}
       async function merge(pr){return api('kp_ai_repair_merge',{pr:String(pr||'')})}
-      window.KPRepairMobile={ready:true,context,analyze,createPr,status,merge};
+      async function undo(){if(typeof window.KPWordHistory?.undo!=='function')throw new Error('Undo ist auf dieser Seite noch nicht bereit.');const changed=await window.KPWordHistory.undo();return{changed:!!changed,history:editorHistory()}}
+      async function redo(){if(typeof window.KPWordHistory?.redo!=='function')throw new Error('Redo ist auf dieser Seite noch nicht bereit.');const changed=await window.KPWordHistory.redo();return{changed:!!changed,history:editorHistory()}}
+      async function technicalHistory(){return api('kp_ai_repair_history')}
+      async function rollbackRepair(repairPr){return api('kp_ai_repair_rollback',{repair_pr:String(repairPr||'')})}
+      window.KPRepairMobile={ready:true,context,editorHistory,analyze,createPr,status,merge,undo,redo,technicalHistory,rollbackRepair};
 
       function launchLive(){
         try{if(window.KPAndroidTechnician?.isAvailable?.()){window.KPAndroidTechnician.startLive();return}}catch{}
