@@ -34,6 +34,57 @@ jobs:
           name: Gemini repair safety contract
           command: bash qa/ai-repair-contract.sh
 
+  android-homepage-technician:
+    docker:
+      - image: cimg/android:2026.07
+    resource_class: medium
+    steps:
+      - checkout
+      - run:
+          name: Install Android build prerequisites
+          command: |
+            mkdir -p qa-results/android
+            set +e
+            {
+              sudo apt-get update -qq
+              sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli unzip curl
+              yes | sdkmanager 'platforms;android-36' 'build-tools;36.0.0' >/dev/null
+              curl -fsSL -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-9.5.0-bin.zip
+              unzip -q /tmp/gradle.zip -d /tmp
+              /tmp/gradle-9.5.0/bin/gradle --version
+            } > >(tee qa-results/android/install.log) 2>&1
+            rc=$?
+            printf '%s\n' "$rc" > qa-results/android/install.rc
+            exit "$rc"
+      - run:
+          name: Mobile live security contract
+          command: |
+            mkdir -p qa-results/android
+            set +e
+            bash qa/mobile-live-contract.sh > >(tee qa-results/android/contract.log) 2>&1
+            rc=$?
+            printf '%s\n' "$rc" > qa-results/android/contract.rc
+            exit "$rc"
+      - run:
+          name: Compile Homepage-Hilfe debug APK
+          command: |
+            mkdir -p qa-results/android
+            set +e
+            (
+              cd android/homepage-technician
+              /tmp/gradle-9.5.0/bin/gradle --no-daemon --stacktrace :app:assembleDebug
+            ) > >(tee qa-results/android/build.log) 2>&1
+            rc=$?
+            printf '%s\n' "$rc" > qa-results/android/build.rc
+            exit "$rc"
+      - run:
+          name: Publish Android compiler diagnostics
+          when: always
+          command: bash qa/publish-android-build-report.sh
+      - store_artifacts:
+          path: qa-results/android
+          destination: android-build
+
   homepage-staging-lab:
     docker:
       - image: mcr.microsoft.com/playwright:v1.55.0-noble
@@ -205,6 +256,11 @@ workflows:
               only:
                 - main
                 - /ai-repair\/.*/
+      - android-homepage-technician:
+          filters:
+            branches:
+              only:
+                - /feature\/android-.*/
       - homepage-staging-lab:
           requires:
             - editor-contracts
