@@ -95,30 +95,10 @@ jobs:
             align_rc="$(cat qa-results/circleci/align-mobile.rc 2>/dev/null || echo 1)"
             if [[ "$neutralize_rc" -ne 0 || "$align_rc" -ne 0 ]]; then
               generated="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-              cat > qa-results/circleci/report.json <<JSON
-            {
-              "generatedAt":"$generated",
-              "provider":"CircleCI Free",
-              "commit":"${CIRCLE_SHA1:-unknown}",
-              "success":false,
-              "phase":"staging-preflight",
-              "checks":{
-                "neutralizeStagingColors":"$([[ "$neutralize_rc" -eq 0 ]] && echo success || echo failure)",
-                "alignMobileInteractions":"$([[ "$align_rc" -eq 0 ]] && echo success || echo failure)",
-                "browserLab":"not-started"
-              }
-            }
-            JSON
-              cat > qa-results/circleci/report.md <<MD
-            # CircleCI Staging-Preflight
-
-            Commit: ${CIRCLE_SHA1:-unknown}  
-            Gesamtstatus: **FAILURE**
-
-            - Shared-Staging-Farbschutz: $([[ "$neutralize_rc" -eq 0 ]] && echo success || echo failure)
-            - Mobile-Guard-Ausrichtung: $([[ "$align_rc" -eq 0 ]] && echo success || echo failure)
-            - Browser-Labor: not-started
-            MD
+              neutralize_state="$([[ "$neutralize_rc" -eq 0 ]] && echo success || echo failure)"
+              align_state="$([[ "$align_rc" -eq 0 ]] && echo success || echo failure)"
+              printf '{\n  "generatedAt":"%s",\n  "provider":"CircleCI Free",\n  "commit":"%s",\n  "success":false,\n  "phase":"staging-preflight",\n  "checks":{\n    "neutralizeStagingColors":"%s",\n    "alignMobileInteractions":"%s",\n    "browserLab":"not-started"\n  }\n}\n' "$generated" "${CIRCLE_SHA1:-unknown}" "$neutralize_state" "$align_state" > qa-results/circleci/report.json
+              printf '# CircleCI Staging-Preflight\n\nCommit: %s  \nGesamtstatus: **FAILURE**\n\n- Shared-Staging-Farbschutz: %s\n- Mobile-Guard-Ausrichtung: %s\n- Browser-Labor: not-started\n' "${CIRCLE_SHA1:-unknown}" "$neutralize_state" "$align_state" > qa-results/circleci/report.md
               printf 'lab_rc=1\ntext_rc=1\n' > qa-results/circleci/runner-exit.txt
               exit 0
             fi
