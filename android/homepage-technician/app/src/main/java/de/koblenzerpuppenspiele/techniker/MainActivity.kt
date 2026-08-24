@@ -30,9 +30,9 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 /**
- * Native shell around the authenticated Homepage editor plus direct Gemini Live screen/audio mode.
- * The direct Live session uses a short-lived token provisioned by WordPress; no Gemini/GitHub secret
- * is embedded in Android.
+ * Native shell around two deliberate paths only:
+ * 1) the existing manual Homepage editor, and 2) one direct Gemini Live AI agent.
+ * Durable Gemini/GitHub secrets remain server-side in WordPress.
  */
 class MainActivity : Activity() {
     companion object {
@@ -95,7 +95,7 @@ class MainActivity : Activity() {
             gravity = android.view.Gravity.CENTER_VERTICAL
         }
         statusView = TextView(this).apply {
-            text = "Homepage-Hilfe bereit"
+            text = "Homepage bereit"
             setTextColor(Color.WHITE)
             textSize = 13f
             maxLines = 2
@@ -105,7 +105,7 @@ class MainActivity : Activity() {
             isAllCaps = false
         }
         liveButton = Button(this).apply {
-            text = "✦ KI live zeigen"
+            text = "✦ KI"
             isAllCaps = false
         }
         bar.addView(
@@ -152,8 +152,8 @@ class MainActivity : Activity() {
                 editButton.text = if (signedIn) "✎ Bearbeiten" else "✎ Anmelden"
                 if (!live && currentPageTrusted) {
                     showStatus(
-                        if (signedIn) "Homepage bereit · KI live kann Fehler untersuchen und reparieren"
-                        else "Bitte anmelden · KI live braucht den geschützten Reparaturzugang"
+                        if (signedIn) "Homepage bereit · Bearbeiten oder KI verwenden"
+                        else "Bitte anmelden · danach stehen Bearbeiten und KI bereit"
                     )
                 }
             }
@@ -173,7 +173,7 @@ class MainActivity : Activity() {
 
     private fun openEditor() {
         if (hasWordPressSession()) {
-            showStatus("Bearbeitungsmodus wird geöffnet …")
+            showStatus("Manueller Bearbeitungsmodus wird geöffnet …")
             webView.loadUrl(BuildConfig.HOMEPAGE_URL)
         } else {
             showStatus("Bitte einmal bei WordPress anmelden …")
@@ -201,11 +201,11 @@ class MainActivity : Activity() {
 
     private fun beginLive() {
         if (!isTrustedWebPage()) {
-            showStatus("KI-Live ist nur auf der Koblenzer-Puppenspiele-Homepage verfügbar.")
+            showStatus("KI ist nur auf der Koblenzer-Puppenspiele-Homepage verfügbar.")
             return
         }
         if (!hasWordPressSession()) {
-            showStatus("Bitte zuerst anmelden · danach KI live erneut starten")
+            showStatus("Bitte zuerst anmelden · danach KI erneut starten")
             openEditor()
             return
         }
@@ -245,17 +245,17 @@ class MainActivity : Activity() {
         ContextCompat.startForegroundService(this, serviceIntent)
         live = true
         liveButton.isEnabled = false
-        liveButton.text = "■ Live beenden"
-        showStatus("Bildschirm geteilt · direkter Gemini-Live-Zugang wird vorbereitet …")
+        liveButton.text = "■ KI beenden"
+        showStatus("Bildschirm geteilt · Gemini Live wird vorbereitet …")
         uiScope.launch {
             try {
                 technician.start()
-                showStatus("KI live · Lautsprecher aktiv · sprich jederzeit dazwischen")
+                showStatus("KI live · sag einfach, was geändert werden soll")
             } catch (error: Throwable) {
                 stopScreenCapture()
                 technician.stop()
                 live = false
-                liveButton.text = "✦ KI live zeigen"
+                liveButton.text = "✦ KI"
                 showStatus("Gemini Live: ${error.message ?: error.javaClass.simpleName}")
             } finally {
                 liveButton.isEnabled = true
@@ -269,7 +269,7 @@ class MainActivity : Activity() {
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
             beginLive()
         } else {
-            showStatus("Mikrofonzugriff wird für das Live-Gespräch benötigt.")
+            showStatus("Mikrofonzugriff wird für das KI-Live-Gespräch benötigt.")
         }
     }
 
@@ -277,8 +277,8 @@ class MainActivity : Activity() {
         stopScreenCapture()
         technician.stop()
         live = false
-        liveButton.text = "✦ KI live zeigen"
-        showStatus("KI-Live beendet · Homepage bleibt geöffnet")
+        liveButton.text = "✦ KI"
+        showStatus("KI beendet · Homepage bleibt geöffnet")
     }
 
     private fun stopScreenCapture() {
