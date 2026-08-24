@@ -40,7 +40,7 @@ grep -q 'wordpress_logged_in_' "$MAIN"
 grep -q 'wp-login.php' "$MAIN"
 grep -q 'endsWith(".koblenzer-puppenspiele.de")' "$MAIN"
 
-# Local model runtime: LiteRT-LM, on-device file, GPU with CPU fallback and no cloud AI SDK.
+# Local model runtime: LiteRT-LM, bounded KV-cache, GPU with CPU inference fallback and no cloud AI SDK.
 grep -q 'com.google.ai.edge.litertlm:litertlm-android:0.16.0' "$GRADLE"
 if grep -q 'firebase-ai\|firebase-appcheck\|google-services' "$GRADLE"; then
   echo 'FAIL local-ai: cloud Firebase AI/AppCheck dependency remains in Android app.' >&2
@@ -50,7 +50,16 @@ grep -q 'gemma-4-E2B-it-litert-lm' "$LOCAL"
 grep -q 'gemma-4-E2B-it.litertlm' "$LOCAL"
 grep -q 'EngineConfig' "$LOCAL"
 grep -q 'Backend.GPU()' "$LOCAL"
-grep -q 'Backend.CPU()' "$LOCAL"
+grep -q 'Backend.CPU(' "$LOCAL"
+grep -q 'maxNumTokens = LOCAL_MAX_TOKENS' "$LOCAL"
+grep -q 'LOCAL_MAX_TOKENS = 6144' "$LOCAL"
+grep -q 'ThinkingConfig(enableThinking = false' "$LOCAL"
+grep -q 'MAX_OUTPUT_TOKENS' "$LOCAL"
+grep -q 'compactEditableElements' "$LOCAL"
+grep -q 'MAX_MODEL_PROMPT_CHARS' "$LOCAL"
+grep -q 'GPU-Inferenz fehlgeschlagen' "$LOCAL"
+grep -q 'friendlyNativeFailure' "$LOCAL"
+grep -q 'isNativeInferenceFailure' "$LOCAL"
 grep -q 'filesDir' "$LOCAL"
 grep -q 'REQUIRED_FREE_BYTES' "$LOCAL"
 grep -q 'ARM-Handy' "$LOCAL"
@@ -137,4 +146,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS local-ai: free on-device chat, natural interruptible offline Live speech, selectable local voices, resilient planning, emergency Gemini handoff and protected CI-gated repair are present.'
+echo 'PASS local-ai: free on-device chat, bounded native inference with GPU/CPU fallback, natural interruptible offline Live speech, selectable local voices, emergency Gemini handoff and protected CI-gated repair are present.'
