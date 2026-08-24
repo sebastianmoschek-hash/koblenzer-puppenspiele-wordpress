@@ -5,6 +5,7 @@ APP='android/homepage-technician/app/src/main'
 KOTLIN="$APP/java/de/koblenzerpuppenspiele/techniker"
 MAIN="$KOTLIN/MainActivity.kt"
 LOCAL="$KOTLIN/LocalAiTechnician.kt"
+VOICE="$KOTLIN/LocalVoiceController.kt"
 WEB="$KOTLIN/WebRepairBridge.kt"
 GRADLE='android/homepage-technician/app/build.gradle.kts'
 MANIFEST="$APP/AndroidManifest.xml"
@@ -15,19 +16,23 @@ php -l "$REPAIR_HISTORY" >/dev/null
 php -l "$REPAIR_LAB" >/dev/null
 
 test -f "$LOCAL"
+test -f "$VOICE"
 test ! -e "$KOTLIN/GeminiLiveTechnician.kt"
 test ! -e "$KOTLIN/ScreenCaptureService.kt"
 
-# Primary UI is manual edit + one local AI chat with explicit emergency Gemini handoff.
+# Primary UI is manual edit + one local AI chat, optional local Live speech, and emergency Gemini handoff.
 grep -q 'text = "✎ Bearbeiten"' "$MAIN"
 grep -q 'text = "✦ KI"' "$MAIN"
 grep -q 'Änderungswunsch schreiben' "$MAIN"
+grep -q 'Live lokal · sprechen + Seite zeigen' "$MAIN"
 grep -q 'Notfall Gemini' "$MAIN"
 grep -q 'localAi.send(message)' "$MAIN"
 grep -q 'localAi.downloadModel' "$MAIN"
+grep -q 'voiceController.speak(reply)' "$MAIN"
+grep -q 'processLocalRequest' "$MAIN"
 grep -q 'gemini.google.com/app' "$MAIN"
 grep -q 'ClipboardManager' "$MAIN"
-grep -q 'KoblenzerPuppenspieleTechnician/0.3-localai' "$MAIN"
+grep -q 'KoblenzerPuppenspieleTechnician/0.4-locallive' "$MAIN"
 grep -q 'wordpress_logged_in_' "$MAIN"
 grep -q 'wp-login.php' "$MAIN"
 grep -q 'endsWith(".koblenzer-puppenspiele.de")' "$MAIN"
@@ -48,8 +53,11 @@ grep -q 'REQUIRED_FREE_BYTES' "$LOCAL"
 grep -q 'ARM-Handy' "$LOCAL"
 grep -q 'downloadModel' "$LOCAL"
 
-# The local model is a JSON planner; deterministic website tools execute the plan.
+# The local model is a resilient JSON planner; deterministic website tools execute the plan.
 grep -q 'PLANNER_SYSTEM' "$LOCAL"
+grep -q 'JSON_REPAIR_SYSTEM' "$LOCAL"
+grep -q 'conversation.sendMessage(prompt).toString()' "$LOCAL"
+grep -q 'repairMalformedJson' "$LOCAL"
 grep -q '"edit_element"' "$LOCAL"
 grep -q '"set_global_design"' "$LOCAL"
 grep -q '"request_code_change"' "$LOCAL"
@@ -63,14 +71,23 @@ grep -q 'bridge.redoEditorChange' "$LOCAL"
 grep -q 'explicitSaveRequested' "$LOCAL"
 grep -q 'bridge.saveEditorChanges' "$LOCAL"
 
-# Planner reads actual model text and self-repairs small malformed-JSON responses locally.
-grep -q 'conversation.sendMessage(prompt).text' "$LOCAL"
-grep -q 'repairPrompt' "$LOCAL"
-grep -q 'conversation.sendMessage(repairPrompt).text' "$LOCAL"
-grep -q 'parseJsonObjectOrNull' "$LOCAL"
-grep -q 'trailing comma\|trailing comma' "$LOCAL" || true
-if grep -q 'conversation.sendMessage(prompt).toString()' "$LOCAL"; then
-  echo 'FAIL local-ai: planner must parse generated text, not the Contents debug representation.' >&2
+# Local Live speech must use Android's explicit on-device recognizer only.
+grep -q 'android.permission.RECORD_AUDIO' "$MANIFEST"
+grep -q 'SpeechRecognizer.isOnDeviceRecognitionAvailable' "$VOICE"
+grep -q 'SpeechRecognizer.createOnDeviceSpeechRecognizer' "$VOICE"
+grep -q 'RecognizerIntent.EXTRA_PREFER_OFFLINE' "$VOICE"
+grep -q '!it.isNetworkConnectionRequired' "$VOICE"
+grep -q 'Audio wird nicht an Gemini/OpenAI gesendet' "$MAIN"
+if grep -q 'SpeechRecognizer.createSpeechRecognizer' "$VOICE"; then
+  echo 'FAIL local-ai: Live speech must not fall back to potentially remote SpeechRecognizer.' >&2
+  exit 1
+fi
+if grep -q 'MEDIA_PROJECTION\|FOREGROUND_SERVICE_MEDIA_PROJECTION\|FOREGROUND_SERVICE_MICROPHONE' "$MANIFEST"; then
+  echo 'FAIL local-ai: local Live mode must not request obsolete screen-share/foreground projection permissions.' >&2
+  exit 1
+fi
+if grep -R -n -E 'GenerativeService|generativelanguage\.googleapis\.com|auth_tokens|MediaProjectionManager|ScreenFrameBus' "$KOTLIN"; then
+  echo 'FAIL local-ai: Android source still contains old Gemini Live/cloud screen transport.' >&2
   exit 1
 fi
 
@@ -92,16 +109,6 @@ grep -q 'if (repairNonce.isBlank()) localBootstrap()' "$WEB"
 grep -q "ai-repair/rollback-" "$REPAIR_HISTORY"
 grep -q 'kp_ai_repair_health_for_sha' "$REPAIR_LAB"
 
-# Local-first APK no longer asks for microphone, screen capture or foreground media projection.
-if grep -q 'RECORD_AUDIO\|MEDIA_PROJECTION\|FOREGROUND_SERVICE_MICROPHONE' "$MANIFEST"; then
-  echo 'FAIL local-ai: obsolete Gemini Live capture permission remains.' >&2
-  exit 1
-fi
-if grep -R -n -E 'GenerativeService|generativelanguage\.googleapis\.com|auth_tokens|AudioRecord|MediaProjectionManager' "$KOTLIN"; then
-  echo 'FAIL local-ai: Android source still contains the old cloud/live AI transport.' >&2
-  exit 1
-fi
-
 # Durable privileged credentials never enter Android.
 if grep -R -n -E 'api\.github\.com|github_pat_|gh[pousr]_[A-Za-z0-9_\-]{12,}' android/homepage-technician/app/src/main; then
   echo 'FAIL local-ai: Android must not contain GitHub credentials/API directly.' >&2
@@ -116,4 +123,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS local-ai: free on-device chat, resilient JSON planning, deterministic editor control, local code planning, emergency Gemini handoff and protected CI-gated repair are present.'
+echo 'PASS local-ai: free on-device chat, offline conversational Live speech with current-page inspection, resilient JSON planning, emergency Gemini handoff and protected CI-gated repair are present.'
