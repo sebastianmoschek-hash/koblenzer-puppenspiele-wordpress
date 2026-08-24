@@ -7,14 +7,12 @@ on:
     paths:
       - 'android/homepage-technician/**'
       - 'wp-content/mu-plugins/kp-mobile-live-bridge.php'
-      - 'wp-content/mu-plugins/kp-ai-repair-history.php'
       - 'qa/mobile-live-contract.sh'
       - '.github/workflows/android-homepage-technician.yml'
   pull_request:
     paths:
       - 'android/homepage-technician/**'
       - 'wp-content/mu-plugins/kp-mobile-live-bridge.php'
-      - 'wp-content/mu-plugins/kp-ai-repair-history.php'
       - 'qa/mobile-live-contract.sh'
       - '.github/workflows/android-homepage-technician.yml'
 
@@ -45,10 +43,3 @@ jobs:
       - name: Compile debug APK without production secrets
         working-directory: android/homepage-technician
         run: gradle --no-daemon :app:assembleDebug
-      - name: Upload Homepage-Hilfe debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: homepage-hilfe-debug
-          path: android/homepage-technician/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 14
