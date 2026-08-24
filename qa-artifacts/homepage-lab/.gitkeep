@@ -1,0 +1,1 @@
+Keep the CircleCI editor screenshot artifact directory present even when a run stops before screenshots are produced.
