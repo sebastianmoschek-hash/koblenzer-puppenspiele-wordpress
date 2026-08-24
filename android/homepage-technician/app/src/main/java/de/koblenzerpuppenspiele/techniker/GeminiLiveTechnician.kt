@@ -37,7 +37,8 @@ import kotlinx.serialization.json.put
 
 /**
  * Gemini Live is the conversational/visual layer only. Content changes use the common
- * editor Undo/Redo history. Code repairs and rollbacks always use protected PR + CI gates.
+ * editor Undo/Redo and 48h saved-version history. Code repairs and rollbacks always use
+ * protected PR + CI gates.
  */
 @OptIn(PublicPreviewAPI::class)
 class GeminiLiveTechnician(
@@ -75,18 +76,33 @@ class GeminiLiveTechnician(
                 ),
                 FunctionDeclaration(
                     "get_change_history",
-                    "Read both the immediate visual editor Undo/Redo state and the merged technical AI repair history. Use this before deciding how to undo an ambiguous 'last change'.",
+                    "Read the immediate visual Undo/Redo state, the 48-hour saved website versions and the merged technical AI repair history. Use before deciding how to undo an ambiguous last change.",
                     emptyMap(),
                 ),
                 FunctionDeclaration(
                     "undo_last_editor_change",
-                    "Undo exactly one reversible visual/content editor action using the same central Undo stack as the web app. Use for text, image, layout, color, size, navigation and ordinary AI design changes.",
+                    "Undo exactly one reversible unsaved/current-session visual or content editor action using the same central Undo stack as the web app.",
                     emptyMap(),
                 ),
                 FunctionDeclaration(
                     "redo_last_editor_change",
-                    "Redo exactly one previously undone visual/content editor action using the same central Redo stack as the web app.",
+                    "Redo exactly one previously undone visual or content editor action using the same central Redo stack as the web app.",
                     emptyMap(),
+                ),
+                FunctionDeclaration(
+                    "list_saved_versions",
+                    "List the saved website versions retained for 48 hours, newest first, including version id, timestamp and label.",
+                    emptyMap(),
+                ),
+                FunctionDeclaration(
+                    "undo_last_saved_change",
+                    "After explicit user confirmation, restore the website state from immediately before the latest saved website change. The page reloads after success.",
+                    emptyMap(),
+                ),
+                FunctionDeclaration(
+                    "restore_saved_version",
+                    "After explicit user confirmation, restore one specific saved website version from the 48-hour version history. The current state is checkpointed first so restoration remains reversible.",
+                    mapOf("version_id" to Schema.string("Exact version id returned by list_saved_versions or get_change_history.")),
                 ),
                 FunctionDeclaration(
                     "list_technical_repairs",
@@ -133,14 +149,14 @@ class GeminiLiveTechnician(
                 text(
                     "Du bist der deutschsprachige Homepage-Techniker der Koblenzer Puppenspiele. " +
                         "Der Nutzer zeigt dir die Homepage live auf seinem Android-Bildschirm und spricht mit dir. " +
-                        "Beobachte genau, frage nur nach wenn wirklich nötig und unterscheide Design-/Inhaltsänderungen von technischen Code-Reparaturen. " +
-                        "Normale Änderungen an Text, Bildern, Position, Farben, Größen, Navigation oder Layout gehören immer in die gemeinsame Editor-Historie und werden mit undo_last_editor_change bzw. redo_last_editor_change rückgängig gemacht. " +
-                        "Wenn der Nutzer allgemein sagt 'mach die letzte Änderung rückgängig', verwende zuerst get_change_history. Gibt es einen unmittelbaren Editor-Undo-Schritt, verwende diesen. Nur wenn ausdrücklich eine übernommene technische Reparatur gemeint ist oder kein passender Editor-Schritt existiert, verwende die Technik-Historie. " +
-                        "Gespeicherte ältere Website-Stände bleiben zusätzlich über die sichtbare Versionshistorie des Editors verfügbar; behaupte nicht, eine solche Version wiederhergestellt zu haben, wenn kein Tool dies getan hat. " +
+                        "Beobachte genau, frage nur nach wenn wirklich nötig und unterscheide drei Ebenen: unmittelbare Editor-Änderungen, gespeicherte Website-Versionen und technische Code-Reparaturen. " +
+                        "Text, Bilder, Position, Farben, Größen, Navigation und Layout gehören zuerst in die gemeinsame Editor-Historie und werden mit undo_last_editor_change bzw. redo_last_editor_change rückgängig gemacht. " +
+                        "Gespeicherte Änderungen bleiben 48 Stunden in der Website-Versionshistorie. Nutze list_saved_versions, undo_last_saved_change oder restore_saved_version, wenn ein gespeicherter Stand gemeint ist. " +
+                        "Wenn der Nutzer allgemein sagt 'mach die letzte Änderung rückgängig', verwende zuerst get_change_history: hat die Editor-Historie einen Undo-Schritt, nimm genau diesen; sonst kann die letzte gespeicherte Änderung nach Bestätigung zurückgenommen werden. Eine technische Code-Reparatur nur zurücknehmen, wenn der Nutzer eine Reparatur/Technikänderung meint oder die Historie eindeutig darauf verweist. " +
                         "Bei einem technischen Problem zuerst inspect_homepage verwenden und danach analyze_homepage_error. " +
                         "Code niemals selbst frei erfinden oder live schreiben: Änderungen und Rücknahmen laufen ausschließlich über das geschützte Reparaturlabor, ai-repair-Branch und CI. " +
-                        "create_repair_branch, rollback_technical_repair und merge_repair nur auslösen, wenn der Nutzer die jeweilige Aktion ausdrücklich bestätigt hat. " +
-                        "Behaupte niemals, dass etwas repariert, zurückgenommen oder gespeichert wurde, bevor ein Tool das bestätigt."
+                        "create_repair_branch, rollback_technical_repair, undo_last_saved_change, restore_saved_version und merge_repair nur auslösen, wenn der Nutzer die jeweilige folgenreiche Aktion ausdrücklich bestätigt hat. " +
+                        "Behaupte niemals, dass etwas repariert, zurückgenommen, wiederhergestellt oder gespeichert wurde, bevor ein Tool das bestätigt."
                 )
             },
         )
@@ -189,12 +205,36 @@ class GeminiLiveTechnician(
             runCatching {
                 when (call.name) {
                     "inspect_homepage" -> bridge.context()
-                    "get_change_history" -> buildJsonObject {
-                        put("editor", bridge.editorHistory())
-                        put("technical", bridge.technicalHistory())
+                    "get_change_history" -> {
+                        val editor = bridge.editorHistory()
+                        val saved = bridge.savedHistory()
+                        val technical = bridge.technicalHistory()
+                        buildJsonObject {
+                            put("editor", editor)
+                            put("saved", saved)
+                            put("technical", technical)
+                        }
                     }
                     "undo_last_editor_change" -> bridge.undoEditorChange()
                     "redo_last_editor_change" -> bridge.redoEditorChange()
+                    "list_saved_versions" -> bridge.savedHistory()
+                    "undo_last_saved_change" -> {
+                        if (!confirm("Letzte Speicherung zurücknehmen?", "Die Website wird auf den Stand unmittelbar vor der letzten gespeicherten Änderung zurückgesetzt. Dieser Vorgang wird über die Versionshistorie abgesichert.")) {
+                            buildJsonObject { put("cancelled", true); put("message", "Nutzer hat die Wiederherstellung abgelehnt.") }
+                        } else {
+                            bridge.undoSavedChange()
+                        }
+                    }
+                    "restore_saved_version" -> {
+                        val id = call.args["version_id"]?.jsonPrimitive?.content.orEmpty()
+                        if (id.isBlank()) {
+                            errorObject("Versions-ID fehlt.")
+                        } else if (!confirm("Gespeicherte Version wiederherstellen?", "Die Website wird auf Version $id zurückgesetzt. Der aktuelle Stand wird vorher selbst als Wiederherstellungspunkt gesichert.")) {
+                            buildJsonObject { put("cancelled", true); put("message", "Nutzer hat die Wiederherstellung abgelehnt.") }
+                        } else {
+                            bridge.restoreSavedVersion(id)
+                        }
+                    }
                     "list_technical_repairs" -> bridge.technicalHistory()
                     "analyze_homepage_error" -> {
                         val description = call.args["description"]?.jsonPrimitive?.content.orEmpty()
