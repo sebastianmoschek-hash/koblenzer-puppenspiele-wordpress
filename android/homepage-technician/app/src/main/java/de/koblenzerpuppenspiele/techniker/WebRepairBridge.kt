@@ -92,12 +92,13 @@ class WebRepairBridge(private val webView: WebView) {
           deterministicEditor:!!window.KPRepairMobile?.editElement,
           elementInspection:!!window.KPRepairMobile?.editableElements,
           globalDesign:!!window.KPRepairMobile?.setDesign,
+          directImageEdit:!!window.KPRepairMobile?.editImage,
           save:!!window.KPRepairMobile?.saveChanges,
           undo:!!window.KPRepairMobile?.undo,
           redo:!!window.KPRepairMobile?.redo,
           technicalRepair:!!window.KPRepairMobile?.analyze,
           secondGeminiPlanner:false,
-          capabilities:['inspect-elements','text','links','font','padding','width','radius','color','background','global-design','move','section-order','responsive-editor','undo','redo','save','technical-code-repair']
+          capabilities:['inspect-elements','text','links','font','padding','width','radius','color','background','global-design','move','section-order','image-generation','responsive-editor','undo','redo','save','technical-code-repair']
         }))())
         """.trimIndent()
     )
@@ -109,6 +110,11 @@ class WebRepairBridge(private val webView: WebView) {
 
     suspend fun editElement(liveId: String, property: String, value: String): JsonObject = call(
         "window.KPRepairMobile.editElement(${JSONObject.quote(liveId)},${JSONObject.quote(property)},${JSONObject.quote(value)})",
+        requireMobileBridge = true,
+    )
+
+    suspend fun editImage(liveId: String, prompt: String): JsonObject = call(
+        "window.KPRepairMobile.editImage(${JSONObject.quote(liveId)},${JSONObject.quote(prompt)})",
         requireMobileBridge = true,
     )
 
