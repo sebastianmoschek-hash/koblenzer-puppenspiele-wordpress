@@ -125,7 +125,7 @@ if grep -R -n -E 'GenerativeService|generativelanguage\.googleapis\.com|auth_tok
   exit 1
 fi
 
-# Technical repair stays local-planned, server-validated and CI/confirmation gated.
+# Technical repair stays local-planned, server-validated and CI/confirmation gated. The local endpoint can also repair the Android source through a PR.
 grep -q 'localRepairContext' "$LOCAL"
 grep -q 'localRepairFiles' "$LOCAL"
 grep -q 'submitLocalRepairProposal' "$LOCAL"
@@ -136,7 +136,8 @@ grep -q 'kp_mobile_local_bootstrap' "$WEB"
 grep -q 'kp_local_ai_repair_context' "$WEB"
 grep -q 'kp_local_ai_repair_files' "$WEB"
 grep -q 'kp_local_ai_repair_proposal' "$WEB"
-grep -q 'kp_ai_repair_create_pr' "$WEB"
+grep -q 'kp_local_ai_repair_create_pr' "$WEB"
+grep -q 'localAndroidSelfRepair:true' "$WEB"
 grep -q 'kp_ai_repair_status' "$WEB"
 grep -q 'kp_ai_repair_merge' "$WEB"
 grep -q 'if (repairNonce.isBlank()) localBootstrap()' "$WEB"
@@ -157,4 +158,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS local-ai: keyboard-safe readable local chat, bounded native inference with GPU/CPU fallback, interruptible offline Live speech, selectable local voices, emergency Gemini handoff and protected CI-gated repair are present.'
+echo 'PASS local-ai: keyboard-safe readable local chat, bounded native inference with GPU/CPU fallback, interruptible offline Live speech, selectable local voices, emergency Gemini handoff and protected CI-gated website/Android repair are present.'
