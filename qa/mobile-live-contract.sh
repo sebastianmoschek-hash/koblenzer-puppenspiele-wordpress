@@ -14,6 +14,8 @@ php -l "$REPAIR_LAB" >/dev/null
 grep -q 'FOREGROUND_SERVICE_MEDIA_PROJECTION' "$APP/AndroidManifest.xml"
 grep -q 'android:foregroundServiceType="mediaProjection|microphone"' "$APP/AndroidManifest.xml"
 grep -q 'createScreenCaptureIntent' "$KOTLIN/MainActivity.kt"
+grep -q 'MediaProjectionConfig.createConfigForDefaultDisplay()' "$KOTLIN/MainActivity.kt"
+grep -q 'Build.VERSION_CODES.UPSIDE_DOWN_CAKE' "$KOTLIN/MainActivity.kt"
 grep -q 'KoblenzerPuppenspieleTechnician/0.2-directlive' "$KOTLIN/MainActivity.kt"
 grep -q 'endsWith(".koblenzer-puppenspiele.de")' "$KOTLIN/MainActivity.kt"
 grep -q 'editButton.setOnClickListener' "$KOTLIN/MainActivity.kt"
@@ -22,6 +24,14 @@ grep -q 'text = "✎ Bearbeiten"' "$KOTLIN/MainActivity.kt"
 grep -q 'text = "✦ KI"' "$KOTLIN/MainActivity.kt"
 grep -q 'wp-login.php' "$KOTLIN/MainActivity.kt"
 grep -q 'wordpress_logged_in_' "$KOTLIN/MainActivity.kt"
+
+# One Gemini entry point supports speech and typed text in the same Live session.
+grep -q 'An Gemini schreiben' "$KOTLIN/MainActivity.kt"
+grep -q 'sendTextButton.setOnClickListener' "$KOTLIN/MainActivity.kt"
+grep -q 'technician.sendText(message)' "$KOTLIN/MainActivity.kt"
+grep -q 'fun sendText(text: String)' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'JSONObject().put("realtimeInput", JSONObject().put("text", message))' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'spricht oder schreibt mit dir' "$KOTLIN/GeminiLiveTechnician.kt"
 
 # Direct Gemini Live: ephemeral server token, v1beta constrained WebSocket, audio/video and true barge-in.
 grep -q 'kp_mobile_live_bootstrap' "$BRIDGE"
@@ -154,4 +164,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS mobile-live: one Gemini Live agent, deterministic editor control, loudspeaker + barge-in, session resumption/reconnect and protected CI-gated code repair are present.'
+echo 'PASS mobile-live: full-display sharing, one Gemini Live agent with speech+typed input, deterministic editor control, loudspeaker + barge-in, session resumption/reconnect and protected CI-gated code repair are present.'
