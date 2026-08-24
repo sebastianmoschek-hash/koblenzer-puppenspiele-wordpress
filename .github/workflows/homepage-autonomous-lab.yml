@@ -24,7 +24,7 @@ permissions:
 
 concurrency:
   group: koblenzer-puppenspiele-autonomous-homepage-lab
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   orchestrate:
