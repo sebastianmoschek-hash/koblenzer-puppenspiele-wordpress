@@ -1,18 +1,15 @@
 package de.koblenzerpuppenspiele.techniker
 
-import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
-import android.media.AudioManager
-import android.media.projection.MediaProjectionConfig
-import android.media.projection.MediaProjectionManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -25,8 +22,9 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
-import androidx.core.content.ContextCompat
+import android.widget.Toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,39 +34,42 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 /**
- * Native shell around two deliberate paths only:
- * 1) the existing manual Homepage editor, and 2) one direct Gemini Live AI agent.
- * Durable Gemini/GitHub secrets remain server-side in WordPress.
+ * Homepage-Hilfe has two primary paths:
+ * 1) manual visual editing and 2) a free on-device AI chat.
+ *
+ * The local model never needs a Gemini/OpenAI API key. Difficult tasks can be
+ * copied to the normal Gemini consumer app through the explicit emergency button.
  */
 class MainActivity : Activity() {
-    companion object {
-        private const val REQ_AUDIO = 501
-        private const val REQ_SCREEN = 502
-    }
-
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var webView: WebView
     private lateinit var statusView: TextView
     private lateinit var editButton: Button
-    private lateinit var liveButton: Button
-    private lateinit var textComposer: LinearLayout
+    private lateinit var aiButton: Button
+    private lateinit var aiPanel: LinearLayout
+    private lateinit var modelInfo: TextView
+    private lateinit var installButton: Button
+    private lateinit var transcript: TextView
+    private lateinit var transcriptScroll: ScrollView
     private lateinit var textInput: EditText
-    private lateinit var sendTextButton: Button
+    private lateinit var sendButton: Button
+    private lateinit var emergencyButton: Button
     private lateinit var repairBridge: WebRepairBridge
-    private lateinit var technician: GeminiLiveTechnician
-    private var live = false
+    private lateinit var localAi: LocalAiTechnician
+    private var aiOpen = false
+    private var busy = false
+    private var lastRequest = ""
     @Volatile private var currentPageTrusted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        volumeControlStream = AudioManager.STREAM_MUSIC
         buildUi()
         configureWebView()
 
         repairBridge = WebRepairBridge(webView)
         webView.addJavascriptInterface(repairBridge, "KPRepairResult")
-        webView.addJavascriptInterface(NativeLiveBridge(), "KPAndroidTechnician")
-        technician = GeminiLiveTechnician(
+        webView.addJavascriptInterface(NativeAiBridge(), "KPAndroidTechnician")
+        localAi = LocalAiTechnician(
             context = this,
             bridge = repairBridge,
             confirm = ::confirmAction,
@@ -76,11 +77,13 @@ class MainActivity : Activity() {
         )
 
         editButton.setOnClickListener { openEditor() }
-        liveButton.setOnClickListener { if (live) stopLive() else beginLive() }
-        sendTextButton.setOnClickListener { sendTypedMessage() }
+        aiButton.setOnClickListener { toggleAi() }
+        installButton.setOnClickListener { installLocalModel() }
+        sendButton.setOnClickListener { sendLocalMessage() }
+        emergencyButton.setOnClickListener { openEmergencyGemini() }
         textInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEND) {
-                sendTypedMessage()
+                sendLocalMessage()
                 true
             } else false
         }
@@ -104,43 +107,80 @@ class MainActivity : Activity() {
             )
         )
 
-        val bottom = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
+        val bottom = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
-        textComposer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(10), dp(6), dp(10), dp(4))
-            setBackgroundColor(Color.argb(242, 24, 18, 15))
-            gravity = android.view.Gravity.CENTER_VERTICAL
+        aiPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            setBackgroundColor(Color.argb(248, 24, 18, 15))
             visibility = View.GONE
         }
+
+        modelInfo = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 13f
+            text = "Lokale KI wird geprüft …"
+            setPadding(dp(4), 0, dp(4), dp(4))
+        }
+        aiPanel.addView(modelInfo)
+
+        installButton = Button(this).apply {
+            text = "Lokale KI installieren (~2,6 GB)"
+            isAllCaps = false
+        }
+        aiPanel.addView(installButton)
+
+        transcript = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            text = "Lokale KI: Schreib einfach, was an der Homepage geändert werden soll."
+        }
+        transcriptScroll = ScrollView(this).apply {
+            addView(transcript)
+            isFillViewport = true
+        }
+        aiPanel.addView(
+            transcriptScroll,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(180)),
+        )
+
+        val composer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
         textInput = EditText(this).apply {
-            hint = "An Gemini schreiben …"
-            setHintTextColor(Color.rgb(170, 170, 170))
+            hint = "Änderungswunsch schreiben …"
+            setHintTextColor(Color.rgb(175, 175, 175))
             setTextColor(Color.WHITE)
             setSingleLine(true)
             imeOptions = EditorInfo.IME_ACTION_SEND
             textSize = 15f
             setPadding(dp(12), dp(8), dp(12), dp(8))
+            isEnabled = false
         }
-        sendTextButton = Button(this).apply {
+        sendButton = Button(this).apply {
             text = "Senden"
             isAllCaps = false
             isEnabled = false
         }
-        textComposer.addView(
-            textInput,
-            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
-        )
-        textComposer.addView(sendTextButton)
-        bottom.addView(textComposer)
+        composer.addView(textInput, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        composer.addView(sendButton)
+        aiPanel.addView(composer)
+
+        emergencyButton = Button(this).apply {
+            text = "Notfall Gemini"
+            isAllCaps = false
+            contentDescription = "Aktuelle Aufgabe für die normale Gemini-App vorbereiten"
+        }
+        aiPanel.addView(emergencyButton)
+        bottom.addView(aiPanel)
 
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(10), dp(8), dp(10), dp(8))
-            setBackgroundColor(Color.argb(232, 24, 18, 15))
-            gravity = android.view.Gravity.CENTER_VERTICAL
+            setBackgroundColor(Color.argb(236, 24, 18, 15))
+            gravity = Gravity.CENTER_VERTICAL
         }
         statusView = TextView(this).apply {
             text = "Homepage bereit"
@@ -152,16 +192,13 @@ class MainActivity : Activity() {
             text = "✎ Bearbeiten"
             isAllCaps = false
         }
-        liveButton = Button(this).apply {
+        aiButton = Button(this).apply {
             text = "✦ KI"
             isAllCaps = false
         }
-        bar.addView(
-            statusView,
-            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
-        )
+        bar.addView(statusView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         bar.addView(editButton)
-        bar.addView(liveButton)
+        bar.addView(aiButton)
         bottom.addView(bar)
 
         root.addView(
@@ -169,7 +206,7 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
-                android.view.Gravity.BOTTOM,
+                Gravity.BOTTOM,
             )
         )
         setContentView(root)
@@ -184,7 +221,7 @@ class MainActivity : Activity() {
             allowFileAccess = false
             allowContentAccess = false
             setSupportMultipleWindows(false)
-            userAgentString = userAgentString + " KoblenzerPuppenspieleTechnician/0.2-directlive"
+            userAgentString = userAgentString + " KoblenzerPuppenspieleTechnician/0.3-localai"
         }
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -200,9 +237,9 @@ class MainActivity : Activity() {
                 currentPageTrusted = uri?.scheme == "https" && isTrustedHost(uri.host)
                 val signedIn = hasWordPressSession()
                 editButton.text = if (signedIn) "✎ Bearbeiten" else "✎ Anmelden"
-                if (!live && currentPageTrusted) {
+                if (!aiOpen && currentPageTrusted) {
                     showStatus(
-                        if (signedIn) "Homepage bereit · Bearbeiten oder KI verwenden"
+                        if (signedIn) "Homepage bereit · Bearbeiten oder kostenlose KI verwenden"
                         else "Bitte anmelden · danach stehen Bearbeiten und KI bereit"
                     )
                 }
@@ -231,6 +268,147 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun toggleAi() {
+        if (aiOpen) {
+            hideAi()
+            return
+        }
+        if (!isTrustedWebPage()) {
+            showStatus("KI ist nur auf der Koblenzer-Puppenspiele-Homepage verfügbar.")
+            return
+        }
+        if (!hasWordPressSession()) {
+            showStatus("Bitte zuerst anmelden · danach KI erneut öffnen")
+            openEditor()
+            return
+        }
+        aiOpen = true
+        aiPanel.visibility = View.VISIBLE
+        aiButton.text = "✕ KI"
+        refreshModelState()
+        showStatus("Lokale KI · keine API-Kosten")
+    }
+
+    private fun hideAi() {
+        aiOpen = false
+        aiPanel.visibility = View.GONE
+        aiButton.text = "✦ KI"
+        val keyboard = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        keyboard.hideSoftInputFromWindow(textInput.windowToken, 0)
+        showStatus("Homepage bereit · Bearbeiten oder kostenlose KI verwenden")
+    }
+
+    private fun refreshModelState() {
+        val state = localAi.modelState()
+        val freeGb = state.freeBytes / 1_000_000_000.0
+        val ramGb = state.totalRamBytes / 1_000_000_000.0
+        if (state.installed) {
+            modelInfo.text = buildString {
+                append("Lokale KI installiert · ${"%.1f".format(state.modelBytes / 1_000_000_000.0)} GB Modell · ${"%.1f".format(freeGb)} GB frei")
+                if (!state.recommendedRam) append(" · RAM ${"%.1f".format(ramGb)} GB: kann langsamer sein")
+            }
+            installButton.visibility = View.GONE
+            textInput.isEnabled = !busy
+            sendButton.isEnabled = !busy
+        } else {
+            modelInfo.text = buildString {
+                append("Einmaliger Download: ca. 2,6 GB · frei ${"%.1f".format(freeGb)} GB")
+                if (!state.arm64) append(" · dieses Gerät ist nicht ARM64-kompatibel")
+                if (!state.recommendedRam) append(" · ${"%.1f".format(ramGb)} GB RAM: Testbetrieb")
+            }
+            installButton.visibility = View.VISIBLE
+            installButton.isEnabled = !busy && state.arm64
+            textInput.isEnabled = false
+            sendButton.isEnabled = false
+        }
+        emergencyButton.isEnabled = !busy
+    }
+
+    private fun installLocalModel() {
+        if (busy) return
+        busy = true
+        refreshModelState()
+        appendTranscript("System", "Das lokale Modell wird einmalig heruntergeladen. Danach läuft der Chat ohne KI-API-Kosten.")
+        uiScope.launch {
+            try {
+                localAi.downloadModel { downloaded, total ->
+                    val pct = if (total > 0) ((downloaded * 100) / total).coerceIn(0, 100) else 0
+                    showStatus("Lokale KI wird geladen · $pct %")
+                }
+                appendTranscript("System", "Lokale KI ist installiert und bereit.")
+                showStatus("Lokale KI bereit · kostenlos auf dem Gerät")
+            } catch (error: Throwable) {
+                appendTranscript("System", error.message ?: "Modell konnte nicht installiert werden.")
+                showStatus("Lokale KI: ${error.message ?: error.javaClass.simpleName}")
+            } finally {
+                busy = false
+                refreshModelState()
+            }
+        }
+    }
+
+    private fun sendLocalMessage() {
+        if (busy) return
+        val message = textInput.text?.toString()?.trim().orEmpty()
+        if (message.isBlank()) return
+        if (!localAi.modelState().installed) {
+            showStatus("Bitte zuerst die lokale KI installieren.")
+            return
+        }
+        lastRequest = message
+        textInput.text?.clear()
+        appendTranscript("Du", message)
+        busy = true
+        refreshModelState()
+        uiScope.launch {
+            try {
+                val reply = localAi.send(message)
+                appendTranscript("KI", reply)
+            } catch (error: Throwable) {
+                appendTranscript("KI", "Fehler: ${error.message ?: error.javaClass.simpleName}")
+                showStatus("Lokale KI: ${error.message ?: error.javaClass.simpleName}")
+            } finally {
+                busy = false
+                refreshModelState()
+            }
+        }
+    }
+
+    private fun openEmergencyGemini() {
+        if (busy) return
+        val request = textInput.text?.toString()?.trim().orEmpty().ifBlank { lastRequest }
+        if (request.isBlank()) {
+            appendTranscript("System", "Schreib zuerst die Aufgabe ins Feld. Dann kann ich sie für Gemini vorbereiten.")
+            return
+        }
+        busy = true
+        refreshModelState()
+        uiScope.launch {
+            try {
+                showStatus("Notfall Gemini · Kontext wird vorbereitet …")
+                val prompt = localAi.emergencyPrompt(request)
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Homepage-Aufgabe für Gemini", prompt))
+                appendTranscript("System", "Aufgabe samt Seitenkontext wurde kopiert. In Gemini nur noch Einfügen drücken.")
+                Toast.makeText(this@MainActivity, "Gemini-Aufgabe kopiert", Toast.LENGTH_LONG).show()
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://gemini.google.com/app")))
+                showStatus("Notfall Gemini geöffnet · Aufgabe ist in der Zwischenablage")
+            } catch (error: Throwable) {
+                appendTranscript("System", "Gemini konnte nicht geöffnet werden: ${error.message ?: error.javaClass.simpleName}")
+            } finally {
+                busy = false
+                refreshModelState()
+            }
+        }
+    }
+
+    private fun appendTranscript(who: String, text: String) {
+        runOnUiThread {
+            transcript.append("\n\n$who: ${text.trim()}")
+            transcriptScroll.post { transcriptScroll.fullScroll(View.FOCUS_DOWN) }
+        }
+    }
+
     private fun hasWordPressSession(): Boolean {
         val uri = runCatching { Uri.parse(BuildConfig.HOMEPAGE_URL) }.getOrNull() ?: return false
         val cookieUrl = "${uri.scheme}://${uri.authority}/"
@@ -247,133 +425,6 @@ class MainActivity : Activity() {
             .appendQueryParameter("redirect_to", BuildConfig.HOMEPAGE_URL)
             .build()
             .toString()
-    }
-
-    private fun beginLive() {
-        if (!isTrustedWebPage()) {
-            showStatus("KI ist nur auf der Koblenzer-Puppenspiele-Homepage verfügbar.")
-            return
-        }
-        if (!hasWordPressSession()) {
-            showStatus("Bitte zuerst anmelden · danach KI erneut starten")
-            openEditor()
-            return
-        }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_AUDIO)
-            return
-        }
-        askForScreenShare()
-    }
-
-    private fun askForScreenShare() {
-        liveButton.isEnabled = false
-        try {
-            val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            val captureIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                manager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
-            } else {
-                manager.createScreenCaptureIntent()
-            }
-            showStatus("KI braucht den gesamten Bildschirm · Freigabe bitte bestätigen")
-            @Suppress("DEPRECATION")
-            startActivityForResult(captureIntent, REQ_SCREEN)
-        } catch (error: Throwable) {
-            showStatus(error.message ?: "Bildschirmfreigabe konnte nicht gestartet werden.")
-        } finally {
-            liveButton.isEnabled = true
-        }
-    }
-
-    @Deprecated("Deprecated in Android API; retained for MediaProjection compatibility across minSdk 23+")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != REQ_SCREEN) return
-        if (resultCode != RESULT_OK || data == null) {
-            showStatus("Bildschirmfreigabe wurde nicht gestartet.")
-            return
-        }
-        val serviceIntent = Intent(this, ScreenCaptureService::class.java).apply {
-            action = ScreenCaptureService.ACTION_START
-            putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, resultCode)
-            putExtra(ScreenCaptureService.EXTRA_RESULT_DATA, data)
-        }
-        ContextCompat.startForegroundService(this, serviceIntent)
-        live = true
-        liveButton.isEnabled = false
-        liveButton.text = "■ KI beenden"
-        textComposer.visibility = View.VISIBLE
-        textInput.isEnabled = false
-        sendTextButton.isEnabled = false
-        showStatus("Gesamter Bildschirm geteilt · Gemini Live wird vorbereitet …")
-        uiScope.launch {
-            try {
-                technician.start()
-                textInput.isEnabled = true
-                sendTextButton.isEnabled = true
-                showStatus("KI live · sprechen oder unten schreiben")
-            } catch (error: Throwable) {
-                stopScreenCapture()
-                technician.stop()
-                live = false
-                liveButton.text = "✦ KI"
-                hideTextComposer()
-                showStatus("Gemini Live: ${error.message ?: error.javaClass.simpleName}")
-            } finally {
-                liveButton.isEnabled = true
-            }
-        }
-    }
-
-    private fun sendTypedMessage() {
-        val message = textInput.text?.toString()?.trim().orEmpty()
-        if (message.isBlank()) return
-        if (!live) {
-            showStatus("Bitte zuerst KI starten.")
-            return
-        }
-        if (technician.sendText(message)) {
-            textInput.text?.clear()
-            showStatus("KI live · Text gesendet · du kannst weiter sprechen oder schreiben")
-        } else {
-            showStatus("KI-Verbindung ist gerade nicht bereit · bitte gleich erneut senden")
-        }
-    }
-
-    private fun hideTextComposer() {
-        textInput.text?.clear()
-        textInput.isEnabled = false
-        sendTextButton.isEnabled = false
-        textComposer.visibility = View.GONE
-        val keyboard = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        keyboard.hideSoftInputFromWindow(textInput.windowToken, 0)
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != REQ_AUDIO) return
-        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            beginLive()
-        } else {
-            showStatus("Mikrofonzugriff wird für das KI-Live-Gespräch benötigt.")
-        }
-    }
-
-    private fun stopLive() {
-        stopScreenCapture()
-        technician.stop()
-        live = false
-        liveButton.text = "✦ KI"
-        hideTextComposer()
-        showStatus("KI beendet · Homepage bleibt geöffnet")
-    }
-
-    private fun stopScreenCapture() {
-        runCatching {
-            startService(Intent(this, ScreenCaptureService::class.java).apply {
-                action = ScreenCaptureService.ACTION_STOP
-            })
-        }
     }
 
     private suspend fun confirmAction(title: String, message: String): Boolean = suspendCancellableCoroutine { cont ->
@@ -408,17 +459,17 @@ class MainActivity : Activity() {
         return value == "koblenzer-puppenspiele.de" || value.endsWith(".koblenzer-puppenspiele.de")
     }
 
-    private inner class NativeLiveBridge {
+    private inner class NativeAiBridge {
         @JavascriptInterface
         fun startLive() {
             if (!currentPageTrusted) return
-            runOnUiThread { if (!live) beginLive() }
+            runOnUiThread { if (!aiOpen) toggleAi() }
         }
 
         @JavascriptInterface
         fun stopLive() {
             if (!currentPageTrusted) return
-            runOnUiThread { if (live) this@MainActivity.stopLive() }
+            runOnUiThread { if (aiOpen) hideAi() }
         }
 
         @JavascriptInterface
@@ -427,11 +478,13 @@ class MainActivity : Activity() {
 
     @Deprecated("Legacy back handling keeps minSdk implementation compact")
     override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
+        if (aiOpen) hideAi()
+        else if (webView.canGoBack()) webView.goBack()
+        else super.onBackPressed()
     }
 
     override fun onDestroy() {
-        if (::technician.isInitialized) technician.release()
+        if (::localAi.isInitialized) localAi.release()
         if (::webView.isInitialized) {
             webView.removeJavascriptInterface("KPRepairResult")
             webView.removeJavascriptInterface("KPAndroidTechnician")
