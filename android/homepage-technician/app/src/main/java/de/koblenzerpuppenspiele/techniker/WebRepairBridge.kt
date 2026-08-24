@@ -35,12 +35,28 @@ class WebRepairBridge(private val webView: WebView) {
         val out = rawCall(
             """
             (async()=>{
-              const fd=new FormData();
-              fd.append('action','kp_mobile_live_bootstrap');
-              const response=await fetch('/wp-admin/admin-ajax.php',{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});
-              const data=await response.json().catch(()=>null);
-              if(!response.ok||!data?.success) throw new Error(data?.data?.message||'Live-Bootstrap fehlgeschlagen.');
-              return data.data||{};
+              const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+              let lastError=null;
+              for(let attempt=0;attempt<4;attempt++){
+                if(attempt){const base=1000*Math.pow(2,attempt-1);await sleep(base+Math.floor(Math.random()*500));}
+                try{
+                  const fd=new FormData();
+                  fd.append('action','kp_mobile_live_bootstrap');
+                  const response=await fetch('/wp-admin/admin-ajax.php',{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});
+                  const data=await response.json().catch(()=>null);
+                  if(response.ok&&data?.success)return data.data||{};
+                  const message=String(data?.data?.message||'Live-Bootstrap fehlgeschlagen.');
+                  const transient=[408,429,500,502,503,504].includes(response.status)||/(überlast|unavailable|temporar|temporary|rate.?limit|resource.?exhaust|server busy|try again)/i.test(message);
+                  if(!transient||attempt===3)throw new Error(message);
+                  lastError=new Error(message);
+                }catch(error){
+                  const message=String(error?.message||error||'Live-Bootstrap fehlgeschlagen.');
+                  const transient=/(überlast|unavailable|temporar|temporary|rate.?limit|resource.?exhaust|server busy|try again|network|failed to fetch)/i.test(message);
+                  if(!transient||attempt===3)throw error;
+                  lastError=error;
+                }
+              }
+              throw lastError||new Error('Live-Bootstrap fehlgeschlagen.');
             })()
             """.trimIndent()
         )
@@ -69,46 +85,88 @@ class WebRepairBridge(private val webView: WebView) {
         """.trimIndent()
     )
 
+    suspend fun editorCapabilities(): JsonObject = rawCall(
+        """
+        Promise.resolve((()=>({
+          success:true,
+          editMode:document.body.classList.contains('kp-fe2-editing'),
+          visualAI:!!document.querySelector('.kp-ai-run'),
+          selected:!!document.querySelector('.kp-fe2-selected'),
+          save:!!document.querySelector('.kp-fe2-save'),
+          undo:!!window.KPRepairMobile?.undo,
+          redo:!!window.KPRepairMobile?.redo,
+          aiDraft:!!window.KPAIEditorRuntime,
+          designPanel:!!document.querySelector('.kp-oa-tools'),
+          capabilities:['text','links','font','padding','width','radius','color','background','global-design','image-style','image-generation','move','add-element','responsive-editor','undo','redo','save','technical-code-repair']
+        }))())
+        """.trimIndent()
+    )
+
     suspend fun visualEdit(request: String): JsonObject = call(
         """
-        new Promise((resolve, reject) => {
-          const request = ${JSONObject.quote(request)};
-          const sheet = document.querySelector('.kp-ai-sheet');
-          const input = document.querySelector('.kp-ai-request');
-          const run = document.querySelector('.kp-ai-run');
-          const status = document.querySelector('.kp-ai-status');
-          if (!input || !run || !status) {
-            reject(new Error('Der direkte Homepage-KI-Editor ist noch nicht verfügbar.'));
-            return;
+        (async()=>{
+          const request=${JSONObject.quote(request)};
+          const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+          const transient=text=>/(überlast|unavailable|temporar|temporary|503|429|rate.?limit|resource.?exhaust|server busy|try again)/i.test(String(text||''));
+          let last='';
+          for(let attempt=0;attempt<4;attempt++){
+            if(attempt){const base=1000*Math.pow(2,attempt-1);await sleep(base+Math.floor(Math.random()*500));}
+            const outcome=await new Promise(resolve=>{
+              const sheet=document.querySelector('.kp-ai-sheet');
+              const input=document.querySelector('.kp-ai-request');
+              const run=document.querySelector('.kp-ai-run');
+              const status=document.querySelector('.kp-ai-status');
+              if(!input||!run||!status){resolve({ok:false,text:'Der direkte Homepage-KI-Editor ist noch nicht verfügbar.',transient:false});return;}
+              if(run.disabled){resolve({ok:false,text:'Der Homepage-KI-Editor arbeitet gerade bereits.',transient:true});return;}
+              if(sheet)sheet.hidden=false;
+              input.value=request;
+              input.dispatchEvent(new Event('input',{bubbles:true}));
+              const started=Date.now();
+              run.click();
+              const timer=setInterval(()=>{
+                const text=String(status.textContent||'').trim();
+                const elapsed=Date.now()-started;
+                if(elapsed>65000){clearInterval(timer);resolve({ok:false,text:'Die sichtbare KI-Bearbeitung hat zu lange gedauert.',transient:true});return;}
+                if(!run.disabled&&elapsed>300){
+                  clearInterval(timer);
+                  const lower=text.toLowerCase();
+                  const failed=['fehlgeschlagen','nicht verfügbar','nicht verbunden','abgelehnt','keine berechtigung','bitte zuerst','überlastet','unavailable','resource_exhausted'].some(x=>lower.includes(x));
+                  resolve({ok:!failed,text:text||'Änderung umgesetzt · noch nicht gespeichert.',transient:transient(text)});
+                }
+              },120);
+            });
+            last=outcome.text||last;
+            if(outcome.ok)return{success:true,message:outcome.text,unsaved:true,attempts:attempt+1};
+            if(!outcome.transient||attempt===3)throw new Error(outcome.text||'Die sichtbare KI-Bearbeitung konnte nicht ausgeführt werden.');
           }
-          if (run.disabled) {
-            reject(new Error('Der Homepage-KI-Editor arbeitet gerade bereits.'));
-            return;
-          }
-          if (sheet) sheet.hidden = false;
-          input.value = request;
-          input.dispatchEvent(new Event('input', {bubbles:true}));
-          const started = Date.now();
-          run.click();
-          const timer = setInterval(() => {
-            const text = String(status.textContent || '').trim();
-            const elapsed = Date.now() - started;
-            if (elapsed > 65000) {
-              clearInterval(timer);
-              reject(new Error('Die sichtbare KI-Bearbeitung hat zu lange gedauert.'));
-              return;
-            }
-            if (!run.disabled && elapsed > 300) {
-              clearInterval(timer);
-              const lower = text.toLowerCase();
-              const failed = ['fehlgeschlagen','nicht verfügbar','nicht verbunden','abgelehnt','keine berechtigung','bitte zuerst'].some(x => lower.includes(x));
-              if (failed) reject(new Error(text || 'Die sichtbare KI-Bearbeitung konnte nicht ausgeführt werden.'));
-              else resolve({success:true,message:text || 'Änderung umgesetzt · noch nicht gespeichert.',unsaved:true});
-            }
-          }, 120);
-        })
+          throw new Error(last||'Die sichtbare KI-Bearbeitung konnte nicht ausgeführt werden.');
+        })()
         """.trimIndent(),
         requireMobileBridge = true,
+    )
+
+    suspend fun saveEditorChanges(): JsonObject = rawCall(
+        """
+        (async()=>{
+          let aiDraftSaved=false;
+          if(window.KPAIEditorRuntime?.isDirty?.()){
+            await window.KPAIEditorRuntime.flush();
+            aiDraftSaved=true;
+          }
+          const save=document.querySelector('.kp-fe2-save');
+          if(save){
+            if(save.disabled)return{success:false,message:'Der Editor speichert bereits.'};
+            save.click();
+            return{success:true,saving:true,aiDraftSaved,message:'Homepage wird gespeichert.'};
+          }
+          const designSave=document.querySelector('.kp-oa-design-save');
+          if(designSave&&!designSave.disabled){
+            designSave.click();
+            return{success:true,saving:true,aiDraftSaved,message:'Design wird gespeichert.'};
+          }
+          return{success:aiDraftSaved,saved:aiDraftSaved,message:aiDraftSaved?'KI-Änderungen gespeichert.':'Kein ungespeicherter Editor-Entwurf gefunden.'};
+        })()
+        """.trimIndent()
     )
 
     suspend fun editorHistory(): JsonObject = call(
@@ -173,14 +231,30 @@ class WebRepairBridge(private val webView: WebView) {
         return rawCall(
             """
             (async()=>{
-              const fd=new FormData();
-              fd.append('action',${JSONObject.quote(action)});
-              fd.append('nonce',${JSONObject.quote(nonce)});
-              $fieldLines
-              const response=await fetch('/wp-admin/admin-ajax.php',{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});
-              const data=await response.json().catch(()=>null);
-              if(!response.ok||!data?.success) throw new Error(data?.data?.message||'Homepage-Aufruf fehlgeschlagen.');
-              return data.data||{};
+              const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+              let lastError=null;
+              for(let attempt=0;attempt<4;attempt++){
+                if(attempt){const base=1000*Math.pow(2,attempt-1);await sleep(base+Math.floor(Math.random()*500));}
+                const fd=new FormData();
+                fd.append('action',${JSONObject.quote(action)});
+                fd.append('nonce',${JSONObject.quote(nonce)});
+                $fieldLines
+                try{
+                  const response=await fetch('/wp-admin/admin-ajax.php',{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});
+                  const data=await response.json().catch(()=>null);
+                  if(response.ok&&data?.success)return data.data||{};
+                  const message=String(data?.data?.message||'Homepage-Aufruf fehlgeschlagen.');
+                  const transient=[408,429,500,502,503,504].includes(response.status)||/(überlast|unavailable|temporar|temporary|rate.?limit|resource.?exhaust|server busy|try again)/i.test(message);
+                  if(!transient||attempt===3)throw new Error(message);
+                  lastError=new Error(message);
+                }catch(error){
+                  const message=String(error?.message||error||'Homepage-Aufruf fehlgeschlagen.');
+                  const transient=/(überlast|unavailable|temporar|temporary|rate.?limit|resource.?exhaust|server busy|try again|network|failed to fetch)/i.test(message);
+                  if(!transient||attempt===3)throw error;
+                  lastError=error;
+                }
+              }
+              throw lastError||new Error('Homepage-Aufruf fehlgeschlagen.');
             })()
             """.trimIndent()
         )
