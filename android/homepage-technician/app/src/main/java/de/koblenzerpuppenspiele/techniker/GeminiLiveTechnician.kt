@@ -91,7 +91,7 @@ class GeminiLiveTechnician(
         running.set(true)
         val encoded = URLEncoder.encode(token, StandardCharsets.UTF_8.toString())
         val request = Request.Builder()
-            .url("wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?access_token=$encoded")
+            .url("wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=$encoded")
             .build()
 
         socket = client.newWebSocket(request, object : WebSocketListener() {
@@ -229,9 +229,6 @@ class GeminiLiveTechnician(
             })
             put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", instruction))))
             put("tools", JSONArray().put(JSONObject().put("functionDeclarations", declarations)))
-            put("inputAudioTranscription", JSONObject())
-            put("outputAudioTranscription", JSONObject())
-            put("contextWindowCompression", JSONObject().put("slidingWindow", JSONObject()))
             put("realtimeInputConfig", JSONObject().apply {
                 put("automaticActivityDetection", JSONObject().apply {
                     put("disabled", false)
@@ -255,10 +252,10 @@ class GeminiLiveTechnician(
         put("name", name)
         put("description", description)
         put("parameters", JSONObject().apply {
-            put("type", "OBJECT")
+            put("type", "object")
             put("properties", JSONObject().apply {
                 stringParams.forEach { (param, desc) ->
-                    put(param, JSONObject().put("type", "STRING").put("description", desc))
+                    put(param, JSONObject().put("type", "string").put("description", desc))
                 }
             })
             if (required.isNotEmpty()) put("required", JSONArray(required))
@@ -420,13 +417,18 @@ class GeminiLiveTechnician(
         send(JSONObject().put("realtimeInput", JSONObject().put("text", text)))
     }
 
-    /** Current v1beta raw protocol uses realtimeInput.mediaChunks[] for both audio and video. */
+    /** Raw ephemeral-token protocol uses explicit realtimeInput.audio / realtimeInput.video blobs. */
     private fun sendRealtimeBlob(mime: String, bytes: ByteArray) {
         if (!running.get() || bytes.isEmpty()) return
         val blob = JSONObject()
             .put("mimeType", mime)
             .put("data", Base64.encodeToString(bytes, Base64.NO_WRAP))
-        val realtime = JSONObject().put("mediaChunks", JSONArray().put(blob))
+        val realtime = JSONObject()
+        if (mime.startsWith("audio/")) {
+            realtime.put("audio", blob)
+        } else {
+            realtime.put("video", blob)
+        }
         send(JSONObject().put("realtimeInput", realtime))
     }
 
