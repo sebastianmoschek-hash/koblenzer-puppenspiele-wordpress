@@ -1,10 +1,82 @@
 <?php
 /**
  * Bridge between the authenticated owner web app and the Android Homepage-Hilfe app.
- * The native app never receives WordPress/GitHub credentials; it calls same-origin
- * runtimes protected by WordPress capabilities and nonces.
+ * The native app never receives durable WordPress/GitHub/Gemini credentials. It calls
+ * same-origin runtimes protected by WordPress capabilities and short-lived nonces/tokens.
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+
+/**
+ * Bootstrap the native technician even when the public template is broken before wp_footer.
+ * This action intentionally does not require a pre-existing nonce: it requires an authenticated
+ * WordPress session with the repair capability and only returns short-lived/single-session material.
+ */
+add_action( 'wp_ajax_kp_mobile_live_bootstrap', static function () {
+    if ( ! is_user_logged_in() || ! current_user_can( 'kp_ai_repair_code' ) ) {
+        wp_send_json_error( array( 'message' => 'Bitte zuerst als Homepage-Techniker oder Administrator anmelden.' ), 403 );
+    }
+    $ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
+    if ( ! str_contains( $ua, 'KoblenzerPuppenspieleTechnician/' ) ) {
+        wp_send_json_error( array( 'message' => 'Dieser Live-Bootstrap ist nur für die Homepage-Hilfe-App verfügbar.' ), 403 );
+    }
+    if ( ! defined( 'KP_AI_REPAIR_NONCE' ) || ! function_exists( 'kp_ai_key' ) ) {
+        wp_send_json_error( array( 'message' => 'Die KI-Reparaturbasis ist noch nicht vollständig geladen.' ), 503 );
+    }
+    $gemini_key = kp_ai_key();
+    if ( ! $gemini_key ) {
+        wp_send_json_error( array( 'message' => 'Gemini ist serverseitig noch nicht verbunden.' ), 409 );
+    }
+
+    $model = 'gemini-3.1-flash-live-preview';
+    $now = time();
+    $payload = array(
+        'uses'                 => 1,
+        'expireTime'           => gmdate( 'Y-m-d\\TH:i:s\\Z', $now + 30 * MINUTE_IN_SECONDS ),
+        'newSessionExpireTime' => gmdate( 'Y-m-d\\TH:i:s\\Z', $now + 2 * MINUTE_IN_SECONDS ),
+        'liveConnectConstraints' => array(
+            'model' => 'models/' . $model,
+            'config' => array(
+                'responseModalities' => array( 'AUDIO' ),
+            ),
+        ),
+    );
+    $response = wp_remote_post( 'https://generativelanguage.googleapis.com/v1beta/auth_tokens', array(
+        'timeout' => 20,
+        'headers' => array(
+            'Content-Type'   => 'application/json',
+            'x-goog-api-key' => $gemini_key,
+        ),
+        'body' => wp_json_encode( $payload ),
+    ) );
+    if ( is_wp_error( $response ) ) {
+        wp_send_json_error( array( 'message' => 'Gemini-Live-Token konnte nicht angefordert werden: ' . $response->get_error_message() ), 502 );
+    }
+    $code = (int) wp_remote_retrieve_response_code( $response );
+    $body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+    if ( $code < 200 || $code >= 300 || ! is_array( $body ) || empty( $body['name'] ) ) {
+        $message = is_array( $body ) ? (string) ( $body['error']['message'] ?? 'Gemini hat kein Live-Token geliefert.' ) : 'Gemini hat kein Live-Token geliefert.';
+        if ( 429 === $code ) { $message = 'Gemini-Live-Kontingent oder Rate-Limit erreicht: ' . $message; }
+        wp_send_json_error( array( 'message' => sanitize_text_field( $message ) ), $code >= 400 && $code <= 599 ? $code : 502 );
+    }
+
+    $owner_nonce = '';
+    if ( class_exists( 'KP_Owner_Web_App' ) && defined( 'KP_Owner_Web_App::NONCE_ACTION' ) ) {
+        $owner_nonce = wp_create_nonce( KP_Owner_Web_App::NONCE_ACTION );
+    }
+    $github_connected = function_exists( 'kp_ai_repair_token' ) && (bool) kp_ai_repair_token();
+    wp_send_json_success( array(
+        'liveToken'       => sanitize_text_field( (string) $body['name'] ),
+        'model'           => $model,
+        'repairNonce'     => wp_create_nonce( KP_AI_REPAIR_NONCE ),
+        'ownerNonce'      => $owner_nonce,
+        'githubConnected' => $github_connected,
+        'canMerge'        => current_user_can( 'kp_ai_repair_merge' ),
+        'expiresAt'       => gmdate( 'c', $now + 30 * MINUTE_IN_SECONDS ),
+    ) );
+} );
+add_action( 'wp_ajax_nopriv_kp_mobile_live_bootstrap', static function () {
+    wp_send_json_error( array( 'message' => 'Bitte zuerst bei WordPress anmelden.' ), 401 );
+} );
 
 add_action( 'wp_footer', static function () {
     if ( ! is_user_logged_in() ) { return; }
@@ -36,7 +108,7 @@ add_action( 'wp_footer', static function () {
       const cfg=<?php echo wp_json_encode( $config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>;
       const errors=[],network=[];
       const keep=(arr,item)=>{arr.push(item);while(arr.length>12)arr.shift()};
-      const safeText=value=>String(value??'').replace(/(?:AIza|gh[pousr]_|github_pat_)[A-Za-z0-9_\-]+/g,'[REDACTED]').slice(0,1800);
+      const safeText=value=>String(value??'').replace(/(?:AIza|gh[pousr]_|github_pat_|auth_tokens\/)[A-Za-z0-9_\-\/]+/g,'[REDACTED]').slice(0,1800);
       const safeUrl=value=>{try{const u=new URL(String(value||''),location.href);return u.origin===location.origin?u.pathname+u.search:u.origin+u.pathname}catch{return safeText(value).slice(0,500)}};
       const note=text=>{let el=document.querySelector('.kp-mobile-live-note');if(!el){el=document.createElement('div');el.className='kp-mobile-live-note';document.body.appendChild(el)}el.textContent=text;clearTimeout(note.timer);note.timer=setTimeout(()=>el.remove(),4200)};
 
