@@ -4,6 +4,8 @@ set -uo pipefail
 OUT_DIR='qa-results/android'
 TARGET_JSON='qa-results/android-latest.json'
 TARGET_DIAG='qa-results/android-latest-diagnostics.txt'
+APK_SOURCE='android/homepage-technician/app/build/outputs/apk/debug/app-debug.apk'
+APK_ARTIFACT="$OUT_DIR/homepage-hilfe-debug.apk"
 REPO="${CIRCLE_PROJECT_USERNAME:-sebastianmoschek-hash}/${CIRCLE_PROJECT_REPONAME:-koblenzer-puppenspiele-wordpress}"
 SHA="${CIRCLE_SHA1:-unknown}"
 mkdir -p "$OUT_DIR"
@@ -17,11 +19,19 @@ else
   state='failure'
 fi
 
+apk_ready=false
+if [[ "$state" == 'success' && -s "$APK_SOURCE" ]]; then
+  cp "$APK_SOURCE" "$APK_ARTIFACT"
+  apk_ready=true
+  echo "APK artifact prepared: $APK_ARTIFACT"
+fi
+
 cat > /tmp/kp-android-report.json <<JSON
 {
   "generatedAt":"$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
   "commit":"$SHA",
   "state":"$state",
+  "apkArtifact":$apk_ready,
   "checks":{
     "toolchain":$install_rc,
     "securityContract":$contract_rc,
@@ -45,7 +55,7 @@ if [[ ! -s /tmp/kp-android-diagnostics.txt ]]; then
 fi
 
 if [[ -z "${GITHUB_REPORT_TOKEN:-}" ]]; then
-  echo 'GITHUB_REPORT_TOKEN is unavailable; Android diagnostics stay in CircleCI.'
+  echo 'GITHUB_REPORT_TOKEN is unavailable; Android diagnostics and APK stay in CircleCI artifacts.'
   exit 0
 fi
 
@@ -78,4 +88,4 @@ if [[ $rc -ne 0 ]]; then
   exit 0
 fi
 
-echo 'PASS: Android build diagnostics published.'
+echo 'PASS: Android build diagnostics published; APK remains a CircleCI artifact.'
