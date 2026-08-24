@@ -37,9 +37,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 /**
- * Gemini Live is the conversational/visual layer only. Content changes use the common
- * editor Undo/Redo and 48h saved-version history. Code repairs and rollbacks always use
- * protected PR + CI gates.
+ * Gemini Live is the conversational/visual layer. Reversible content/design changes are delegated
+ * to the existing authenticated web editor so manual editing, Live AI, Undo/Redo and Save all use
+ * the same source of truth. Code repairs and rollbacks always use protected PR + CI gates.
  */
 @OptIn(PublicPreviewAPI::class)
 class GeminiLiveTechnician(
@@ -80,6 +80,11 @@ class GeminiLiveTechnician(
                     "inspect_homepage",
                     "Read the current authenticated homepage context, selected element, editor history counts, viewport and recent browser/network errors.",
                     emptyMap(),
+                ),
+                FunctionDeclaration(
+                    "edit_page_visually",
+                    "Apply one reversible visual/content change through the same direct Gemini editor used by the web app. Use for text, links, colors, sizes, positions, images, design settings and adding supported elements. The result remains unsaved until the user explicitly saves it and can be undone with the normal editor Undo button.",
+                    mapOf("request" to Schema.string("Concise German editing request describing exactly what the user wants changed. If the user points to an element, preserve that reference in the request.")),
                 ),
                 FunctionDeclaration(
                     "get_change_history",
@@ -154,16 +159,17 @@ class GeminiLiveTechnician(
             tools = listOf(tools),
             systemInstruction = content {
                 text(
-                    "Du bist der deutschsprachige Homepage-Techniker der Koblenzer Puppenspiele. " +
+                    "Du bist der deutschsprachige Homepage-Techniker und visuelle Editor der Koblenzer Puppenspiele. " +
                         "Der Nutzer zeigt dir die Homepage live auf seinem Android-Bildschirm und spricht mit dir. " +
-                        "Beobachte genau, frage nur nach wenn wirklich nötig und unterscheide drei Ebenen: unmittelbare Editor-Änderungen, gespeicherte Website-Versionen und technische Code-Reparaturen. " +
-                        "Text, Bilder, Position, Farben, Größen, Navigation und Layout gehören zuerst in die gemeinsame Editor-Historie und werden mit undo_last_editor_change bzw. redo_last_editor_change rückgängig gemacht. " +
-                        "Gespeicherte Änderungen bleiben 48 Stunden in der Website-Versionshistorie. Nutze list_saved_versions, undo_last_saved_change oder restore_saved_version, wenn ein gespeicherter Stand gemeint ist. " +
+                        "Beobachte genau, frage nur nach wenn wirklich nötig und unterscheide vier Ebenen: reversible sichtbare Editor-Änderungen, unmittelbare Undo/Redo-Historie, gespeicherte Website-Versionen und technische Code-Reparaturen. " +
+                        "Wenn der Nutzer Text, Bilder, Positionen, Farben, Größen, Links, Navigation, Layout oder andere sichtbare Inhalte ändern möchte, verwende edit_page_visually. Die Änderung wird über denselben Web-Editor wie bei manueller Bearbeitung ausgeführt, bleibt zunächst ungespeichert und muss im normalen Undo rückgängig machbar sein. Sage nach erfolgreicher Ausführung klar, dass die Änderung noch nicht gespeichert ist. " +
+                        "Verwende für normale sichtbare Änderungen niemals analyze_homepage_error oder Code-Reparaturen. Technische Reparaturen sind nur für tatsächliche Funktionsfehler gedacht. " +
                         "Wenn der Nutzer allgemein sagt 'mach die letzte Änderung rückgängig', verwende zuerst get_change_history: hat die Editor-Historie einen Undo-Schritt, nimm genau diesen; sonst kann die letzte gespeicherte Änderung nach Bestätigung zurückgenommen werden. Eine technische Code-Reparatur nur zurücknehmen, wenn der Nutzer eine Reparatur/Technikänderung meint oder die Historie eindeutig darauf verweist. " +
+                        "Gespeicherte Änderungen bleiben 48 Stunden in der Website-Versionshistorie. Nutze list_saved_versions, undo_last_saved_change oder restore_saved_version, wenn ein gespeicherter Stand gemeint ist. " +
                         "Bei einem technischen Problem zuerst inspect_homepage verwenden und danach analyze_homepage_error. " +
                         "Code niemals selbst frei erfinden oder live schreiben: Änderungen und Rücknahmen laufen ausschließlich über das geschützte Reparaturlabor, ai-repair-Branch und CI. " +
                         "create_repair_branch, rollback_technical_repair, undo_last_saved_change, restore_saved_version und merge_repair nur auslösen, wenn der Nutzer die jeweilige folgenreiche Aktion ausdrücklich bestätigt hat. " +
-                        "Behaupte niemals, dass etwas repariert, zurückgenommen, wiederhergestellt oder gespeichert wurde, bevor ein Tool das bestätigt."
+                        "Behaupte niemals, dass etwas repariert, geändert, zurückgenommen, wiederhergestellt oder gespeichert wurde, bevor ein Tool das bestätigt."
                 )
             },
         )
@@ -176,7 +182,7 @@ class GeminiLiveTechnician(
                 session?.sendVideoRealtime(InlineData(jpeg, "image/jpeg"))
             }
         }
-        status("KI live · zeig mir den Fehler")
+        status("KI live · zeig mir den Fehler oder sag, was du ändern möchtest")
     }
 
     fun stop() {
@@ -212,6 +218,11 @@ class GeminiLiveTechnician(
             runCatching {
                 when (call.name) {
                     "inspect_homepage" -> bridge.context()
+                    "edit_page_visually" -> {
+                        val request = call.args["request"]?.jsonPrimitive?.content.orEmpty()
+                        if (request.isBlank()) errorObject("Bearbeitungswunsch fehlt.")
+                        else bridge.visualEdit(request)
+                    }
                     "get_change_history" -> {
                         val editor = bridge.editorHistory()
                         val saved = bridge.savedHistory()
