@@ -30,6 +30,9 @@ jobs:
       - run:
           name: Reversible calendar Undo Redo contract
           command: bash qa/calendar-undo-contract.sh
+      - run:
+          name: Gemini repair safety contract
+          command: bash qa/ai-repair-contract.sh
 
   homepage-staging-lab:
     docker:
@@ -199,7 +202,9 @@ workflows:
       - editor-contracts:
           filters:
             branches:
-              only: main
+              only:
+                - main
+                - /ai-repair\/.*/
       - homepage-staging-lab:
           requires:
             - editor-contracts
