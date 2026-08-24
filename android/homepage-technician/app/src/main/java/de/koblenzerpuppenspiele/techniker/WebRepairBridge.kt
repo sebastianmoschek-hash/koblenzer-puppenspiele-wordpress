@@ -9,6 +9,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -16,8 +17,8 @@ import kotlin.coroutines.resume
 
 /**
  * Calls authenticated WordPress editor/repair endpoints through the trusted same-origin WebView.
- * Normal visual edits are deterministic editor commands: Gemini Live chooses the target/action,
- * while the browser editor itself applies it. No second text-model planning request is involved.
+ * Normal visual edits are deterministic editor commands: the AI chooses the target/action,
+ * while the browser editor itself applies it. Cloud planning is not required.
  */
 class WebRepairBridge(private val webView: WebView) {
     private val pending = ConcurrentHashMap<String, (String) -> Unit>()
@@ -97,8 +98,9 @@ class WebRepairBridge(private val webView: WebView) {
           undo:!!window.KPRepairMobile?.undo,
           redo:!!window.KPRepairMobile?.redo,
           technicalRepair:!!window.KPRepairMobile?.analyze,
+          localTechnicalRepair:true,
           secondGeminiPlanner:false,
-          capabilities:['inspect-elements','text','links','font','padding','width','radius','color','background','global-design','move','section-order','image-generation','responsive-editor','undo','redo','save','technical-code-repair']
+          capabilities:['inspect-elements','text','links','font','padding','width','radius','color','background','global-design','move','section-order','responsive-editor','undo','redo','save','local-technical-code-repair']
         }))())
         """.trimIndent()
     )
@@ -141,6 +143,24 @@ class WebRepairBridge(private val webView: WebView) {
     suspend fun redoEditorChange(): JsonObject = call(
         "window.KPRepairMobile.redo()",
         requireMobileBridge = true,
+    )
+
+    suspend fun localRepairContext(description: String): JsonObject {
+        val browser = context().toString()
+        return repairPost(
+            "kp_local_ai_repair_context",
+            mapOf("request" to description, "browser" to browser),
+        )
+    }
+
+    suspend fun localRepairFiles(paths: List<String>): JsonObject = repairPost(
+        "kp_local_ai_repair_files",
+        mapOf("paths" to JSONArray(paths).toString()),
+    )
+
+    suspend fun submitLocalRepairProposal(planJson: String): JsonObject = repairPost(
+        "kp_local_ai_repair_proposal",
+        mapOf("plan" to planJson),
     )
 
     suspend fun savedHistory(): JsonObject = ownerPost("kp_owner_history_list")
