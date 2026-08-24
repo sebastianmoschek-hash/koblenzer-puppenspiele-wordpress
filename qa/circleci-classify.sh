@@ -44,6 +44,7 @@ while IFS= read -r file; do
   [[ -z "$file" ]] && continue
   case "$file" in
     .circleci/*|\
+    .github/workflows/*|\
     qa/circleci-classify.sh|\
     qa/publish-circleci-report-to-github.sh|\
     qa/staging-verdict-check.mjs)
