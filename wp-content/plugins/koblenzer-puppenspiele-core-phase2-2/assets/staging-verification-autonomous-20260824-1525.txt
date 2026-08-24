@@ -1,0 +1,1 @@
+Fresh full-staging verification marker for the current meaningful main state: editor save/reload/readback, session Undo/Redo + 48h history, mobile/tablet/desktop, Chromium touch and visual QA.
