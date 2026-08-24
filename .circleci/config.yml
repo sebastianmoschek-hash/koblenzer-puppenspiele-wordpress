@@ -264,7 +264,7 @@ workflows:
       - homepage-staging-lab:
           requires:
             - editor-contracts
-          serial-group: << pipeline.project.slug >>/homepage-staging-lab
+          serial-group: << pipeline.project.slug >>/homepage-staging-lab-v2
           filters:
             branches:
               only: main
