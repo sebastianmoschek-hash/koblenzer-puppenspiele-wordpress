@@ -4,6 +4,11 @@ set -euo pipefail
 SHA="${CIRCLE_SHA1:-}"
 BASH_ENV_FILE="${BASH_ENV:-/tmp/kp-circleci-bash-env}"
 
+# CircleCI artifact/workspace steps are strict about missing paths. Keep the
+# handoff directories present even when a QA-only/preflight lane skips browser
+# or visual capture, so a useful verdict is not turned red by publication.
+mkdir -p qa-results/circleci qa-artifacts/homepage-lab visual-qa/output
+
 meaningful_files(){
   local commit="$1"
   local changed
