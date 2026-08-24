@@ -147,130 +147,39 @@ Daemon will be stopped at the end of the build
 > Task :app:generateDebugGlobalSynthetics
 > Task :app:checkDebugDuplicateClasses
 > Task :app:desugarDebugFileDependencies
-> Task :app:compileDebugKotlin
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:6:19 Unresolved reference 'ai'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:7:19 Unresolved reference 'ai'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:8:19 Unresolved reference 'ai'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:9:19 Unresolved reference 'ai'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:10:19 Unresolved reference 'ai'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:11:19 Unresolved reference 'ai'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:12:19 Unresolved reference 'ai'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:13:19 Unresolved reference 'ai'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:14:19 Unresolved reference 'ai'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:55:25 Unresolved reference 'Engine'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:56:31 Unresolved reference 'Conversation'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:74:31 Unresolved reference 'sendMessage'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:110:9 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:110:37 Unresolved reference 'close'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:112:9 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:112:31 Unresolved reference 'close'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:116:39 Unresolved reference 'Conversation'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:117:23 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:117:23 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-fun <T, R> T.let(block: (T) -> R): R
-    [R|Contract description]
-     <
-        CallsInPlace(block, EXACTLY_ONCE)
-    >
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:117:27 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:119:22 Unresolved reference 'ConversationConfig'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:120:33 Unresolved reference 'Contents'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:121:29 Unresolved reference 'SamplerConfig'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:125:29 Unresolved reference 'createConversation'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:125:56 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:125:61 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:128:33 Unresolved reference 'Engine'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:129:17 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:129:17 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-fun <T, R> T.let(block: (T) -> R): R
-    [R|Contract description]
-     <
-        CallsInPlace(block, EXACTLY_ONCE)
-    >
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:129:21 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:134:33 Unresolved reference 'Backend'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:134:43 Unresolved reference 'Engine'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:135:29 Unresolved reference 'Engine'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:136:17 Unresolved reference 'EngineConfig'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:146:22 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:146:47 Unresolved reference 'Backend'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:147:14 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:147:43 Unresolved reference 'Backend'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:153:35 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:154:9 Unresolved reference 'tool'.
+
+> Task :app:compileDebugKotlin FAILED
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:74:51 Unresolved reference 'text'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:154:14 Overload resolution ambiguity between candidates:
 constructor(description: String, block: suspend (JSONObject) -> String): LocalAiTechnician.JsonTool
 constructor(description: String, block: suspend () -> String): LocalAiTechnician.JsonTool
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:156:20 Suspend function 'suspend fun context(): JsonObject' can only be called from a coroutine or another suspend function.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:157:9 Unresolved reference 'tool'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:157:14 Overload resolution ambiguity between candidates:
 constructor(description: String, block: suspend (JSONObject) -> String): LocalAiTechnician.JsonTool
 constructor(description: String, block: suspend () -> String): LocalAiTechnician.JsonTool
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:159:20 Suspend function 'suspend fun editableElements(): JsonObject' can only be called from a coroutine or another suspend function.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:160:9 Unresolved reference 'tool'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:160:14 Overload resolution ambiguity between candidates:
 constructor(description: String, block: suspend (JSONObject) -> String): LocalAiTechnician.JsonTool
 constructor(description: String, block: suspend () -> String): LocalAiTechnician.JsonTool
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:162:20 Suspend function 'suspend fun editorCapabilities(): JsonObject' can only be called from a coroutine or another suspend function.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:163:9 Unresolved reference 'tool'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:183:9 Unresolved reference 'tool'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:191:9 Unresolved reference 'tool'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:191:14 Overload resolution ambiguity between candidates:
 constructor(description: String, block: suspend (JSONObject) -> String): LocalAiTechnician.JsonTool
 constructor(description: String, block: suspend () -> String): LocalAiTechnician.JsonTool
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:193:20 Suspend function 'suspend fun saveEditorChanges(): JsonObject' can only be called from a coroutine or another suspend function.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:194:9 Unresolved reference 'tool'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:194:14 Overload resolution ambiguity between candidates:
 constructor(description: String, block: suspend (JSONObject) -> String): LocalAiTechnician.JsonTool
 constructor(description: String, block: suspend () -> String): LocalAiTechnician.JsonTool
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:194:99 Suspend function 'suspend fun undoEditorChange(): JsonObject' can only be called from a coroutine or another suspend function.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:195:9 Unresolved reference 'tool'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:195:14 Overload resolution ambiguity between candidates:
 constructor(description: String, block: suspend (JSONObject) -> String): LocalAiTechnician.JsonTool
 constructor(description: String, block: suspend () -> String): LocalAiTechnician.JsonTool
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:195:121 Suspend function 'suspend fun redoEditorChange(): JsonObject' can only be called from a coroutine or another suspend function.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:196:9 Unresolved reference 'tool'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:209:9 Unresolved reference 'tool'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:217:9 Unresolved reference 'tool'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:233:34 Unresolved reference 'localRepairContext'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:234:47 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-val JsonElement.jsonPrimitive: JsonPrimitive
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:235:82 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-val JsonElement.jsonPrimitive: JsonPrimitive
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:242:39 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-val JsonElement.jsonPrimitive: JsonPrimitive
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:245:42 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-val JsonElement.jsonPrimitive: JsonPrimitive
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:259:31 Unresolved reference 'localRepairFiles'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:261:92 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-val JsonElement.jsonPrimitive: JsonPrimitive
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:275:31 Unresolved reference 'submitLocalRepairProposal'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:276:51 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-val JsonElement.jsonPrimitive: JsonPrimitive
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:278:41 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-val JsonElement.jsonPrimitive: JsonPrimitive
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:279:39 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-val JsonElement.jsonPrimitive: JsonPrimitive
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:283:44 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-val JsonElement.jsonPrimitive: JsonPrimitive
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:284:38 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-val JsonElement.jsonPrimitive: JsonPrimitive
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:306:16 Unresolved reference 'createConversation'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:307:13 Unresolved reference 'ConversationConfig'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:308:37 Unresolved reference 'Contents'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:309:33 Unresolved reference 'SamplerConfig'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:311:11 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:311:17 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:312:29 Unresolved reference 'sendMessage'.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:328:9 Unresolved reference 'OpenApiTool'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:312:49 Unresolved reference 'text'.
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:329:73 Overload resolution ambiguity between candidates:
 constructor(description: String, block: suspend (JSONObject) -> String): LocalAiTechnician.JsonTool
 constructor(description: String, block: suspend () -> String): LocalAiTechnician.JsonTool
 e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:329:93 Suspend function 'suspend fun invoke(): String' can only be called from a coroutine or another suspend function.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:331:9 'getToolDescriptionJsonString' overrides nothing.
-e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalAiTechnician.kt:333:9 'execute' overrides nothing.
 
-> Task :app:compileDebugKotlin FAILED
 > Task :app:mergeExtDexDebug
 
 FAILURE: Build failed with an exception.
@@ -500,5 +409,5 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 2m 55s
+BUILD FAILED in 2m 54s
 15 actionable tasks: 15 executed
