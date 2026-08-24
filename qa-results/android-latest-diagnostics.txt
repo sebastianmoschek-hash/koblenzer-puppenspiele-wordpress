@@ -1,0 +1,452 @@
+
+===== install.log =====
+W: https://download.docker.com/linux/ubuntu/dists/noble/InRelease: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg), see the DEPRECATION section in apt-key(8) for details.
+W: https://packages.cloud.google.com/apt/dists/cloud-sdk/InRelease: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg), see the DEPRECATION section in apt-key(8) for details.
+debconf: delaying package configuration, since apt-utils is not installed
+Selecting previously unselected package psmisc.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 99889 files and directories currently installed.)
+Preparing to unpack .../00-psmisc_23.7-1build1_amd64.deb ...
+Unpacking psmisc (23.7-1build1) ...
+Preparing to unpack .../01-libcurl4-openssl-dev_8.5.0-2ubuntu10.12_amd64.deb ...
+Unpacking libcurl4-openssl-dev:amd64 (8.5.0-2ubuntu10.12) over (8.5.0-2ubuntu10.7) ...
+Preparing to unpack .../02-curl_8.5.0-2ubuntu10.12_amd64.deb ...
+Unpacking curl (8.5.0-2ubuntu10.12) over (8.5.0-2ubuntu10.7) ...
+Preparing to unpack .../03-libcurl4t64_8.5.0-2ubuntu10.12_amd64.deb ...
+Unpacking libcurl4t64:amd64 (8.5.0-2ubuntu10.12) over (8.5.0-2ubuntu10.7) ...
+Preparing to unpack .../04-libcurl3t64-gnutls_8.5.0-2ubuntu10.12_amd64.deb ...
+Unpacking libcurl3t64-gnutls:amd64 (8.5.0-2ubuntu10.12) over (8.5.0-2ubuntu10.7) ...
+Selecting previously unselected package php-common.
+Preparing to unpack .../05-php-common_2%3a93ubuntu2_all.deb ...
+Unpacking php-common (2:93ubuntu2) ...
+Selecting previously unselected package php8.3-common.
+Preparing to unpack .../06-php8.3-common_8.3.6-0ubuntu0.24.04.10_amd64.deb ...
+Unpacking php8.3-common (8.3.6-0ubuntu0.24.04.10) ...
+Selecting previously unselected package php8.3-opcache.
+Preparing to unpack .../07-php8.3-opcache_8.3.6-0ubuntu0.24.04.10_amd64.deb ...
+Unpacking php8.3-opcache (8.3.6-0ubuntu0.24.04.10) ...
+Selecting previously unselected package php8.3-readline.
+Preparing to unpack .../08-php8.3-readline_8.3.6-0ubuntu0.24.04.10_amd64.deb ...
+Unpacking php8.3-readline (8.3.6-0ubuntu0.24.04.10) ...
+Selecting previously unselected package php8.3-cli.
+Preparing to unpack .../09-php8.3-cli_8.3.6-0ubuntu0.24.04.10_amd64.deb ...
+Unpacking php8.3-cli (8.3.6-0ubuntu0.24.04.10) ...
+Selecting previously unselected package php-cli.
+Preparing to unpack .../10-php-cli_2%3a8.3+93ubuntu2_all.deb ...
+Unpacking php-cli (2:8.3+93ubuntu2) ...
+Setting up libcurl4t64:amd64 (8.5.0-2ubuntu10.12) ...
+Setting up psmisc (23.7-1build1) ...
+Setting up libcurl3t64-gnutls:amd64 (8.5.0-2ubuntu10.12) ...
+Setting up libcurl4-openssl-dev:amd64 (8.5.0-2ubuntu10.12) ...
+Setting up curl (8.5.0-2ubuntu10.12) ...
+Setting up php-common (2:93ubuntu2) ...
+Created symlink /etc/systemd/system/timers.target.wants/phpsessionclean.timer → /usr/lib/systemd/system/phpsessionclean.timer.
+Setting up php8.3-common (8.3.6-0ubuntu0.24.04.10) ...
+
+Creating config file /etc/php/8.3/mods-available/calendar.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/ctype.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/exif.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/fileinfo.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/ffi.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/ftp.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/gettext.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/iconv.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/pdo.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/phar.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/posix.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/shmop.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/sockets.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/sysvmsg.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/sysvsem.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/sysvshm.ini with new version
+
+Creating config file /etc/php/8.3/mods-available/tokenizer.ini with new version
+Setting up php8.3-readline (8.3.6-0ubuntu0.24.04.10) ...
+
+Creating config file /etc/php/8.3/mods-available/readline.ini with new version
+Setting up php8.3-opcache (8.3.6-0ubuntu0.24.04.10) ...
+
+Creating config file /etc/php/8.3/mods-available/opcache.ini with new version
+Setting up php8.3-cli (8.3.6-0ubuntu0.24.04.10) ...
+update-alternatives: using /usr/bin/php8.3 to provide /usr/bin/php (php) in auto mode
+update-alternatives: warning: skip creation of /usr/share/man/man1/php.1.gz because associated file /usr/share/man/man1/php8.3.1.gz (of link group php) doesn't exist
+update-alternatives: using /usr/bin/phar8.3 to provide /usr/bin/phar (phar) in auto mode
+update-alternatives: warning: skip creation of /usr/share/man/man1/phar.1.gz because associated file /usr/share/man/man1/phar8.3.1.gz (of link group phar) doesn't exist
+update-alternatives: using /usr/bin/phar.phar8.3 to provide /usr/bin/phar.phar (phar.phar) in auto mode
+update-alternatives: warning: skip creation of /usr/share/man/man1/phar.phar.1.gz because associated file /usr/share/man/man1/phar.phar8.3.1.gz (of link group phar.phar) doesn't exist
+
+Creating config file /etc/php/8.3/cli/php.ini with new version
+Setting up php-cli (2:8.3+93ubuntu2) ...
+update-alternatives: using /usr/bin/php.default to provide /usr/bin/php (php) in auto mode
+update-alternatives: warning: skip creation of /usr/share/man/man1/php.1.gz because associated file /usr/share/man/man1/php.default.1.gz (of link group php) doesn't exist
+update-alternatives: using /usr/bin/phar.default to provide /usr/bin/phar (phar) in auto mode
+update-alternatives: warning: skip creation of /usr/share/man/man1/phar.1.gz because associated file /usr/share/man/man1/phar.default.1.gz (of link group phar) doesn't exist
+update-alternatives: using /usr/bin/phar.phar.default to provide /usr/bin/phar.phar (phar.phar) in auto mode
+update-alternatives: warning: skip creation of /usr/share/man/man1/phar.phar.1.gz because associated file /usr/share/man/man1/phar.phar.default.1.gz (of link group phar.phar) doesn't exist
+Processing triggers for libc-bin (2.39-0ubuntu8.7) ...
+Processing triggers for php8.3-cli (8.3.6-0ubuntu0.24.04.10) ...
+
+Welcome to Gradle 9.5.0!
+
+Here are the highlights of this release:
+ - Task provenance in reports and failure messages
+ - Type-safe accessors for precompiled Kotlin Settings plugins
+
+For more details see https://docs.gradle.org/9.5.0/release-notes.html
+
+
+------------------------------------------------------------
+Gradle 9.5.0
+------------------------------------------------------------
+
+Build time:    2026-04-28 12:05:30 UTC
+Revision:      3fe117d68f3907790f3809f121aa36303a9151f8
+
+Kotlin:        2.3.20
+Groovy:        4.0.29
+Ant:           Apache Ant(TM) version 1.10.15 compiled on August 25 2024
+Launcher JVM:  21.0.11 (Ubuntu 21.0.11+10-1-24.04.2-Ubuntu)
+Daemon JVM:    /usr/lib/jvm/java-21-openjdk-amd64 (no Daemon JVM specified, using current Java home)
+OS:            Linux 7.0.0-1009-aws amd64
+
+
+===== contract.log =====
+PASS mobile-live: screen sharing, Gemini tools, server bridge and confirmation gates are present.
+
+===== build.log =====
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:generateDebugBuildConfig
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:processDebugNavigationResources
+> Task :app:javaPreCompileDebug
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:parseDebugLocalResources
+> Task :app:mergeDebugAssets
+> Task :app:compressDebugAssets
+> Task :app:generateDebugRFile
+> Task :app:generateDebugGlobalSynthetics
+> Task :app:checkDebugDuplicateClasses
+> Task :app:desugarDebugFileDependencies
+
+> Task :app:compileDebugKotlin FAILED
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:32:16 Unresolved reference 'serialization'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:33:16 Unresolved reference 'serialization'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:34:16 Unresolved reference 'serialization'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:35:16 Unresolved reference 'serialization'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:36:16 Unresolved reference 'serialization'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:135:32 Suspend function 'suspend fun close(): Unit' can only be called from a coroutine or another suspend function.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:146:24 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:146:24 Not enough information to infer type argument for 'T'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:147:13 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:147:13 Not enough information to infer type argument for 'R'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:148:17 Not enough information to infer type argument for 'K'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:151:43 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:151:48 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:151:69 Unresolved reference 'jsonPrimitive'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:152:25 Not enough information to infer type argument for 'K'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:156:34 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:156:39 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:156:60 Unresolved reference 'jsonPrimitive'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:157:25 Not enough information to infer type argument for 'K'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:159:32 Not enough information to infer type argument for 'K'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:160:29 Unresolved reference 'buildJsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:160:47 Unresolved reference 'put'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:160:71 Unresolved reference 'put'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:166:34 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:166:39 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:166:51 Unresolved reference 'jsonPrimitive'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:167:25 Not enough information to infer type argument for 'K'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:170:34 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:170:39 Cannot access class 'JsonElement'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:170:51 Unresolved reference 'jsonPrimitive'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:171:25 Not enough information to infer type argument for 'K'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:173:32 Not enough information to infer type argument for 'K'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:174:29 Unresolved reference 'buildJsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:174:47 Unresolved reference 'put'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:174:71 Unresolved reference 'put'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:181:15 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:181:15 Not enough information to infer type argument for 'R'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:181:15 Not enough information to infer type argument for 'T'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:183:16 Cannot access class 'JsonObject'. Check your module classpath for missing or conflicting dependencies.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:186:47 Unresolved reference 'JsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:186:60 Unresolved reference 'JsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:187:9 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:188:23 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:188:26 Unresolved reference 'JsonPrimitive'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:189:21 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/GeminiLiveTechnician.kt:189:24 Unresolved reference 'JsonPrimitive'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:6:16 Unresolved reference 'serialization'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:7:16 Unresolved reference 'serialization'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:8:16 Unresolved reference 'serialization'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:9:16 Unresolved reference 'serialization'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:10:16 Unresolved reference 'serialization'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:22:24 Unresolved reference 'Json'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:22:31 Unresolved reference 'ignoreUnknownKeys'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:29:28 Unresolved reference 'JsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:31:47 Unresolved reference 'JsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:34:57 Unresolved reference 'JsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:37:37 Unresolved reference 'JsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:40:36 Unresolved reference 'JsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:43:51 Unresolved reference 'JsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:43:64 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:43:64 Not enough information to infer type argument for 'T'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:47:26 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:47:26 Not enough information to infer type argument for 'R'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:48:18 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:48:18 Not enough information to infer type argument for 'R'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:48:18 Not enough information to infer type argument for 'T'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:48:30 Unresolved reference 'buildJsonObject'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:48:48 Unresolved reference 'put'.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:49:18 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/WebRepairBridge.kt:49:18 Not enough information to infer type argument for 'T'.
+
+> Task :app:mergeExtDexDebug
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin' (registered by plugin 'com.android.internal.application').
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+* Exception is:
+org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:compileDebugKotlin' (registered by plugin 'com.android.internal.application').
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.lambda$executeIfValid$1(ExecuteActionsTaskExecuter.java:135)
+	at org.gradle.internal.Try$Failure.ifSuccessfulOrElse(Try.java:288)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:133)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.execute(ExecuteActionsTaskExecuter.java:121)
+	at org.gradle.api.internal.tasks.execution.ProblemsTaskPathTrackingTaskExecuter.execute(ProblemsTaskPathTrackingTaskExecuter.java:41)
+	at org.gradle.api.internal.tasks.execution.ResolveTaskExecutionModeExecuter.execute(ResolveTaskExecutionModeExecuter.java:51)
+	at org.gradle.api.internal.tasks.execution.FinalizePropertiesTaskExecuter.execute(FinalizePropertiesTaskExecuter.java:46)
+	at org.gradle.api.internal.tasks.execution.SkipTaskWithNoActionsExecuter.execute(SkipTaskWithNoActionsExecuter.java:57)
+	at org.gradle.api.internal.tasks.execution.SkipOnlyIfTaskExecuter.execute(SkipOnlyIfTaskExecuter.java:74)
+	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:36)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.executeTask(EventFiringTaskExecuter.java:77)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:55)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:52)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:210)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:205)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:67)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:60)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:167)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:60)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:54)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter.execute(EventFiringTaskExecuter.java:52)
+	at org.gradle.execution.plan.DefaultNodeExecutor.executeLocalTaskNode(DefaultNodeExecutor.java:55)
+	at org.gradle.execution.plan.DefaultNodeExecutor.execute(DefaultNodeExecutor.java:34)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:355)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:343)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.lambda$execute$0(DefaultTaskExecutionGraph.java:339)
+	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:84)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:339)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:328)
+	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:459)
+	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
+	at org.gradle.execution.plan.DefaultPlanExecutor.process(DefaultPlanExecutor.java:111)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.executeWithServices(DefaultTaskExecutionGraph.java:146)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.execute(DefaultTaskExecutionGraph.java:131)
+	at org.gradle.execution.SelectedTaskExecutionAction.execute(SelectedTaskExecutionAction.java:35)
+	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:54)
+	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:43)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:210)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:205)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:67)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:60)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:167)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:60)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:54)
+	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor.execute(BuildOperationFiringBuildWorkerExecutor.java:40)
+	at org.gradle.internal.build.DefaultBuildLifecycleController.lambda$executeTasks$11(DefaultBuildLifecycleController.java:323)
+	at org.gradle.internal.model.StateTransitionController.doTransition(StateTransitionController.java:304)
+	at org.gradle.internal.model.StateTransitionController.lambda$tryTransition$9(StateTransitionController.java:215)
+	at org.gradle.internal.work.DefaultSynchronizer.withLock(DefaultSynchronizer.java:45)
+	at org.gradle.internal.model.StateTransitionController.tryTransition(StateTransitionController.java:215)
+	at org.gradle.internal.build.DefaultBuildLifecycleController.executeTasks(DefaultBuildLifecycleController.java:314)
+	at org.gradle.internal.build.DefaultBuildWorkGraphController$DefaultBuildWorkGraph.runWork(DefaultBuildWorkGraphController.java:220)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.lambda$withLocksAcquired$0(DefaultWorkerLeaseService.java:280)
+	at org.gradle.internal.work.ResourceLockStatistics$1.measure(ResourceLockStatistics.java:43)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocksAcquired(DefaultWorkerLeaseService.java:278)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:270)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:129)
+	at org.gradle.composite.internal.DefaultBuildController.doRun(DefaultBuildController.java:182)
+	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.lambda$run$0(DefaultBuildController.java:199)
+	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:84)
+	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.run(DefaultBuildController.java:199)
+	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:47)
+Caused by: org.gradle.workers.internal.DefaultWorkerExecutor$WorkExecutionException: A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+	at org.gradle.workers.internal.DefaultWorkerExecutor$WorkItemExecution.waitForCompletion(DefaultWorkerExecutor.java:278)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.lambda$waitForItemsAndGatherFailures$2(DefaultAsyncWorkTracker.java:132)
+	at org.gradle.internal.Factories$1.create(Factories.java:30)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.lambda$withoutLocksBlocking$3(DefaultWorkerLeaseService.java:390)
+	at org.gradle.internal.work.ResourceLockStatistics$1.measure(ResourceLockStatistics.java:43)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLocksBlocking(DefaultWorkerLeaseService.java:385)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.blocking(DefaultWorkerLeaseService.java:239)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.blocking(DefaultWorkerLeaseService.java:221)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.lambda$waitForItemsAndGatherFailures$3(DefaultAsyncWorkTracker.java:128)
+	at org.gradle.internal.Factories$1.create(Factories.java:30)
+	at org.gradle.internal.resources.AbstractResourceLockRegistry.whileDisallowingLockChanges(AbstractResourceLockRegistry.java:50)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.whileDisallowingProjectLockChanges(DefaultWorkerLeaseService.java:244)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForItemsAndGatherFailures(DefaultAsyncWorkTracker.java:127)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForItemsAndGatherFailures(DefaultAsyncWorkTracker.java:93)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForAll(DefaultAsyncWorkTracker.java:79)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForCompletion(DefaultAsyncWorkTracker.java:67)
+	at org.gradle.api.internal.tasks.execution.TaskExecution$3.run(TaskExecution.java:267)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:30)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:27)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:67)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:60)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:167)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:60)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.run(DefaultBuildOperationRunner.java:48)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeAction(TaskExecution.java:244)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeActions(TaskExecution.java:227)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeWithPreviousOutputFiles(TaskExecution.java:210)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.execute(TaskExecution.java:176)
+	at org.gradle.internal.execution.steps.ExecuteStep.executeInternal(ExecuteStep.java:167)
+	at org.gradle.internal.execution.steps.ExecuteStep.access$000(ExecuteStep.java:47)
+	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:137)
+	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:134)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:210)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:205)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:67)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:60)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:167)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:60)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:54)
+	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:134)
+	at org.gradle.internal.execution.steps.ExecuteStep$Mutable.execute(ExecuteStep.java:80)
+	at org.gradle.internal.execution.steps.CancelExecutionStep.execute(CancelExecutionStep.java:42)
+	at org.gradle.internal.execution.steps.TimeoutStep.executeWithoutTimeout(TimeoutStep.java:75)
+	at org.gradle.internal.execution.steps.TimeoutStep.execute(TimeoutStep.java:55)
+	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:51)
+	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:29)
+	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.executeMutable(RemovePreviousOutputsStep.java:67)
+	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.executeMutable(RemovePreviousOutputsStep.java:39)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:26)
+	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:42)
+	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:24)
+	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:69)
+	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:46)
+	at org.gradle.internal.execution.steps.ResolveInputChangesStep.executeMutable(ResolveInputChangesStep.java:39)
+	at org.gradle.internal.execution.steps.ResolveInputChangesStep.executeMutable(ResolveInputChangesStep.java:28)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:26)
+	at org.gradle.internal.execution.steps.BuildCacheStep.executeWithoutCache(BuildCacheStep.java:189)
+	at org.gradle.internal.execution.steps.BuildCacheStep.lambda$execute$1(BuildCacheStep.java:76)
+	at org.gradle.internal.Either$Right.fold(Either.java:176)
+	at org.gradle.internal.execution.caching.CachingState.fold(CachingState.java:62)
+	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:74)
+	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:49)
+	at org.gradle.internal.execution.steps.StoreExecutionStateStep.executeMutable(StoreExecutionStateStep.java:46)
+	at org.gradle.internal.execution.steps.StoreExecutionStateStep.executeMutable(StoreExecutionStateStep.java:35)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:26)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.executeBecause(SkipUpToDateStep.java:75)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.lambda$execute$2(SkipUpToDateStep.java:53)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:53)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:35)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:37)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:27)
+	at org.gradle.internal.execution.steps.ResolveMutableCachingStateStep.executeDelegate(ResolveMutableCachingStateStep.java:70)
+	at org.gradle.internal.execution.steps.ResolveMutableCachingStateStep.executeDelegate(ResolveMutableCachingStateStep.java:32)
+	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:69)
+	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:37)
+	at org.gradle.internal.execution.steps.ResolveChangesStep.executeMutable(ResolveChangesStep.java:63)
+	at org.gradle.internal.execution.steps.ResolveChangesStep.executeMutable(ResolveChangesStep.java:34)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:26)
+	at org.gradle.internal.execution.steps.ValidateStep$Mutable.executeDelegate(ValidateStep.java:79)
+	at org.gradle.internal.execution.steps.ValidateStep$Mutable.executeDelegate(ValidateStep.java:65)
+	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:99)
+	at org.gradle.internal.execution.steps.ValidateStep$Mutable.execute(ValidateStep.java:65)
+	at org.gradle.internal.execution.steps.CaptureMutableStateBeforeExecutionStep.executeMutable(CaptureMutableStateBeforeExecutionStep.java:86)
+	at org.gradle.internal.execution.steps.CaptureMutableStateBeforeExecutionStep.execute(CaptureMutableStateBeforeExecutionStep.java:65)
+	at org.gradle.internal.execution.steps.CaptureMutableStateBeforeExecutionStep.execute(CaptureMutableStateBeforeExecutionStep.java:45)
+	at org.gradle.internal.execution.steps.SkipEmptyMutableWorkStep.executeWithNonEmptySources(SkipEmptyMutableWorkStep.java:210)
+	at org.gradle.internal.execution.steps.SkipEmptyMutableWorkStep.executeMutable(SkipEmptyMutableWorkStep.java:90)
+	at org.gradle.internal.execution.steps.SkipEmptyMutableWorkStep.executeMutable(SkipEmptyMutableWorkStep.java:53)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:26)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsStartedStep.execute(MarkSnapshottingInputsStartedStep.java:38)
+	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.executeMutable(LoadPreviousExecutionStateStep.java:36)
+	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.executeMutable(LoadPreviousExecutionStateStep.java:23)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:26)
+	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.executeMutable(HandleStaleOutputsStep.java:77)
+	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.executeMutable(HandleStaleOutputsStep.java:43)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:26)
+	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.lambda$executeMutable$0(AssignMutableWorkspaceStep.java:34)
+	at org.gradle.api.internal.tasks.execution.TaskExecution$4.withWorkspace(TaskExecution.java:305)
+	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.executeMutable(AssignMutableWorkspaceStep.java:30)
+	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.executeMutable(AssignMutableWorkspaceStep.java:21)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:26)
+	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:40)
+	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:23)
+	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.lambda$execute$2(ExecuteWorkBuildOperationFiringStep.java:67)
+	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:67)
+	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:39)
+	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:46)
+	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:34)
+	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:56)
+	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:38)
+	at org.gradle.internal.execution.impl.DefaultExecutionEngine$1.execute(DefaultExecutionEngine.java:68)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:132)
+	... 60 more
+Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilation error. See log for more details
+	at org.jetbrains.kotlin.gradle.tasks.TasksUtilsKt.throwExceptionIfCompilationFailed(tasksUtils.kt:21)
+	at org.jetbrains.kotlin.compilerRunner.GradleKotlinCompilerWork.run(GradleKotlinCompilerWork.kt:119)
+	at org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction.execute(GradleCompilerRunnerWithWorkers.kt:74)
+	at org.gradle.workers.internal.DefaultWorkerServer.execute(DefaultWorkerServer.java:68)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:64)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:61)
+	at org.gradle.internal.classloader.ClassLoaderUtils.executeInClassloader(ClassLoaderUtils.java:102)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.lambda$execute$0(NoIsolationWorkerFactory.java:61)
+	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:44)
+	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:41)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:210)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:205)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:67)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:60)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:167)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:60)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:54)
+	at org.gradle.workers.internal.AbstractWorker.executeWrappedInBuildOperation(AbstractWorker.java:41)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.execute(NoIsolationWorkerFactory.java:58)
+	at org.gradle.workers.internal.DefaultWorkerExecutor.lambda$submitWork$0(DefaultWorkerExecutor.java:174)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runExecution(DefaultConditionalExecutionQueue.java:191)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.access$500(DefaultConditionalExecutionQueue.java:112)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner$1.run(DefaultConditionalExecutionQueue.java:168)
+	at org.gradle.internal.Factories$1.create(Factories.java:30)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.lambda$withLocksAcquired$0(DefaultWorkerLeaseService.java:280)
+	at org.gradle.internal.work.ResourceLockStatistics$1.measure(ResourceLockStatistics.java:43)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocksAcquired(DefaultWorkerLeaseService.java:278)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:270)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:129)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:134)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runBatch(DefaultConditionalExecutionQueue.java:163)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.run(DefaultConditionalExecutionQueue.java:125)
+	... 2 more
+
+
+BUILD FAILED in 2m 47s
+14 actionable tasks: 14 executed

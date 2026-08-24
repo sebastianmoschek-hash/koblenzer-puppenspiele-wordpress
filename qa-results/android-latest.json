@@ -1,0 +1,10 @@
+{
+  "generatedAt":"2026-08-24T10:18:50Z",
+  "commit":"ee9c4d81a9d3580ce6b8cf3e10a5e3073717b4d1",
+  "state":"failure",
+  "checks":{
+    "toolchain":0,
+    "securityContract":0,
+    "androidBuild":1
+  }
+}
