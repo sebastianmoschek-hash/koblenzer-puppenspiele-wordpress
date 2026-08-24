@@ -20,13 +20,18 @@ grep -q 'editButton.setOnClickListener' "$KOTLIN/MainActivity.kt"
 grep -q 'wp-login.php' "$KOTLIN/MainActivity.kt"
 grep -q 'wordpress_logged_in_' "$KOTLIN/MainActivity.kt"
 
-# Direct Gemini Live: ephemeral server token, Google's raw constrained WebSocket, audio/video and true barge-in.
+# Direct Gemini Live: ephemeral server token, documented v1beta constrained WebSocket, audio/video and true barge-in.
 grep -q 'kp_mobile_live_bootstrap' "$BRIDGE"
 grep -q 'generativelanguage.googleapis.com/v1beta/auth_tokens' "$BRIDGE"
 grep -q "'uses'[[:space:]]*=>[[:space:]]*1" "$BRIDGE"
 grep -q 'KoblenzerPuppenspieleTechnician/' "$BRIDGE"
 grep -q 'bridge.bootstrap()' "$KOTLIN/GeminiLiveTechnician.kt"
-grep -q 'v1alpha.GenerativeService.BidiGenerateContentConstrained' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'v1beta.GenerativeService.BidiGenerateContentConstrained' "$KOTLIN/GeminiLiveTechnician.kt"
+if grep -q 'v1alpha.GenerativeService.BidiGenerateContentConstrained' "$KOTLIN/GeminiLiveTechnician.kt"; then
+  echo 'FAIL mobile-live: obsolete v1alpha ephemeral WebSocket endpoint is still present.' >&2
+  exit 1
+fi
+grep -q 'Live v1beta-C' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'access_token=' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'START_OF_ACTIVITY_INTERRUPTS' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'serverContent' "$KOTLIN/GeminiLiveTechnician.kt"
@@ -85,4 +90,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS mobile-live: Google raw ephemeral-token WebSocket, lowercase tool schema, explicit audio/video, barge-in, background repair analysis and protected CI-gated code repair are present.'
+echo 'PASS mobile-live: documented v1beta constrained ephemeral WebSocket, lowercase tool schema, explicit audio/video, barge-in, background repair analysis and protected CI-gated code repair are present.'
