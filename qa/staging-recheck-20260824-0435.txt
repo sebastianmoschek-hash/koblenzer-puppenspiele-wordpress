@@ -1,0 +1,2 @@
+Fresh staging verification trigger for the current editor/runtime state after making early-failure diagnostics persistent.
+No production behavior is changed by this file.
