@@ -6,6 +6,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import org.json.JSONObject
 import java.util.UUID
@@ -41,8 +42,8 @@ class WebRepairBridge(private val webView: WebView) {
 
     private suspend fun call(expression: String): JsonObject = suspendCancellableCoroutine { cont ->
         val id = UUID.randomUUID().toString()
-        pending[id] = { raw ->
-            if (!cont.isActive) return@let
+        pending[id] = handler@{ raw ->
+            if (!cont.isActive) return@handler
             val parsed = runCatching { json.parseToJsonElement(raw).jsonObject }
                 .getOrElse { buildJsonObject { put("error", "Ungültige Antwort der Homepage-Bridge.") } }
             cont.resume(parsed)
