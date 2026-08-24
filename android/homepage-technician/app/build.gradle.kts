@@ -49,6 +49,7 @@ dependencies {
     debugImplementation("com.google.firebase:firebase-appcheck-debug")
 
     implementation("androidx.core:core-ktx:1.17.0")
+    implementation("com.squareup.okhttp3:okhttp:5.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 }
