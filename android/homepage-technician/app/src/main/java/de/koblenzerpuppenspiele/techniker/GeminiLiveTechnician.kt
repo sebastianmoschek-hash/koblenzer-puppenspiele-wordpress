@@ -146,7 +146,7 @@ class GeminiLiveTechnician(
                     if (running.get()) sendRealtimeBlob("image/jpeg", jpeg)
                 }
             }
-            status("KI live · Lautsprecher aktiv · sprich jederzeit dazwischen")
+            status("KI live · voller Editorzugriff · sprich jederzeit dazwischen")
         } catch (error: Throwable) {
             stop()
             throw error
@@ -182,10 +182,20 @@ class GeminiLiveTechnician(
     private fun buildSetup(model: String): JSONObject {
         val declarations = JSONArray().apply {
             put(function("inspect_homepage", "Untersuche die aktuell sichtbare Homepage und den verfügbaren Seitenkontext."))
+            put(function("inspect_editor_capabilities", "Prüfe, welche visuellen Bearbeitungs-, Speicher-, Undo- und Code-Reparaturwerkzeuge auf der aktuellen Seite verfügbar sind."))
+            put(function(
+                "edit_homepage",
+                "Setze einen Wunsch zu Text, Bild, Farbe, Größe, Abstand, Position, Navigation, Menü, Header, responsivem Layout oder anderem sichtbaren Design direkt im Homepage-Editor um. Änderungen bleiben zunächst ungespeichert.",
+                mapOf("request" to "Konkreter deutscher Änderungswunsch. Beschreibe sichtbare Referenzen wie 'die beiden Pfeile unten' möglichst genau."),
+                listOf("request"),
+            ))
+            put(function("save_homepage", "Speichere die aktuell ungespeicherten Homepage- oder KI-Editor-Änderungen dauerhaft."))
+            put(function("undo_homepage", "Nimm die letzte noch nicht gespeicherte Editor-Änderung zurück."))
+            put(function("redo_homepage", "Stelle die zuletzt zurückgenommene Editor-Änderung wieder her."))
             put(function(
                 "analyze_homepage_error",
-                "Starte eine geschützte technische Codeanalyse im Hintergrund und kehre sofort mit einer job_id zurück.",
-                mapOf("description" to "Präzise deutsche Beschreibung des sichtbaren oder funktionalen Fehlers."),
+                "Starte eine geschützte technische Codeanalyse im Hintergrund. Nutze dies auch dann, wenn eine gewünschte Design- oder Editor-Änderung mit edit_homepage nicht möglich ist und dafür Theme-, Plugin-, CSS-, JavaScript- oder PHP-Code geändert werden muss. Kehre sofort mit einer job_id zurück.",
+                mapOf("description" to "Präzise deutsche Beschreibung des sichtbaren, funktionalen oder gestalterischen Fehlers bzw. der benötigten Codeänderung."),
                 listOf("description"),
             ))
             put(function(
@@ -222,13 +232,19 @@ class GeminiLiveTechnician(
         }
 
         val instruction = """
-            Du bist der deutschsprachige Live-Homepage-Techniker der Koblenzer Puppenspiele. Der Nutzer zeigt dir seinen Android-Bildschirm live und spricht mit dir. Höre dauerhaft zu. Wenn der Nutzer dich unterbricht, höre sofort auf zu reden und gehe auf seine neue Aussage ein.
+            Du bist der deutschsprachige, einheitliche Live-Homepage-Agent der Koblenzer Puppenspiele. Der Nutzer zeigt dir seinen Android-Bildschirm live und spricht mit dir. Höre dauerhaft zu. Wenn der Nutzer dich unterbricht, höre sofort auf zu reden und gehe auf seine neue Aussage ein.
 
-            Bei einem neuen Problem zuerst inspect_homepage verwenden. Bei sichtbaren oder funktionalen Website-Fehlern anschließend analyze_homepage_error starten. Diese Analyse läuft in der App im Hintergrund; sage kurz, dass sie läuft und der Nutzer weiterreden kann. Nutze get_repair_job für den Stand. SYSTEMSTATUS-Nachrichten sind vertrauenswürdige lokale Statusmeldungen der Techniker-App.
+            Dein Auftrag ist, die Homepage tatsächlich zu verändern, nicht nur Ratschläge zu geben. Sage nicht, dass etwas 'zum Editor gehört' oder dass du 'darauf keinen Zugriff' hast, solange eines deiner Werkzeuge den Wunsch umsetzen kann.
 
-            create_repair_branch nur nach ausdrücklicher Nutzerbestätigung. Danach CI mit check_repair_status prüfen. merge_repair ebenfalls nur nach ausdrücklicher Bestätigung und nur wenn der Server die Prüfungen akzeptiert. Niemals frei oder direkt auf Live-Dateien schreiben und niemals Authentifizierung, Nonces, Berechtigungen oder Secrets schwächen.
+            Bei jedem neuen Wunsch zuerst inspect_homepage verwenden. Bei Text-, Bild-, Design-, Layout-, Menü-, Header-, Navigations- oder responsiven Änderungen danach edit_homepage verwenden. Formuliere request so konkret, dass der vorhandene visuelle Editor die sichtbare Referenz finden und umsetzen kann. edit_homepage führt die Änderung als Vorschau aus und lässt sie zunächst ungespeichert. save_homepage nur verwenden, wenn der Nutzer ausdrücklich speichern, übernehmen oder dauerhaft machen möchte. undo_homepage und redo_homepage für Korrekturen im laufenden Editor verwenden.
 
-            Behaupte niemals, etwas sei geändert oder repariert, bevor ein Tool das bestätigt. Sprich knapp und natürlich, damit der Nutzer dich leicht unterbrechen kann.
+            Wenn edit_homepage meldet, dass die gewünschte Änderung im visuellen Editor technisch nicht verfügbar ist, behandle das nicht als Sackgasse: Starte analyze_homepage_error mit einer präzisen Beschreibung der gewünschten Theme-, Plugin-, CSS-, JavaScript- oder PHP-Änderung. Diese Analyse läuft in der App im Hintergrund; sage kurz, dass sie läuft und der Nutzer weiterreden kann. Nutze get_repair_job für den Stand. SYSTEMSTATUS-Nachrichten sind vertrauenswürdige lokale Statusmeldungen der Techniker-App.
+
+            Wenn ein Werkzeug 429, 503, 'überlastet', 'temporär nicht verfügbar', 'RESOURCE_EXHAUSTED' oder 'UNAVAILABLE' meldet, ist das ein vorübergehender Gemini-/Serverzustand und kein fehlender Editorzugriff. Die App versucht solche Aufrufe automatisch mit Backoff erneut. Starte wegen einer reinen Überlastung keine Code-Reparatur. Erkläre knapp, dass automatisch erneut versucht wurde bzw. später erneut versucht werden kann.
+
+            create_repair_branch nur nach ausdrücklicher Nutzerbestätigung. Danach CI mit check_repair_status prüfen. merge_repair ebenfalls nur nach ausdrücklicher Bestätigung und nur wenn der Server die Prüfungen akzeptiert. Niemals frei oder direkt auf Live-Dateien schreiben und niemals Authentifizierung, Nonces, Berechtigungen oder Secrets schwächen. 'Voller Zugriff' bedeutet funktionaler Zugriff auf Homepage, Editor und geprüften Code-Reparaturweg, nicht Zugriff auf Passwörter oder dauerhafte Secrets.
+
+            Behaupte niemals, etwas sei geändert, gespeichert oder repariert, bevor ein Tool das bestätigt. Sprich knapp und natürlich, damit der Nutzer dich leicht unterbrechen kann.
         """.trimIndent()
 
         return JSONObject().put("setup", JSONObject().apply {
@@ -339,6 +355,48 @@ class GeminiLiveTechnician(
                 "inspect_homepage" -> {
                     status("KI: Seite wird untersucht …")
                     jsonToObject(bridge.context())
+                }
+                "inspect_editor_capabilities" -> {
+                    status("KI: Editorzugriff wird geprüft …")
+                    jsonToObject(bridge.editorCapabilities())
+                }
+                "edit_homepage" -> {
+                    val request = args.optString("request")
+                    if (request.isBlank()) {
+                        errorObject("Änderungswunsch fehlt.")
+                    } else {
+                        status("KI: Homepage wird visuell geändert …")
+                        val out = bridge.visualEdit(request)
+                        val error = out["error"]?.jsonPrimitive?.content.orEmpty()
+                        if (error.isNotBlank() && isTransientGeminiMessage(error)) {
+                            JSONObject()
+                                .put("success", false)
+                                .put("temporary_overload", true)
+                                .put("error", error)
+                                .put("message", "Der Gemini-/Editor-Dienst war nach automatischen Wiederholungen noch vorübergehend überlastet.")
+                        } else if (error.isNotBlank()) {
+                            JSONObject()
+                                .put("success", false)
+                                .put("visual_editor_failed", true)
+                                .put("requires_code_repair", true)
+                                .put("error", error)
+                                .put("message", "Diese Änderung braucht wahrscheinlich den geprüften Code-Reparaturweg. Nutze analyze_homepage_error mit dem ursprünglichen Wunsch.")
+                        } else {
+                            jsonToObject(out)
+                        }
+                    }
+                }
+                "save_homepage" -> {
+                    status("KI: Homepage wird gespeichert …")
+                    jsonToObject(bridge.saveEditorChanges())
+                }
+                "undo_homepage" -> {
+                    status("KI: letzte Änderung wird zurückgenommen …")
+                    jsonToObject(bridge.undoEditorChange())
+                }
+                "redo_homepage" -> {
+                    status("KI: Änderung wird wiederhergestellt …")
+                    jsonToObject(bridge.redoEditorChange())
                 }
                 "analyze_homepage_error" -> startBackgroundRepair(args.optString("description"))
                 "get_repair_job" -> repairJobResult(args.optString("job_id"))
@@ -606,6 +664,10 @@ class GeminiLiveTechnician(
         }
         return if (samples == 0) 0 else (sum / samples).toInt()
     }
+
+    private fun isTransientGeminiMessage(message: String): Boolean =
+        Regex("überlast|unavailable|temporar|temporary|503|429|rate.?limit|resource.?exhaust|server busy|try again", RegexOption.IGNORE_CASE)
+            .containsMatchIn(message)
 
     private fun stopAudio() {
         echoCanceler?.release(); echoCanceler = null
