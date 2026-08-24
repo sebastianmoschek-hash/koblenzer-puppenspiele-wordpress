@@ -23,8 +23,14 @@ ftp_cmd(){
 
 sync_mu_plugins(){
   if [[ -d "$MU" ]]; then
-    echo 'Syncing repository MU-plugins to staging (without deleting host-specific MU files).'
-    ftp_cmd "mkdir -p /wp-content/mu-plugins; mirror -R --verbose --transfer-all --no-perms --parallel=2 '$MU' '/wp-content/mu-plugins'" >/tmp/kp-mu-deploy.log 2>&1
+    echo 'Syncing repository MU-plugins to staging (Live bridge files are owned by mobile-live-staging-deploy).'
+    ftp_cmd "mkdir -p /wp-content/mu-plugins; mirror -R --verbose --transfer-all --no-perms --parallel=2 \
+      --exclude-glob 'kp-mobile-live-bridge.php' \
+      --exclude-glob 'kp-mobile-live-bootstrap-v2.php' \
+      --exclude-glob 'kp-mobile-live-protocol-marker.php' \
+      --exclude-glob 'kp-mobile-live-image-tools.php' \
+      --exclude-glob 'kp-mobile-live-image-adapter.php' \
+      '$MU' '/wp-content/mu-plugins'" >/tmp/kp-mu-deploy.log 2>&1
   fi
 }
 
@@ -50,12 +56,11 @@ fi
 
 if [[ "$MODE" == 'qa' ]]; then
   # QA-only commits can supersede a just-landed website commit before its staging
-  # job starts. The plugin version health check cannot see MU-plugin additions, so
-  # always sync repository MU-plugins before reusing staging. This is staging-only
-  # and does not delete host-specific MU files.
+  # job starts. Keep the generic site deployment fresh, but never overwrite the
+  # dedicated Gemini Live bridge generation.
   sync_mu_plugins
   if staging_matches_repo; then
-    echo 'CircleCI QA-only mode: plugin/theme version matches; MU-plugins refreshed, reusing current deployment.'
+    echo 'CircleCI QA-only mode: plugin/theme version matches; non-Live MU-plugins refreshed, reusing current deployment.'
   else
     echo 'CircleCI QA-only mode: staging is stale or unhealthy; performing one staging-only recovery deploy.'
     sync_full_website
@@ -71,14 +76,12 @@ status_meta=failure
 status_icon=failure
 status_health=failure
 
-# Only lint the tiny PHP surface touched by the PWA branding path.
 for file in "$MU/kp-webapp-branding.php" "$PLUGIN/includes/class-kp-owner-web-app.php"; do
   if [[ -f "$file" ]]; then
     php -l "$file" >> "$REPORT_DIR/php-syntax.log" 2>&1
   fi
 done
 
-# Deploy only the PWA-related files. This avoids re-uploading the entire plugin/theme.
 if sync_mu_plugins \
   && ftp_cmd "put '$PLUGIN/includes/class-kp-owner-web-app.php' -o '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php'; put '$PLUGIN/assets/kp-app-icon.svg' -o '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/kp-app-icon.svg'" >> "$REPORT_DIR/deploy.log" 2>&1; then
   status_deploy=success
@@ -147,7 +150,7 @@ Commit: $SHA
 Modus: **PWA FAST**  
 Gesamtstatus: **${overall^^}**
 
-- PWA-Dateien + MU-Plugins auf Staging: $status_deploy
+- PWA-Dateien + nicht-Live-MU-Plugins auf Staging: $status_deploy
 - Staging aktiv/bereit: $status_health
 - Manifest name/short_name = KP: $status_manifest
 - Homescreen-Metadaten = KP: $status_meta
