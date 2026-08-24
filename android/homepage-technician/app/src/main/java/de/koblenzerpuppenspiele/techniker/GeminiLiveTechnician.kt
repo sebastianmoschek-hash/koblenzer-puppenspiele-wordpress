@@ -33,8 +33,6 @@ import okhttp3.WebSocketListener
 import okio.ByteString
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -75,7 +73,7 @@ class GeminiLiveTechnician(
             throw IllegalStateException("Mikrofonzugriff fehlt.")
         }
 
-        status("Live-Zugang wird serverseitig vorbereitet …")
+        status("Live v1beta-C · Zugang wird vorbereitet …")
         val bootstrap = bridge.bootstrap()
         bootstrap["error"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let {
             throw IllegalStateException(it)
@@ -85,13 +83,12 @@ class GeminiLiveTechnician(
         val model = bootstrap["model"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
             ?: "gemini-3.1-flash-live-preview"
 
-        status("Direkte Gemini-Live-Verbindung wird geöffnet …")
+        status("Live v1beta-C · Gemini-Verbindung wird geöffnet …")
         val ready = CompletableDeferred<Unit>()
         setupReady = ready
         running.set(true)
-        val encoded = URLEncoder.encode(token, StandardCharsets.UTF_8.toString())
         val request = Request.Builder()
-            .url("wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=$encoded")
+            .url("wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=$token")
             .build()
 
         socket = client.newWebSocket(request, object : WebSocketListener() {
@@ -103,14 +100,14 @@ class GeminiLiveTechnician(
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) = handleServerMessage(bytes.utf8())
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                if (running.get()) status("Gemini Live beendet die Verbindung ($code): ${reason.ifBlank { "ohne Begründung" }}")
+                if (running.get()) status("Gemini Live v1beta-C beendet ($code): ${reason.ifBlank { "ohne Begründung" }}")
                 webSocket.close(code, reason)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 if (running.get()) {
                     running.set(false)
-                    val message = "Gemini Live wurde beendet ($code): ${reason.ifBlank { "Verbindung geschlossen" }}"
+                    val message = "Gemini Live v1beta-C wurde beendet ($code): ${reason.ifBlank { "Verbindung geschlossen" }}"
                     ready.completeExceptionally(IllegalStateException(message))
                     status(message)
                 }
@@ -119,7 +116,7 @@ class GeminiLiveTechnician(
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 val detail = response?.let { "HTTP ${it.code}" } ?: (t.message ?: t.javaClass.simpleName)
                 ready.completeExceptionally(IllegalStateException("Direkte Gemini-Live-Verbindung fehlgeschlagen: $detail", t))
-                if (running.get()) status("Gemini Live: $detail")
+                if (running.get()) status("Gemini Live v1beta-C: $detail")
                 running.set(false)
             }
         })
@@ -133,7 +130,7 @@ class GeminiLiveTechnician(
                     if (running.get()) sendRealtimeBlob("image/jpeg", jpeg)
                 }
             }
-            status("KI live · du kannst Gemini jederzeit ins Wort fallen")
+            status("KI live v1beta-C · du kannst Gemini jederzeit ins Wort fallen")
         } catch (error: Throwable) {
             stop()
             throw error
@@ -268,7 +265,7 @@ class GeminiLiveTechnician(
         data.optJSONObject("error")?.let { error ->
             val message = error.optString("message").ifBlank { "Unbekannter Gemini-Live-Protokollfehler." }
             setupReady?.completeExceptionally(IllegalStateException(message))
-            status("Gemini Live: $message")
+            status("Gemini Live v1beta-C: $message")
             return
         }
 
@@ -417,7 +414,7 @@ class GeminiLiveTechnician(
         send(JSONObject().put("realtimeInput", JSONObject().put("text", text)))
     }
 
-    /** Raw ephemeral-token protocol uses explicit realtimeInput.audio / realtimeInput.video blobs. */
+    /** Current Live API uses explicit realtimeInput.audio / realtimeInput.video blobs. */
     private fun sendRealtimeBlob(mime: String, bytes: ByteArray) {
         if (!running.get() || bytes.isEmpty()) return
         val blob = JSONObject()
