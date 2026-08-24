@@ -85,6 +85,23 @@ jobs:
           path: qa-results/android
           destination: android-build
 
+  mobile-live-staging-deploy:
+    docker:
+      - image: mcr.microsoft.com/playwright:v1.55.0-noble
+    resource_class: small
+    environment:
+      STAGING_BASE: https://neu.koblenzer-puppenspiele.de
+    steps:
+      - checkout
+      - run:
+          name: Install Live deploy tools
+          command: |
+            apt-get update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp jq php-cli ca-certificates curl
+      - run:
+          name: Deploy and verify Gemini Live bridge
+          command: bash qa/deploy-mobile-live-circleci.sh
+
   homepage-staging-lab:
     docker:
       - image: mcr.microsoft.com/playwright:v1.55.0-noble
@@ -261,6 +278,11 @@ workflows:
             branches:
               only:
                 - /feature\/android-.*/
+      - mobile-live-staging-deploy:
+          serial-group: << pipeline.project.slug >>/mobile-live-staging-deploy-v1
+          filters:
+            branches:
+              only: main
       - homepage-staging-lab:
           requires:
             - editor-contracts
