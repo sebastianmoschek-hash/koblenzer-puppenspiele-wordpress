@@ -6,6 +6,7 @@ on:
     paths:
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
       - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/**'
+      - 'wp-content/mu-plugins/kp-mobile-live-bridge.php'
       - '.github/workflows/deploy-staging.yml'
   workflow_dispatch:
 
@@ -33,6 +34,7 @@ jobs:
           set -euo pipefail
           PLUGIN='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
           THEME='wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
+          LIVE_BRIDGE='wp-content/mu-plugins/kp-mobile-live-bridge.php'
 
           found=0
           if [ -d "$PLUGIN" ]; then
@@ -43,9 +45,13 @@ jobs:
             echo "Theme found: $THEME"
             found=1
           fi
+          if [ -f "$LIVE_BRIDGE" ]; then
+            echo "Mobile Live bridge found: $LIVE_BRIDGE"
+            found=1
+          fi
 
           if [ "$found" -ne 1 ]; then
-            echo 'ERROR: Neither the expected plugin nor theme directory exists in this repository.'
+            echo 'ERROR: No expected deployable WordPress code exists in this repository.'
             echo 'Nothing will be uploaded.'
             exit 1
           fi
@@ -58,6 +64,7 @@ jobs:
                wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7 \
                -type f -name '*.php' -print0 \
             | xargs -0 -n1 php -l
+          php -l wp-content/mu-plugins/kp-mobile-live-bridge.php
 
       - name: Install secure FTP client
         shell: bash
@@ -100,7 +107,7 @@ jobs:
 
           echo 'FTPS authentication and directory listing succeeded.'
 
-      - name: Deploy plugin and theme to staging via explicit FTPS
+      - name: Deploy plugin theme and mobile Live bridge to staging via explicit FTPS
         env:
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
@@ -110,6 +117,7 @@ jobs:
 
           PLUGIN='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
           THEME='wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
+          LIVE_BRIDGE='wp-content/mu-plugins/kp-mobile-live-bridge.php'
 
           deploy_dir() {
             local source_dir="$1"
@@ -136,6 +144,35 @@ jobs:
             echo 'Deploying theme…'
             deploy_dir "$THEME" '/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
           fi
+
+          echo 'Deploying Gemini Live bootstrap MU-plugin…'
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+            mkdir -p '/wp-content/mu-plugins';
+            put '$LIVE_BRIDGE' -o '/wp-content/mu-plugins/kp-mobile-live-bridge.php';
+            bye
+          "
+
+      - name: Verify Gemini Live bootstrap is active on staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(mktemp)"
+          status="$(curl --silent --show-error --location \
+            --retry 4 --retry-all-errors --retry-delay 3 --max-time 60 \
+            -o "$body" -w '%{http_code}' \
+            -X POST \
+            --data-urlencode 'action=kp_mobile_live_bootstrap' \
+            'https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php')"
+          cat "$body"
+          test "$status" = '401'
+          php -r '$j=json_decode(file_get_contents($argv[1]), true); if (!is_array($j) || ($j["success"] ?? true) !== false || !str_contains((string)($j["data"]["message"] ?? ""), "Bitte zuerst bei WordPress anmelden")) { exit(1); }' "$body"
+          echo 'Gemini Live bootstrap is deployed and enforcing WordPress authentication.'
 
       - name: Verify staging website, routes and expected content
         id: route_verify
