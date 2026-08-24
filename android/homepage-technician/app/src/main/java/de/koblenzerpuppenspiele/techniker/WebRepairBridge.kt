@@ -28,6 +28,47 @@ class WebRepairBridge(private val webView: WebView) {
 
     suspend fun context(): JsonObject = call("Promise.resolve(window.KPRepairMobile.context())")
 
+    suspend fun visualEdit(request: String): JsonObject = call(
+        """
+        new Promise((resolve, reject) => {
+          const request = ${JSONObject.quote(request)};
+          const sheet = document.querySelector('.kp-ai-sheet');
+          const input = document.querySelector('.kp-ai-request');
+          const run = document.querySelector('.kp-ai-run');
+          const status = document.querySelector('.kp-ai-status');
+          if (!input || !run || !status) {
+            reject(new Error('Der direkte Homepage-KI-Editor ist noch nicht verfügbar. Bitte zuerst als Bearbeiter anmelden.'));
+            return;
+          }
+          if (run.disabled) {
+            reject(new Error('Der Homepage-KI-Editor arbeitet gerade bereits.'));
+            return;
+          }
+          if (sheet) sheet.hidden = false;
+          input.value = request;
+          input.dispatchEvent(new Event('input', {bubbles:true}));
+          const started = Date.now();
+          run.click();
+          const timer = setInterval(() => {
+            const text = String(status.textContent || '').trim();
+            const elapsed = Date.now() - started;
+            if (elapsed > 65000) {
+              clearInterval(timer);
+              reject(new Error('Die sichtbare KI-Bearbeitung hat zu lange gedauert.'));
+              return;
+            }
+            if (!run.disabled && elapsed > 300) {
+              clearInterval(timer);
+              const lower = text.toLowerCase();
+              const failed = ['fehlgeschlagen','nicht verfügbar','nicht verbunden','abgelehnt','keine berechtigung','bitte zuerst'].some(x => lower.includes(x));
+              if (failed) reject(new Error(text || 'Die sichtbare KI-Bearbeitung konnte nicht ausgeführt werden.'));
+              else resolve({success:true,message:text || 'Änderung umgesetzt · noch nicht gespeichert.',unsaved:true});
+            }
+          }, 120);
+        })
+        """.trimIndent()
+    )
+
     suspend fun editorHistory(): JsonObject =
         call("Promise.resolve(window.KPRepairMobile.editorHistory())")
 
