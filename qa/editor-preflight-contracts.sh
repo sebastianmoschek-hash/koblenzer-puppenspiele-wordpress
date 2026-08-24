@@ -27,6 +27,7 @@ run_contract 'word-history' 'qa/word-history-contract.sh' 'word-history-contract
 run_contract 'unified-editor' 'qa/unified-editor-contract.sh' 'unified-contract.log'
 run_contract 'create-undo-redo' 'qa/create-undo-contract.sh' 'create-undo-contract.log'
 run_contract 'calendar-undo-redo' 'qa/calendar-undo-contract.sh' 'calendar-undo-contract.log'
+run_contract 'ai-repair-safety' 'qa/ai-repair-contract.sh' 'ai-repair-contract.log'
 
 if [[ $failed -ne 0 ]]; then
   echo 'PRECHECK FAILURE: at least one deterministic editor contract failed.' | tee -a "$SUMMARY"
