@@ -29,36 +29,53 @@ class LocalVoiceController(
 ) {
     private val main = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
+    private var tts: TextToSpeech? = null
     private var active = false
     private var listening = false
     private var ttsReady = false
     private var offlineGermanVoice = false
 
-    private val tts = TextToSpeech(context.applicationContext) { result ->
-        if (result != TextToSpeech.SUCCESS) {
-            ttsReady = false
-            offlineGermanVoice = false
-            return@TextToSpeech
+    init {
+        tts = TextToSpeech(context.applicationContext) { result ->
+            val engine: TextToSpeech = tts ?: return@TextToSpeech
+            if (result != TextToSpeech.SUCCESS) {
+                ttsReady = false
+                offlineGermanVoice = false
+                return@TextToSpeech
+            }
+
+            val voice = engine.voices
+                ?.asSequence()
+                ?.filter { candidate ->
+                    candidate.locale.language.equals("de", ignoreCase = true) &&
+                        !candidate.isNetworkConnectionRequired
+                }
+                ?.sortedByDescending { candidate ->
+                    candidate.locale.country.equals("DE", ignoreCase = true)
+                }
+                ?.firstOrNull()
+
+            offlineGermanVoice = voice != null
+            if (voice != null) {
+                engine.voice = voice
+            } else {
+                engine.language = Locale.GERMANY
+            }
+            engine.setSpeechRate(1.0f)
+            engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) = Unit
+
+                override fun onDone(utteranceId: String?) {
+                    main.post { if (active) continueListening() }
+                }
+
+                @Deprecated("Deprecated callback retained for older Android TTS engines")
+                override fun onError(utteranceId: String?) {
+                    main.post { if (active) continueListening() }
+                }
+            })
+            ttsReady = true
         }
-        val engine = tts
-        val voice = engine.voices
-            ?.filter { it.locale.language.equals("de", ignoreCase = true) && !it.isNetworkConnectionRequired }
-            ?.sortedByDescending { it.locale.country.equals("DE", ignoreCase = true) }
-            ?.firstOrNull()
-        offlineGermanVoice = voice != null
-        if (voice != null) engine.voice = voice else engine.language = Locale.GERMANY
-        engine.setSpeechRate(1.0f)
-        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) = Unit
-            override fun onDone(utteranceId: String?) {
-                main.post { if (active) continueListening() }
-            }
-            @Deprecated("Deprecated callback retained for older Android TTS engines")
-            override fun onError(utteranceId: String?) {
-                main.post { if (active) continueListening() }
-            }
-        })
-        ttsReady = true
     }
 
     fun isSupported(): Boolean =
@@ -80,7 +97,7 @@ class LocalVoiceController(
         runCatching { recognizer?.cancel() }
         runCatching { recognizer?.destroy() }
         recognizer = null
-        runCatching { tts.stop() }
+        runCatching { tts?.stop() }
     }
 
     fun continueListening(delayMs: Long = 250L) {
@@ -115,20 +132,22 @@ class LocalVoiceController(
             continueListening()
             return
         }
-        if (!ttsReady || !offlineGermanVoice) {
+        val engine = tts
+        if (!ttsReady || !offlineGermanVoice || engine == null) {
             onStatus("Live lokal · Antwort steht im Chat · keine lokale deutsche Stimme installiert")
             continueListening(500L)
             return
         }
         val utteranceId = "kp-local-${UUID.randomUUID()}"
         onStatus("Live lokal · KI antwortet …")
-        val result = tts.speak(spoken, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+        val result = engine.speak(spoken, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
         if (result == TextToSpeech.ERROR) continueListening(500L)
     }
 
     fun release() {
         stop()
-        runCatching { tts.shutdown() }
+        runCatching { tts?.shutdown() }
+        tts = null
     }
 
     private fun ensureRecognizer() {
