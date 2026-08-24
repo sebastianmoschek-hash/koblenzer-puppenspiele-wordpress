@@ -16,9 +16,8 @@ import kotlin.coroutines.resume
 
 /**
  * Calls authenticated WordPress editor/repair endpoints through the trusted same-origin WebView.
- * Repair operations no longer depend on wp_footer being rendered: after bootstrap they POST
- * directly to admin-ajax.php with short-lived WordPress nonces. Durable credentials never enter
- * the Android app.
+ * Normal visual edits are deterministic editor commands: Gemini Live chooses the target/action,
+ * while the browser editor itself applies it. No second text-model planning request is involved.
  */
 class WebRepairBridge(private val webView: WebView) {
     private val pending = ConcurrentHashMap<String, (String) -> Unit>()
@@ -90,83 +89,37 @@ class WebRepairBridge(private val webView: WebView) {
         Promise.resolve((()=>({
           success:true,
           editMode:document.body.classList.contains('kp-fe2-editing'),
-          visualAI:!!document.querySelector('.kp-ai-run'),
-          selected:!!document.querySelector('.kp-fe2-selected'),
-          save:!!document.querySelector('.kp-fe2-save'),
+          deterministicEditor:!!window.KPRepairMobile?.editElement,
+          elementInspection:!!window.KPRepairMobile?.editableElements,
+          globalDesign:!!window.KPRepairMobile?.setDesign,
+          save:!!window.KPRepairMobile?.saveChanges,
           undo:!!window.KPRepairMobile?.undo,
           redo:!!window.KPRepairMobile?.redo,
-          aiDraft:!!window.KPAIEditorRuntime,
-          designPanel:!!document.querySelector('.kp-oa-tools'),
-          capabilities:['text','links','font','padding','width','radius','color','background','global-design','image-style','image-generation','move','add-element','responsive-editor','undo','redo','save','technical-code-repair']
+          technicalRepair:!!window.KPRepairMobile?.analyze,
+          secondGeminiPlanner:false,
+          capabilities:['inspect-elements','text','links','font','padding','width','radius','color','background','global-design','move','section-order','responsive-editor','undo','redo','save','technical-code-repair']
         }))())
         """.trimIndent()
     )
 
-    suspend fun visualEdit(request: String): JsonObject = call(
-        """
-        (async()=>{
-          const request=${JSONObject.quote(request)};
-          const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-          const transient=text=>/(überlast|unavailable|temporar|temporary|503|429|rate.?limit|resource.?exhaust|server busy|try again)/i.test(String(text||''));
-          let last='';
-          for(let attempt=0;attempt<4;attempt++){
-            if(attempt){const base=1000*Math.pow(2,attempt-1);await sleep(base+Math.floor(Math.random()*500));}
-            const outcome=await new Promise(resolve=>{
-              const sheet=document.querySelector('.kp-ai-sheet');
-              const input=document.querySelector('.kp-ai-request');
-              const run=document.querySelector('.kp-ai-run');
-              const status=document.querySelector('.kp-ai-status');
-              if(!input||!run||!status){resolve({ok:false,text:'Der direkte Homepage-KI-Editor ist noch nicht verfügbar.',transient:false});return;}
-              if(run.disabled){resolve({ok:false,text:'Der Homepage-KI-Editor arbeitet gerade bereits.',transient:true});return;}
-              if(sheet)sheet.hidden=false;
-              input.value=request;
-              input.dispatchEvent(new Event('input',{bubbles:true}));
-              const started=Date.now();
-              run.click();
-              const timer=setInterval(()=>{
-                const text=String(status.textContent||'').trim();
-                const elapsed=Date.now()-started;
-                if(elapsed>65000){clearInterval(timer);resolve({ok:false,text:'Die sichtbare KI-Bearbeitung hat zu lange gedauert.',transient:true});return;}
-                if(!run.disabled&&elapsed>300){
-                  clearInterval(timer);
-                  const lower=text.toLowerCase();
-                  const failed=['fehlgeschlagen','nicht verfügbar','nicht verbunden','abgelehnt','keine berechtigung','bitte zuerst','überlastet','unavailable','resource_exhausted'].some(x=>lower.includes(x));
-                  resolve({ok:!failed,text:text||'Änderung umgesetzt · noch nicht gespeichert.',transient:transient(text)});
-                }
-              },120);
-            });
-            last=outcome.text||last;
-            if(outcome.ok)return{success:true,message:outcome.text,unsaved:true,attempts:attempt+1};
-            if(!outcome.transient||attempt===3)throw new Error(outcome.text||'Die sichtbare KI-Bearbeitung konnte nicht ausgeführt werden.');
-          }
-          throw new Error(last||'Die sichtbare KI-Bearbeitung konnte nicht ausgeführt werden.');
-        })()
-        """.trimIndent(),
+    suspend fun editableElements(): JsonObject = call(
+        "Promise.resolve(window.KPRepairMobile.editableElements())",
         requireMobileBridge = true,
     )
 
-    suspend fun saveEditorChanges(): JsonObject = rawCall(
-        """
-        (async()=>{
-          let aiDraftSaved=false;
-          if(window.KPAIEditorRuntime?.isDirty?.()){
-            await window.KPAIEditorRuntime.flush();
-            aiDraftSaved=true;
-          }
-          const save=document.querySelector('.kp-fe2-save');
-          if(save){
-            if(save.disabled)return{success:false,message:'Der Editor speichert bereits.'};
-            save.click();
-            return{success:true,saving:true,aiDraftSaved,message:'Homepage wird gespeichert.'};
-          }
-          const designSave=document.querySelector('.kp-oa-design-save');
-          if(designSave&&!designSave.disabled){
-            designSave.click();
-            return{success:true,saving:true,aiDraftSaved,message:'Design wird gespeichert.'};
-          }
-          return{success:aiDraftSaved,saved:aiDraftSaved,message:aiDraftSaved?'KI-Änderungen gespeichert.':'Kein ungespeicherter Editor-Entwurf gefunden.'};
-        })()
-        """.trimIndent()
+    suspend fun editElement(liveId: String, property: String, value: String): JsonObject = call(
+        "window.KPRepairMobile.editElement(${JSONObject.quote(liveId)},${JSONObject.quote(property)},${JSONObject.quote(value)})",
+        requireMobileBridge = true,
+    )
+
+    suspend fun setGlobalDesign(key: String, value: String): JsonObject = call(
+        "window.KPRepairMobile.setDesign(${JSONObject.quote(key)},${JSONObject.quote(value)})",
+        requireMobileBridge = true,
+    )
+
+    suspend fun saveEditorChanges(): JsonObject = call(
+        "window.KPRepairMobile.saveChanges()",
+        requireMobileBridge = true,
     )
 
     suspend fun editorHistory(): JsonObject = call(
