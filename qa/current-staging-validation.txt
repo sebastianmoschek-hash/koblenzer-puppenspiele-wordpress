@@ -1,0 +1,1 @@
+This QA marker intentionally classifies as qa-mode so the latest meaningful main commit receives the full staging browser, persistence, touch, undo/48h and visual gates after pipeline-only changes.
