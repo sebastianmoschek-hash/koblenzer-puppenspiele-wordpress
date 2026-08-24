@@ -20,19 +20,22 @@ test -f "$VOICE"
 test ! -e "$KOTLIN/GeminiLiveTechnician.kt"
 test ! -e "$KOTLIN/ScreenCaptureService.kt"
 
-# Primary UI is manual edit + one local AI chat, optional local Live speech, and emergency Gemini handoff.
+# Primary UI is manual edit + one local AI chat, natural local Live speech, voice choice, and emergency Gemini handoff.
 grep -q 'text = "✎ Bearbeiten"' "$MAIN"
 grep -q 'text = "✦ KI"' "$MAIN"
 grep -q 'Änderungswunsch schreiben' "$MAIN"
-grep -q 'Live lokal · sprechen + Seite zeigen' "$MAIN"
+grep -q 'Live lokal · natürlich sprechen' "$MAIN"
+grep -q 'Lokale Stimme auswählen' "$MAIN"
+grep -q 'showVoicePicker' "$MAIN"
+grep -q 'queuedLiveRequest' "$MAIN"
+grep -q 'stopSpeakingForBargeIn' "$MAIN"
 grep -q 'Notfall Gemini' "$MAIN"
-grep -q 'localAi.send(message)' "$MAIN"
 grep -q 'localAi.downloadModel' "$MAIN"
 grep -q 'voiceController.speak(reply)' "$MAIN"
 grep -q 'processLocalRequest' "$MAIN"
 grep -q 'gemini.google.com/app' "$MAIN"
 grep -q 'ClipboardManager' "$MAIN"
-grep -q 'KoblenzerPuppenspieleTechnician/0.4-locallive' "$MAIN"
+grep -q 'KoblenzerPuppenspieleTechnician/0.5-naturallive' "$MAIN"
 grep -q 'wordpress_logged_in_' "$MAIN"
 grep -q 'wp-login.php' "$MAIN"
 grep -q 'endsWith(".koblenzer-puppenspiele.de")' "$MAIN"
@@ -55,9 +58,8 @@ grep -q 'downloadModel' "$LOCAL"
 
 # The local model is a resilient JSON planner; deterministic website tools execute the plan.
 grep -q 'PLANNER_SYSTEM' "$LOCAL"
-grep -q 'JSON_REPAIR_SYSTEM' "$LOCAL"
-grep -q 'conversation.sendMessage(prompt).toString()' "$LOCAL"
-grep -q 'repairMalformedJson' "$LOCAL"
+grep -q 'conversation.sendMessage(prompt).text' "$LOCAL"
+grep -q 'parseJsonObjectOrNull' "$LOCAL"
 grep -q '"edit_element"' "$LOCAL"
 grep -q '"set_global_design"' "$LOCAL"
 grep -q '"request_code_change"' "$LOCAL"
@@ -71,12 +73,24 @@ grep -q 'bridge.redoEditorChange' "$LOCAL"
 grep -q 'explicitSaveRequested' "$LOCAL"
 grep -q 'bridge.saveEditorChanges' "$LOCAL"
 
-# Local Live speech must use Android's explicit on-device recognizer only.
+# Natural Live speech: explicit on-device ASR only, partial/segmented turns, barge-in and local persisted TTS voices.
 grep -q 'android.permission.RECORD_AUDIO' "$MANIFEST"
 grep -q 'SpeechRecognizer.isOnDeviceRecognitionAvailable' "$VOICE"
 grep -q 'SpeechRecognizer.createOnDeviceSpeechRecognizer' "$VOICE"
 grep -q 'RecognizerIntent.EXTRA_PREFER_OFFLINE' "$VOICE"
-grep -q '!it.isNetworkConnectionRequired' "$VOICE"
+grep -q 'RecognizerIntent.EXTRA_PARTIAL_RESULTS' "$VOICE"
+grep -q 'RecognizerIntent.EXTRA_SEGMENTED_SESSION' "$VOICE"
+grep -q 'onSegmentResults' "$VOICE"
+grep -q 'BARGE_IN_LISTEN_DELAY_MS' "$VOICE"
+grep -q 'looksLikeOwnVoice' "$VOICE"
+grep -q 'stopSpeakingForBargeIn' "$VOICE"
+grep -q '!voice.isNetworkConnectionRequired' "$VOICE"
+grep -q 'voiceOptions' "$VOICE"
+grep -q 'previewVoice' "$VOICE"
+grep -q 'kp-local-voice' "$VOICE"
+grep -q 'voice_name' "$VOICE"
+grep -q 'setSpeechRate' "$VOICE"
+grep -q 'setPitch' "$VOICE"
 grep -q 'Audio wird nicht an Gemini/OpenAI gesendet' "$MAIN"
 if grep -q 'SpeechRecognizer.createSpeechRecognizer' "$VOICE"; then
   echo 'FAIL local-ai: Live speech must not fall back to potentially remote SpeechRecognizer.' >&2
@@ -123,4 +137,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS local-ai: free on-device chat, offline conversational Live speech with current-page inspection, resilient JSON planning, emergency Gemini handoff and protected CI-gated repair are present.'
+echo 'PASS local-ai: free on-device chat, natural interruptible offline Live speech, selectable local voices, resilient planning, emergency Gemini handoff and protected CI-gated repair are present.'
