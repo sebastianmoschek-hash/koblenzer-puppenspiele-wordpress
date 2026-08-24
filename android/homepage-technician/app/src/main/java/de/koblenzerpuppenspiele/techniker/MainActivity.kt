@@ -3,6 +3,8 @@ package de.koblenzerpuppenspiele.techniker
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -20,6 +22,10 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import com.google.firebase.FirebaseApp
+import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,12 +38,15 @@ class MainActivity : Activity() {
     companion object {
         private const val REQ_AUDIO = 501
         private const val REQ_SCREEN = 502
+        private const val DEBUG_PREFS_TEMPLATE = "com.google.firebase.appcheck.debug.store.%s"
+        private const val DEBUG_SECRET_KEY = "com.google.firebase.appcheck.debug.DEBUG_SECRET"
     }
 
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var webView: WebView
     private lateinit var statusView: TextView
     private lateinit var editButton: Button
+    private lateinit var appCheckButton: Button
     private lateinit var liveButton: Button
     private lateinit var repairBridge: WebRepairBridge
     private lateinit var technician: GeminiLiveTechnician
@@ -48,6 +57,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         buildUi()
         configureWebView()
+        configureFirebaseAppCheck()
 
         repairBridge = WebRepairBridge(webView)
         webView.addJavascriptInterface(repairBridge, "KPRepairResult")
@@ -60,6 +70,7 @@ class MainActivity : Activity() {
         )
 
         editButton.setOnClickListener { openEditor() }
+        appCheckButton.setOnClickListener { showAppCheckDebugToken() }
         liveButton.setOnClickListener {
             if (live) stopLive() else beginLive()
         }
@@ -99,6 +110,15 @@ class MainActivity : Activity() {
             text = "✎ Bearbeiten"
             isAllCaps = false
         }
+        appCheckButton = Button(this).apply {
+            text = "🔑"
+            isAllCaps = false
+            minWidth = dp(42)
+            minimumWidth = dp(42)
+            setPadding(dp(8), 0, dp(8), 0)
+            contentDescription = "App-Check-Debug-Token"
+            if (!BuildConfig.DEBUG) visibility = android.view.View.GONE
+        }
         liveButton = Button(this).apply {
             text = "✦ KI live zeigen"
             isAllCaps = false
@@ -108,6 +128,7 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
         )
         bar.addView(editButton)
+        bar.addView(appCheckButton)
         bar.addView(liveButton)
         root.addView(
             bar,
@@ -118,6 +139,27 @@ class MainActivity : Activity() {
             )
         )
         setContentView(root)
+    }
+
+    private fun configureFirebaseAppCheck() {
+        val app = FirebaseApp.getApps(this).firstOrNull() ?: FirebaseApp.initializeApp(this)
+        if (app == null) {
+            showStatus("Firebase-Konfiguration fehlt.")
+            return
+        }
+        runCatching {
+            if (BuildConfig.DEBUG) {
+                FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
+                    DebugAppCheckProviderFactory.getInstance()
+                )
+            } else {
+                FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
+                    PlayIntegrityAppCheckProviderFactory.getInstance()
+                )
+            }
+        }.onFailure {
+            showStatus("App Check konnte nicht initialisiert werden: ${it.message ?: it.javaClass.simpleName}")
+        }
     }
 
     private fun configureWebView() {
@@ -147,7 +189,7 @@ class MainActivity : Activity() {
                 if (!live && currentPageTrusted) {
                     showStatus(
                         if (signedIn) "Homepage bereit · Bearbeiten oder KI live starten"
-                        else "Homepage bereit · zum Bearbeiten bitte anmelden"
+                        else "Homepage bereit · KI live kann den Bildschirm trotzdem untersuchen"
                     )
                 }
             }
@@ -206,7 +248,100 @@ class MainActivity : Activity() {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_AUDIO)
             return
         }
-        askForScreenShare()
+        verifyAppCheckThenShare()
+    }
+
+    private fun verifyAppCheckThenShare() {
+        liveButton.isEnabled = false
+        showStatus("App Check wird geprüft …")
+        runCatching { FirebaseAppCheck.getInstance() }
+            .onFailure {
+                liveButton.isEnabled = true
+                showStatus("App Check ist nicht verfügbar: ${it.message ?: it.javaClass.simpleName}")
+            }
+            .onSuccess { appCheck ->
+                appCheck.getAppCheckToken(true)
+                    .addOnSuccessListener {
+                        liveButton.isEnabled = true
+                        showStatus("App Check ✓ · Bildschirmfreigabe wird geöffnet …")
+                        askForScreenShare()
+                    }
+                    .addOnFailureListener { error ->
+                        liveButton.isEnabled = true
+                        showStatus("App Check blockiert KI-Live · 🔑 Token registrieren")
+                        if (BuildConfig.DEBUG) {
+                            showAppCheckDebugToken(error.message)
+                        } else {
+                            AlertDialog.Builder(this)
+                                .setTitle("App Check fehlgeschlagen")
+                                .setMessage(error.message ?: "Die App konnte kein gültiges App-Check-Token erhalten.")
+                                .setPositiveButton("OK", null)
+                                .show()
+                        }
+                    }
+            }
+    }
+
+    private fun showAppCheckDebugToken(preflightError: String? = null) {
+        if (!BuildConfig.DEBUG) {
+            showStatus("Der Debug-Token ist nur in der Test-App verfügbar.")
+            return
+        }
+        configureFirebaseAppCheck()
+        val existing = readAppCheckDebugSecret()
+        if (existing != null) {
+            showDebugTokenDialog(existing, preflightError)
+            return
+        }
+        showStatus("App-Check-Debug-Token wird erzeugt …")
+        runCatching { FirebaseAppCheck.getInstance() }
+            .onFailure { showStatus(it.message ?: "App Check ist nicht verfügbar.") }
+            .onSuccess { appCheck ->
+                appCheck.getAppCheckToken(true).addOnCompleteListener { task ->
+                    val secret = readAppCheckDebugSecret()
+                    if (secret != null) {
+                        showDebugTokenDialog(secret, preflightError ?: task.exception?.message)
+                    } else {
+                        AlertDialog.Builder(this)
+                            .setTitle("Debug-Token nicht lesbar")
+                            .setMessage(task.exception?.message ?: "Firebase hat noch keinen App-Check-Debug-Token angelegt.")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
+                }
+            }
+    }
+
+    private fun readAppCheckDebugSecret(): String? {
+        if (!BuildConfig.DEBUG) return null
+        val app = runCatching { FirebaseApp.getInstance() }.getOrNull() ?: return null
+        val persistenceKey = runCatching {
+            FirebaseApp::class.java.getMethod("getPersistenceKey").invoke(app) as? String
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: return null
+        val prefs = getSharedPreferences(DEBUG_PREFS_TEMPLATE.format(persistenceKey), Context.MODE_PRIVATE)
+        return prefs.getString(DEBUG_SECRET_KEY, null)?.trim()?.takeIf { it.isNotBlank() }
+    }
+
+    private fun showDebugTokenDialog(secret: String, preflightError: String?) {
+        val message = buildString {
+            append("Diesen Token einmalig in Firebase unter App Check → Apps → ⋮ → Debug-Tokens verwalten eintragen.\n\n")
+            append(secret)
+            if (!preflightError.isNullOrBlank()) {
+                append("\n\nAktueller App-Check-Fehler:\n")
+                append(preflightError)
+            }
+            append("\n\nDer Debug-Token ist geheim. Nicht öffentlich teilen oder in Quellcode speichern.")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("App-Check-Debug-Token")
+            .setMessage(message)
+            .setNegativeButton("Schließen", null)
+            .setPositiveButton("Token kopieren") { _, _ ->
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("App Check Debug Token", secret))
+                showStatus("Debug-Token kopiert · jetzt in Firebase registrieren")
+            }
+            .show()
     }
 
     private fun askForScreenShare() {
@@ -243,7 +378,7 @@ class MainActivity : Activity() {
         uiScope.launch {
             try {
                 technician.start()
-                showStatus("KI live · zeig einen Fehler oder sag, was geändert werden soll")
+                showStatus("KI live · zeig einen Fehler und sag Gemini, was nicht funktioniert")
             } catch (error: Throwable) {
                 runCatching {
                     startService(Intent(this@MainActivity, ScreenCaptureService::class.java).apply {
@@ -253,7 +388,7 @@ class MainActivity : Activity() {
                 technician.stop()
                 live = false
                 liveButton.text = "✦ KI live zeigen"
-                showStatus(error.message ?: "Gemini Live konnte nicht gestartet werden.")
+                showStatus("Gemini Live: ${error.message ?: error.javaClass.simpleName}")
             } finally {
                 liveButton.isEnabled = true
             }
@@ -264,7 +399,7 @@ class MainActivity : Activity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != REQ_AUDIO) return
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            askForScreenShare()
+            verifyAppCheckThenShare()
         } else {
             showStatus("Mikrofonzugriff wird für das Live-Gespräch benötigt.")
         }
