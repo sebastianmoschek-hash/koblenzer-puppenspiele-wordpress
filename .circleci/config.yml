@@ -69,10 +69,14 @@ jobs:
             - node_modules
       - run:
           name: Protect shared staging design colors
-          command: node qa/neutralize-staging-color-mutations.mjs
+          command: |
+            mkdir -p qa-results/circleci
+            node qa/neutralize-staging-color-mutations.mjs > >(tee qa-results/circleci/neutralize.log) 2>&1
       - run:
           name: Align browser lab with guarded mobile interactions
-          command: python3 qa/align-guarded-mobile-interactions.py
+          command: |
+            mkdir -p qa-results/circleci
+            python3 qa/align-guarded-mobile-interactions.py > >(tee qa-results/circleci/align-mobile.log) 2>&1
       - run:
           name: Smart staging deploy + homepage lab + real text save
           command: |
@@ -97,12 +101,11 @@ jobs:
             fi
             printf 'lab_rc=%s\ntext_rc=%s\n' "$lab_rc" "$text_rc" > qa-results/circleci/runner-exit.txt
             set -e
-            # Component verdict jobs below turn individual report sections red.
-            # Keep this runner alive so its report/workspace is always available.
             exit 0
           no_output_timeout: 20m
       - run:
           name: Publish latest safe lab report back to GitHub
+          when: always
           command: bash qa/publish-circleci-report-to-github.sh
       - persist_to_workspace:
           root: .
