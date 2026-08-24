@@ -20,6 +20,7 @@ import com.google.firebase.ai.type.Voice
 import com.google.firebase.ai.type.content
 import com.google.firebase.ai.type.liveGenerationConfig
 import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,9 +63,15 @@ class GeminiLiveTechnician(
             )
         }
         runCatching {
-            FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
-                PlayIntegrityAppCheckProviderFactory.getInstance()
-            )
+            if (BuildConfig.DEBUG) {
+                FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
+                    DebugAppCheckProviderFactory.getInstance()
+                )
+            } else {
+                FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
+                    PlayIntegrityAppCheckProviderFactory.getInstance()
+                )
+            }
         }
 
         val tools = Tool.functionDeclarations(
