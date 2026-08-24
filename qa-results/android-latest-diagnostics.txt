@@ -160,8 +160,8 @@ w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/d
 > Task :app:mergeDebugJavaResource
 > Task :app:createDebugCompatibleScreenManifests
 > Task :app:extractDeepLinksDebug
-> Task :app:processDebugMainManifest
 > Task :app:mergeDebugResources
+> Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
 > Task :app:mergeDebugJniLibFolders
 > Task :app:processDebugManifestForPackage
@@ -180,6 +180,6 @@ Unable to strip the following libraries, packaging them as they are: libdatastor
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 3m 1s
+BUILD SUCCESSFUL in 4m 14s
 39 actionable tasks: 39 executed
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.5.0/userguide/configuration_cache_enabling.html
