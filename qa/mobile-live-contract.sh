@@ -14,6 +14,9 @@ grep -q 'android:foregroundServiceType="mediaProjection|microphone"' "$APP/Andro
 grep -q 'createScreenCaptureIntent' "$KOTLIN/MainActivity.kt"
 grep -q 'KoblenzerPuppenspieleTechnician/0.1' "$KOTLIN/MainActivity.kt"
 grep -q 'endsWith(".koblenzer-puppenspiele.de")' "$KOTLIN/MainActivity.kt"
+grep -q 'editButton.setOnClickListener' "$KOTLIN/MainActivity.kt"
+grep -q 'wp-login.php' "$KOTLIN/MainActivity.kt"
+grep -q 'wordpress_logged_in_' "$KOTLIN/MainActivity.kt"
 grep -q 'sendVideoRealtime' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'gemini-3.1-flash-live-preview' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'edit_page_visually' "$KOTLIN/GeminiLiveTechnician.kt"
@@ -60,4 +63,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS mobile-live: screen sharing, reversible live visual editing, editor Undo/Redo, 48h versions, protected code rollback and confirmation gates are present.'
+echo 'PASS mobile-live: manual editor login, screen sharing, reversible live visual editing, editor Undo/Redo, 48h versions, protected code rollback and confirmation gates are present.'
