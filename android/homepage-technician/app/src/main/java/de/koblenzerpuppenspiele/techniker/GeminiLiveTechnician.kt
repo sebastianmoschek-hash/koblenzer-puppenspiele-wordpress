@@ -151,6 +151,22 @@ class GeminiLiveTechnician(
         scope.cancel()
     }
 
+    /** Send typed input through the exact same Live session as microphone and screen frames. */
+    fun sendText(text: String): Boolean {
+        val message = text.trim()
+        val activeSocket = socket
+        if (message.isBlank() || !running.get() || !sessionStarted.get() || activeSocket == null) return false
+        if (modelSpeaking.get()) {
+            modelSpeaking.set(false)
+            suppressModelAudio.set(true)
+            drainPlaybackQueue()
+            interruptPlayback("KI hört zu · Texteingabe")
+        }
+        val sent = activeSocket.send(JSONObject().put("realtimeInput", JSONObject().put("text", message)).toString())
+        if (sent) status("KI live · Text empfangen")
+        return sent
+    }
+
     private suspend fun refreshBootstrap() {
         val bootstrap = bridge.bootstrap()
         bootstrap["error"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
@@ -287,9 +303,9 @@ class GeminiLiveTechnician(
         }
 
         val instruction = """
-            Du bist der einzige deutschsprachige KI-Homepage-Agent der Koblenzer Puppenspiele. Der Nutzer zeigt dir seinen Android-Bildschirm live und spricht mit dir. Höre dauerhaft zu und lasse dich jederzeit unterbrechen.
+            Du bist der einzige deutschsprachige KI-Homepage-Agent der Koblenzer Puppenspiele. Der Nutzer zeigt dir seinen Android-Bildschirm live und spricht oder schreibt mit dir. Höre dauerhaft zu und lasse dich jederzeit unterbrechen.
 
-            Die Bedienidee ist einfach: Der Nutzer spricht nur mit dir. Für normale Homepage-Änderungen benutzt du DIREKTE Editorwerkzeuge. Du darfst niemals den alten separaten 'KI bearbeiten'-Dialog oder eine zweite Text-KI voraussetzen.
+            Die Bedienidee ist einfach: Der Nutzer kommuniziert nur mit dir. Für normale Homepage-Änderungen benutzt du DIREKTE Editorwerkzeuge. Du darfst niemals den alten separaten 'KI bearbeiten'-Dialog oder eine zweite Text-KI voraussetzen. Getippte Texteingaben sind genauso verbindliche Nutzerwünsche wie gesprochene Eingaben.
 
             Bei sichtbaren Änderungswünschen zuerst inspect_homepage und inspect_editable_elements verwenden. Ordne die Beschreibung des Nutzers anhand Bildschirmbild, Text, Typ und rect den passenden live_id-Werten zu. Danach edit_element für jede nötige Eigenschaft aufrufen. Für globale Farben, Header-, Menü- und Layoutwerte set_global_design verwenden. Mehrere Elemente oder mehrere Eigenschaften werden mit mehreren Werkzeugaufrufen umgesetzt. Änderungen bleiben zunächst ungespeichert. save_homepage nur auf ausdrücklichen Wunsch wie 'speichern', 'übernehmen' oder 'dauerhaft machen'. undo_homepage/redo_homepage für Korrekturen verwenden.
 
