@@ -15,6 +15,9 @@ files=(
   'kp-mobile-live-protocol-marker.php'
   'kp-mobile-live-image-tools.php'
   'kp-mobile-live-image-adapter.php'
+  'kp-mobile-local-ai-repair.php'
+  'kp-local-ai-desktop.php'
+  'kp-local-ai-marker.php'
 )
 
 for name in "${files[@]}"; do
@@ -35,6 +38,9 @@ put '$MU/kp-mobile-live-bootstrap-v2.php' -o '/wp-content/mu-plugins/kp-mobile-l
 put '$MU/kp-mobile-live-protocol-marker.php' -o '/wp-content/mu-plugins/kp-mobile-live-protocol-marker.php';
 put '$MU/kp-mobile-live-image-tools.php' -o '/wp-content/mu-plugins/kp-mobile-live-image-tools.php';
 put '$MU/kp-mobile-live-image-adapter.php' -o '/wp-content/mu-plugins/kp-mobile-live-image-adapter.php';
+put '$MU/kp-mobile-local-ai-repair.php' -o '/wp-content/mu-plugins/kp-mobile-local-ai-repair.php';
+put '$MU/kp-local-ai-desktop.php' -o '/wp-content/mu-plugins/kp-local-ai-desktop.php';
+put '$MU/kp-local-ai-marker.php' -o '/wp-content/mu-plugins/kp-local-ai-marker.php';
 bye
 "
 
@@ -45,12 +51,30 @@ for attempt in $(seq 1 12); do
       "$STAGING_BASE/?kp_mobile_live_protocol=1&kp_ci=${CIRCLE_SHA1:-manual}-$attempt" \
       -o "$marker" \
     && jq -e '.success == true and .data.protocol == "v1beta-u1" and .data.tokenMode == "ephemeral-one-use-unconstrained" and .data.agentMode == "single-live-direct-editor" and .data.directEditor == true and .data.directImage == true' "$marker" >/dev/null; then
-    echo 'PASS mobile-live staging marker: v1beta-u1 / single-live-direct-editor / direct-image'
+    echo 'PASS legacy mobile-live marker remains healthy'
     break
   fi
   if [[ "$attempt" -eq 12 ]]; then
-    echo 'FAIL mobile-live staging marker did not reach unified direct-editor generation.' >&2
+    echo 'FAIL mobile-live staging marker did not reach expected generation.' >&2
     cat "$marker" >&2 || true
+    exit 1
+  fi
+  sleep 2
+done
+
+local_marker="$(mktemp)"
+for attempt in $(seq 1 12); do
+  if curl --fail --silent --show-error --location \
+      -H 'Cache-Control: no-cache, no-store' \
+      "$STAGING_BASE/?kp_local_ai_marker=1&kp_ci=${CIRCLE_SHA1:-manual}-$attempt" \
+      -o "$local_marker" \
+    && jq -e '.version == "local-first-v1" and .primaryMode == "local-chat" and .desktopLocalAi == true and .androidLocalAi == true and .cloudModel == false and .emergencyGemini == "handoff-only"' "$local_marker" >/dev/null; then
+    echo 'PASS local-ai staging marker: local chat / cloudModel=false / emergency handoff'
+    break
+  fi
+  if [[ "$attempt" -eq 12 ]]; then
+    echo 'FAIL local-ai staging marker did not reach local-first-v1.' >&2
+    cat "$local_marker" >&2 || true
     exit 1
   fi
   sleep 2
@@ -58,15 +82,15 @@ done
 
 bootstrap="$(mktemp)"
 http_code="$(curl --silent --show-error --location \
-  -A 'KoblenzerPuppenspieleTechnician/0.2-directlive' \
+  -A 'KoblenzerPuppenspieleTechnician/0.3-localai' \
   -o "$bootstrap" -w '%{http_code}' \
-  -X POST -d 'action=kp_mobile_live_bootstrap' \
+  -X POST -d 'action=kp_mobile_local_bootstrap' \
   "$STAGING_BASE/wp-admin/admin-ajax.php")"
 
 if [[ "$http_code" != '401' ]] || ! jq -e '.success == false and (.data.message | contains("Bitte zuerst bei WordPress anmelden"))' "$bootstrap" >/dev/null; then
-  echo "FAIL mobile-live unauthenticated bootstrap gate: HTTP $http_code" >&2
+  echo "FAIL local-ai unauthenticated bootstrap gate: HTTP $http_code" >&2
   cat "$bootstrap" >&2 || true
   exit 1
 fi
 
-echo 'PASS mobile-live bootstrap auth gate: HTTP 401'
+echo 'PASS local-ai bootstrap auth gate: HTTP 401'
