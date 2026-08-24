@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
@@ -12,6 +13,7 @@ import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
 import android.media.audiofx.NoiseSuppressor
+import android.os.Build
 import android.util.Base64
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CompletableDeferred
@@ -20,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
@@ -36,6 +39,7 @@ import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.abs
 import kotlin.math.max
 
 /** Direct Gemini Live client using short-lived WordPress-issued ephemeral tokens. */
@@ -48,8 +52,11 @@ class GeminiLiveTechnician(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client = OkHttpClient.Builder().build()
     private val running = AtomicBoolean(false)
+    private val modelSpeaking = AtomicBoolean(false)
+    private val suppressModelAudio = AtomicBoolean(false)
     private val handlerJobs = ConcurrentHashMap<String, Job>()
     private val repairJobs = ConcurrentHashMap<String, RepairJobState>()
+    private val playbackQueue = Channel<ByteArray>(Channel.UNLIMITED)
 
     @Volatile private var socket: WebSocket? = null
     @Volatile private var setupReady: CompletableDeferred<Unit>? = null
@@ -58,7 +65,9 @@ class GeminiLiveTechnician(
     @Volatile private var echoCanceler: AcousticEchoCanceler? = null
     @Volatile private var noiseSuppressor: NoiseSuppressor? = null
     private var audioJob: Job? = null
+    private var playbackJob: Job? = null
     private var frameJob: Job? = null
+    private var localSpeechFrames = 0
 
     private data class RepairJobState(
         @Volatile var state: String = "running",
@@ -73,20 +82,27 @@ class GeminiLiveTechnician(
             throw IllegalStateException("Mikrofonzugriff fehlt.")
         }
 
-        status("Live v1beta-C · Zugang wird vorbereitet …")
+        status("Live v1beta-u1 · Zugang wird vorbereitet …")
         val bootstrap = bridge.bootstrap()
         bootstrap["error"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let {
             throw IllegalStateException(it)
+        }
+        val protocol = bootstrap["liveProtocol"]?.jsonPrimitive?.content.orEmpty()
+        if (protocol != "v1beta-u1") {
+            throw IllegalStateException("Staging-Live-Protokoll ist noch nicht aktuell ($protocol).")
         }
         val token = bootstrap["liveToken"]?.jsonPrimitive?.content.orEmpty()
         if (token.isBlank()) throw IllegalStateException("WordPress hat kein kurzlebiges Gemini-Live-Token geliefert.")
         val model = bootstrap["model"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
             ?: "gemini-3.1-flash-live-preview"
 
-        status("Live v1beta-C · Gemini-Verbindung wird geöffnet …")
+        status("Live v1beta-u1 · Gemini-Verbindung wird geöffnet …")
         val ready = CompletableDeferred<Unit>()
         setupReady = ready
         running.set(true)
+        modelSpeaking.set(false)
+        suppressModelAudio.set(false)
+        localSpeechFrames = 0
         val request = Request.Builder()
             .url("wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=$token")
             .build()
@@ -100,14 +116,14 @@ class GeminiLiveTechnician(
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) = handleServerMessage(bytes.utf8())
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                if (running.get()) status("Gemini Live v1beta-C beendet ($code): ${reason.ifBlank { "ohne Begründung" }}")
+                if (running.get()) status("Gemini Live v1beta-u1 beendet ($code): ${reason.ifBlank { "ohne Begründung" }}")
                 webSocket.close(code, reason)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 if (running.get()) {
                     running.set(false)
-                    val message = "Gemini Live v1beta-C wurde beendet ($code): ${reason.ifBlank { "Verbindung geschlossen" }}"
+                    val message = "Gemini Live v1beta-u1 wurde beendet ($code): ${reason.ifBlank { "Verbindung geschlossen" }}"
                     ready.completeExceptionally(IllegalStateException(message))
                     status(message)
                 }
@@ -116,7 +132,7 @@ class GeminiLiveTechnician(
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 val detail = response?.let { "HTTP ${it.code}" } ?: (t.message ?: t.javaClass.simpleName)
                 ready.completeExceptionally(IllegalStateException("Direkte Gemini-Live-Verbindung fehlgeschlagen: $detail", t))
-                if (running.get()) status("Gemini Live v1beta-C: $detail")
+                if (running.get()) status("Gemini Live v1beta-u1: $detail")
                 running.set(false)
             }
         })
@@ -130,7 +146,7 @@ class GeminiLiveTechnician(
                     if (running.get()) sendRealtimeBlob("image/jpeg", jpeg)
                 }
             }
-            status("KI live v1beta-C · du kannst Gemini jederzeit ins Wort fallen")
+            status("KI live · Lautsprecher aktiv · sprich jederzeit dazwischen")
         } catch (error: Throwable) {
             stop()
             throw error
@@ -139,10 +155,15 @@ class GeminiLiveTechnician(
 
     fun stop() {
         running.set(false)
+        modelSpeaking.set(false)
+        suppressModelAudio.set(false)
+        localSpeechFrames = 0
         audioJob?.cancel(); audioJob = null
+        playbackJob?.cancel(); playbackJob = null
         frameJob?.cancel(); frameJob = null
         handlerJobs.values.forEach { it.cancel() }
         handlerJobs.clear()
+        drainPlaybackQueue()
         stopAudio()
         socket?.close(1000, "Nutzer hat KI-Live beendet")
         socket = null
@@ -152,6 +173,7 @@ class GeminiLiveTechnician(
 
     fun release() {
         stop()
+        playbackQueue.close()
         client.dispatcher.executorService.shutdown()
         client.connectionPool.evictAll()
         scope.cancel()
@@ -229,13 +251,13 @@ class GeminiLiveTechnician(
             put("realtimeInputConfig", JSONObject().apply {
                 put("automaticActivityDetection", JSONObject().apply {
                     put("disabled", false)
-                    put("silenceDurationMs", 500)
-                    put("prefixPaddingMs", 250)
+                    put("silenceDurationMs", 350)
+                    put("prefixPaddingMs", 200)
                     put("startOfSpeechSensitivity", "START_SENSITIVITY_HIGH")
                     put("endOfSpeechSensitivity", "END_SENSITIVITY_HIGH")
                 })
                 put("activityHandling", "START_OF_ACTIVITY_INTERRUPTS")
-                put("turnCoverage", "TURN_INCLUDES_ONLY_ACTIVITY")
+                put("turnCoverage", "TURN_INCLUDES_AUDIO_ACTIVITY_AND_ALL_VIDEO")
             })
         })
     }
@@ -265,7 +287,7 @@ class GeminiLiveTechnician(
         data.optJSONObject("error")?.let { error ->
             val message = error.optString("message").ifBlank { "Unbekannter Gemini-Live-Protokollfehler." }
             setupReady?.completeExceptionally(IllegalStateException(message))
-            status("Gemini Live v1beta-C: $message")
+            status("Gemini Live v1beta-u1: $message")
             return
         }
 
@@ -291,12 +313,22 @@ class GeminiLiveTechnician(
         }
 
         val server = data.optJSONObject("serverContent") ?: return
-        if (server.optBoolean("interrupted", false)) interruptPlayback()
+        if (server.optBoolean("interrupted", false)) {
+            suppressModelAudio.set(false)
+            modelSpeaking.set(false)
+            localSpeechFrames = 0
+            interruptPlayback("KI hört zu · Gemini wurde unterbrochen")
+        }
+        if (server.optBoolean("turnComplete", false)) {
+            modelSpeaking.set(false)
+            suppressModelAudio.set(false)
+            localSpeechFrames = 0
+        }
         server.optJSONObject("modelTurn")?.optJSONArray("parts")?.let { parts ->
             for (i in 0 until parts.length()) {
                 val inline = parts.optJSONObject(i)?.optJSONObject("inlineData") ?: continue
                 val base64 = inline.optString("data")
-                if (base64.isNotBlank()) playAudio(Base64.decode(base64, Base64.DEFAULT))
+                if (base64.isNotBlank()) queueAudio(Base64.decode(base64, Base64.DEFAULT))
             }
         }
     }
@@ -465,7 +497,19 @@ class GeminiLiveTechnician(
             val chunk = ByteArray(3_200)
             while (running.get()) {
                 val read = record.read(chunk, 0, chunk.size)
-                if (read > 0) sendRealtimeBlob("audio/pcm;rate=16000", chunk.copyOf(read))
+                if (read <= 0) continue
+                val pcm = chunk.copyOf(read)
+                if (modelSpeaking.get()) {
+                    val level = averageAbsolutePcm16(pcm)
+                    if (level >= LOCAL_BARGE_IN_LEVEL) localSpeechFrames += 1 else localSpeechFrames = 0
+                    if (localSpeechFrames >= LOCAL_BARGE_IN_FRAMES) {
+                        localSpeechFrames = 0
+                        triggerLocalBargeIn()
+                    }
+                } else {
+                    localSpeechFrames = 0
+                }
+                sendRealtimeBlob("audio/pcm;rate=16000", pcm)
             }
         }
     }
@@ -480,7 +524,7 @@ class GeminiLiveTechnician(
         val track = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
             )
@@ -499,18 +543,38 @@ class GeminiLiveTechnician(
             throw IllegalStateException("Gemini-Audioausgabe konnte nicht initialisiert werden.")
         }
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        audioManager.mode = AudioManager.MODE_NORMAL
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val speaker = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                .firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+            if (speaker != null) runCatching { track.setPreferredDevice(speaker) }
+        }
+        track.setVolume(1.0f)
         audioTrack = track
         track.play()
+        playbackJob = scope.launch {
+            for (bytes in playbackQueue) {
+                if (!running.get() || suppressModelAudio.get() || bytes.isEmpty()) continue
+                val activeTrack = audioTrack ?: continue
+                runCatching { activeTrack.write(bytes, 0, bytes.size, AudioTrack.WRITE_BLOCKING) }
+            }
+        }
     }
 
-    private fun playAudio(bytes: ByteArray) {
-        val track = audioTrack ?: return
-        if (!running.get() || bytes.isEmpty()) return
-        runCatching { track.write(bytes, 0, bytes.size, AudioTrack.WRITE_BLOCKING) }
+    private fun queueAudio(bytes: ByteArray) {
+        if (!running.get() || suppressModelAudio.get() || bytes.isEmpty()) return
+        modelSpeaking.set(true)
+        playbackQueue.trySend(bytes)
     }
 
-    private fun interruptPlayback() {
+    private fun triggerLocalBargeIn() {
+        if (!modelSpeaking.compareAndSet(true, false)) return
+        suppressModelAudio.set(true)
+        drainPlaybackQueue()
+        interruptPlayback("KI hört zu · Unterbrechung erkannt")
+    }
+
+    private fun interruptPlayback(message: String) {
         audioTrack?.let { track ->
             runCatching {
                 track.pause()
@@ -518,7 +582,29 @@ class GeminiLiveTechnician(
                 if (running.get()) track.play()
             }
         }
-        status("KI hört zu · du hast Gemini unterbrochen")
+        status(message)
+    }
+
+    private fun drainPlaybackQueue() {
+        while (playbackQueue.tryReceive().isSuccess) {
+            // Drop already-buffered model audio so local barge-in is audible immediately.
+        }
+    }
+
+    private fun averageAbsolutePcm16(bytes: ByteArray): Int {
+        if (bytes.size < 2) return 0
+        var sum = 0L
+        var samples = 0
+        var index = 0
+        while (index + 1 < bytes.size) {
+            val lo = bytes[index].toInt() and 0xff
+            val hi = bytes[index + 1].toInt()
+            val sample = ((hi shl 8) or lo).toShort().toInt()
+            sum += abs(sample.toLong())
+            samples += 1
+            index += 2
+        }
+        return if (samples == 0) 0 else (sum / samples).toInt()
     }
 
     private fun stopAudio() {
@@ -536,6 +622,7 @@ class GeminiLiveTechnician(
         audioTrack = null
         runCatching {
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audioManager.clearCommunicationDevice()
             audioManager.mode = AudioManager.MODE_NORMAL
         }
     }
@@ -545,4 +632,9 @@ class GeminiLiveTechnician(
 
     private fun errorObject(message: String): JSONObject =
         JSONObject().put("success", false).put("error", message)
+
+    companion object {
+        private const val LOCAL_BARGE_IN_LEVEL = 900
+        private const val LOCAL_BARGE_IN_FRAMES = 2
+    }
 }
