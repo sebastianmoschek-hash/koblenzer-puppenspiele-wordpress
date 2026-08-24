@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
 
 /**
- * Calls the authenticated WordPress repair runtime inside the WebView.
+ * Calls the authenticated WordPress repair/runtime APIs inside the WebView.
  * No GitHub or WordPress credentials are copied into the Android app.
  */
 class WebRepairBridge(private val webView: WebView) {
@@ -28,6 +28,15 @@ class WebRepairBridge(private val webView: WebView) {
 
     suspend fun context(): JsonObject = call("Promise.resolve(window.KPRepairMobile.context())")
 
+    suspend fun editorHistory(): JsonObject =
+        call("Promise.resolve(window.KPRepairMobile.editorHistory())")
+
+    suspend fun undoEditorChange(): JsonObject =
+        call("window.KPRepairMobile.undo()")
+
+    suspend fun redoEditorChange(): JsonObject =
+        call("window.KPRepairMobile.redo()")
+
     suspend fun analyze(description: String): JsonObject =
         call("window.KPRepairMobile.analyze(${JSONObject.quote(description)})")
 
@@ -39,6 +48,12 @@ class WebRepairBridge(private val webView: WebView) {
 
     suspend fun merge(pr: String): JsonObject =
         call("window.KPRepairMobile.merge(${JSONObject.quote(pr)})")
+
+    suspend fun technicalHistory(): JsonObject =
+        call("window.KPRepairMobile.technicalHistory()")
+
+    suspend fun rollbackRepair(pr: String): JsonObject =
+        call("window.KPRepairMobile.rollbackRepair(${JSONObject.quote(pr)})")
 
     private suspend fun call(expression: String): JsonObject = suspendCancellableCoroutine { cont ->
         val id = UUID.randomUUID().toString()
