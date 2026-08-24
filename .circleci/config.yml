@@ -71,16 +71,58 @@ jobs:
           name: Protect shared staging design colors
           command: |
             mkdir -p qa-results/circleci
+            set +e
             node qa/neutralize-staging-color-mutations.mjs > >(tee qa-results/circleci/neutralize.log) 2>&1
+            rc=$?
+            printf '%s\n' "$rc" > qa-results/circleci/neutralize.rc
+            set -e
+            exit 0
       - run:
           name: Align browser lab with guarded mobile interactions
           command: |
             mkdir -p qa-results/circleci
+            set +e
             python3 qa/align-guarded-mobile-interactions.py > >(tee qa-results/circleci/align-mobile.log) 2>&1
+            rc=$?
+            printf '%s\n' "$rc" > qa-results/circleci/align-mobile.rc
+            set -e
+            exit 0
       - run:
           name: Smart staging deploy + homepage lab + real text save
           command: |
             mkdir -p qa-results/circleci
+            neutralize_rc="$(cat qa-results/circleci/neutralize.rc 2>/dev/null || echo 1)"
+            align_rc="$(cat qa-results/circleci/align-mobile.rc 2>/dev/null || echo 1)"
+            if [[ "$neutralize_rc" -ne 0 || "$align_rc" -ne 0 ]]; then
+              generated="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+              cat > qa-results/circleci/report.json <<JSON
+            {
+              "generatedAt":"$generated",
+              "provider":"CircleCI Free",
+              "commit":"${CIRCLE_SHA1:-unknown}",
+              "success":false,
+              "phase":"staging-preflight",
+              "checks":{
+                "neutralizeStagingColors":"$([[ "$neutralize_rc" -eq 0 ]] && echo success || echo failure)",
+                "alignMobileInteractions":"$([[ "$align_rc" -eq 0 ]] && echo success || echo failure)",
+                "browserLab":"not-started"
+              }
+            }
+            JSON
+              cat > qa-results/circleci/report.md <<MD
+            # CircleCI Staging-Preflight
+
+            Commit: ${CIRCLE_SHA1:-unknown}  
+            Gesamtstatus: **FAILURE**
+
+            - Shared-Staging-Farbschutz: $([[ "$neutralize_rc" -eq 0 ]] && echo success || echo failure)
+            - Mobile-Guard-Ausrichtung: $([[ "$align_rc" -eq 0 ]] && echo success || echo failure)
+            - Browser-Labor: not-started
+            MD
+              printf 'lab_rc=1\ntext_rc=1\n' > qa-results/circleci/runner-exit.txt
+              exit 0
+            fi
+
             set +e
             bash qa/circleci-homepage-lab-smart.sh
             lab_rc=$?
