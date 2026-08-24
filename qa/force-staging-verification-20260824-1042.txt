@@ -1,0 +1,1 @@
+Force a fresh full staging-only verification for the current main state after restoring the validated CircleCI workflow configuration. Run browser, save→reload→DB readback, Undo/48h, Chromium touch and visual gates. Never touch production.
