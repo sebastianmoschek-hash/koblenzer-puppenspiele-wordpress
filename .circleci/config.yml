@@ -34,6 +34,29 @@ jobs:
           name: Gemini repair safety contract
           command: bash qa/ai-repair-contract.sh
 
+  android-homepage-technician:
+    docker:
+      - image: cimg/android:2026.07
+    resource_class: medium
+    steps:
+      - checkout
+      - run:
+          name: Install Android build prerequisites
+          command: |
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli unzip curl
+            yes | sdkmanager 'platforms;android-36' 'build-tools;36.0.0' >/dev/null
+            curl -fsSL -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-9.5.0-bin.zip
+            unzip -q /tmp/gradle.zip -d /tmp
+      - run:
+          name: Mobile live security contract
+          command: bash qa/mobile-live-contract.sh
+      - run:
+          name: Compile Homepage-Hilfe debug APK
+          command: |
+            cd android/homepage-technician
+            /tmp/gradle-9.5.0/bin/gradle --no-daemon :app:assembleDebug
+
   homepage-staging-lab:
     docker:
       - image: mcr.microsoft.com/playwright:v1.55.0-noble
@@ -205,6 +228,11 @@ workflows:
               only:
                 - main
                 - /ai-repair\/.*/
+      - android-homepage-technician:
+          filters:
+            branches:
+              only:
+                - /feature\/android-.*/
       - homepage-staging-lab:
           requires:
             - editor-contracts
