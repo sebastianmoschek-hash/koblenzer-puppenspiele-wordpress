@@ -71,6 +71,30 @@ grep -q 'LOCAL_BARGE_IN_LEVEL' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'drainPlaybackQueue' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'Unterbrechung erkannt' "$KOTLIN/GeminiLiveTechnician.kt"
 
+# Unified design agent: Live Gemini can use the real visual editor, save, undo and redo instead of refusing editor-owned UI.
+grep -q 'inspect_editor_capabilities' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'edit_homepage' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'save_homepage' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'undo_homepage' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'redo_homepage' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'bridge.visualEdit' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'bridge.saveEditorChanges' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'bridge.editorCapabilities' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'requires_code_repair' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'voller Editorzugriff' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'visualEdit' "$KOTLIN/WebRepairBridge.kt"
+grep -q 'saveEditorChanges' "$KOTLIN/WebRepairBridge.kt"
+grep -q 'editorCapabilities' "$KOTLIN/WebRepairBridge.kt"
+grep -q 'kp-fe2-save' "$KOTLIN/WebRepairBridge.kt"
+
+# Transient Gemini/API overload must retry with exponential backoff + jitter instead of failing immediately.
+grep -q 'attempt<4' "$KOTLIN/WebRepairBridge.kt"
+grep -q 'Math.pow(2' "$KOTLIN/WebRepairBridge.kt"
+grep -q 'Math.random()' "$KOTLIN/WebRepairBridge.kt"
+grep -q 'RESOURCE_EXHAUSTED' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'temporary_overload' "$KOTLIN/GeminiLiveTechnician.kt"
+grep -q 'isTransientGeminiMessage' "$KOTLIN/GeminiLiveTechnician.kt"
+
 grep -q 'startBackgroundRepair' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'SYSTEMSTATUS:' "$KOTLIN/GeminiLiveTechnician.kt"
 grep -q 'du kannst weiterreden' "$KOTLIN/GeminiLiveTechnician.kt"
@@ -112,4 +136,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS mobile-live: v1beta-u1 ephemeral Live, loudspeaker/media audio, immediate local + server barge-in, background repair analysis and protected CI-gated code repair are present.'
+echo 'PASS mobile-live: v1beta-u1 Live, loudspeaker + barge-in, unified visual editor control, overload backoff and protected CI-gated code repair are present.'
