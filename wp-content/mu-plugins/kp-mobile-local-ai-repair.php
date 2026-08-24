@@ -1,8 +1,8 @@
 <?php
 /**
- * Local Android AI support for the protected repair lab.
+ * Local AI support for the protected repair lab.
  *
- * The phone-side open model may inspect a restricted code catalog and prepare a
+ * The device-side open model may inspect a restricted code catalog and prepare a
  * search/replace proposal. The server still validates every path/operation and
  * hands the result to the existing branch -> CI -> explicit merge workflow.
  * No cloud language-model request is made by these endpoints.
@@ -24,6 +24,39 @@ function kp_local_ai_repair_guard() {
     }
     kp_ai_repair_guard();
 }
+
+/**
+ * Cloud-free bootstrap for the Android local-AI app. Unlike the legacy live
+ * bootstrap this endpoint never requests a Gemini token and therefore cannot
+ * consume or hit a Gemini API quota.
+ */
+add_action( 'wp_ajax_kp_mobile_local_bootstrap', static function () {
+    if ( ! is_user_logged_in() || ! current_user_can( 'kp_ai_repair_code' ) ) {
+        wp_send_json_error( array( 'message' => 'Bitte zuerst als Homepage-Techniker oder Administrator anmelden.' ), 403 );
+    }
+    $ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
+    if ( ! str_contains( $ua, 'KoblenzerPuppenspieleTechnician/' ) ) {
+        wp_send_json_error( array( 'message' => 'Dieser lokale Bootstrap ist nur für die Homepage-Hilfe-App verfügbar.' ), 403 );
+    }
+    if ( ! defined( 'KP_AI_REPAIR_NONCE' ) ) {
+        wp_send_json_error( array( 'message' => 'Die Reparaturbasis ist noch nicht geladen.' ), 503 );
+    }
+    $owner_nonce = '';
+    if ( class_exists( 'KP_Owner_Web_App' ) && defined( 'KP_Owner_Web_App::NONCE_ACTION' ) ) {
+        $owner_nonce = wp_create_nonce( KP_Owner_Web_App::NONCE_ACTION );
+    }
+    wp_send_json_success( array(
+        'localAi'         => true,
+        'cloudModel'      => false,
+        'repairNonce'     => wp_create_nonce( KP_AI_REPAIR_NONCE ),
+        'ownerNonce'      => $owner_nonce,
+        'githubConnected' => function_exists( 'kp_ai_repair_token' ) && (bool) kp_ai_repair_token(),
+        'canMerge'        => current_user_can( 'kp_ai_repair_merge' ),
+    ) );
+} );
+add_action( 'wp_ajax_nopriv_kp_mobile_local_bootstrap', static function () {
+    wp_send_json_error( array( 'message' => 'Bitte zuerst bei WordPress anmelden.' ), 401 );
+} );
 
 add_action( 'wp_ajax_kp_local_ai_repair_context', static function () {
     kp_local_ai_repair_guard();
@@ -51,17 +84,18 @@ add_action( 'wp_ajax_kp_local_ai_repair_files', static function () {
         if ( ! kp_ai_repair_allowed_path( $path ) ) { continue; }
         $absolute = kp_ai_repair_abs_path( $path );
         if ( ! $absolute || ! is_file( $absolute ) || ! is_readable( $absolute ) ) { continue; }
-        $content = (string) file_get_contents( $absolute );
-        $length = strlen( $content );
+        $base = (string) file_get_contents( $absolute );
+        $length = strlen( $base );
+        $content = $base;
         $truncated = $length > 26000;
         if ( $truncated ) {
-            $content = substr( $content, 0, 16000 )
+            $content = substr( $base, 0, 16000 )
                 . "\n\n/* ... MITTELTEIL FÜR LOKALE KI GEKÜRZT ... */\n\n"
-                . substr( $content, -10000 );
+                . substr( $base, -10000 );
         }
         $out[] = array(
             'path'      => $path,
-            'hash'      => hash( 'sha256', (string) file_get_contents( $absolute ) ),
+            'hash'      => hash( 'sha256', $base ),
             'content'   => $content,
             'truncated' => $truncated,
             'bytes'     => $length,
