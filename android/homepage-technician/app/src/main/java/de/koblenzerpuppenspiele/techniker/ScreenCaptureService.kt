@@ -47,6 +47,7 @@ class ScreenCaptureService : Service() {
     private var thread: HandlerThread? = null
     private var handler: Handler? = null
     private var lastFrameAt = 0L
+    @Volatile private var stopping = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -59,6 +60,8 @@ class ScreenCaptureService : Service() {
     }
 
     private fun startCapture(intent: Intent) {
+        if (projection != null) return
+        stopping = false
         createNotificationChannel()
         val notification = androidx.core.app.NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_view)
@@ -91,21 +94,21 @@ class ScreenCaptureService : Service() {
             @Suppress("DEPRECATION")
             intent.getParcelableExtra(EXTRA_RESULT_DATA)
         } ?: run {
-            stopSelf()
+            stopCapture(stopProjection = false)
             return
         }
 
         val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         projection = manager.getMediaProjection(resultCode, resultData)
         val mediaProjection = projection ?: run {
-            stopSelf()
+            stopCapture(stopProjection = false)
             return
         }
 
         thread = HandlerThread("kp-screen-capture").also { it.start() }
         handler = Handler(thread!!.looper)
         mediaProjection.registerCallback(object : MediaProjection.Callback() {
-            override fun onStop() = stopCapture()
+            override fun onStop() = stopCapture(stopProjection = false)
         }, handler)
 
         val metrics = resources.displayMetrics
@@ -154,13 +157,21 @@ class ScreenCaptureService : Service() {
         )
     }
 
-    private fun stopCapture() {
+    @Synchronized
+    private fun stopCapture(stopProjection: Boolean = true) {
+        if (stopping) return
+        stopping = true
+
         virtualDisplay?.release()
         virtualDisplay = null
+        reader?.setOnImageAvailableListener(null, null)
         reader?.close()
         reader = null
-        projection?.stop()
+
+        val activeProjection = projection
         projection = null
+        if (stopProjection) runCatching { activeProjection?.stop() }
+
         thread?.quitSafely()
         thread = null
         handler = null
@@ -181,10 +192,19 @@ class ScreenCaptureService : Service() {
     }
 
     override fun onDestroy() {
-        virtualDisplay?.release()
-        reader?.close()
-        projection?.stop()
-        thread?.quitSafely()
+        if (!stopping) {
+            virtualDisplay?.release()
+            virtualDisplay = null
+            reader?.setOnImageAvailableListener(null, null)
+            reader?.close()
+            reader = null
+            val activeProjection = projection
+            projection = null
+            runCatching { activeProjection?.stop() }
+            thread?.quitSafely()
+            thread = null
+            handler = null
+        }
         super.onDestroy()
     }
 }
