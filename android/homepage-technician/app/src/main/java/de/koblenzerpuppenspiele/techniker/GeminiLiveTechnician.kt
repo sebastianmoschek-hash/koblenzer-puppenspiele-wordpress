@@ -36,8 +36,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 /**
- * Gemini Live is the conversational/visual layer only. All code repair actions still go
- * through the server-side safe-repair lab, repair branches and CI gates.
+ * Gemini Live is the conversational/visual layer only. Content changes use the common
+ * editor Undo/Redo history. Code repairs and rollbacks always use protected PR + CI gates.
  */
 @OptIn(PublicPreviewAPI::class)
 class GeminiLiveTechnician(
@@ -70,7 +70,27 @@ class GeminiLiveTechnician(
             listOf(
                 FunctionDeclaration(
                     "inspect_homepage",
-                    "Read the current authenticated homepage context, selected element, viewport and recent browser/network errors.",
+                    "Read the current authenticated homepage context, selected element, editor history counts, viewport and recent browser/network errors.",
+                    emptyMap(),
+                ),
+                FunctionDeclaration(
+                    "get_change_history",
+                    "Read both the immediate visual editor Undo/Redo state and the merged technical AI repair history. Use this before deciding how to undo an ambiguous 'last change'.",
+                    emptyMap(),
+                ),
+                FunctionDeclaration(
+                    "undo_last_editor_change",
+                    "Undo exactly one reversible visual/content editor action using the same central Undo stack as the web app. Use for text, image, layout, color, size, navigation and ordinary AI design changes.",
+                    emptyMap(),
+                ),
+                FunctionDeclaration(
+                    "redo_last_editor_change",
+                    "Redo exactly one previously undone visual/content editor action using the same central Redo stack as the web app.",
+                    emptyMap(),
+                ),
+                FunctionDeclaration(
+                    "list_technical_repairs",
+                    "List merged Gemini code repairs and whether each one has already been rolled back.",
                     emptyMap(),
                 ),
                 FunctionDeclaration(
@@ -84,13 +104,18 @@ class GeminiLiveTechnician(
                     mapOf("proposal_id" to Schema.string("proposal_id returned by analyze_homepage_error")),
                 ),
                 FunctionDeclaration(
+                    "rollback_technical_repair",
+                    "After explicit user confirmation, create an isolated rollback PR that restores the exact pre-repair code only when those files have not changed since. The rollback still requires CI and a later merge confirmation.",
+                    mapOf("repair_pr" to Schema.string("Pull request number of the merged KI-Reparatur to roll back.")),
+                ),
+                FunctionDeclaration(
                     "check_repair_status",
-                    "Check CI status for a repair pull request.",
-                    mapOf("pr" to Schema.string("GitHub pull request number returned by create_repair_branch")),
+                    "Check CI status for either a repair or rollback pull request.",
+                    mapOf("pr" to Schema.string("GitHub pull request number returned by a repair or rollback action.")),
                 ),
                 FunctionDeclaration(
                     "merge_repair",
-                    "After explicit user confirmation, ask the server repair lab to merge a repair pull request. The server refuses unless CI is green.",
+                    "After explicit user confirmation, ask the server repair lab to merge a repair or rollback pull request. The server refuses unless CI is green.",
                     mapOf("pr" to Schema.string("GitHub pull request number")),
                 ),
             )
@@ -108,11 +133,14 @@ class GeminiLiveTechnician(
                 text(
                     "Du bist der deutschsprachige Homepage-Techniker der Koblenzer Puppenspiele. " +
                         "Der Nutzer zeigt dir die Homepage live auf seinem Android-Bildschirm und spricht mit dir. " +
-                        "Beobachte genau, frage nur nach wenn wirklich nötig und unterscheide Designprobleme von technischen Bugs. " +
+                        "Beobachte genau, frage nur nach wenn wirklich nötig und unterscheide Design-/Inhaltsänderungen von technischen Code-Reparaturen. " +
+                        "Normale Änderungen an Text, Bildern, Position, Farben, Größen, Navigation oder Layout gehören immer in die gemeinsame Editor-Historie und werden mit undo_last_editor_change bzw. redo_last_editor_change rückgängig gemacht. " +
+                        "Wenn der Nutzer allgemein sagt 'mach die letzte Änderung rückgängig', verwende zuerst get_change_history. Gibt es einen unmittelbaren Editor-Undo-Schritt, verwende diesen. Nur wenn ausdrücklich eine übernommene technische Reparatur gemeint ist oder kein passender Editor-Schritt existiert, verwende die Technik-Historie. " +
+                        "Gespeicherte ältere Website-Stände bleiben zusätzlich über die sichtbare Versionshistorie des Editors verfügbar; behaupte nicht, eine solche Version wiederhergestellt zu haben, wenn kein Tool dies getan hat. " +
                         "Bei einem technischen Problem zuerst inspect_homepage verwenden und danach analyze_homepage_error. " +
-                        "Behaupte niemals, dass etwas repariert wurde, bevor ein Tool das bestätigt. " +
-                        "Code niemals selbst frei erfinden oder live schreiben: Änderungen laufen ausschließlich über das geschützte Reparaturlabor, ai-repair-Branch und CI. " +
-                        "create_repair_branch und merge_repair nur auslösen, wenn der Nutzer die jeweilige Aktion ausdrücklich bestätigt hat."
+                        "Code niemals selbst frei erfinden oder live schreiben: Änderungen und Rücknahmen laufen ausschließlich über das geschützte Reparaturlabor, ai-repair-Branch und CI. " +
+                        "create_repair_branch, rollback_technical_repair und merge_repair nur auslösen, wenn der Nutzer die jeweilige Aktion ausdrücklich bestätigt hat. " +
+                        "Behaupte niemals, dass etwas repariert, zurückgenommen oder gespeichert wurde, bevor ein Tool das bestätigt."
                 )
             },
         )
@@ -161,6 +189,13 @@ class GeminiLiveTechnician(
             runCatching {
                 when (call.name) {
                     "inspect_homepage" -> bridge.context()
+                    "get_change_history" -> buildJsonObject {
+                        put("editor", bridge.editorHistory())
+                        put("technical", bridge.technicalHistory())
+                    }
+                    "undo_last_editor_change" -> bridge.undoEditorChange()
+                    "redo_last_editor_change" -> bridge.redoEditorChange()
+                    "list_technical_repairs" -> bridge.technicalHistory()
                     "analyze_homepage_error" -> {
                         val description = call.args["description"]?.jsonPrimitive?.content.orEmpty()
                         if (description.isBlank()) errorObject("Fehlerbeschreibung fehlt.")
@@ -176,6 +211,16 @@ class GeminiLiveTechnician(
                             bridge.createRepairBranch(id)
                         }
                     }
+                    "rollback_technical_repair" -> {
+                        val pr = call.args["repair_pr"]?.jsonPrimitive?.content.orEmpty()
+                        if (pr.isBlank()) {
+                            errorObject("Reparatur-PR fehlt.")
+                        } else if (!confirm("Technik-Reparatur zurücknehmen?", "Gemini möchte einen geprüften Rücknahme-Branch für Reparatur #$pr erstellen. Spätere Änderungen an denselben Dateien werden dabei niemals überschrieben.")) {
+                            buildJsonObject { put("cancelled", true); put("message", "Nutzer hat die Rücknahme abgelehnt.") }
+                        } else {
+                            bridge.rollbackRepair(pr)
+                        }
+                    }
                     "check_repair_status" -> {
                         val pr = call.args["pr"]?.jsonPrimitive?.content.orEmpty()
                         if (pr.isBlank()) errorObject("PR-Nummer fehlt.") else bridge.status(pr)
@@ -184,7 +229,7 @@ class GeminiLiveTechnician(
                         val pr = call.args["pr"]?.jsonPrimitive?.content.orEmpty()
                         if (pr.isBlank()) {
                             errorObject("PR-Nummer fehlt.")
-                        } else if (!confirm("Geprüften Fix übernehmen?", "Nur wenn die CI-Prüfungen grün sind, darf der Reparaturserver diesen Fix nach main übernehmen.")) {
+                        } else if (!confirm("Geprüfte Änderung übernehmen?", "Nur wenn die CI-Prüfungen grün sind, darf der Reparaturserver diesen Fix oder diese Rücknahme nach main übernehmen.")) {
                             buildJsonObject { put("cancelled", true); put("message", "Nutzer hat die Übernahme abgelehnt.") }
                         } else {
                             bridge.merge(pr)
