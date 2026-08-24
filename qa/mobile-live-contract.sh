@@ -20,27 +20,38 @@ test -f "$VOICE"
 test ! -e "$KOTLIN/GeminiLiveTechnician.kt"
 test ! -e "$KOTLIN/ScreenCaptureService.kt"
 
-# Primary UI is manual edit + one local AI chat, natural local Live speech, voice choice, and emergency Gemini handoff.
+# Primary UI: manual editor + real readable local AI chat + optional local Live + emergency Gemini.
 grep -q 'text = "✎ Bearbeiten"' "$MAIN"
 grep -q 'text = "✦ KI"' "$MAIN"
-grep -q 'Änderungswunsch schreiben' "$MAIN"
-grep -q 'Live lokal · natürlich sprechen' "$MAIN"
-grep -q 'Lokale Stimme auswählen' "$MAIN"
+grep -q 'text = "Lokale KI"' "$MAIN"
+grep -q 'Nachricht an die lokale KI' "$MAIN"
+grep -q 'messageList' "$MAIN"
+grep -q 'addChatBubble' "$MAIN"
+grep -q 'Verstanden:' "$MAIN"
+grep -q 'transcriptScroll.fullScroll' "$MAIN"
+grep -q 'SOFT_INPUT_ADJUST_RESIZE' "$MAIN"
+grep -q 'android:windowSoftInputMode="adjustResize"' "$MANIFEST"
+grep -q 'text = "🎤 Live lokal"' "$MAIN"
 grep -q 'showVoicePicker' "$MAIN"
 grep -q 'queuedLiveRequest' "$MAIN"
 grep -q 'stopSpeakingForBargeIn' "$MAIN"
 grep -q 'Notfall Gemini' "$MAIN"
 grep -q 'localAi.downloadModel' "$MAIN"
+grep -q 'localAi.send(clean)' "$MAIN"
 grep -q 'voiceController.speak(reply)' "$MAIN"
 grep -q 'processLocalRequest' "$MAIN"
 grep -q 'gemini.google.com/app' "$MAIN"
 grep -q 'ClipboardManager' "$MAIN"
-grep -q 'KoblenzerPuppenspieleTechnician/0.5-naturallive' "$MAIN"
+grep -q 'KoblenzerPuppenspieleTechnician/0.6-chatwindow' "$MAIN"
 grep -q 'wordpress_logged_in_' "$MAIN"
 grep -q 'wp-login.php' "$MAIN"
 grep -q 'endsWith(".koblenzer-puppenspiele.de")' "$MAIN"
+if grep -q 'voiceMode[[:space:]]*=' "$MAIN"; then
+  echo 'FAIL local-ai: obsolete voiceMode planner parameter remains in MainActivity.' >&2
+  exit 1
+fi
 
-# Local model runtime: LiteRT-LM, bounded KV-cache, GPU with CPU inference fallback and no cloud AI SDK.
+# Local model runtime: LiteRT-LM, bounded context/KV cache, GPU with CPU inference fallback, no cloud AI SDK.
 grep -q 'com.google.ai.edge.litertlm:litertlm-android:0.16.0' "$GRADLE"
 if grep -q 'firebase-ai\|firebase-appcheck\|google-services' "$GRADLE"; then
   echo 'FAIL local-ai: cloud Firebase AI/AppCheck dependency remains in Android app.' >&2
@@ -65,7 +76,7 @@ grep -q 'REQUIRED_FREE_BYTES' "$LOCAL"
 grep -q 'ARM-Handy' "$LOCAL"
 grep -q 'downloadModel' "$LOCAL"
 
-# The local model is a resilient JSON planner; deterministic website tools execute the plan.
+# Deterministic editor actions are chosen by the local model; save remains explicit.
 grep -q 'PLANNER_SYSTEM' "$LOCAL"
 grep -q 'conversation.sendMessage(prompt).text' "$LOCAL"
 grep -q 'parseJsonObjectOrNull' "$LOCAL"
@@ -82,7 +93,7 @@ grep -q 'bridge.redoEditorChange' "$LOCAL"
 grep -q 'explicitSaveRequested' "$LOCAL"
 grep -q 'bridge.saveEditorChanges' "$LOCAL"
 
-# Natural Live speech: explicit on-device ASR only, partial/segmented turns, barge-in and local persisted TTS voices.
+# Natural Live speech: explicit on-device ASR only, partial/segmented turns, barge-in and persisted offline TTS voices.
 grep -q 'android.permission.RECORD_AUDIO' "$MANIFEST"
 grep -q 'SpeechRecognizer.isOnDeviceRecognitionAvailable' "$VOICE"
 grep -q 'SpeechRecognizer.createOnDeviceSpeechRecognizer' "$VOICE"
@@ -106,7 +117,7 @@ if grep -q 'SpeechRecognizer.createSpeechRecognizer' "$VOICE"; then
   exit 1
 fi
 if grep -q 'MEDIA_PROJECTION\|FOREGROUND_SERVICE_MEDIA_PROJECTION\|FOREGROUND_SERVICE_MICROPHONE' "$MANIFEST"; then
-  echo 'FAIL local-ai: local Live mode must not request obsolete screen-share/foreground projection permissions.' >&2
+  echo 'FAIL local-ai: local Live mode must not request screen-share/foreground projection permissions.' >&2
   exit 1
 fi
 if grep -R -n -E 'GenerativeService|generativelanguage\.googleapis\.com|auth_tokens|MediaProjectionManager|ScreenFrameBus' "$KOTLIN"; then
@@ -114,7 +125,7 @@ if grep -R -n -E 'GenerativeService|generativelanguage\.googleapis\.com|auth_tok
   exit 1
 fi
 
-# Technical code repair is also model-local, server-validated and CI/confirmation gated.
+# Technical repair stays local-planned, server-validated and CI/confirmation gated.
 grep -q 'localRepairContext' "$LOCAL"
 grep -q 'localRepairFiles' "$LOCAL"
 grep -q 'submitLocalRepairProposal' "$LOCAL"
@@ -146,4 +157,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS local-ai: free on-device chat, bounded native inference with GPU/CPU fallback, natural interruptible offline Live speech, selectable local voices, emergency Gemini handoff and protected CI-gated repair are present.'
+echo 'PASS local-ai: keyboard-safe readable local chat, bounded native inference with GPU/CPU fallback, interruptible offline Live speech, selectable local voices, emergency Gemini handoff and protected CI-gated repair are present.'
