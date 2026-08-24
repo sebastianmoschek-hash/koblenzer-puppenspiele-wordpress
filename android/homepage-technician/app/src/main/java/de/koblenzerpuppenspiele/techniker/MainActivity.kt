@@ -8,15 +8,21 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.media.AudioManager
+import android.media.projection.MediaProjectionConfig
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.view.View
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -45,6 +51,9 @@ class MainActivity : Activity() {
     private lateinit var statusView: TextView
     private lateinit var editButton: Button
     private lateinit var liveButton: Button
+    private lateinit var textComposer: LinearLayout
+    private lateinit var textInput: EditText
+    private lateinit var sendTextButton: Button
     private lateinit var repairBridge: WebRepairBridge
     private lateinit var technician: GeminiLiveTechnician
     private var live = false
@@ -68,6 +77,13 @@ class MainActivity : Activity() {
 
         editButton.setOnClickListener { openEditor() }
         liveButton.setOnClickListener { if (live) stopLive() else beginLive() }
+        sendTextButton.setOnClickListener { sendTypedMessage() }
+        textInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEND) {
+                sendTypedMessage()
+                true
+            } else false
+        }
         loadInitialUrl(intent)
     }
 
@@ -87,6 +103,38 @@ class MainActivity : Activity() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
             )
         )
+
+        val bottom = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        textComposer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(10), dp(6), dp(10), dp(4))
+            setBackgroundColor(Color.argb(242, 24, 18, 15))
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            visibility = View.GONE
+        }
+        textInput = EditText(this).apply {
+            hint = "An Gemini schreiben …"
+            setHintTextColor(Color.rgb(170, 170, 170))
+            setTextColor(Color.WHITE)
+            setSingleLine(true)
+            imeOptions = EditorInfo.IME_ACTION_SEND
+            textSize = 15f
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+        }
+        sendTextButton = Button(this).apply {
+            text = "Senden"
+            isAllCaps = false
+            isEnabled = false
+        }
+        textComposer.addView(
+            textInput,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
+        )
+        textComposer.addView(sendTextButton)
+        bottom.addView(textComposer)
 
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -114,8 +162,10 @@ class MainActivity : Activity() {
         )
         bar.addView(editButton)
         bar.addView(liveButton)
+        bottom.addView(bar)
+
         root.addView(
-            bar,
+            bottom,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -220,8 +270,14 @@ class MainActivity : Activity() {
         liveButton.isEnabled = false
         try {
             val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            val captureIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                manager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
+            } else {
+                manager.createScreenCaptureIntent()
+            }
+            showStatus("KI braucht den gesamten Bildschirm · Freigabe bitte bestätigen")
             @Suppress("DEPRECATION")
-            startActivityForResult(manager.createScreenCaptureIntent(), REQ_SCREEN)
+            startActivityForResult(captureIntent, REQ_SCREEN)
         } catch (error: Throwable) {
             showStatus(error.message ?: "Bildschirmfreigabe konnte nicht gestartet werden.")
         } finally {
@@ -246,21 +302,51 @@ class MainActivity : Activity() {
         live = true
         liveButton.isEnabled = false
         liveButton.text = "■ KI beenden"
-        showStatus("Bildschirm geteilt · Gemini Live wird vorbereitet …")
+        textComposer.visibility = View.VISIBLE
+        textInput.isEnabled = false
+        sendTextButton.isEnabled = false
+        showStatus("Gesamter Bildschirm geteilt · Gemini Live wird vorbereitet …")
         uiScope.launch {
             try {
                 technician.start()
-                showStatus("KI live · sag einfach, was geändert werden soll")
+                textInput.isEnabled = true
+                sendTextButton.isEnabled = true
+                showStatus("KI live · sprechen oder unten schreiben")
             } catch (error: Throwable) {
                 stopScreenCapture()
                 technician.stop()
                 live = false
                 liveButton.text = "✦ KI"
+                hideTextComposer()
                 showStatus("Gemini Live: ${error.message ?: error.javaClass.simpleName}")
             } finally {
                 liveButton.isEnabled = true
             }
         }
+    }
+
+    private fun sendTypedMessage() {
+        val message = textInput.text?.toString()?.trim().orEmpty()
+        if (message.isBlank()) return
+        if (!live) {
+            showStatus("Bitte zuerst KI starten.")
+            return
+        }
+        if (technician.sendText(message)) {
+            textInput.text?.clear()
+            showStatus("KI live · Text gesendet · du kannst weiter sprechen oder schreiben")
+        } else {
+            showStatus("KI-Verbindung ist gerade nicht bereit · bitte gleich erneut senden")
+        }
+    }
+
+    private fun hideTextComposer() {
+        textInput.text?.clear()
+        textInput.isEnabled = false
+        sendTextButton.isEnabled = false
+        textComposer.visibility = View.GONE
+        val keyboard = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        keyboard.hideSoftInputFromWindow(textInput.windowToken, 0)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -278,6 +364,7 @@ class MainActivity : Activity() {
         technician.stop()
         live = false
         liveButton.text = "✦ KI"
+        hideTextComposer()
         showStatus("KI beendet · Homepage bleibt geöffnet")
     }
 
