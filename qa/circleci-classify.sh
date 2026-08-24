@@ -72,10 +72,13 @@ if [[ $pipeline_only -eq 1 ]]; then
   bash -n qa/circleci-classify.sh
   [[ ! -f qa/publish-circleci-report-to-github.sh ]] || bash -n qa/publish-circleci-report-to-github.sh
   {
-    printf 'export KP_CI_MODE=%q\n' 'ci'
+    # Keep pipeline-only work on the QA lane rather than inventing a separate
+    # report schema. The component verdict jobs consume the normal browser-lab
+    # check names, so QA reuse is both fast and verdict-compatible.
+    printf 'export KP_CI_MODE=%q\n' 'qa'
     printf 'export KP_CI_CHANGED_FILES=%q\n' "$meaningful"
   } >> "$BASH_ENV_FILE"
-  echo 'CircleCI: pipeline/report-only change; staging will use the lightweight CI lane.'
+  echo 'CircleCI: pipeline/report-only change; reusing staging on the verdict-compatible QA lane.'
   exit 0
 fi
 
