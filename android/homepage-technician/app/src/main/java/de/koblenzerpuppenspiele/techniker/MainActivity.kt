@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.media.AudioManager
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Bundle
@@ -51,6 +52,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        volumeControlStream = AudioManager.STREAM_MUSIC
         buildUi()
         configureWebView()
 
@@ -248,7 +250,7 @@ class MainActivity : Activity() {
         uiScope.launch {
             try {
                 technician.start()
-                showStatus("KI live · sprich jederzeit dazwischen, Gemini hört weiter zu")
+                showStatus("KI live · Lautsprecher aktiv · sprich jederzeit dazwischen")
             } catch (error: Throwable) {
                 stopScreenCapture()
                 technician.stop()
