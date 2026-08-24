@@ -1,0 +1,2 @@
+Run the complete staging-only browser, persistence, Undo/48h, Chromium touch and visual verification for the current main state after runner handoff hardening.
+Production must remain untouched.
