@@ -1,10 +1,10 @@
 {
-  "generatedAt":"2026-08-24T10:23:58Z",
-  "commit":"ec12c0a67f65e8acd72162546b76a9b0e41a3049",
-  "state":"success",
+  "generatedAt":"2026-08-24T11:41:11Z",
+  "commit":"9bdf806386c75621b81559e81b54c3a8d1277bb1",
+  "state":"failure",
   "checks":{
     "toolchain":0,
-    "securityContract":0,
-    "androidBuild":0
+    "securityContract":1,
+    "androidBuild":999
   }
 }
