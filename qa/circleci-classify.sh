@@ -39,22 +39,34 @@ if [[ -z "$meaningful" ]]; then
   exit 0
 fi
 
+# This marker exists specifically to demand the complete Staging validation.
+# It must not be treated as ordinary QA-only work: full means deploy + browser +
+# persistence + touch + 50-view visual QA for the exact current main snapshot.
+force_full=0
+if printf '%s\n' "$meaningful" | grep -qx 'qa/current-staging-validation.txt'; then
+  force_full=1
+fi
+
 pipeline_only=1
-while IFS= read -r file; do
-  [[ -z "$file" ]] && continue
-  case "$file" in
-    .circleci/*|\
-    .github/workflows/*|\
-    qa/circleci-classify.sh|\
-    qa/publish-circleci-report-to-github.sh|\
-    qa/staging-verdict-check.mjs)
-      ;;
-    *)
-      pipeline_only=0
-      break
-      ;;
-  esac
-done <<< "$meaningful"
+if [[ $force_full -eq 1 ]]; then
+  pipeline_only=0
+else
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    case "$file" in
+      .circleci/*|\
+      .github/workflows/*|\
+      qa/circleci-classify.sh|\
+      qa/publish-circleci-report-to-github.sh|\
+      qa/staging-verdict-check.mjs)
+        ;;
+      *)
+        pipeline_only=0
+        break
+        ;;
+    esac
+  done <<< "$meaningful"
+fi
 
 if [[ $pipeline_only -eq 1 ]]; then
   bash -n qa/circleci-classify.sh
@@ -63,31 +75,35 @@ if [[ $pipeline_only -eq 1 ]]; then
     printf 'export KP_CI_MODE=%q\n' 'ci'
     printf 'export KP_CI_CHANGED_FILES=%q\n' "$meaningful"
   } >> "$BASH_ENV_FILE"
-  echo 'CircleCI: pipeline/report-only change; staging will be represented by a synthetic no-deploy verdict so downstream verdict jobs remain valid.'
+  echo 'CircleCI: pipeline/report-only change; staging will use the lightweight CI lane.'
   exit 0
 fi
 
-mode='qa'
-saw_pwa=0
-while IFS= read -r file; do
-  [[ -z "$file" ]] && continue
-  case "$file" in
-    .circleci/*|.github/workflows/*|qa/*|visual-qa/*)
-      ;;
-    wp-content/mu-plugins/kp-webapp-branding.php|\
-    wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php|\
-    wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/kp-app-icon.svg)
-      saw_pwa=1
-      ;;
-    *)
-      mode='full'
-      break
-      ;;
-  esac
-done <<< "$meaningful"
+if [[ $force_full -eq 1 ]]; then
+  mode='full'
+else
+  mode='qa'
+  saw_pwa=0
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+    case "$file" in
+      .circleci/*|.github/workflows/*|qa/*|visual-qa/*)
+        ;;
+      wp-content/mu-plugins/kp-webapp-branding.php|\
+      wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/includes/class-kp-owner-web-app.php|\
+      wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/kp-app-icon.svg)
+        saw_pwa=1
+        ;;
+      *)
+        mode='full'
+        break
+        ;;
+    esac
+  done <<< "$meaningful"
 
-if [[ "$mode" == 'qa' && $saw_pwa -eq 1 ]]; then
-  mode='pwa'
+  if [[ "$mode" == 'qa' && $saw_pwa -eq 1 ]]; then
+    mode='pwa'
+  fi
 fi
 
 {
