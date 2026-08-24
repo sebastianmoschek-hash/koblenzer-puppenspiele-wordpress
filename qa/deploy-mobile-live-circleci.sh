@@ -44,12 +44,12 @@ for attempt in $(seq 1 12); do
       -H 'Cache-Control: no-cache, no-store' \
       "$STAGING_BASE/?kp_mobile_live_protocol=1&kp_ci=${CIRCLE_SHA1:-manual}-$attempt" \
       -o "$marker" \
-    && jq -e '.success == true and .data.protocol == "v1beta-u1" and .data.tokenMode == "ephemeral-one-use-unconstrained"' "$marker" >/dev/null; then
-    echo 'PASS mobile-live staging marker: v1beta-u1 / ephemeral-one-use-unconstrained'
+    && jq -e '.success == true and .data.protocol == "v1beta-u1" and .data.tokenMode == "ephemeral-one-use-unconstrained" and .data.agentMode == "single-live-direct-editor" and .data.directEditor == true and .data.directImage == true' "$marker" >/dev/null; then
+    echo 'PASS mobile-live staging marker: v1beta-u1 / single-live-direct-editor / direct-image'
     break
   fi
   if [[ "$attempt" -eq 12 ]]; then
-    echo 'FAIL mobile-live staging marker did not reach v1beta-u1.' >&2
+    echo 'FAIL mobile-live staging marker did not reach unified direct-editor generation.' >&2
     cat "$marker" >&2 || true
     exit 1
   fi
