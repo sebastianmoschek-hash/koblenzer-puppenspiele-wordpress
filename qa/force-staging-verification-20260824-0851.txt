@@ -1,0 +1,2 @@
+Retry the current staging-only verification after two runner-level CircleCI failures.
+No production change. This run is intended to obtain a fresh commit-matched browser/persistence/touch verdict for the current main state.
