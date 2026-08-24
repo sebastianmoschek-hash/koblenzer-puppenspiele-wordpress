@@ -59,6 +59,37 @@ if [[ -z "${GITHUB_REPORT_TOKEN:-}" ]]; then
   exit 0
 fi
 
+# Publish a successful test APK as a private prerelease asset. The repository is private,
+# so the release remains access-controlled and the binary does not enter Git history.
+if [[ "$apk_ready" == 'true' ]]; then
+  tag="homepage-hilfe-test-${SHA:0:8}"
+  release_payload="$(printf '{"tag_name":"%s","target_commitish":"%s","name":"Homepage-Hilfe Test APK %s","body":"Automatisch gebaute Firebase-Test-APK. Nicht als Produktionsrelease verwenden.","draft":false,"prerelease":true}' "$tag" "$SHA" "${SHA:0:8}")"
+  release_json="$(curl -fsS -X POST \
+    -H 'Accept: application/vnd.github+json' \
+    -H "Authorization: Bearer ${GITHUB_REPORT_TOKEN}" \
+    -H 'X-GitHub-Api-Version: 2022-11-28' \
+    -H 'Content-Type: application/json' \
+    "https://api.github.com/repos/${REPO}/releases" \
+    -d "$release_payload" 2>/dev/null || true)"
+  release_id="$(printf '%s' "$release_json" | php -r '$j=json_decode(stream_get_contents(STDIN),true); echo is_array($j)&&isset($j["id"])?$j["id"]:"";' 2>/dev/null)"
+  if [[ -n "$release_id" ]]; then
+    if curl -fsS -X POST \
+      -H 'Accept: application/vnd.github+json' \
+      -H "Authorization: Bearer ${GITHUB_REPORT_TOKEN}" \
+      -H 'X-GitHub-Api-Version: 2022-11-28' \
+      -H 'Content-Type: application/vnd.android.package-archive' \
+      --data-binary @"$APK_ARTIFACT" \
+      "https://uploads.github.com/repos/${REPO}/releases/${release_id}/assets?name=Homepage-Hilfe-debug.apk" \
+      >/tmp/kp-apk-release-upload.json 2>/dev/null; then
+      echo "PASS: private prerelease APK uploaded for tag $tag."
+    else
+      echo 'WARN: APK prerelease asset upload failed; CircleCI artifact remains available.'
+    fi
+  else
+    echo 'WARN: APK prerelease creation failed; CircleCI artifact remains available.'
+  fi
+fi
+
 set +e
 git config user.name 'kp-android-build-bot'
 git config user.email 'android-build@users.noreply.github.com'
@@ -88,4 +119,4 @@ if [[ $rc -ne 0 ]]; then
   exit 0
 fi
 
-echo 'PASS: Android build diagnostics published; APK remains a CircleCI artifact.'
+echo 'PASS: Android build diagnostics published.'
