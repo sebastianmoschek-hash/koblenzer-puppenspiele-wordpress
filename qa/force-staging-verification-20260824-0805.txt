@@ -1,0 +1,2 @@
+Retry the staging-only verification after the previous runner-level failure.
+No production change; this commit exists only to distinguish a transient CircleCI/staging transport failure from a reproducible browser-lab failure.
