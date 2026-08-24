@@ -14,6 +14,7 @@ files=(
   'kp-mobile-live-bootstrap-v2.php'
   'kp-mobile-live-protocol-marker.php'
   'kp-mobile-live-image-tools.php'
+  'kp-mobile-live-image-adapter.php'
 )
 
 for name in "${files[@]}"; do
@@ -33,6 +34,7 @@ put '$MU/kp-mobile-live-bridge.php' -o '/wp-content/mu-plugins/kp-mobile-live-br
 put '$MU/kp-mobile-live-bootstrap-v2.php' -o '/wp-content/mu-plugins/kp-mobile-live-bootstrap-v2.php';
 put '$MU/kp-mobile-live-protocol-marker.php' -o '/wp-content/mu-plugins/kp-mobile-live-protocol-marker.php';
 put '$MU/kp-mobile-live-image-tools.php' -o '/wp-content/mu-plugins/kp-mobile-live-image-tools.php';
+put '$MU/kp-mobile-live-image-adapter.php' -o '/wp-content/mu-plugins/kp-mobile-live-image-adapter.php';
 bye
 "
 
