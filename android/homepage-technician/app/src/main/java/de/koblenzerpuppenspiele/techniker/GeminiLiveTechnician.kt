@@ -1,27 +1,20 @@
 package de.koblenzerpuppenspiele.techniker
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
-import com.google.firebase.Firebase
-import com.google.firebase.FirebaseApp
-import com.google.firebase.ai.ai
-import com.google.firebase.ai.type.FunctionCallPart
-import com.google.firebase.ai.type.FunctionDeclaration
-import com.google.firebase.ai.type.FunctionResponsePart
-import com.google.firebase.ai.type.GenerativeBackend
-import com.google.firebase.ai.type.InlineData
-import com.google.firebase.ai.type.LiveSession
-import com.google.firebase.ai.type.PublicPreviewAPI
-import com.google.firebase.ai.type.ResponseModality
-import com.google.firebase.ai.type.Schema
-import com.google.firebase.ai.type.SpeechConfig
-import com.google.firebase.ai.type.Tool
-import com.google.firebase.ai.type.Voice
-import com.google.firebase.ai.type.content
-import com.google.firebase.ai.type.liveGenerationConfig
-import com.google.firebase.appcheck.FirebaseAppCheck
-import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
-import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioManager
+import android.media.AudioRecord
+import android.media.AudioTrack
+import android.media.MediaRecorder
+import android.media.audiofx.AcousticEchoCanceler
+import android.media.audiofx.NoiseSuppressor
+import android.util.Base64
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,19 +22,35 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
+import okio.ByteString
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.max
 
 /**
- * Gemini Live is the conversational/visual layer. Reversible content/design changes are delegated
- * to the existing authenticated web editor so manual editing, Live AI, Undo/Redo and Save all use
- * the same source of truth. Code repairs and rollbacks always use protected PR + CI gates.
+ * Direct Gemini Live client for the Homepage-Hilfe app.
+ *
+ * A durable Gemini API key never enters Android. WordPress exchanges its server-side key for a
+ * one-use ephemeral Live token, then this class connects directly to Gemini over WebSocket.
+ * Microphone audio remains open while Gemini speaks. Gemini's VAD can therefore emit
+ * serverContent.interrupted, at which point playback is flushed immediately (true barge-in).
+ *
+ * Long repair analysis is deliberately detached from the Live function call: Gemini receives an
+ * immediate job id and can continue the conversation while the protected WordPress repair lab runs.
  */
-@OptIn(PublicPreviewAPI::class)
 class GeminiLiveTechnician(
     private val context: Context,
     private val bridge: WebRepairBridge,
@@ -49,261 +58,460 @@ class GeminiLiveTechnician(
     private val status: (String) -> Unit,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var session: LiveSession? = null
+    private val client = OkHttpClient.Builder().build()
+    private val running = AtomicBoolean(false)
+    private val handlerJobs = ConcurrentHashMap<String, Job>()
+    private val repairJobs = ConcurrentHashMap<String, RepairJobState>()
+
+    @Volatile private var socket: WebSocket? = null
+    @Volatile private var setupReady: CompletableDeferred<Unit>? = null
+    @Volatile private var audioRecord: AudioRecord? = null
+    @Volatile private var audioTrack: AudioTrack? = null
+    @Volatile private var echoCanceler: AcousticEchoCanceler? = null
+    @Volatile private var noiseSuppressor: NoiseSuppressor? = null
+    private var audioJob: Job? = null
     private var frameJob: Job? = null
+
+    private data class RepairJobState(
+        @Volatile var state: String = "running",
+        @Volatile var message: String = "Codeanalyse läuft.",
+        @Volatile var result: JsonObject? = null,
+    )
 
     @SuppressLint("MissingPermission")
     suspend fun start() {
-        if (session != null) return
-        status("Gemini Live wird verbunden …")
-
-        if (FirebaseApp.getApps(context).isEmpty() && FirebaseApp.initializeApp(context) == null) {
-            throw IllegalStateException(
-                "Firebase ist für die Techniker-App noch nicht eingerichtet. google-services.json fehlt."
-            )
+        if (running.get()) return
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            throw IllegalStateException("Mikrofonzugriff fehlt.")
         }
-        runCatching {
-            if (BuildConfig.DEBUG) {
-                FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
-                    DebugAppCheckProviderFactory.getInstance()
-                )
-            } else {
-                FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
-                    PlayIntegrityAppCheckProviderFactory.getInstance()
-                )
+
+        status("Live-Zugang wird serverseitig vorbereitet …")
+        val bootstrap = bridge.bootstrap()
+        bootstrap["error"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
+        val token = bootstrap["liveToken"]?.jsonPrimitive?.content.orEmpty()
+        if (token.isBlank()) throw IllegalStateException("WordPress hat kein kurzlebiges Gemini-Live-Token geliefert.")
+        val model = bootstrap["model"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
+            ?: "gemini-3.1-flash-live-preview"
+
+        status("Direkte Gemini-Live-Verbindung wird geöffnet …")
+        val ready = CompletableDeferred<Unit>()
+        setupReady = ready
+        running.set(true)
+        val encoded = URLEncoder.encode(token, StandardCharsets.UTF_8.toString())
+        val request = Request.Builder()
+            .url("wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=$encoded")
+            .build()
+
+        socket = client.newWebSocket(request, object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                webSocket.send(buildSetup(model).toString())
             }
-        }
 
-        val tools = Tool.functionDeclarations(
-            listOf(
-                FunctionDeclaration(
-                    "inspect_homepage",
-                    "Read the current authenticated homepage context, selected element, editor history counts, viewport and recent browser/network errors.",
-                    emptyMap(),
-                ),
-                FunctionDeclaration(
-                    "edit_page_visually",
-                    "Apply one reversible visual/content change through the same direct Gemini editor used by the web app. Use for text, links, colors, sizes, positions, images, design settings and adding supported elements. The result remains unsaved until the user explicitly saves it and can be undone with the normal editor Undo button.",
-                    mapOf("request" to Schema.string("Concise German editing request describing exactly what the user wants changed. If the user points to an element, preserve that reference in the request.")),
-                ),
-                FunctionDeclaration(
-                    "get_change_history",
-                    "Read the immediate visual Undo/Redo state, the 48-hour saved website versions and the merged technical AI repair history. Use before deciding how to undo an ambiguous last change.",
-                    emptyMap(),
-                ),
-                FunctionDeclaration(
-                    "undo_last_editor_change",
-                    "Undo exactly one reversible unsaved/current-session visual or content editor action using the same central Undo stack as the web app.",
-                    emptyMap(),
-                ),
-                FunctionDeclaration(
-                    "redo_last_editor_change",
-                    "Redo exactly one previously undone visual or content editor action using the same central Redo stack as the web app.",
-                    emptyMap(),
-                ),
-                FunctionDeclaration(
-                    "list_saved_versions",
-                    "List the saved website versions retained for 48 hours, newest first, including version id, timestamp and label.",
-                    emptyMap(),
-                ),
-                FunctionDeclaration(
-                    "undo_last_saved_change",
-                    "After explicit user confirmation, restore the website state from immediately before the latest saved website change. The page reloads after success.",
-                    emptyMap(),
-                ),
-                FunctionDeclaration(
-                    "restore_saved_version",
-                    "After explicit user confirmation, restore one specific saved website version from the 48-hour version history. The current state is checkpointed first so restoration remains reversible.",
-                    mapOf("version_id" to Schema.string("Exact version id returned by list_saved_versions or get_change_history.")),
-                ),
-                FunctionDeclaration(
-                    "list_technical_repairs",
-                    "List merged Gemini code repairs and whether each one has already been rolled back.",
-                    emptyMap(),
-                ),
-                FunctionDeclaration(
-                    "analyze_homepage_error",
-                    "Ask the protected WordPress repair lab to diagnose the described technical homepage fault and prepare a safe repair proposal. This does not change code.",
-                    mapOf("description" to Schema.string("German description of the observed fault and what the user just demonstrated.")),
-                ),
-                FunctionDeclaration(
-                    "create_repair_branch",
-                    "After explicit user confirmation, create the isolated ai-repair branch and pull request for an already prepared proposal. Never writes directly to live files.",
-                    mapOf("proposal_id" to Schema.string("proposal_id returned by analyze_homepage_error")),
-                ),
-                FunctionDeclaration(
-                    "rollback_technical_repair",
-                    "After explicit user confirmation, create an isolated rollback PR that restores the exact pre-repair code only when those files have not changed since. The rollback still requires CI and a later merge confirmation.",
-                    mapOf("repair_pr" to Schema.string("Pull request number of the merged KI-Reparatur to roll back.")),
-                ),
-                FunctionDeclaration(
-                    "check_repair_status",
-                    "Check CI status for either a repair or rollback pull request.",
-                    mapOf("pr" to Schema.string("GitHub pull request number returned by a repair or rollback action.")),
-                ),
-                FunctionDeclaration(
-                    "merge_repair",
-                    "After explicit user confirmation, ask the server repair lab to merge a repair or rollback pull request. The server refuses unless CI is green.",
-                    mapOf("pr" to Schema.string("GitHub pull request number")),
-                ),
-            )
-        )
-
-        val generation = liveGenerationConfig {
-            responseModality = ResponseModality.AUDIO
-            speechConfig = SpeechConfig(voice = Voice("FENRIR"))
-        }
-        val model = Firebase.ai(backend = GenerativeBackend.googleAI()).liveModel(
-            modelName = "gemini-3.1-flash-live-preview",
-            generationConfig = generation,
-            tools = listOf(tools),
-            systemInstruction = content {
-                text(
-                    "Du bist der deutschsprachige Homepage-Techniker und visuelle Editor der Koblenzer Puppenspiele. " +
-                        "Der Nutzer zeigt dir die Homepage live auf seinem Android-Bildschirm und spricht mit dir. " +
-                        "Beobachte genau, frage nur nach wenn wirklich nötig und unterscheide vier Ebenen: reversible sichtbare Editor-Änderungen, unmittelbare Undo/Redo-Historie, gespeicherte Website-Versionen und technische Code-Reparaturen. " +
-                        "Wenn der Nutzer Text, Bilder, Positionen, Farben, Größen, Links, Navigation, Layout oder andere sichtbare Inhalte ändern möchte, verwende edit_page_visually. Die Änderung wird über denselben Web-Editor wie bei manueller Bearbeitung ausgeführt, bleibt zunächst ungespeichert und muss im normalen Undo rückgängig machbar sein. Sage nach erfolgreicher Ausführung klar, dass die Änderung noch nicht gespeichert ist. " +
-                        "Verwende für normale sichtbare Änderungen niemals analyze_homepage_error oder Code-Reparaturen. Technische Reparaturen sind nur für tatsächliche Funktionsfehler gedacht. " +
-                        "Wenn der Nutzer allgemein sagt 'mach die letzte Änderung rückgängig', verwende zuerst get_change_history: hat die Editor-Historie einen Undo-Schritt, nimm genau diesen; sonst kann die letzte gespeicherte Änderung nach Bestätigung zurückgenommen werden. Eine technische Code-Reparatur nur zurücknehmen, wenn der Nutzer eine Reparatur/Technikänderung meint oder die Historie eindeutig darauf verweist. " +
-                        "Gespeicherte Änderungen bleiben 48 Stunden in der Website-Versionshistorie. Nutze list_saved_versions, undo_last_saved_change oder restore_saved_version, wenn ein gespeicherter Stand gemeint ist. " +
-                        "Bei einem technischen Problem zuerst inspect_homepage verwenden und danach analyze_homepage_error. " +
-                        "Code niemals selbst frei erfinden oder live schreiben: Änderungen und Rücknahmen laufen ausschließlich über das geschützte Reparaturlabor, ai-repair-Branch und CI. " +
-                        "create_repair_branch, rollback_technical_repair, undo_last_saved_change, restore_saved_version und merge_repair nur auslösen, wenn der Nutzer die jeweilige folgenreiche Aktion ausdrücklich bestätigt hat. " +
-                        "Behaupte niemals, dass etwas repariert, geändert, zurückgenommen, wiederhergestellt oder gespeichert wurde, bevor ein Tool das bestätigt."
-                )
-            },
-        )
-
-        val live = model.connect()
-        session = live
-        live.startAudioConversation(::handleFunction)
-        frameJob = scope.launch {
-            ScreenFrameBus.jpegFrames.collectLatest { jpeg ->
-                session?.sendVideoRealtime(InlineData(jpeg, "image/jpeg"))
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                handleServerMessage(text)
             }
+
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                handleServerMessage(bytes.utf8())
+            }
+
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                if (running.get()) status("Gemini Live beendet die Verbindung ($code): ${reason.ifBlank { "ohne Begründung" }}")
+                webSocket.close(code, reason)
+            }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                if (running.get()) {
+                    running.set(false)
+                    status("Gemini Live wurde beendet ($code): ${reason.ifBlank { "Verbindung geschlossen" }}")
+                }
+            }
+
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                val detail = response?.let { "HTTP ${it.code}" } ?: (t.message ?: t.javaClass.simpleName)
+                ready.completeExceptionally(IllegalStateException("Direkte Gemini-Live-Verbindung fehlgeschlagen: $detail", t))
+                if (running.get()) status("Gemini Live: $detail")
+                running.set(false)
+            }
+        })
+
+        try {
+            withTimeout(15_000) { ready.await() }
+            startPlayback()
+            startMicrophone()
+            frameJob = scope.launch {
+                ScreenFrameBus.jpegFrames.collectLatest { jpeg ->
+                    if (!running.get()) return@collectLatest
+                    sendRealtimeBlob("video", "image/jpeg", jpeg)
+                }
+            }
+            status("KI live · du kannst Gemini jederzeit ins Wort fallen")
+        } catch (error: Throwable) {
+            stop()
+            throw error
         }
-        status("KI live · zeig mir den Fehler oder sag, was du ändern möchtest")
     }
 
     fun stop() {
-        frameJob?.cancel()
-        frameJob = null
-        val active = session
-        session = null
-        runCatching { active?.stopAudioConversation() }
-        if (active != null) {
-            scope.launch {
-                runCatching { active.close() }
-            }
-        }
+        running.set(false)
+        audioJob?.cancel(); audioJob = null
+        frameJob?.cancel(); frameJob = null
+        handlerJobs.values.forEach { it.cancel() }
+        handlerJobs.clear()
+        stopAudio()
+        socket?.close(1000, "Nutzer hat KI-Live beendet")
+        socket = null
+        setupReady = null
         status("KI-Live beendet")
     }
 
     fun release() {
-        frameJob?.cancel()
-        frameJob = null
-        val active = session
-        session = null
-        runCatching { active?.stopAudioConversation() }
-        if (active != null) {
-            runBlocking(Dispatchers.IO) {
-                runCatching { active.close() }
-            }
-        }
+        stop()
+        client.dispatcher.executorService.shutdown()
+        client.connectionPool.evictAll()
         scope.cancel()
     }
 
-    private fun handleFunction(call: FunctionCallPart): FunctionResponsePart {
-        val response = runBlocking(Dispatchers.IO) {
-            runCatching {
-                when (call.name) {
-                    "inspect_homepage" -> bridge.context()
-                    "edit_page_visually" -> {
-                        val request = call.args["request"]?.jsonPrimitive?.content.orEmpty()
-                        if (request.isBlank()) errorObject("Bearbeitungswunsch fehlt.")
-                        else bridge.visualEdit(request)
-                    }
-                    "get_change_history" -> {
-                        val editor = bridge.editorHistory()
-                        val saved = bridge.savedHistory()
-                        val technical = bridge.technicalHistory()
-                        buildJsonObject {
-                            put("editor", editor)
-                            put("saved", saved)
-                            put("technical", technical)
-                        }
-                    }
-                    "undo_last_editor_change" -> bridge.undoEditorChange()
-                    "redo_last_editor_change" -> bridge.redoEditorChange()
-                    "list_saved_versions" -> bridge.savedHistory()
-                    "undo_last_saved_change" -> {
-                        if (!confirm("Letzte Speicherung zurücknehmen?", "Die Website wird auf den Stand unmittelbar vor der letzten gespeicherten Änderung zurückgesetzt. Dieser Vorgang wird über die Versionshistorie abgesichert.")) {
-                            buildJsonObject { put("cancelled", true); put("message", "Nutzer hat die Wiederherstellung abgelehnt.") }
-                        } else {
-                            bridge.undoSavedChange()
-                        }
-                    }
-                    "restore_saved_version" -> {
-                        val id = call.args["version_id"]?.jsonPrimitive?.content.orEmpty()
-                        if (id.isBlank()) {
-                            errorObject("Versions-ID fehlt.")
-                        } else if (!confirm("Gespeicherte Version wiederherstellen?", "Die Website wird auf Version $id zurückgesetzt. Der aktuelle Stand wird vorher selbst als Wiederherstellungspunkt gesichert.")) {
-                            buildJsonObject { put("cancelled", true); put("message", "Nutzer hat die Wiederherstellung abgelehnt.") }
-                        } else {
-                            bridge.restoreSavedVersion(id)
-                        }
-                    }
-                    "list_technical_repairs" -> bridge.technicalHistory()
-                    "analyze_homepage_error" -> {
-                        val description = call.args["description"]?.jsonPrimitive?.content.orEmpty()
-                        if (description.isBlank()) errorObject("Fehlerbeschreibung fehlt.")
-                        else bridge.analyze(description)
-                    }
-                    "create_repair_branch" -> {
-                        val id = call.args["proposal_id"]?.jsonPrimitive?.content.orEmpty()
-                        if (id.isBlank()) {
-                            errorObject("proposal_id fehlt.")
-                        } else if (!confirm("Prüfbranch erstellen?", "Gemini möchte den vorgeschlagenen Fix jetzt auf einem isolierten Prüfbranch anlegen. Live wird dabei nicht verändert.")) {
-                            buildJsonObject { put("cancelled", true); put("message", "Nutzer hat die Erstellung abgelehnt.") }
-                        } else {
-                            bridge.createRepairBranch(id)
-                        }
-                    }
-                    "rollback_technical_repair" -> {
-                        val pr = call.args["repair_pr"]?.jsonPrimitive?.content.orEmpty()
-                        if (pr.isBlank()) {
-                            errorObject("Reparatur-PR fehlt.")
-                        } else if (!confirm("Technik-Reparatur zurücknehmen?", "Gemini möchte einen geprüften Rücknahme-Branch für Reparatur #$pr erstellen. Spätere Änderungen an denselben Dateien werden dabei niemals überschrieben.")) {
-                            buildJsonObject { put("cancelled", true); put("message", "Nutzer hat die Rücknahme abgelehnt.") }
-                        } else {
-                            bridge.rollbackRepair(pr)
-                        }
-                    }
-                    "check_repair_status" -> {
-                        val pr = call.args["pr"]?.jsonPrimitive?.content.orEmpty()
-                        if (pr.isBlank()) errorObject("PR-Nummer fehlt.") else bridge.status(pr)
-                    }
-                    "merge_repair" -> {
-                        val pr = call.args["pr"]?.jsonPrimitive?.content.orEmpty()
-                        if (pr.isBlank()) {
-                            errorObject("PR-Nummer fehlt.")
-                        } else if (!confirm("Geprüfte Änderung übernehmen?", "Nur wenn die CI-Prüfungen grün sind, darf der Reparaturserver diesen Fix oder diese Rücknahme nach main übernehmen.")) {
-                            buildJsonObject { put("cancelled", true); put("message", "Nutzer hat die Übernahme abgelehnt.") }
-                        } else {
-                            bridge.merge(pr)
-                        }
-                    }
-                    else -> errorObject("Unbekannte Techniker-Funktion: ${call.name}")
-                }
-            }.getOrElse { errorObject(it.message ?: "Techniker-Funktion fehlgeschlagen.") }
+    private fun buildSetup(model: String): JSONObject {
+        val declarations = JSONArray().apply {
+            put(function("inspect_homepage", "Untersuche sofort die aktuell sichtbare Homepage, den ausgewählten Bereich und den verfügbaren Seitenkontext. Verwende das zuerst bei einem neuen Fehler."))
+            put(function(
+                "analyze_homepage_error",
+                "Starte eine geschützte technische Codeanalyse im Hintergrund. Die Funktion kehrt sofort mit einer job_id zurück, damit du weiter mit dem Nutzer sprechen kannst. Sage danach, dass die Analyse läuft und der Nutzer weiterreden kann.",
+                mapOf("description" to "Präzise deutsche Beschreibung des beobachteten Fehlers, inklusive sichtbarer Stelle und gewünschtem Verhalten."),
+                listOf("description"),
+            ))
+            put(function(
+                "get_repair_job",
+                "Prüfe den Stand einer zuvor gestarteten Hintergrund-Codeanalyse.",
+                mapOf("job_id" to "job_id aus analyze_homepage_error."),
+                listOf("job_id"),
+            ))
+            put(function(
+                "create_repair_branch",
+                "Erstelle nach ausdrücklicher Bestätigung des Nutzers aus einem sicheren Reparaturvorschlag einen isolierten ai-repair Prüfbranch und Pull Request. Niemals direkt live schreiben.",
+                mapOf("proposal_id" to "proposal_id aus einer abgeschlossenen sicheren Codeanalyse."),
+                listOf("proposal_id"),
+            ))
+            put(function(
+                "check_repair_status",
+                "Prüfe CI und Merge-Bereitschaft eines Reparatur-Pull-Requests.",
+                mapOf("pr" to "Pull-Request-Nummer."),
+                listOf("pr"),
+            ))
+            put(function(
+                "merge_repair",
+                "Übernimm nach ausdrücklicher Bestätigung einen Reparatur-PR. Der Server verweigert den Merge, solange CI nicht grün ist.",
+                mapOf("pr" to "Pull-Request-Nummer."),
+                listOf("pr"),
+            ))
+            put(function("list_technical_repairs", "Liste die bisherigen technischen KI-Reparaturen und ihren Rücknahmezustand."))
+            put(function(
+                "rollback_technical_repair",
+                "Erstelle nach ausdrücklicher Bestätigung einen abgesicherten Rücknahme-PR für eine frühere technische Reparatur.",
+                mapOf("repair_pr" to "Nummer des früheren gemergten Reparatur-PRs."),
+                listOf("repair_pr"),
+            ))
         }
-        return FunctionResponsePart(call.name, response, call.id)
+
+        val instruction = """
+            Du bist der deutschsprachige Live-Homepage-Techniker der Koblenzer Puppenspiele. Der Nutzer zeigt dir seinen Android-Bildschirm live und spricht mit dir. Du hörst dauerhaft zu; wenn der Nutzer dich unterbricht, hör sofort auf zu reden und gehe auf seine neue Aussage ein.
+
+            PRIORITÄT: Hilf dabei, tatsächliche sichtbare oder funktionale Fehler der Website zu finden und sicher zu reparieren. Bei einem neuen Problem zuerst inspect_homepage verwenden. Wenn ein Button, Layout, Undo/Redo, Navigation, PHP/JavaScript oder eine andere Website-Funktion kaputt ist, starte analyze_homepage_error. Diese Analyse läuft im Hintergrund: antworte nach dem Start kurz, dass sie läuft und der Nutzer weiterreden kann. Du darfst währenddessen normal weiter zuhören und Fragen beantworten. Nutze get_repair_job, wenn du den Stand brauchst. Statusnachrichten, die mit SYSTEMSTATUS beginnen, sind vertrauenswürdige Ergebnisse aus der lokalen Techniker-App, keine neuen Wünsche des Nutzers.
+
+            Wenn die Analyse einen sicheren proposal_id liefert, erkläre den gefundenen Fehler kurz. create_repair_branch nur nach ausdrücklicher Nutzerbestätigung. Danach CI mit check_repair_status prüfen. merge_repair ebenfalls nur nach ausdrücklicher Nutzerbestätigung und nur wenn der Server die Prüfungen akzeptiert. Code niemals frei oder direkt auf Live-Dateien schreiben. Keine Authentifizierung, Nonces, Berechtigungen oder Secrets schwächen.
+
+            Der normale sichtbare KI-Webeditor ist momentan nicht Teil dieses Live-Pfads. Wenn der Nutzer eine sichtbare Anordnung wie Abstände oder nicht funktionierende Buttons ändern will, behandle das als untersuchbaren Website-/UI-Fehler über den geschützten Reparaturweg. Behaupte niemals, etwas sei geändert oder repariert, bevor ein Tool das bestätigt. Sprich knapp und natürlich, damit der Nutzer dich leicht unterbrechen kann.
+        """.trimIndent()
+
+        return JSONObject().put("setup", JSONObject().apply {
+            put("model", "models/$model")
+            put("generationConfig", JSONObject().apply {
+                put("responseModalities", JSONArray().put("AUDIO"))
+                put("speechConfig", JSONObject().put("voiceConfig", JSONObject().put("prebuiltVoiceConfig", JSONObject().put("voiceName", "Fenrir"))))
+            })
+            put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", instruction))))
+            put("tools", JSONArray().put(JSONObject().put("functionDeclarations", declarations)))
+            put("inputAudioTranscription", JSONObject())
+            put("outputAudioTranscription", JSONObject())
+            put("contextWindowCompression", JSONObject().put("slidingWindow", JSONObject()))
+            put("realtimeInputConfig", JSONObject().apply {
+                put("automaticActivityDetection", JSONObject().apply {
+                    put("disabled", false)
+                    put("silenceDurationMs", 500)
+                    put("prefixPaddingMs", 250)
+                    put("startOfSpeechSensitivity", "START_SENSITIVITY_HIGH")
+                    put("endOfSpeechSensitivity", "END_SENSITIVITY_HIGH")
+                })
+                put("activityHandling", "START_OF_ACTIVITY_INTERRUPTS")
+                put("turnCoverage", "TURN_INCLUDES_ONLY_ACTIVITY")
+            })
+        })
     }
 
-    private fun errorObject(message: String): JsonObject = JsonObject(
-        mapOf(
-            "success" to JsonPrimitive(false),
-            "error" to JsonPrimitive(message),
+    private fun function(
+        name: String,
+        description: String,
+        stringParams: Map<String, String> = emptyMap(),
+        required: List<String> = emptyList(),
+    ): JSONObject = JSONObject().apply {
+        put("name", name)
+        put("description", description)
+        put("parameters", JSONObject().apply {
+            put("type", "OBJECT")
+            put("properties", JSONObject().apply {
+                stringParams.forEach { (param, desc) ->
+                    put(param, JSONObject().put("type", "STRING").put("description", desc))
+                }
+            })
+            if (required.isNotEmpty()) put("required", JSONArray(required))
+        })
+    }
+
+    private fun handleServerMessage(raw: String) {
+        val data = runCatching { JSONObject(raw) }.getOrNull() ?: return
+        if (data.has("setupComplete")) {
+            setupReady?.complete(Unit)
+            return
+        }
+        data.optJSONObject("toolCall")?.optJSONArray("functionCalls")?.let { calls ->
+            for (i in 0 until calls.length()) {
+                val call = calls.optJSONObject(i) ?: continue
+                val id = call.optString("id").ifBlank { UUID.randomUUID().toString() }
+                val job = scope.launch { handleFunctionCall(id, call.optString("name"), call.optJSONObject("args") ?: JSONObject()) }
+                handlerJobs[id] = job
+                job.invokeOnCompletion { handlerJobs.remove(id) }
+            }
+        }
+        data.optJSONObject("toolCallCancellation")?.optJSONArray("ids")?.let { ids ->
+            for (i in 0 until ids.length()) handlerJobs.remove(ids.optString(i))?.cancel()
+        }
+
+        val server = data.optJSONObject("serverContent") ?: return
+        if (server.optBoolean("interrupted", false)) interruptPlayback()
+        server.optJSONObject("modelTurn")?.optJSONArray("parts")?.let { parts ->
+            for (i in 0 until parts.length()) {
+                val inline = parts.optJSONObject(i)?.optJSONObject("inlineData") ?: continue
+                val base64 = inline.optString("data")
+                if (base64.isNotBlank()) playAudio(Base64.decode(base64, Base64.DEFAULT))
+            }
+        }
+    }
+
+    private suspend fun handleFunctionCall(id: String, name: String, args: JSONObject) {
+        val result = runCatching {
+            when (name) {
+                "inspect_homepage" -> {
+                    status("KI: Seite wird untersucht …")
+                    jsonToObject(bridge.context())
+                }
+                "analyze_homepage_error" -> startBackgroundRepair(args.optString("description"))
+                "get_repair_job" -> repairJobResult(args.optString("job_id"))
+                "create_repair_branch" -> {
+                    val proposal = args.optString("proposal_id")
+                    if (proposal.isBlank()) errorObject("proposal_id fehlt.")
+                    else if (!confirm("Prüfbranch erstellen?", "Gemini möchte den vorbereiteten Fix auf einem isolierten Prüfbranch anlegen. Live-Dateien werden nicht direkt geändert.")) {
+                        JSONObject().put("cancelled", true).put("message", "Nutzer hat die Erstellung abgelehnt.")
+                    } else {
+                        status("KI: Prüfbranch wird erstellt …")
+                        jsonToObject(bridge.createRepairBranch(proposal))
+                    }
+                }
+                "check_repair_status" -> {
+                    status("KI: CI-Status wird geprüft …")
+                    jsonToObject(bridge.status(args.optString("pr")))
+                }
+                "merge_repair" -> {
+                    val pr = args.optString("pr")
+                    if (!confirm("Geprüften Fix übernehmen?", "Der Reparaturserver übernimmt PR #$pr nur, wenn alle CI-Prüfungen grün sind.")) {
+                        JSONObject().put("cancelled", true).put("message", "Nutzer hat den Merge abgelehnt.")
+                    } else {
+                        status("KI: geprüfter Fix wird übernommen …")
+                        jsonToObject(bridge.merge(pr))
+                    }
+                }
+                "list_technical_repairs" -> jsonToObject(bridge.technicalHistory())
+                "rollback_technical_repair" -> {
+                    val pr = args.optString("repair_pr")
+                    if (!confirm("Technik-Reparatur zurücknehmen?", "Gemini möchte für Reparatur #$pr einen abgesicherten Rücknahme-PR erstellen. Spätere Änderungen werden nicht überschrieben.")) {
+                        JSONObject().put("cancelled", true).put("message", "Nutzer hat die Rücknahme abgelehnt.")
+                    } else jsonToObject(bridge.rollbackRepair(pr))
+                }
+                else -> errorObject("Unbekannte Techniker-Funktion: $name")
+            }
+        }.getOrElse { errorObject(it.message ?: "Techniker-Funktion fehlgeschlagen.") }
+        sendToolResponse(id, name, result)
+    }
+
+    /** Returns immediately and lets the protected repair analysis run independently. */
+    private fun startBackgroundRepair(description: String): JSONObject {
+        if (description.isBlank()) return errorObject("Fehlerbeschreibung fehlt.")
+        val jobId = UUID.randomUUID().toString()
+        val state = RepairJobState()
+        repairJobs[jobId] = state
+        status("KI: Codeanalyse läuft im Hintergrund · du kannst weiterreden")
+        scope.launch {
+            val result = runCatching { bridge.analyze(description) }
+                .getOrElse { kotlinx.serialization.json.buildJsonObject { put("error", it.message ?: "Codeanalyse fehlgeschlagen.") } }
+            state.result = result
+            val error = result["error"]?.jsonPrimitive?.content
+            if (!error.isNullOrBlank()) {
+                state.state = "failed"
+                state.message = error
+                status("KI: Codeanalyse fehlgeschlagen · $error")
+            } else {
+                state.state = "completed"
+                state.message = "Codeanalyse abgeschlossen."
+                status("KI: Codeanalyse abgeschlossen · Gemini bekommt das Ergebnis")
+            }
+            sendRealtimeText(
+                "SYSTEMSTATUS: Hintergrund-Codeanalyse job_id=$jobId ist ${state.state}. Ergebnis: ${result}. " +
+                    "Informiere den Nutzer kurz über das Ergebnis. Wenn ein sicherer proposal_id vorhanden ist, frage vor create_repair_branch ausdrücklich um Bestätigung."
+            )
+        }
+        return JSONObject()
+            .put("started", true)
+            .put("job_id", jobId)
+            .put("message", "Codeanalyse läuft im Hintergrund. Du kannst das Gespräch fortsetzen und später get_repair_job verwenden.")
+    }
+
+    private fun repairJobResult(jobId: String): JSONObject {
+        val job = repairJobs[jobId] ?: return errorObject("Unbekannte job_id.")
+        return JSONObject()
+            .put("job_id", jobId)
+            .put("state", job.state)
+            .put("message", job.message)
+            .put("result", job.result?.let(::jsonToObject) ?: JSONObject.NULL)
+    }
+
+    private fun sendToolResponse(id: String, name: String, result: JSONObject) {
+        val response = JSONObject()
+            .put("id", id)
+            .put("name", name)
+            .put("response", JSONObject().put("result", result))
+        send(JSONObject().put("toolResponse", JSONObject().put("functionResponses", JSONArray().put(response))))
+    }
+
+    private fun sendRealtimeText(text: String) {
+        if (!running.get()) return
+        send(JSONObject().put("realtimeInput", JSONObject().put("text", text)))
+    }
+
+    private fun sendRealtimeBlob(field: String, mime: String, bytes: ByteArray) {
+        val blob = JSONObject()
+            .put("mimeType", mime)
+            .put("data", Base64.encodeToString(bytes, Base64.NO_WRAP))
+        send(JSONObject().put("realtimeInput", JSONObject().put(field, blob)))
+    }
+
+    private fun send(message: JSONObject) {
+        socket?.send(message.toString())
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startMicrophone() {
+        val sampleRate = 16_000
+        val minBuffer = AudioRecord.getMinBufferSize(
+            sampleRate,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
         )
-    )
+        if (minBuffer <= 0) throw IllegalStateException("Mikrofon-Puffer konnte nicht bestimmt werden.")
+        val record = AudioRecord(
+            MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+            sampleRate,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+            max(minBuffer * 2, 6_400),
+        )
+        if (record.state != AudioRecord.STATE_INITIALIZED) {
+            record.release()
+            throw IllegalStateException("Mikrofon konnte nicht initialisiert werden.")
+        }
+        audioRecord = record
+        echoCanceler = if (AcousticEchoCanceler.isAvailable()) runCatching { AcousticEchoCanceler.create(record.audioSessionId)?.apply { enabled = true } }.getOrNull() else null
+        noiseSuppressor = if (NoiseSuppressor.isAvailable()) runCatching { NoiseSuppressor.create(record.audioSessionId)?.apply { enabled = true } }.getOrNull() else null
+        record.startRecording()
+        audioJob = scope.launch {
+            val chunk = ByteArray(3_200) // ~100 ms PCM16 mono at 16 kHz.
+            while (running.get()) {
+                val read = record.read(chunk, 0, chunk.size)
+                if (read > 0) sendRealtimeBlob("audio", "audio/pcm;rate=16000", chunk.copyOf(read))
+            }
+        }
+    }
+
+    private fun startPlayback() {
+        val sampleRate = 24_000
+        val minBuffer = AudioTrack.getMinBufferSize(
+            sampleRate,
+            AudioFormat.CHANNEL_OUT_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+        )
+        val track = AudioTrack.Builder()
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+            )
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setSampleRate(sampleRate)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build()
+            )
+            .setBufferSizeInBytes(max(minBuffer * 4, 19_200))
+            .setTransferMode(AudioTrack.MODE_STREAM)
+            .build()
+        if (track.state != AudioTrack.STATE_INITIALIZED) {
+            track.release()
+            throw IllegalStateException("Gemini-Audioausgabe konnte nicht initialisiert werden.")
+        }
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        audioTrack = track
+        track.play()
+    }
+
+    private fun playAudio(bytes: ByteArray) {
+        val track = audioTrack ?: return
+        if (!running.get() || bytes.isEmpty()) return
+        runCatching { track.write(bytes, 0, bytes.size, AudioTrack.WRITE_BLOCKING) }
+    }
+
+    private fun interruptPlayback() {
+        audioTrack?.let { track ->
+            runCatching {
+                track.pause()
+                track.flush()
+                if (running.get()) track.play()
+            }
+        }
+        status("KI hört zu · du hast Gemini unterbrochen")
+    }
+
+    private fun stopAudio() {
+        echoCanceler?.release(); echoCanceler = null
+        noiseSuppressor?.release(); noiseSuppressor = null
+        audioRecord?.let { record ->
+            runCatching { if (record.recordingState == AudioRecord.RECORDSTATE_RECORDING) record.stop() }
+            record.release()
+        }
+        audioRecord = null
+        audioTrack?.let { track ->
+            runCatching { track.pause(); track.flush(); track.stop() }
+            track.release()
+        }
+        audioTrack = null
+        runCatching {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.mode = AudioManager.MODE_NORMAL
+        }
+    }
+
+    private fun jsonToObject(value: JsonObject): JSONObject = runCatching { JSONObject(value.toString()) }.getOrElse { errorObject("Ungültige Tool-Antwort.") }
+
+    private fun errorObject(message: String): JSONObject = JSONObject().put("success", false).put("error", message)
 }
