@@ -87,25 +87,51 @@ if [[ ! -s /tmp/kp-circleci-diagnostics.txt ]]; then
   printf 'No detailed contract log was produced. CircleCI failed before diagnostics were captured.\n' > /tmp/kp-circleci-diagnostics.txt
 fi
 
+# Publishing diagnostics is useful, but it must never turn the staging runner
+# red or prevent the component verdict jobs from consuming report.json. A report
+# push can legitimately race another [skip ci] report commit on main. Keep the
+# local report authoritative for this workflow and treat GitHub publication as
+# best-effort.
+set +e
 git config user.name 'kp-circleci-report-bot'
 git config user.email 'circleci-report@users.noreply.github.com'
 git remote set-url origin "https://x-access-token:${GITHUB_REPORT_TOKEN}@github.com/${REPO}.git"
 git fetch origin main --quiet
-git checkout -B main origin/main --quiet
-
-mkdir -p qa-results
-cp /tmp/kp-circleci-report.json "$TARGET_JSON"
-cp /tmp/kp-circleci-report.md "$TARGET_MD"
-cp /tmp/kp-circleci-diagnostics.txt "$TARGET_DIAG"
-git add "$TARGET_JSON" "$TARGET_MD" "$TARGET_DIAG"
-
-if git diff --cached --quiet; then
-  echo 'CircleCI GitHub report is already current.'
-  exit 0
+publish_rc=$?
+if [[ $publish_rc -eq 0 ]]; then
+  git checkout -B main origin/main --quiet
+  publish_rc=$?
 fi
 
-git commit -m 'qa: update CircleCI homepage lab report [skip ci]' --quiet
-git pull --rebase origin main --quiet
-git push origin HEAD:main --quiet
+if [[ $publish_rc -eq 0 ]]; then
+  mkdir -p qa-results
+  cp /tmp/kp-circleci-report.json "$TARGET_JSON"
+  cp /tmp/kp-circleci-report.md "$TARGET_MD"
+  cp /tmp/kp-circleci-diagnostics.txt "$TARGET_DIAG"
+  git add "$TARGET_JSON" "$TARGET_MD" "$TARGET_DIAG"
+
+  if git diff --cached --quiet; then
+    echo 'CircleCI GitHub report is already current.'
+    set -e
+    exit 0
+  fi
+
+  git commit -m 'qa: update CircleCI homepage lab report [skip ci]' --quiet
+  publish_rc=$?
+fi
+if [[ $publish_rc -eq 0 ]]; then
+  git pull --rebase origin main --quiet
+  publish_rc=$?
+fi
+if [[ $publish_rc -eq 0 ]]; then
+  git push origin HEAD:main --quiet
+  publish_rc=$?
+fi
+set -e
+
+if [[ $publish_rc -ne 0 ]]; then
+  echo "WARN: CircleCI report publication raced or failed (exit $publish_rc); workflow verdicts will continue using the local report artifact."
+  exit 0
+fi
 
 echo 'PASS: CircleCI report and diagnostics published to qa-results/circleci-latest*.'
