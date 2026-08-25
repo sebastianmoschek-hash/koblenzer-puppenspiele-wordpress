@@ -29,10 +29,11 @@ WEB_FAST_JS='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owne
 WEB_CSS='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-agent.css'
 EMERGENCY='wp-content/mu-plugins/kp-mobile-emergency-gemini.php'
 FAST_REPAIR='wp-content/mu-plugins/kp-owner-web-repair-fast.php'
+FAST_EDIT='wp-content/mu-plugins/kp-owner-web-edit-fast.php'
 DEV_LOADER='wp-content/mu-plugins/kp-owner-web-dev-loader.php'
 SELF_HEAL='wp-content/mu-plugins/kp-owner-web-self-heal.php'
 
-for web_file in "$WEB_BOOT" "$WEB_JS" "$WEB_FAST_JS" "$WEB_CSS" "$EMERGENCY" "$FAST_REPAIR" "$DEV_LOADER" "$SELF_HEAL"; do
+for web_file in "$WEB_BOOT" "$WEB_JS" "$WEB_FAST_JS" "$WEB_CSS" "$EMERGENCY" "$FAST_REPAIR" "$FAST_EDIT" "$DEV_LOADER" "$SELF_HEAL"; do
   [[ -f "$web_file" ]] || { echo "missing web-agent file: $web_file"; exit 1; }
 done
 
@@ -40,6 +41,7 @@ if command -v php >/dev/null 2>&1; then
   php -l "$WEB_BOOT" >/dev/null
   php -l "$EMERGENCY" >/dev/null
   php -l "$FAST_REPAIR" >/dev/null
+  php -l "$FAST_EDIT" >/dev/null
   php -l "$DEV_LOADER" >/dev/null
   php -l "$SELF_HEAL" >/dev/null
 fi
@@ -75,6 +77,17 @@ grep -q "kp_owner_web_self_heal" "$WEB_FAST_JS"
 grep -q "KPOwnerWebDiagnostics" "$WEB_FAST_JS"
 grep -q "schnellen Web-Chat" "$WEB_FAST_JS"
 grep -q "kp-web-agent-active .kp-ai-trigger" "$WEB_CSS"
+
+# Visible edits keep the existing draft/Undo/Save runtime but transparently replace its slow planner.
+grep -Fq "wp_ajax_kp_owner_web_edit_plan" "$FAST_EDIT"
+grep -Fq "kp_ai_repair_guard();" "$FAST_EDIT"
+grep -Fq "gemini-3.5-flash-lite" "$FAST_EDIT"
+grep -Fq "generativelanguage.googleapis.com/v1/interactions" "$FAST_EDIT"
+grep -Fq "thinking_level' => 'low" "$FAST_EDIT"
+grep -Fq "kp_ai_plan" "$FAST_EDIT"
+grep -Fq "kp_owner_web_edit_plan" "$FAST_EDIT"
+grep -Fq "cfg.repairNonce" "$FAST_EDIT"
+grep -Fq "Ändere nur den sichtbaren Entwurf" "$FAST_EDIT"
 
 # Explicit code tasks are intercepted before the old 55-second router and use the proven fast transport.
 grep -Fq "wp_ajax_kp_mobile_emergency_gemini" "$FAST_REPAIR"
@@ -123,14 +136,14 @@ if grep -Eq "android/|MainActivity|\.kt'" "$SELF_HEAL"; then
   exit 1
 fi
 
-if grep -Eq "AIza[A-Za-z0-9_-]{20,}|github_pat_|gh[pousr]_[A-Za-z0-9_-]{12,}" "$WEB_JS" "$WEB_FAST_JS" "$WEB_BOOT" "$FAST_REPAIR" "$DEV_LOADER" "$SELF_HEAL"; then
+if grep -Eq "AIza[A-Za-z0-9_-]{20,}|github_pat_|gh[pousr]_[A-Za-z0-9_-]{12,}" "$WEB_JS" "$WEB_FAST_JS" "$WEB_BOOT" "$FAST_REPAIR" "$FAST_EDIT" "$DEV_LOADER" "$SELF_HEAL"; then
   echo 'Owner web agent must not contain durable Gemini/GitHub credentials'
   exit 1
 fi
 
-if grep -Eq "file_put_contents\(|WP_Filesystem\(|unlink\(" "$FILE" "$FAST_REPAIR" "$DEV_LOADER" "$SELF_HEAL"; then
+if grep -Eq "file_put_contents\(|WP_Filesystem\(|unlink\(" "$FILE" "$FAST_REPAIR" "$FAST_EDIT" "$DEV_LOADER" "$SELF_HEAL"; then
   echo 'AI repair/dev-loader/self-heal path contains direct filesystem mutation primitive'
   exit 1
 fi
 
-echo 'AI repair + primary owner web-agent + staging live-loader + self-heal sandbox contract PASS'
+echo 'AI repair + primary owner web-agent + fast visible edits + staging live-loader + self-heal sandbox contract PASS'
