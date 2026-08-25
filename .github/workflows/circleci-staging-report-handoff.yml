@@ -6,14 +6,13 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: circleci-staging-report-handoff
-  cancel-in-progress: false
-
 jobs:
   publish:
     # Do not allocate a GitHub-hosted runner for every CircleCI status event.
     # Only the terminal autonomous homepage-lab status can publish a complete report.
+    # Intentionally no workflow-level concurrency here: GitHub keeps only one pending
+    # run per concurrency group, so later verdict-status events could cancel the
+    # terminal serial-end handoff before it ever received a runner.
     if: >-
       ${{
         contains(github.event.context, 'autonomous-homepage-lab/serial-end-2') &&
