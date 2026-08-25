@@ -153,7 +153,10 @@
     event.preventDefault();event.stopImmediatePropagation();
     button.disabled=true;button.textContent='Speichert alles…';
     try{
-      await flushAll();
+      // Always enter through the public registry. Late compatibility bridges
+      // extend registry.flushAll(), so calling the lexical flushAll() here would
+      // silently bypass specialist Canva/AI/navigation/card runtimes.
+      await (window.KPOwnerSaveRegistry?.flushAll?.() || flushAll());
       toast('Alle Designänderungen dauerhaft gespeichert ✓','ok');
       setTimeout(()=>location.reload(),450);
     }catch(error){
