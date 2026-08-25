@@ -10,8 +10,8 @@ android {
         applicationId = "de.koblenzerpuppenspiele.techniker"
         minSdk = 24
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.3.1-local-live"
+        versionCode = 6
+        versionName = "0.6.0-voice-utterance"
     }
 
     buildFeatures {
