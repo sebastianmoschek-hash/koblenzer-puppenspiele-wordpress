@@ -1,74 +1,62 @@
-# Lokaler Laptop-Agent für die Homepage-Hilfe
+# Lokaler Homepage-Agent (Desktop/Chromium)
 
-Dieser Dienst ist ausschließlich für den Desktop-/Chrome-Strang gedacht. Er läuft auf `127.0.0.1`, spricht lokal mit Ollama/Gemma und darf nur freigegebenen Website-Code im lokalen Git-Repository lesen bzw. über exakte Search/Replace-Patches ändern.
+Der Agent verbindet die eingeloggte Homepage-Hilfe ausschließlich mit Ollama/Gemma auf diesem Windows-Laptop. Unterhaltung, Bildanalyse und – soweit Chromium das lokale deutsche Sprachpaket unterstützt – Spracheingabe bleiben lokal. Production und Android werden nicht angefasst.
 
-## Voraussetzungen
+## Schnellstart unter Windows
 
-- Node.js 20 oder neuer
-- Git
-- PHP CLI (für `php -l` bei PHP-Änderungen)
-- Bash/Git Bash (für `qa/local-ai-contract.sh`)
-- Ollama
-- lokaler Checkout dieses Repositories
+1. Im lokalen Repository `desktop\homepage-agent\start-windows.ps1` mit PowerShell starten.
+2. Das schwarze Fenster offen lassen. Es zeigt bei jedem Start einen sechsstelligen `KOPPLUNGSCODE`.
+3. In Chromium/Chrome die eingeloggte Staging-Seite mit `?kp_edit=1` öffnen und „Lokale KI“ anklicken.
+4. Den Kopplungscode eingeben, wenn der Browser danach fragt.
+5. Zuerst „Stimme testen“ anklicken. Danach kann „Gespräch“ die lokale deutsche Spracheingabe starten.
 
-## Einmalig Gemma installieren
+Das Startskript prüft Node.js 20+, Git und Ollama, startet Ollama und lädt bei Bedarf einmalig `gemma3:4b`. Zugangsdaten werden nicht benötigt. PHP CLI und Bash/Git Bash sind nur für sichere automatische Codeänderungen nötig.
 
-```bash
-ollama pull gemma3:4b
-```
+Optional kann `desktop\homepage-agent\install-autostart-windows.ps1` einmal ausgeführt werden. Danach startet der Agent beim Windows-Login in einem sichtbaren Fenster, damit der aktuelle Kopplungscode und Fehler immer erkennbar bleiben.
 
-`gemma3:4b` ist die Standardkonfiguration, weil sie Text und Bilder versteht. Ein anderes lokales Gemma-Modell kann über `KP_GEMMA_MODEL` gesetzt werden.
+## Stimme und Gespräch
 
-## Agent starten
+- „Stimme an/aus“ steuert die Antwortausgabe. Standardmäßig ist sie an.
+- „Stimme testen“ lädt die Windows-/Chromium-Stimmen, bevorzugt eine lokale deutsche Stimme und spricht einen festen Testsatz.
+- Fehlt eine Stimme, muss in Windows unter **Einstellungen → Zeit und Sprache → Sprache und Region → Deutsch → Sprachoptionen** eine Sprachausgabe installiert werden.
+- „Gespräch“ nutzt nur `SpeechRecognition` mit `processLocally=true`. Falls dieser Chromium-Build oder das deutsche Offline-Sprachpaket das nicht unterstützt, wird die Spracheingabe beendet und niemals auf eine Cloud-Erkennung zurückgefallen. Tippen bleibt verfügbar.
+- Während die KI spricht, hört das Mikrofon nicht zu. Danach startet es im Gesprächsmodus wieder.
 
-Im Repository-Root:
+## Bildschirm und Beobachtung
 
-```bash
-node desktop/homepage-agent/server.mjs
-```
+„Bildschirm/Tab/Fenster“ öffnet die native Chromium-Freigabe. Die KI erhält nur dann einen aktuellen komprimierten Frame, wenn eine Frage oder lokale Beobachtung ausgeführt wird. „Beobachten“ vergleicht alle vier Sekunden ausschließlich kleine lokale Bild-Fingerprints. Erst bei einer deutlichen Änderung und höchstens alle 18 Sekunden wird ein aktueller Frame an das lokale Gemma-Modell gesendet. Gemeldet werden nur sichtbare Fehler, Warnungen, fehlgeschlagene Builds oder überraschende Layoutschäden.
 
-Danach im eingeloggten Chrome-Browser die Homepage-Hilfe öffnen. Sie verbindet sich mit `http://127.0.0.1:8765`.
+Die Freigabe endet über „Freigabe stoppen“, über die Chromium-Anzeige oder beim Schließen der Seite.
 
-Falls das Repository an anderer Stelle liegt, kann der Root explizit gesetzt werden:
+## Sichere Website-Codeänderungen
 
-```bash
-KP_REPO_ROOT=/pfad/zum/repository node desktop/homepage-agent/server.mjs
-```
+Der Agent darf nur bestehende Dateien unter den freigegebenen WordPress-Verzeichnissen ändern. `qa/` ist lesbar, aber nicht beschreibbar. Android, mobile KI, Workflows, Zugangsdaten und Secret-Dateien sind gesperrt.
 
-Unter PowerShell entsprechend:
+Für einen Code-Patch gelten:
 
-```powershell
-$env:KP_REPO_ROOT='C:\Pfad\zum\repository'
-node desktop/homepage-agent/server.mjs
-```
+- ausschließlich Branch `desktop-ai-fast`;
+- sauberer Git-Worktree vor Beginn;
+- höchstens fünf Dateien und zehn eindeutige Search/Replace-Operationen;
+- nur Risiko `low` oder `medium`;
+- PHP-Lint, JavaScript-Syntaxprüfung, `git diff --check` und `qa/local-ai-contract.sh`;
+- vollständiges Zurückrollen bei jedem Testfehler;
+- sichtbare Bestätigung vor Patch und vor Veröffentlichung;
+- Push nur auf den Staging-Branch. Production bleibt getrennt.
 
-## Chrome-Funktionen
-
-- **Bildschirm/Tab/Fenster:** Chrome öffnet die native Freigabeauswahl (`getDisplayMedia`). Solange die Freigabe aktiv ist, bekommt Gemma bei einer Anfrage einen aktuellen komprimierten Frame. Die Freigabe kann jederzeit über Chrome oder „Freigabe stoppen“ beendet werden.
-- **Sprache:** Die Schaltfläche „Sprache“ nutzt die in Chrome verfügbare SpeechRecognition-Schnittstelle für deutsche Spracheingabe. „Antworten“ nutzt die Browser-Sprachausgabe. Gemma selbst bleibt davon unabhängig lokal in Ollama.
-- **Direkte Homepage-Änderungen:** Bereits vorhandene deterministische Editor-Aktionen bleiben für Text/Design/Speichern zuständig.
-- **Code-Änderungen:** Wenn Code nötig ist, wählt Gemma aus dem vom lokalen Agenten gelieferten Dateikatalog, liest maximal fünf erlaubte Dateien und erzeugt einen kleinen Patch. Vor dem Schreiben erscheint eine Bestätigung. Danach werden PHP-Lint und der lokale AI-Contract ausgeführt. Bei Testfehlern wird der Patch zurückgerollt.
-
-## Sicherheitsgrenzen
-
-Der Agent bindet standardmäßig nur an `127.0.0.1`. Er führt keine vom Browser gelieferten Shell-Kommandos aus und besitzt keine allgemeine Shell-API. Schreibzugriffe sind auf die Website-Verzeichnisse begrenzt.
-
-Der Laptop-Agent sperrt insbesondere:
-
-- `android/**`
-- Android-Workflows
-- `qa/*android*`
-- `qa/mobile-*`
-- `wp-content/mu-plugins/kp-mobile-*`
-
-Damit kann der parallele Android-Strang nicht über die Laptop-Hilfe überschrieben werden.
+Nach erfolgreicher Prüfung kann „Auf Staging“ committen und zu `desktop-ai-fast` pushen. CircleCI lädt nur die erlaubten, geprüften Website-Dateien auf Staging. „Code verwerfen“ restauriert einen noch nicht committeten Patch ohne destruktive Git-Befehle.
 
 ## Lokale API
 
-- `GET /v1/health` – Agent/Ollama/Repository prüfen
-- `GET /v1/catalog` – erlaubte Website-Dateien auflisten
-- `POST /v1/chat` – lokale Gemma-Unterhaltung, optional mit Bild
-- `POST /v1/files` – erlaubte Dateien lesen
-- `POST /v1/apply` – validierten Search/Replace-Patch anwenden, testen und Git-Diff zurückgeben
+Der Dienst bindet standardmäßig nur an `127.0.0.1:8765`. Alle Endpunkte außer der sechsstelligen Kopplung benötigen ein zufälliges Bearer-Token, das nur unter dem Benutzerprofil in `.kp-homepage-agent/token.json` gespeichert wird.
 
-Der Agent committed oder pusht in dieser Ausbaustufe noch nicht automatisch. Er ändert den echten lokalen Git-Worktree und liefert den resultierenden Diff zurück; Deployment/Push bleibt damit ein separater, kontrollierter Schritt.
+- `POST /v1/pair` – Browser mit dem sichtbaren Startcode koppeln
+- `GET /v1/health` – Agent, Ollama, Modell, Branch und Worktree prüfen
+- `POST /v1/chat` – lokale Gemma-Unterhaltung, optional mit Bild
+- `GET /v1/catalog` und `POST /v1/files` – erlaubte Dateien auswählen und lesen
+- `POST /v1/apply` – kleinen Patch anwenden und vollständig prüfen
+- `GET /v1/pending` – offenen geprüften Patch anzeigen
+- `POST /v1/revert` – noch nicht committeten Patch restaurieren
+- `POST /v1/publish` – committen und auf den Desktop-Staging-Branch pushen
+
+Es existiert keine Shell-API. Vom Browser gelieferte Shell-Kommandos werden nie ausgeführt.
+
