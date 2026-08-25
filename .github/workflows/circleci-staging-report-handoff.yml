@@ -12,16 +12,33 @@ concurrency:
 
 jobs:
   publish:
-    if: >-
-      contains(github.event.context, 'autonomous-homepage-lab/serial-end-2') &&
-      (github.event.state == 'success' || github.event.state == 'failure' || github.event.state == 'error')
     runs-on: ubuntu-latest
     steps:
+      - name: Select terminal homepage-lab status
+        env:
+          STATUS_CONTEXT: ${{ github.event.context }}
+          STATUS_STATE: ${{ github.event.state }}
+        run: |
+          set -euo pipefail
+          run_handoff=false
+          case "$STATUS_STATE" in
+            success|failure|error)
+              if [[ "$STATUS_CONTEXT" == *"autonomous-homepage-lab/serial-end-2"* ]]; then
+                run_handoff=true
+              fi
+              ;;
+          esac
+          echo "RUN_HANDOFF=$run_handoff" >> "$GITHUB_ENV"
+          echo "CircleCI status: context=$STATUS_CONTEXT state=$STATUS_STATE handoff=$run_handoff"
+
       - uses: actions/checkout@v4
+        if: env.RUN_HANDOFF == 'true'
         with:
           ref: main
           fetch-depth: 0
+
       - name: Fetch exact staging-lab handoff
+        if: env.RUN_HANDOFF == 'true'
         env:
           EXPECTED_SHA: ${{ github.event.sha }}
         run: |
@@ -49,6 +66,7 @@ jobs:
           cp /tmp/kp-circleci-handoff/editor-report.json qa-results/circleci-latest-editor.json
 
       - name: Publish report without triggering another CI round
+        if: env.RUN_HANDOFF == 'true'
         env:
           EXPECTED_SHA: ${{ github.event.sha }}
         run: |
