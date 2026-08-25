@@ -160,13 +160,13 @@ w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/d
 > Task :app:mergeLibDexDebug
 > Task :app:checkDebugAarMetadata
 > Task :app:mapDebugSourceSetPaths
-> Task :app:mergeDebugJavaResource
 > Task :app:compileDebugNavigationResources
+> Task :app:mergeDebugJavaResource
 > Task :app:createDebugCompatibleScreenManifests
 > Task :app:extractDeepLinksDebug
-> Task :app:mergeDebugResources
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
+> Task :app:mergeDebugResources
 > Task :app:mergeDebugJniLibFolders
 > Task :app:processDebugManifestForPackage
 > Task :app:mergeDebugNativeLibs
