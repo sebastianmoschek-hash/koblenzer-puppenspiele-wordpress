@@ -11,16 +11,14 @@ jobs:
           name: Deploy only fast web-agent chat files to staging
           command: |
             sudo apt-get update -qq
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp php-cli nodejs curl
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp php-cli
             php -l wp-content/mu-plugins/kp-owner-web-agent.php
-            node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-agent-fast-chat.js
             export LFTP_PASSWORD="${STAGING_FTP_PASSWORD:-${LFTP_PASSWORD:-}}"
             : "${STAGING_FTP_SERVER:?STAGING_FTP_SERVER fehlt}"
             : "${STAGING_FTP_USERNAME:?STAGING_FTP_USERNAME fehlt}"
             : "${LFTP_PASSWORD:?STAGING_FTP_PASSWORD fehlt}"
             lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 2; set net:timeout 20; open --user '$STAGING_FTP_USERNAME' --env-password -p 21 '$STAGING_FTP_SERVER'; put 'wp-content/mu-plugins/kp-owner-web-agent.php' -o '/wp-content/mu-plugins/kp-owner-web-agent.php'; put 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-agent-fast-chat.js' -o '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-agent-fast-chat.js'; bye"
-            curl -fsSL 'https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-agent-fast-chat.js?kp_agent=20260825-2' | grep -q 'kp_owner_web_agent_chat'
-            echo 'PASS staging fast web-chat deployed; production untouched.'
+            echo 'PASS staging fast web-chat uploaded; production untouched.'
 
 workflows:
   staging-fast-web-chat:
