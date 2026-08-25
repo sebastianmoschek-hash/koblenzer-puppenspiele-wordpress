@@ -49,33 +49,48 @@ class LocalNaturalVoice(private val context: Context) {
             try {
                 val engine = ensureTts()
                 val sampleRate = engine.sampleRate()
-                val minBuffer = AudioTrack.getMinBufferSize(
+                check(sampleRate > 0) { "Ungültige Thorsten-Samplerate: $sampleRate Hz" }
+
+                // Follow sherpa-onnx's Android TTS sample: Android decides the
+                // minimum streaming buffer. Do not derive it from sampleRate;
+                // at 22.05 kHz that produced non-frame-aligned PCM_FLOAT sizes.
+                val minBufferBytes = AudioTrack.getMinBufferSize(
                     sampleRate,
                     AudioFormat.CHANNEL_OUT_MONO,
                     AudioFormat.ENCODING_PCM_FLOAT,
-                ).coerceAtLeast(sampleRate / 2)
-                localTrack = AudioTrack.Builder()
-                    .setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_ASSISTANT)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                            .build()
-                    )
-                    .setAudioFormat(
-                        AudioFormat.Builder()
-                            .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
-                            .setSampleRate(sampleRate)
-                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                            .build()
-                    )
-                    .setBufferSizeInBytes(minBuffer * 2)
-                    .setTransferMode(AudioTrack.MODE_STREAM)
-                    .setSessionId(AudioManager.AUDIO_SESSION_ID_GENERATE)
+                )
+                check(minBufferBytes > 0) {
+                    "Android-Audiopuffer ist für $sampleRate Hz nicht verfügbar ($minBufferBytes)"
+                }
+                val frameBytes = Float.SIZE_BYTES
+                val bufferBytes = ((minBufferBytes + frameBytes - 1) / frameBytes) * frameBytes
+
+                val attributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
+                val format = AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+                    .setSampleRate(sampleRate)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build()
+
+                localTrack = AudioTrack(
+                    attributes,
+                    format,
+                    bufferBytes,
+                    AudioTrack.MODE_STREAM,
+                    AudioManager.AUDIO_SESSION_ID_GENERATE,
+                )
+                check(localTrack.state == AudioTrack.STATE_INITIALIZED) {
+                    "Android konnte den Thorsten-Audiopuffer nicht initialisieren ($bufferBytes Bytes bei $sampleRate Hz)"
+                }
                 track = localTrack
                 localTrack.play()
                 onStart()
 
+                var sampleChunks = 0
+                var sampleCount = 0L
                 engine.generateWithConfigAndCallback(
                     text = text,
                     config = GenerationConfig(
@@ -85,10 +100,19 @@ class LocalNaturalVoice(private val context: Context) {
                     ),
                 ) { samples ->
                     if (request != generation.get()) return@generateWithConfigAndCallback 0
+                    if (samples.isEmpty()) return@generateWithConfigAndCallback 1
                     val written = localTrack.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
-                    if (written > 0) 1 else 0
+                    if (written < 0) {
+                        throw IllegalStateException("Android AudioTrack.write fehlgeschlagen: $written")
+                    }
+                    sampleChunks += 1
+                    sampleCount += written.toLong()
+                    1
                 }
 
+                check(sampleChunks > 0 && sampleCount > 0) {
+                    "Thorsten High hat keine Audiodaten erzeugt"
+                }
                 if (request == generation.get()) {
                     runCatching { localTrack.stop() }
                     onDone()
@@ -97,9 +121,7 @@ class LocalNaturalVoice(private val context: Context) {
                 Log.e(TAG, "Thorsten High local voice failed", error)
                 if (request == generation.get()) {
                     showEngineError(error)
-                    // Deliberately finish instead of invoking the controller's
-                    // legacy onError path, which used Android system TTS.
-                    onDone()
+                    onError(error)
                 }
             } finally {
                 runCatching { localTrack?.pause() }
