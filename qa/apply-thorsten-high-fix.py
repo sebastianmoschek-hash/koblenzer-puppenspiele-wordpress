@@ -12,6 +12,14 @@ def replace_once(path: Path, old: str, new: str) -> None:
     path.write_text(text.replace(old, new, 1))
 
 
+def replace_all(path: Path, old: str, new: str) -> None:
+    text = path.read_text()
+    count = text.count(old)
+    if count < 1:
+        raise SystemExit(f"{path}: expected at least one match: {old[:80]!r}")
+    path.write_text(text.replace(old, new))
+
+
 voice = ROOT / "android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalNaturalVoice.kt"
 replace_once(voice, 'fun label(): String = "Thorsten · natürlich · lokal"', 'fun label(): String = "Thorsten High · natürlich · lokal"')
 replace_once(voice, 'val root = File(context.filesDir, "natural-voice/$ESPEAK_DIR")', 'val root = File(context.filesDir, "natural-voice/$MODEL_DIR/$ESPEAK_DIR")')
@@ -55,8 +63,8 @@ replace_once(
 )
 
 prepare = ROOT / "qa/prepare-android-natural-voice.sh"
-replace_once(prepare, 'vits-piper-de_DE-thorsten-medium', 'vits-piper-de_DE-thorsten-high')
-replace_once(prepare, 'de_DE-thorsten-medium.onnx', 'de_DE-thorsten-high.onnx')
+replace_all(prepare, 'vits-piper-de_DE-thorsten-medium', 'vits-piper-de_DE-thorsten-high')
+replace_all(prepare, 'de_DE-thorsten-medium.onnx', 'de_DE-thorsten-high.onnx')
 replace_once(prepare, 'Thorsten medium', 'Thorsten High')
 
 gradle = ROOT / "android/homepage-technician/app/build.gradle.kts"
@@ -65,7 +73,8 @@ replace_once(gradle, 'versionName = "0.7.0-natural-voice"', 'versionName = "0.8.
 
 activity = ROOT / "android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LiveLocalActivity.kt"
 activity_text = activity.read_text()
-activity_text = activity_text.replace("🔊 Thorsten · ", "🔊 Thorsten High · ")
-activity.write_text(activity_text)
+if "🔊 Thorsten · " not in activity_text:
+    raise SystemExit("LiveLocalActivity: Thorsten label not found")
+activity.write_text(activity_text.replace("🔊 Thorsten · ", "🔊 Thorsten High · "))
 
 print("Thorsten High fix applied: high-quality model, model-specific cache, version 8, no live system-TTS fallback.")
