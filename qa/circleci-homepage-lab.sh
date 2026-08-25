@@ -46,12 +46,25 @@ trap cleanup_bridge EXIT
 run_capture(){
   local name="$1"; shift
   local logfile="$REPORT_DIR/$name.log"
+  local limit='7m'
+  case "$name" in
+    editor|persistence) limit='9m' ;;
+    session-undo|touch-slider|touch-runtime) limit='6m' ;;
+    visual) limit='12m' ;;
+  esac
   log "== $name =="
+  log "TIMEOUT $name: $limit"
   set +e
-  "$@" > >(tee "$logfile") 2>&1
+  timeout --foreground --signal=TERM --kill-after=15s "$limit" "$@" > >(tee "$logfile") 2>&1
   local rc=$?
   set -e
-  if [[ $rc -eq 0 ]]; then log "PASS $name"; else log "FAIL $name (exit $rc)"; fi
+  if [[ $rc -eq 0 ]]; then
+    log "PASS $name"
+  elif [[ $rc -eq 124 || $rc -eq 137 || $rc -eq 143 ]]; then
+    log "FAIL $name (timeout $limit, exit $rc)"
+  else
+    log "FAIL $name (exit $rc)"
+  fi
   return $rc
 }
 
@@ -76,7 +89,7 @@ fi
 expected=$(sed -n 's/^ \* Version: //p' "$PLUGIN/koblenzer-puppenspiele-core.php" | head -1)
 if [[ "$status_deploy" == success && -n "$expected" ]]; then
   for attempt in $(seq 1 20); do
-    if curl --fail --silent --show-error --location -H 'Cache-Control: no-cache, no-store' \
+    if curl --max-time 25 --connect-timeout 10 --fail --silent --show-error --location -H 'Cache-Control: no-cache, no-store' \
       "$STAGING_BASE/?kp_staging_bridge_health=1&kp_circleci=${SHA}-${RUN_ID}-${attempt}" -o "$REPORT_DIR/health.json" \
       && jq -e --arg version "$expected" '.success == true and .data.active == true and .data.version == $version' "$REPORT_DIR/health.json" >/dev/null 2>&1; then
       status_ready=success; break
