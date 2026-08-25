@@ -6,6 +6,7 @@
  * - falls back to FE2's private in-session history if the global marker is missing
  * - separates the floating AI and owner-tools buttons on mobile
  * - keeps the two history arrows visually close together
+ * - keeps the agreed mobile navigation on tablets through 900px
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -18,6 +19,113 @@ add_action( 'wp_footer', static function () {
          Reset controls. Hide it for the duration of the sheet and bring it
          back automatically when the sheet closes. */
       body.kp-oa-open .kp-ai-trigger{display:none!important}
+
+      /* The editor contract and the responsive editor both define tablet as
+         <=900px. The theme's older 781px navigation breakpoint left an 820px
+         tablet in desktop-navigation mode, while the tablet gate correctly
+         expected the touch menu. Override only the navigation layer here; the
+         rest of the theme's layout breakpoints stay untouched. */
+      @media(min-width:782px) and (max-width:900px){
+        .kp-navigation-bar{
+          height:0!important;
+          min-height:0!important;
+          padding:0!important;
+          border:0!important;
+          box-shadow:none!important;
+          background:transparent!important;
+        }
+        .kp-site-nav{
+          position:fixed!important;
+          right:max(16px,env(safe-area-inset-right))!important;
+          bottom:max(18px,env(safe-area-inset-bottom))!important;
+          z-index:9999!important;
+          width:auto!important;
+          min-height:0!important;
+        }
+        .kp-site-nav .wp-block-navigation__responsive-container:not(.is-menu-open):not(.has-modal-open){
+          display:none!important;
+        }
+        .kp-site-nav .wp-block-navigation__responsive-container-open{
+          display:inline-flex!important;
+          align-items:center!important;
+          justify-content:center!important;
+          gap:.42rem!important;
+          min-width:112px!important;
+          min-height:52px!important;
+          padding:.72rem 1rem!important;
+          border:1px solid rgba(255,255,255,.2)!important;
+          border-radius:999px!important;
+          background:var(--kp-orange,#f07a22)!important;
+          color:#fff!important;
+          box-shadow:0 12px 32px rgba(0,0,0,.42)!important;
+          font-weight:850!important;
+        }
+        .kp-site-nav .wp-block-navigation__responsive-container-open::after{
+          content:"Menü"!important;
+          display:inline!important;
+          font-size:.94rem!important;
+        }
+        .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open,
+        .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open{
+          position:fixed!important;
+          inset:0!important;
+          z-index:10000!important;
+          display:flex!important;
+          padding:max(22px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(22px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))!important;
+          background:rgba(8,7,6,.98)!important;
+          color:#fff!important;
+          backdrop-filter:blur(12px)!important;
+        }
+        .kp-site-nav .wp-block-navigation__responsive-close{
+          width:100%!important;
+          max-width:520px!important;
+          margin:auto!important;
+        }
+        .kp-site-nav .wp-block-navigation__responsive-dialog{
+          min-height:calc(100dvh - 44px)!important;
+          display:flex!important;
+          flex-direction:column!important;
+        }
+        .kp-site-nav .wp-block-navigation__responsive-container-content{
+          flex:1!important;
+          display:flex!important;
+          align-items:center!important;
+          justify-content:center!important;
+          padding-top:54px!important;
+        }
+        .kp-site-nav .wp-block-navigation__responsive-container-content .wp-block-navigation__container{
+          display:flex!important;
+          flex-direction:column!important;
+          align-items:stretch!important;
+          gap:.25rem!important;
+          width:100%!important;
+        }
+        .kp-site-nav .wp-block-navigation-item__content{
+          display:block!important;
+          width:100%!important;
+          padding:.72rem 1rem!important;
+          border-radius:12px!important;
+          color:#fff!important;
+          font-family:Georgia,'Times New Roman',serif!important;
+          font-size:clamp(1.25rem,5vw,1.7rem)!important;
+          text-align:center!important;
+        }
+        .kp-site-nav .wp-block-navigation__responsive-container-close{
+          position:absolute!important;
+          top:0!important;
+          right:0!important;
+          display:inline-flex!important;
+          align-items:center!important;
+          justify-content:center!important;
+          width:48px!important;
+          height:48px!important;
+          border:1px solid rgba(255,255,255,.18)!important;
+          border-radius:999px!important;
+          background:var(--kp-orange,#f07a22)!important;
+          color:#fff!important;
+        }
+      }
+
       @media(max-width:782px){
         body.kp-fe2-editing .kp-ai-trigger{
           right:12px!important;
