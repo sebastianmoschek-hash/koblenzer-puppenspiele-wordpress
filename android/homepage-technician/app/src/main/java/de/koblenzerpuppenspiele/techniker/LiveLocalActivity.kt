@@ -98,6 +98,7 @@ class LiveLocalActivity : Activity() {
                 super.onPageFinished(view, url)
                 val uri = url?.let { runCatching { Uri.parse(it) }.getOrNull() }
                 currentPageTrusted = uri?.scheme == "https" && isTrustedHost(uri.host)
+                if (currentPageTrusted) installWebHook()
                 dispatch(
                     "bridge-ready",
                     JSONObject()
@@ -109,6 +110,127 @@ class LiveLocalActivity : Activity() {
         }
     }
 
+    /**
+     * The server-delivered web app remains unchanged. This tiny bridge layer is
+     * injected only inside the native local-live shell and wires its existing
+     * chat composer to the Android on-device runtime.
+     */
+    private fun installWebHook() {
+        val script = """
+            (() => {
+              if (window.__kpLocalLiveHook) return;
+              window.__kpLocalLiveHook = true;
+              const STORE = 'kp-owner-web-agent-chat-v1';
+              let live = false;
+              let modelInstalled = false;
+              try { live = !!window.KPLocalLive.isLive(); } catch (_) {}
+              try { modelInstalled = !!window.KPLocalLive.isModelInstalled(); } catch (_) {}
+              const q = s => document.querySelector(s);
+              const save = (role, text) => {
+                try {
+                  const rows = JSON.parse(sessionStorage.getItem(STORE) || '[]');
+                  const list = Array.isArray(rows) ? rows : [];
+                  list.push({role, text: String(text || ''), at: Date.now()});
+                  sessionStorage.setItem(STORE, JSON.stringify(list.slice(-24)));
+                } catch (_) {}
+              };
+              const append = (role, text) => {
+                const list = q('.kp-wa-messages');
+                if (!list) return;
+                const article = document.createElement('article');
+                article.className = 'kp-wa-msg is-' + role;
+                const who = document.createElement('b');
+                who.textContent = role === 'user' ? 'Du' : 'KI';
+                const body = document.createElement('div');
+                body.textContent = String(text || '');
+                article.append(who, body);
+                list.appendChild(article);
+                list.scrollTop = list.scrollHeight;
+                save(role, text);
+              };
+              const status = text => { const el = q('.kp-wa-status'); if (el) el.textContent = String(text || ''); };
+              const buttonState = () => {
+                const b = q('.kp-wa-local-live');
+                if (!b) return;
+                b.textContent = live ? '■ Live lokal' : (modelInstalled ? '◉ Live lokal' : '⬇ Gemma lokal');
+                b.setAttribute('aria-pressed', live ? 'true' : 'false');
+              };
+              const install = () => {
+                const actions = q('.kp-wa-compose-actions');
+                if (!actions || q('.kp-wa-local-live')) return;
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'kp-wa-local-live';
+                b.style.minHeight = '48px';
+                b.style.borderRadius = '14px';
+                b.style.padding = '8px 12px';
+                b.style.fontWeight = '800';
+                b.style.border = '1px solid rgba(255,255,255,.18)';
+                b.style.background = 'rgba(255,255,255,.09)';
+                b.style.color = 'inherit';
+                b.addEventListener('click', event => {
+                  event.preventDefault(); event.stopPropagation();
+                  if (live) { window.KPLocalLive.stop(); return; }
+                  if (!modelInstalled) { status('Lokales Gemma-Modell wird installiert …'); window.KPLocalLive.installModel(); return; }
+                  window.KPLocalLive.start();
+                });
+                actions.prepend(b);
+                const small = q('.kp-wa-head small');
+                if (small) small.textContent = 'Live lokal · Bildschirm + Sprache + Gemma auf dem Gerät';
+                buttonState();
+              };
+              const sendLocal = text => {
+                const clean = String(text || '').trim();
+                if (!clean) return;
+                const id = 'web-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
+                append('user', clean);
+                status('Live lokal · Gemma betrachtet den aktuellen Bildschirm …');
+                window.KPLocalLive.ask(id, clean);
+              };
+              document.addEventListener('click', event => {
+                if (!live || !event.target.closest('.kp-wa-send')) return;
+                const input = q('.kp-wa-input');
+                const text = String(input && input.value || '').trim();
+                if (!text) return;
+                event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+                input.value = '';
+                sendLocal(text);
+              }, true);
+              document.addEventListener('keydown', event => {
+                if (!live || event.key !== 'Enter' || event.shiftKey || !event.target.matches('.kp-wa-input')) return;
+                const text = String(event.target.value || '').trim();
+                if (!text) return;
+                event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+                event.target.value = '';
+                sendLocal(text);
+              }, true);
+              window.addEventListener('kp:local-live', event => {
+                const d = event.detail || {};
+                if (d.type === 'bridge-ready') {
+                  modelInstalled = !!d.modelInstalled; live = !!d.live; buttonState(); return;
+                }
+                if (d.type === 'state') {
+                  live = !!d.live; buttonState(); status(d.message || (live ? 'Live lokal aktiv' : 'Bereit')); return;
+                }
+                if (d.type === 'model-progress') { status('Gemma lokal wird installiert · ' + Number(d.percent || 0) + ' %'); return; }
+                if (d.type === 'model') {
+                  modelInstalled = !!d.installed; buttonState(); status(d.message || 'Lokales Modell bereit');
+                  if (modelInstalled && !live) setTimeout(() => window.KPLocalLive.start(), 250);
+                  return;
+                }
+                if (d.type === 'needs-model') { modelInstalled = false; buttonState(); status(d.message || 'Lokales Modell fehlt'); return; }
+                if (d.type === 'status' || d.type === 'working') { status(d.message || 'Live lokal arbeitet …'); return; }
+                if (d.type === 'user') { append('user', d.text || ''); return; }
+                if (d.type === 'reply') { append('assistant', d.text || ''); status('Live lokal · ich höre weiter zu'); return; }
+                if (d.type === 'error') { append('assistant', 'Live lokal: ' + (d.message || 'Unbekannter Fehler')); status('Live lokal · Fehler'); }
+              });
+              install();
+              const timer = setInterval(() => { install(); if (!document.documentElement.isConnected) clearInterval(timer); }, 600);
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(script, null)
+    }
+
     private fun loadRequestedUrl(intent: Intent?) {
         val deepLink = intent?.data
         val requested = if (deepLink?.scheme == "koblenzerpuppenspiele" && deepLink.host == "vision") {
@@ -117,8 +239,8 @@ class LiveLocalActivity : Activity() {
         val uri = requested?.let { runCatching { Uri.parse(it) }.getOrNull() }
         val base = if (uri != null && uri.scheme == "https" && isTrustedHost(uri.host)) uri else Uri.parse(BuildConfig.HOMEPAGE_URL)
         val url = base.buildUpon()
-            .appendQueryParameterIfMissing("kp_edit", "1")
-            .appendQueryParameterIfMissing("kp_ai", "1")
+            .appendQueryParameter("kp_edit", "1")
+            .appendQueryParameter("kp_ai", "1")
             .build()
             .toString()
         currentPageTrusted = false
@@ -390,10 +512,4 @@ class LiveLocalActivity : Activity() {
         uiScope.cancel()
         super.onDestroy()
     }
-}
-
-private fun Uri.Builder.appendQueryParameterIfMissing(key: String, value: String): Uri.Builder {
-    // Deep links commonly already contain kp_edit/kp_ai. Uri.Builder has no
-    // direct "put" API, so rebuilding is avoided; duplicate value=1 is harmless.
-    return appendQueryParameter(key, value)
 }
