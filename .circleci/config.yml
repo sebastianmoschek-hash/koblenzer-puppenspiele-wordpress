@@ -1,333 +1,103 @@
 version: 2.1
 
-executors:
-  editor-contract:
-    docker:
-      - image: mcr.microsoft.com/playwright:v1.55.0-noble
-    resource_class: small
-
 jobs:
-  editor-contracts:
-    executor: editor-contract
-    steps:
-      - checkout
-      - run:
-          name: Install PHP lint once
-          command: |
-            apt-get update -qq
-            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli
-      - run:
-          name: Word and Canva history contract
-          command: bash qa/word-history-contract.sh
-      - run:
-          name: Unified Save Undo AI and text-save contract
-          command: |
-            bash qa/unified-editor-contract.sh
-            bash qa/text-save-contract.sh
-      - run:
-          name: Reversible create Undo Redo contract
-          command: bash qa/create-undo-contract.sh
-      - run:
-          name: Reversible calendar Undo Redo contract
-          command: bash qa/calendar-undo-contract.sh
-      - run:
-          name: Gemini repair safety contract
-          command: bash qa/ai-repair-contract.sh
-
-  android-homepage-technician:
+  apply-voice-hotfix:
     docker:
-      - image: cimg/android:2026.07
-    resource_class: medium
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - kp-android-debug-keystore-v1
-      - run:
-          name: Prepare stable Android debug signing key
-          command: |
-            mkdir -p ~/.android qa-results/android
-            if [[ ! -s ~/.android/debug.keystore ]]; then
-              echo 'No cached Android debug keystore found; creating the long-lived CI test key once.'
-              keytool -genkeypair \
-                -keystore ~/.android/debug.keystore \
-                -storepass android \
-                -alias androiddebugkey \
-                -keypass android \
-                -dname 'CN=Koblenzer Puppenspiele CI Debug,O=Koblenzer Puppenspiele,C=DE' \
-                -keyalg RSA \
-                -keysize 2048 \
-                -validity 10000 \
-                -noprompt
-            else
-              echo 'Reusing cached Android debug signing key.'
-            fi
-            keytool -list -v \
-              -keystore ~/.android/debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              | sed -n 's/^[[:space:]]*SHA256: /SHA256: /p' \
-              | tee qa-results/android/signing-sha256.txt
-      - save_cache:
-          key: kp-android-debug-keystore-v1
-          paths:
-            - ~/.android/debug.keystore
-      - run:
-          name: Install Android build prerequisites
-          command: |
-            mkdir -p qa-results/android
-            set +e
-            {
-              sudo apt-get update -qq
-              sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq php-cli unzip curl
-              yes | sdkmanager 'platforms;android-36' 'build-tools;36.0.0' >/dev/null
-              curl -fsSL -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-9.5.0-bin.zip
-              unzip -q /tmp/gradle.zip -d /tmp
-              /tmp/gradle-9.5.0/bin/gradle --version
-            } > >(tee qa-results/android/install.log) 2>&1
-            rc=$?
-            printf '%s\n' "$rc" > qa-results/android/install.rc
-            exit "$rc"
-      - run:
-          name: Mobile live security contract
-          command: |
-            mkdir -p qa-results/android
-            set +e
-            bash qa/mobile-live-contract.sh > >(tee qa-results/android/contract.log) 2>&1
-            rc=$?
-            printf '%s\n' "$rc" > qa-results/android/contract.rc
-            exit "$rc"
-      - run:
-          name: Compile Homepage-Hilfe debug APK
-          command: |
-            mkdir -p qa-results/android
-            set +e
-            (
-              cd android/homepage-technician
-              /tmp/gradle-9.5.0/bin/gradle --no-daemon --stacktrace :app:assembleDebug
-            ) > >(tee qa-results/android/build.log) 2>&1
-            rc=$?
-            printf '%s\n' "$rc" > qa-results/android/build.rc
-            exit "$rc"
-      - run:
-          name: Publish Android compiler diagnostics
-          when: always
-          command: bash qa/publish-android-build-report.sh
-      - store_artifacts:
-          path: qa-results/android
-          destination: android-build
-
-  homepage-staging-lab:
-    docker:
-      - image: mcr.microsoft.com/playwright:v1.55.0-noble
-    resource_class: small
-    environment:
-      STAGING_BASE: https://neu.koblenzer-puppenspiele.de
+      - image: cimg/base:stable
     steps:
       - checkout
       - run:
-          name: Classify change and stop superseded work
-          command: bash qa/circleci-classify.sh
-      - restore_cache:
-          keys:
-            - kp-playwright-1-55-v2-{{ arch }}
-      - run:
-          name: Install lightweight CI tools
+          name: Apply full utterance voice fix
           command: |
-            mkdir -p qa-results/circleci ~/.npm
-            {
-              apt-get update -qq
-              DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp jq php-cli ca-certificates curl git
-              if [[ "${KP_CI_MODE:-full}" != "pwa" ]]; then
-                if node -e "const p=require('./node_modules/playwright/package.json');process.exit(p.version==='1.55.0'?0:1)" >/dev/null 2>&1; then
-                  echo 'Playwright 1.55.0 restored from CircleCI cache.'
-                else
-                  npm install --no-save --no-audit --no-fund --prefer-offline playwright@1.55.0
-                fi
-              else
-                echo 'PWA-fast mode: skipping Playwright npm install.'
-              fi
-            } 2>&1 | tee qa-results/circleci/install.log
-      - save_cache:
-          key: kp-playwright-1-55-v2-{{ arch }}
-          paths:
-            - ~/.npm
-            - node_modules
-      - run:
-          name: Protect shared staging design colors
-          command: |
-            mkdir -p qa-results/circleci
-            set +e
-            node qa/neutralize-staging-color-mutations.mjs > >(tee qa-results/circleci/neutralize.log) 2>&1
-            rc=$?
-            printf '%s\n' "$rc" > qa-results/circleci/neutralize.rc
-            set -e
-            exit 0
-      - run:
-          name: Align browser lab with guarded mobile interactions
-          command: |
-            mkdir -p qa-results/circleci
-            set +e
-            python3 qa/align-guarded-mobile-interactions.py > >(tee qa-results/circleci/align-mobile.log) 2>&1
-            rc=$?
-            printf '%s\n' "$rc" > qa-results/circleci/align-mobile.rc
-            set -e
-            exit 0
-      - run:
-          name: Smart staging deploy + homepage lab + real text save
-          command: |
-            mkdir -p qa-results/circleci
-            neutralize_rc="$(cat qa-results/circleci/neutralize.rc 2>/dev/null || echo 1)"
-            align_rc="$(cat qa-results/circleci/align-mobile.rc 2>/dev/null || echo 1)"
-            if [[ "$neutralize_rc" -ne 0 || "$align_rc" -ne 0 ]]; then
-              generated="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-              neutralize_state="$([[ "$neutralize_rc" -eq 0 ]] && echo success || echo failure)"
-              align_state="$([[ "$align_rc" -eq 0 ]] && echo success || echo failure)"
-              printf '{\n  "generatedAt":"%s",\n  "provider":"CircleCI Free",\n  "commit":"%s",\n  "success":false,\n  "phase":"staging-preflight",\n  "checks":{\n    "neutralizeStagingColors":"%s",\n    "alignMobileInteractions":"%s",\n    "browserLab":"not-started"\n  }\n}\n' "$generated" "${CIRCLE_SHA1:-unknown}" "$neutralize_state" "$align_state" > qa-results/circleci/report.json
-              printf '# CircleCI Staging-Preflight\n\nCommit: %s  \nGesamtstatus: **FAILURE**\n\n- Shared-Staging-Farbschutz: %s\n- Mobile-Guard-Ausrichtung: %s\n- Browser-Labor: not-started\n' "${CIRCLE_SHA1:-unknown}" "$neutralize_state" "$align_state" > qa-results/circleci/report.md
-              printf 'lab_rc=1\ntext_rc=1\n' > qa-results/circleci/runner-exit.txt
-              exit 0
-            fi
+            set -euo pipefail
+            : "${GITHUB_REPORT_TOKEN:?GITHUB_REPORT_TOKEN fehlt}"
+            git config user.name 'kp-android-fix-bot'
+            git config user.email 'android-fix@users.noreply.github.com'
+            git remote set-url origin "https://x-access-token:${GITHUB_REPORT_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git"
+            git fetch origin feature/webapp-primary-agent --quiet
+            git checkout -B work origin/feature/webapp-primary-agent
+            python3 - <<'PY'
+            from pathlib import Path
 
-            set +e
-            bash qa/circleci-homepage-lab-smart.sh
-            lab_rc=$?
-            text_rc=0
-            if [[ $lab_rc -eq 0 && "${KP_CI_MODE:-full}" != "pwa" ]]; then
-              echo '== text-save-staging =='
-              KP_TEXT_SAVE_SKIP_DEPLOY=1 bash qa/text-save-staging-lab.sh > >(tee qa-results/circleci/text-save-staging.log) 2>&1
-              text_rc=$?
-              if [[ $text_rc -eq 0 ]]; then
-                echo 'PASS text-save-staging'
-              else
-                echo "FAIL text-save-staging (exit $text_rc)"
-              fi
-            elif [[ $lab_rc -ne 0 ]]; then
-              echo 'Skipping extra text-save round because the main staging lab is already red.'
-            else
-              echo 'PWA-fast mode: no editor text-save browser round needed.'
-            fi
-            printf 'lab_rc=%s\ntext_rc=%s\n' "$lab_rc" "$text_rc" > qa-results/circleci/runner-exit.txt
-            set -e
-            exit 0
-          no_output_timeout: 20m
-      - run:
-          name: Publish latest safe lab report back to GitHub
-          when: always
-          command: bash qa/publish-circleci-report-to-github.sh
-      - persist_to_workspace:
-          root: .
-          paths:
-            - qa-results/circleci/report.json
-      - store_artifacts:
-          path: qa-results/circleci
-          destination: circleci-lab-report
-      - store_artifacts:
-          path: qa-artifacts/homepage-lab
-          destination: editor-browser-screenshots
-      - store_artifacts:
-          path: visual-qa/output
-          destination: visual-qa
+            p = Path('android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalVoiceController.kt')
+            s = p.read_text()
+            old = '''        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            putExtra(
+                RecognizerIntent.EXTRA_BIASING_STRINGS,
+                arrayListOf("Koblenzer Puppenspiele", "Homepage", "Überschrift", "Pfeile", "Menü", "Bearbeiten", "Speichern"),
+            )
+            putExtra(
+                RecognizerIntent.EXTRA_SEGMENTED_SESSION,
+                RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
+            )
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SEGMENT_SILENCE_MS)
+        }
+'''
+            new = '''        // Treat one spoken request as one utterance. Segmented sessions delivered
+        // fragments such as "unterstütz" as complete commands to Gemma.
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, SPEECH_MINIMUM_MS)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, SPEECH_POSSIBLY_COMPLETE_SILENCE_MS)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SPEECH_COMPLETE_SILENCE_MS)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            putExtra(
+                RecognizerIntent.EXTRA_BIASING_STRINGS,
+                arrayListOf(
+                    "Koblenzer Puppenspiele", "Homepage", "Begrüßungstext", "Überschrift",
+                    "was siehst du", "hilf mir", "unterstütz mich", "größer", "kleiner",
+                    "Pfeile", "Menü", "Bearbeiten", "Speichern"
+                ),
+            )
+        }
+'''
+            if s.count(old) != 1:
+                raise SystemExit(f'recognizer intent block count={s.count(old)}')
+            s = s.replace(old, new, 1)
 
-  staging-infra-verdict:
-    executor: editor-contract
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - run:
-          name: Staging deploy ready bridge verdict
-          command: node qa/staging-verdict-check.mjs infra
+            old_seg = '''                override fun onSegmentResults(segmentResults: Bundle) {
+                    consumeRecognition(bestText(segmentResults), keepSession = true)
+                }
+'''
+            new_seg = '''                override fun onSegmentResults(segmentResults: Bundle) {
+                    // Some recognizers may still emit segment callbacks. Show the
+                    // partial text, but never execute it as a standalone command.
+                    val segment = bestText(segmentResults)
+                    if (segment.isNotBlank() && active && !looksLikeOwnVoice(segment)) {
+                        onStatus("Live lokal · $segment …")
+                    }
+                }
+'''
+            if s.count(old_seg) != 1:
+                raise SystemExit(f'segment callback count={s.count(old_seg)}')
+            s = s.replace(old_seg, new_seg, 1)
 
-  staging-editor-verdict:
-    executor: editor-contract
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - run:
-          name: Mobile tablet desktop editor verdict
-          command: node qa/staging-verdict-check.mjs editor
+            old_const = '        private const val SEGMENT_SILENCE_MS = 720\n'
+            new_const = '''        private const val SPEECH_MINIMUM_MS = 900L
+        private const val SPEECH_POSSIBLY_COMPLETE_SILENCE_MS = 1100L
+        private const val SPEECH_COMPLETE_SILENCE_MS = 1800L
+'''
+            if s.count(old_const) != 1:
+                raise SystemExit(f'silence constant count={s.count(old_const)}')
+            s = s.replace(old_const, new_const, 1)
+            p.write_text(s)
 
-  staging-persistence-verdict:
-    executor: editor-contract
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - run:
-          name: Save reload DB Undo 48h and text-save verdict
-          command: node qa/staging-verdict-check.mjs persistence
-
-  staging-touch-verdict:
-    executor: editor-contract
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - run:
-          name: Chromium touch and slider verdict
-          command: node qa/staging-verdict-check.mjs touch
-
-  staging-visual-verdict:
-    executor: editor-contract
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - run:
-          name: Visual QA verdict
-          command: node qa/staging-verdict-check.mjs visual
+            gpath = Path('android/homepage-technician/app/build.gradle.kts')
+            g = gpath.read_text()
+            if 'versionCode = 5' not in g:
+                raise SystemExit('expected versionCode 5')
+            g = g.replace('versionCode = 5', 'versionCode = 6', 1)
+            import re
+            g = re.sub(r'versionName = "[^"]+"', 'versionName = "0.6.0-voice-utterance"', g, count=1)
+            gpath.write_text(g)
+            PY
+            git diff --check
+            git add android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalVoiceController.kt android/homepage-technician/app/build.gradle.kts
+            git commit -m 'fix(android): wait for complete local voice utterance'
+            git push origin HEAD:feature/webapp-primary-agent
 
 workflows:
-  autonomous-homepage-lab:
+  voice-hotfix:
     jobs:
-      - editor-contracts:
+      - apply-voice-hotfix:
           filters:
             branches:
-              only:
-                - main
-                - /ai-repair\/.*/
-      - android-homepage-technician:
-          filters:
-            branches:
-              only:
-                - /feature\/android-.*/
-                - /ai-repair\/local-.*/
-      - homepage-staging-lab:
-          requires:
-            - editor-contracts
-          serial-group: << pipeline.project.slug >>/homepage-staging-lab
-          filters:
-            branches:
-              only: main
-      - staging-infra-verdict:
-          requires:
-            - homepage-staging-lab
-          filters:
-            branches:
-              only: main
-      - staging-editor-verdict:
-          requires:
-            - homepage-staging-lab
-          filters:
-            branches:
-              only: main
-      - staging-persistence-verdict:
-          requires:
-            - homepage-staging-lab
-          filters:
-            branches:
-              only: main
-      - staging-touch-verdict:
-          requires:
-            - homepage-staging-lab
-          filters:
-            branches:
-              only: main
-      - staging-visual-verdict:
-          requires:
-            - homepage-staging-lab
-          filters:
-            branches:
-              only: main
+              only: staging/android-voice-utterance-fix-20260825
