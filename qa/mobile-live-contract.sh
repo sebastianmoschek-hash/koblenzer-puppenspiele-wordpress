@@ -12,20 +12,23 @@ MANIFEST="$APP/AndroidManifest.xml"
 REPAIR_HISTORY='wp-content/mu-plugins/kp-ai-repair-history.php'
 REPAIR_LAB='wp-content/mu-plugins/kp-ai-repair-lab.php'
 LOCAL_REPAIR='wp-content/mu-plugins/kp-mobile-local-ai-repair.php'
+EMERGENCY_GEMINI='wp-content/mu-plugins/kp-mobile-emergency-gemini.php'
 CIRCLE_CONFIG='.circleci/config.yml'
 ANDROID_REPORT='qa/publish-android-build-report.sh'
 
 php -l "$REPAIR_HISTORY" >/dev/null
 php -l "$REPAIR_LAB" >/dev/null
 php -l "$LOCAL_REPAIR" >/dev/null
+php -l "$EMERGENCY_GEMINI" >/dev/null
 
 test -f "$LOCAL"
 test -f "$VOICE"
 test -f "$LOCAL_REPAIR"
+test -f "$EMERGENCY_GEMINI"
 test ! -e "$KOTLIN/GeminiLiveTechnician.kt"
 test ! -e "$KOTLIN/ScreenCaptureService.kt"
 
-# Primary UI: manual editor + real readable local AI chat + optional local Live + emergency Gemini.
+# Primary UI: manual editor + real readable local AI chat + optional local Live + protected in-chat emergency Gemini.
 grep -q 'text = "✎ Bearbeiten"' "$MAIN"
 grep -q 'text = "✦ KI"' "$MAIN"
 grep -q 'text = "Lokale KI"' "$MAIN"
@@ -40,17 +43,24 @@ grep -q 'text = "🎤 Live lokal"' "$MAIN"
 grep -q 'showVoicePicker' "$MAIN"
 grep -q 'queuedLiveRequest' "$MAIN"
 grep -q 'stopSpeakingForBargeIn' "$MAIN"
-grep -q 'Notfall Gemini' "$MAIN"
+grep -q 'Notfall Gemini (Cloud)' "$MAIN"
+grep -q 'Gemini (Notfall)' "$MAIN"
+grep -q 'repairBridge.emergencyGemini' "$MAIN"
+grep -q 'repairBridge.createEmergencyGeminiBranch' "$MAIN"
+grep -q 'waitForEmergencyCi' "$MAIN"
+grep -q 'CI grün – Gemini-Fix übernehmen?' "$MAIN"
 grep -q 'localAi.downloadModel' "$MAIN"
 grep -q 'localAi.send(clean)' "$MAIN"
 grep -q 'voiceController.speak(reply)' "$MAIN"
 grep -q 'processLocalRequest' "$MAIN"
-grep -q 'gemini.google.com/app' "$MAIN"
-grep -q 'ClipboardManager' "$MAIN"
 grep -q 'KoblenzerPuppenspieleTechnician/0.6-chatwindow' "$MAIN"
 grep -q 'wordpress_logged_in_' "$MAIN"
 grep -q 'wp-login.php' "$MAIN"
 grep -q 'endsWith(".koblenzer-puppenspiele.de")' "$MAIN"
+if grep -q 'gemini.google.com/app\|ClipboardManager\|ClipData.newPlainText' "$MAIN"; then
+  echo 'FAIL emergency-gemini: Android must keep the fallback inside Homepage-Hilfe instead of launching/copying to the external Gemini app.' >&2
+  exit 1
+fi
 # Composer stays usable before the large local model download; sending must preserve the draft.
 grep -q 'Writing a task must stay possible before the 2.6 GB model is installed' "$MAIN"
 grep -q 'Deine Nachricht bleibt im Eingabefeld' "$MAIN"
@@ -158,6 +168,9 @@ grep -q 'kp_local_ai_repair_files' "$WEB"
 grep -q 'kp_local_ai_repair_proposal' "$WEB"
 grep -q 'kp_local_ai_repair_create_pr' "$WEB"
 grep -q 'kp_local_ai_repair_ci_diagnostics' "$WEB"
+grep -q 'kp_mobile_emergency_gemini' "$WEB"
+grep -q 'kp_mobile_emergency_gemini_create_pr' "$WEB"
+grep -q 'emergencyGeminiServerFallback:true' "$WEB"
 grep -q 'localAndroidSelfRepair:true' "$WEB"
 grep -q 'kp_ai_repair_status' "$WEB"
 grep -q 'kp_ai_repair_merge' "$WEB"
@@ -165,19 +178,26 @@ grep -q 'if (repairNonce.isBlank()) localBootstrap()' "$WEB"
 grep -q 'wp_ajax_kp_local_ai_repair_ci_diagnostics' "$LOCAL_REPAIR"
 grep -q 'ai-repair/local-' "$LOCAL_REPAIR"
 grep -q 'kp-local-ai-ci-diagnostics' "$LOCAL_REPAIR"
+grep -q 'wp_ajax_kp_mobile_emergency_gemini' "$EMERGENCY_GEMINI"
+grep -q 'wp_ajax_kp_mobile_emergency_gemini_create_pr' "$EMERGENCY_GEMINI"
+grep -q 'emergency_gemini' "$EMERGENCY_GEMINI"
+grep -q 'ai-repair/local-gemini-' "$EMERGENCY_GEMINI"
+grep -q 'kp_mobile_emergency_allowed_path' "$EMERGENCY_GEMINI"
+grep -q 'kp-mobile-emergency-gemini.php' "$EMERGENCY_GEMINI"
+grep -q 'kp-mobile-local-ai-repair.php' "$EMERGENCY_GEMINI"
 grep -q 'kp-local-ai-ci-diagnostics' "$ANDROID_REPORT"
 grep -q 'CIRCLE_BRANCH.*ai-repair/local-' "$ANDROID_REPORT"
 grep -q '/ai-repair\\/local-.*/' "$CIRCLE_CONFIG"
 grep -q "ai-repair/rollback-" "$REPAIR_HISTORY"
 grep -q 'kp_ai_repair_health_for_sha' "$REPAIR_LAB"
 
-# Durable privileged credentials never enter Android.
+# Durable privileged credentials never enter Android. Emergency Gemini may call the cloud only through WordPress.
 if grep -R -n -E 'api\.github\.com|github_pat_|gh[pousr]_[A-Za-z0-9_\-]{12,}' android/homepage-technician/app/src/main; then
   echo 'FAIL local-ai: Android must not contain GitHub credentials/API directly.' >&2
   exit 1
 fi
-if grep -R -n -E 'AIza[A-Za-z0-9_\-]{20,}|GEMINI_API_KEY|OPENAI_API_KEY|x-goog-api-key' android/homepage-technician/app/src/main; then
-  echo 'FAIL local-ai: durable cloud AI credentials must not enter Android.' >&2
+if grep -R -n -E 'AIza[A-Za-z0-9_\-]{20,}|GEMINI_API_KEY|OPENAI_API_KEY|x-goog-api-key|generativelanguage\.googleapis\.com' android/homepage-technician/app/src/main; then
+  echo 'FAIL local-ai: durable cloud AI credentials/endpoints must not enter Android.' >&2
   exit 1
 fi
 if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
@@ -185,4 +205,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS local-ai: writable preinstall chat with preserved draft, keyboard-safe local chat, bounded LiteRT inference, protected three-round CI self-repair loop with redacted diagnostics, offline Live speech and explicit green-CI merge confirmation are present.'
+echo 'PASS local-ai: writable preinstall chat, bounded LiteRT inference, offline Live speech, protected local self-repair and in-chat server-side emergency Gemini with PR/CI/explicit merge gate are present.'
