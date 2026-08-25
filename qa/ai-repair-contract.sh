@@ -22,7 +22,8 @@ grep -q "Keine eval/shell_exec/exec/system/passthru/proc_open/popen" "$FILE"
 DIRECT='wp-content/mu-plugins/kp-ai-direct-editor.php'
 grep -q "Keine PHP-, JavaScript- oder Plugin-Code-Aktion erzeugen" "$DIRECT"
 
-# Primary owner web app: two-button browser shell, fast chat, direct draft editing and protected code-repair flow.
+# Primary owner web app: two-button browser shell, local Android screen Live first,
+# cloud fallback when local Live is off, direct draft editing and protected code repair.
 WEB_BOOT='wp-content/mu-plugins/kp-owner-web-agent.php'
 WEB_JS='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-agent.js'
 WEB_FAST_JS='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-agent-fast-chat.js'
@@ -72,10 +73,27 @@ grep -q "Du kannst währenddessen weiter mit mir schreiben" "$WEB_JS"
 grep -q "sessionStorage" "$WEB_JS"
 grep -q "kp-ai-trigger" "$WEB_JS"
 grep -q "Noch wurde kein Code übernommen" "$WEB_JS"
+
+# Local screen Live is a hard primary route. While active, send + mic events are
+# stopped before the legacy document handlers can call the cloud.
+grep -Fq "window.KPLocalLive" "$WEB_FAST_JS"
+grep -Fq "kp:local-live" "$WEB_FAST_JS"
+grep -Fq "interceptLocalSend" "$WEB_FAST_JS"
+grep -Fq "location.href = currentLocalLaunchUrl()" "$WEB_FAST_JS"
+grep -Fq "Was siehst du gerade auf meinem Bildschirm?" "$WEB_FAST_JS"
+grep -Fq "Live lokal · Bildschirm + Sprache · keine KI-API" "$WEB_FAST_JS"
+grep -Fq "window.addEventListener('click'" "$WEB_FAST_JS"
+grep -Fq "event.stopImmediatePropagation()" "$WEB_FAST_JS"
+grep -Fq "localCall('ask'" "$WEB_FAST_JS"
+grep -Fq "localCall('installModel'" "$WEB_FAST_JS"
+grep -Fq "localCall('start'" "$WEB_FAST_JS"
+grep -Fq "localCall('stop'" "$WEB_FAST_JS"
+grep -Fq "Cloud-Fallback" "$WEB_FAST_JS"
 grep -q "kp_owner_web_agent_chat" "$WEB_FAST_JS"
 grep -q "kp_owner_web_self_heal" "$WEB_FAST_JS"
 grep -q "KPOwnerWebDiagnostics" "$WEB_FAST_JS"
-grep -q "schnellen Web-Chat" "$WEB_FAST_JS"
+grep -Fq ".kp-wa-local-live" "$WEB_CSS"
+grep -Fq ".kp-wa-local-live.is-live" "$WEB_CSS"
 grep -q "kp-web-agent-active .kp-ai-trigger" "$WEB_CSS"
 
 # Visible edits keep the existing draft/Undo/Save runtime but transparently replace its slow planner.
@@ -146,4 +164,4 @@ if grep -Eq "file_put_contents\(|WP_Filesystem\(|unlink\(" "$FILE" "$FAST_REPAIR
   exit 1
 fi
 
-echo 'AI repair + primary owner web-agent + fast visible edits + staging live-loader + self-heal sandbox contract PASS'
+echo 'AI repair + local-first screen Live + cloud fallback + fast visible edits + staging live-loader + self-heal sandbox contract PASS'
