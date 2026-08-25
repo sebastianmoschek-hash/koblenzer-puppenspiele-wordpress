@@ -51,6 +51,11 @@ grep -q 'KoblenzerPuppenspieleTechnician/0.6-chatwindow' "$MAIN"
 grep -q 'wordpress_logged_in_' "$MAIN"
 grep -q 'wp-login.php' "$MAIN"
 grep -q 'endsWith(".koblenzer-puppenspiele.de")' "$MAIN"
+# Composer stays usable before the large local model download; sending must preserve the draft.
+grep -q 'Writing a task must stay possible before the 2.6 GB model is installed' "$MAIN"
+grep -q 'Deine Nachricht bleibt im Eingabefeld' "$MAIN"
+grep -q 'Nachricht gespeichert · lokale KI bitte einmalig installieren' "$MAIN"
+grep -q 'installButton.requestFocus()' "$MAIN"
 if grep -q 'voiceMode[[:space:]]*=' "$MAIN"; then
   echo 'FAIL local-ai: obsolete voiceMode planner parameter remains in MainActivity.' >&2
   exit 1
@@ -180,4 +185,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS local-ai: keyboard-safe local chat, bounded LiteRT inference, protected three-round CI self-repair loop with redacted diagnostics, offline Live speech and explicit green-CI merge confirmation are present.'
+echo 'PASS local-ai: writable preinstall chat with preserved draft, keyboard-safe local chat, bounded LiteRT inference, protected three-round CI self-repair loop with redacted diagnostics, offline Live speech and explicit green-CI merge confirmation are present.'
