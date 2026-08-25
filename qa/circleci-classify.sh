@@ -77,13 +77,15 @@ if [[ $pipeline_only -eq 1 ]]; then
   bash -n qa/circleci-classify.sh
   [[ ! -f qa/publish-circleci-report-to-github.sh ]] || bash -n qa/publish-circleci-report-to-github.sh
   {
-    # Keep pipeline-only work on the QA lane rather than inventing a separate
-    # report schema. The component verdict jobs consume the normal browser-lab
-    # check names, so QA reuse is both fast and verdict-compatible.
-    printf 'export KP_CI_MODE=%q\n' 'qa'
+    # A pipeline-only commit is still the newest meaningful main snapshot. A
+    # version-string-only reuse check can mistake stale plugin/theme files for
+    # the current tree when product commits did not bump the plugin version.
+    # Force one exact staging-only deploy before browser verdicts so the report
+    # truly belongs to this main commit rather than to an older staged bundle.
+    printf 'export KP_CI_MODE=%q\n' 'full'
     printf 'export KP_CI_CHANGED_FILES=%q\n' "$meaningful"
   } >> "$BASH_ENV_FILE"
-  echo 'CircleCI: pipeline/report-only change; reusing staging on the verdict-compatible QA lane.'
+  echo 'CircleCI: pipeline/report-only change; forcing exact staging snapshot before verdicts.'
   exit 0
 fi
 
