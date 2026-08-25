@@ -20,7 +20,11 @@ const expect = (name) => checks[name] === 'success';
 const groups = {
   infra: ['deploy', 'stagingReady', 'temporaryBridge'],
   editor: ['editorMobileTabletDesktop'],
+  'editor-browser': ['editorBrowser'],
+  'session-undo': ['sessionUndo'],
   persistence: ['saveReloadDbUndo48h', 'realTextSave'],
+  'persistence-browser': ['persistenceBrowser'],
+  'text-save': ['realTextSave'],
   touch: ['nativeTouchSliderSaveReset', 'touchRuntime'],
   visual: ['visual50Views'],
 };
