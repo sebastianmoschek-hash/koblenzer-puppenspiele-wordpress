@@ -3,8 +3,6 @@ package de.koblenzerpuppenspiele.techniker
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -29,14 +27,15 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import org.json.JSONObject
 import kotlin.coroutines.resume
 
 /**
@@ -46,8 +45,8 @@ import kotlin.coroutines.resume
  * The AI opens as a real full-height chat window above the persistent editor bar.
  * Android resizes the chat around the software keyboard, so the composer and the
  * latest answer remain visible while typing. The same local model powers an
- * interruptible conversational Live mode. No Gemini/OpenAI API is required;
- * emergency Gemini remains an explicit optional handoff.
+ * interruptible conversational Live mode. Gemini is only an explicit protected
+ * server-side emergency fallback and never needs credentials inside Android.
  */
 class MainActivity : Activity() {
     companion object {
@@ -82,6 +81,7 @@ class MainActivity : Activity() {
     private var busy = false
     private var lastRequest = ""
     private var queuedLiveRequest = ""
+    private val emergencyHistory = mutableListOf<Pair<String, String>>()
     @Volatile private var currentPageTrusted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -285,9 +285,9 @@ class MainActivity : Activity() {
         aiPanel.addView(voiceRow)
 
         emergencyButton = Button(this).apply {
-            text = "Notfall Gemini"
+            text = "Notfall Gemini (Cloud)"
             isAllCaps = false
-            contentDescription = "Aktuelle Aufgabe für die normale Gemini-App vorbereiten"
+            contentDescription = "Gemini als geschützten Cloud-Notfallassistenten im Chat verwenden"
         }
         aiPanel.addView(emergencyButton)
 
@@ -529,7 +529,7 @@ class MainActivity : Activity() {
             lastRequest = message
             addChatBubble(
                 "System",
-                "Deine Nachricht bleibt im Eingabefeld. Für eine lokale Antwort muss das Modell einmalig installiert werden; du kannst jetzt auf „Lokale KI installieren“ tippen oder den Text mit „Notfall Gemini“ verwenden.",
+                "Deine Nachricht bleibt im Eingabefeld. Für eine lokale Antwort muss das Modell einmalig installiert werden; du kannst jetzt auf „Lokale KI installieren“ tippen oder den Text mit „Notfall Gemini (Cloud)“ verwenden.",
                 false,
             )
             showStatus("Nachricht gespeichert · lokale KI bitte einmalig installieren")
@@ -701,30 +701,153 @@ class MainActivity : Activity() {
         if (busy) return
         val request = textInput.text?.toString()?.trim().orEmpty().ifBlank { lastRequest }
         if (request.isBlank()) {
-            addChatBubble("System", "Schreib oder sprich zuerst die Aufgabe. Dann kann ich sie für Gemini vorbereiten.", false)
+            addChatBubble("System", "Schreib zuerst deine Aufgabe. Notfall Gemini antwortet dann direkt hier im Chat und kann bei Bedarf einen geprüften Code-Fix vorbereiten.", false)
             return
         }
         if (liveLocal) stopLocalLive(silent = true)
 
+        val clean = request.trim()
+        textInput.text?.clear()
+        lastRequest = clean
+        addChatBubble("Du (Notfall)", clean, true)
+        val thinking = addChatBubble(
+            "Gemini (Notfall)",
+            "Ich arbeite über den geschützten Server. Ich prüfe zuerst, ob wir nur sprechen/planen oder ob wirklich ein Code-Patch nötig ist …",
+            false,
+        )
         busy = true
         refreshModelState()
+
         uiScope.launch {
             try {
-                showStatus("Notfall Gemini · Kontext wird vorbereitet …")
-                val prompt = localAi.emergencyPrompt(request)
-                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("Homepage-Aufgabe für Gemini", prompt))
-                addChatBubble("System", "Aufgabe samt Seitenkontext wurde kopiert. In Gemini nur noch Einfügen drücken.", false)
-                Toast.makeText(this@MainActivity, "Gemini-Aufgabe kopiert", Toast.LENGTH_LONG).show()
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://gemini.google.com/app")))
-                showStatus("Notfall Gemini geöffnet · Aufgabe ist in der Zwischenablage")
+                showStatus("Notfall Gemini · geschützter Cloud-Fallback arbeitet …")
+                val raw = repairBridge.emergencyGemini(clean, emergencyHistoryText())
+                val result = JSONObject(raw.toString())
+                result.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
+
+                val reply = result.optString("reply").trim().ifBlank {
+                    "Ich bin als Notfall-Gemini verbunden. Beschreibe mir die Aufgabe bitte noch etwas genauer."
+                }
+                removeChatBubble(thinking)
+                addChatBubble("Gemini (Notfall)", reply, false)
+                emergencyHistory += clean to reply
+                while (emergencyHistory.size > 6) emergencyHistory.removeAt(0)
+
+                val proposalId = result.optString("proposal_id").trim()
+                if (proposalId.isBlank()) {
+                    showStatus("Notfall Gemini · Antwort im Chat")
+                    return@launch
+                }
+
+                val summary = result.optString("summary").ifBlank { "Notfall-Gemini-Reparatur" }
+                val diagnosis = result.optString("diagnosis")
+                val risk = result.optString("risk").ifBlank { "medium" }
+                val create = confirmAction(
+                    "Gemini-Prüfbranch erstellen?",
+                    "$summary\n\n${diagnosis.take(1200)}\n\nRisiko: $risk\n\nGemini hat nur einen Vorschlag vorbereitet. Der Code wird nicht direkt auf die Homepage oder App geschrieben; zuerst entsteht ein isolierter GitHub-Prüfbranch mit CI.",
+                )
+                if (!create) {
+                    addChatBubble("System", "Geminis Code-Vorschlag wurde nicht als Prüfbranch angelegt.", false)
+                    showStatus("Notfall Gemini · Vorschlag nicht ausgeführt")
+                    return@launch
+                }
+
+                showStatus("Notfall Gemini · Prüfbranch und CI werden erstellt …")
+                val prRaw = repairBridge.createEmergencyGeminiBranch(proposalId)
+                val pr = JSONObject(prRaw.toString())
+                pr.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
+                val number = pr.optString("pr").trim()
+                val url = pr.optString("url").trim()
+                if (number.isBlank()) throw IllegalStateException("GitHub hat keine PR-Nummer für den Gemini-Fix geliefert.")
+                addChatBubble(
+                    "System",
+                    buildString {
+                        append("Notfall-Gemini-Fix als Prüfbranch angelegt (PR #$number). CI prüft den Code jetzt automatisch.")
+                        if (url.isNotBlank()) append("\n$url")
+                    },
+                    false,
+                )
+
+                when (waitForEmergencyCi(number)) {
+                    "success" -> {
+                        val mergeApproved = confirmAction(
+                            "CI grün – Gemini-Fix übernehmen?",
+                            "PR #$number ist grün. Soll der geprüfte Notfall-Gemini-Fix jetzt per Squash-Merge übernommen werden?",
+                        )
+                        if (mergeApproved) {
+                            showStatus("Notfall Gemini · grüner Fix wird übernommen …")
+                            val mergeRaw = repairBridge.merge(number)
+                            val merge = JSONObject(mergeRaw.toString())
+                            merge.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
+                            addChatBubble(
+                                "System",
+                                merge.optString("message").ifBlank { "Der grüne Notfall-Gemini-Fix wurde übernommen." },
+                                false,
+                            )
+                            showStatus("Notfall Gemini · geprüfter Fix übernommen")
+                        } else {
+                            addChatBubble("System", "CI ist grün, aber du hast den Merge nicht bestätigt. Der Fix bleibt im Prüfbranch.", false)
+                            showStatus("Notfall Gemini · grüner Prüfbranch bleibt offen")
+                        }
+                    }
+                    "failure" -> {
+                        val diagnosticsRaw = repairBridge.localRepairCiDiagnostics(number)
+                        val diagnosticsObj = JSONObject(diagnosticsRaw.toString())
+                        val diagnostics = diagnosticsObj.optString("diagnostics").trim().take(3500)
+                        val failure = buildString {
+                            append("CI für PR #$number ist rot. Nichts wurde übernommen.")
+                            if (diagnostics.isNotBlank()) append("\n\nBereinigte Diagnose:\n$diagnostics")
+                            append("\n\nSchreib mir mit „Notfall Gemini“ weiter, dann können wir den Fehler gemeinsam korrigieren.")
+                        }
+                        addChatBubble("Gemini (Notfall)", failure, false)
+                        emergencyHistory += "CI-Ergebnis PR #$number" to failure
+                        while (emergencyHistory.size > 6) emergencyHistory.removeAt(0)
+                        showStatus("Notfall Gemini · CI rot · nichts übernommen")
+                    }
+                    else -> {
+                        addChatBubble(
+                            "System",
+                            "CI für PR #$number läuft länger. Es wurde nichts übernommen; der Prüfbranch bleibt offen und kann später erneut geprüft werden.",
+                            false,
+                        )
+                        showStatus("Notfall Gemini · CI läuft weiter")
+                    }
+                }
             } catch (error: Throwable) {
-                addChatBubble("System", "Gemini konnte nicht geöffnet werden: ${error.message ?: error.javaClass.simpleName}", false)
+                removeChatBubble(thinking)
+                val errorText = error.message ?: error.javaClass.simpleName
+                addChatBubble(
+                    "Gemini (Notfall)",
+                    "Der geschützte Notfall-Gemini-Aufruf ist fehlgeschlagen.\n\n$errorText",
+                    false,
+                )
+                showStatus("Notfall Gemini: $errorText")
             } finally {
                 busy = false
                 refreshModelState()
             }
         }
+    }
+
+    private fun emergencyHistoryText(): String = emergencyHistory
+        .takeLast(4)
+        .joinToString("\n\n") { (user, assistant) ->
+            "NUTZER: ${user.take(800)}\nGEMINI: ${assistant.take(1200)}"
+        }
+        .takeLast(6000)
+
+    private suspend fun waitForEmergencyCi(pr: String): String {
+        repeat(24) { attempt ->
+            val raw = repairBridge.status(pr)
+            val status = JSONObject(raw.toString())
+            status.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
+            when (val health = status.optString("health")) {
+                "success", "failure" -> return health
+            }
+            showStatus("Notfall Gemini · CI läuft … ${attempt + 1}/24")
+            if (attempt < 23) delay(5_000L)
+        }
+        return "pending"
     }
 
     private fun hasWordPressSession(): Boolean {
