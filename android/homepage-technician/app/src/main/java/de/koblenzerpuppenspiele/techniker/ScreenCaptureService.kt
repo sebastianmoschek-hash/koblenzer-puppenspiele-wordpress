@@ -15,6 +15,8 @@ import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
 import android.os.SystemClock
 import java.io.File
@@ -26,17 +28,25 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * Nothing is uploaded by this service. Frames stay in the app cache and are
  * consumed locally by LiteRT-LM when the user speaks or sends a message.
+ * Pixel conversion/JPEG work runs on a dedicated thread so screen sharing does
+ * not stall the WebView, speech callbacks or the local conversation UI.
  */
 class ScreenCaptureService : Service() {
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
+    private var captureThread: HandlerThread? = null
+    private var captureHandler: Handler? = null
     private var lastSavedAt = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        captureThread = HandlerThread("KPLocalLiveCapture").also { thread ->
+            thread.start()
+            captureHandler = Handler(thread.looper)
+        }
         createNotificationChannel()
         val notification = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_view)
@@ -83,7 +93,7 @@ class ScreenCaptureService : Service() {
             override fun onStop() {
                 stopSelf()
             }
-        }, null)
+        }, Handler(mainLooper))
 
         val metrics = resources.displayMetrics
         val sourceWidth = metrics.widthPixels.coerceAtLeast(1)
@@ -111,7 +121,7 @@ class ScreenCaptureService : Service() {
                 } finally {
                     image.close()
                 }
-            }, null)
+            }, captureHandler)
         }
 
         virtualDisplay = active.createVirtualDisplay(
@@ -175,6 +185,9 @@ class ScreenCaptureService : Service() {
         imageReader = null
         runCatching { projection?.stop() }
         projection = null
+        captureHandler = null
+        captureThread?.quitSafely()
+        captureThread = null
         super.onDestroy()
     }
 
