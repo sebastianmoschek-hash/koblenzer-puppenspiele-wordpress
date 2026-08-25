@@ -2,35 +2,39 @@
 /**
  * Front-end-only capability bridge for the local desktop Homepage AI.
  *
- * The local Chrome helper should be visible to logged-in homepage editors even
- * when their role does not carry the protected server-side repair capability.
- * This bridge exists only while wp_footer callbacks render. It does not persist
- * a capability and is therefore absent from AJAX/REST repair requests.
+ * The visible owner editor itself is gated by `edit_pages`. On that same
+ * front-end edit request we temporarily expose the local desktop AI bridge to
+ * the existing repair-capability check. AJAX/admin requests are never widened.
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-function kp_local_ai_desktop_footer_cap( $allcaps, $caps, $args, $user ) {
-    if ( ! is_user_logged_in() || is_admin() ) { return $allcaps; }
+function kp_local_ai_desktop_request_cap( $allcaps, $caps, $args, $user ) {
+    if ( is_admin() ) { return $allcaps; }
     if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) { return $allcaps; }
+
+    $editor_mode = isset( $_GET['kp_edit'] ) && '1' === sanitize_text_field( wp_unslash( $_GET['kp_edit'] ) );
+    if ( ! $editor_mode || empty( $allcaps['edit_pages'] ) ) { return $allcaps; }
 
     $ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
     if ( str_contains( $ua, 'KoblenzerPuppenspieleTechnician/' ) ) { return $allcaps; }
-
-    $editor_mode = isset( $_GET['kp_edit'] ) && '1' === sanitize_text_field( wp_unslash( $_GET['kp_edit'] ) );
-    if ( empty( $allcaps['edit_pages'] ) && ! $editor_mode ) { return $allcaps; }
 
     if ( in_array( 'kp_ai_repair_code', (array) $caps, true ) ) {
         $allcaps['kp_ai_repair_code'] = true;
     }
     return $allcaps;
 }
+add_filter( 'user_has_cap', 'kp_local_ai_desktop_request_cap', 10, 4 );
 
-add_action( 'wp_footer', static function () {
-    add_filter( 'user_has_cap', 'kp_local_ai_desktop_footer_cap', 10, 4 );
-}, 1 );
-
-// Keep the temporary capability active until after kp-local-ai-desktop.php
-// renders at priority 2320, then remove it before wp_footer finishes.
-add_action( 'wp_footer', static function () {
-    remove_filter( 'user_has_cap', 'kp_local_ai_desktop_footer_cap', 10 );
-}, 9999 );
+// Harmless staging/runtime probe so the fast lane can verify that WordPress
+// actually loaded this MU plugin, not merely that FTP accepted the file.
+add_action( 'template_redirect', static function () {
+    if ( ! isset( $_GET['kp_desktop_ai_probe'] ) ) { return; }
+    nocache_headers();
+    header( 'Content-Type: application/json; charset=utf-8' );
+    echo wp_json_encode( array(
+        'loaded'      => true,
+        'version'     => 'desktop-ai-fast-v3',
+        'desktopFile' => is_file( WPMU_PLUGIN_DIR . '/kp-local-ai-desktop.php' ),
+    ) );
+    exit;
+}, 0 );
