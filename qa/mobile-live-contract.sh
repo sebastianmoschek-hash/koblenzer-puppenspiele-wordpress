@@ -11,12 +11,17 @@ GRADLE='android/homepage-technician/app/build.gradle.kts'
 MANIFEST="$APP/AndroidManifest.xml"
 REPAIR_HISTORY='wp-content/mu-plugins/kp-ai-repair-history.php'
 REPAIR_LAB='wp-content/mu-plugins/kp-ai-repair-lab.php'
+LOCAL_REPAIR='wp-content/mu-plugins/kp-mobile-local-ai-repair.php'
+CIRCLE_CONFIG='.circleci/config.yml'
+ANDROID_REPORT='qa/publish-android-build-report.sh'
 
 php -l "$REPAIR_HISTORY" >/dev/null
 php -l "$REPAIR_LAB" >/dev/null
+php -l "$LOCAL_REPAIR" >/dev/null
 
 test -f "$LOCAL"
 test -f "$VOICE"
+test -f "$LOCAL_REPAIR"
 test ! -e "$KOTLIN/GeminiLiveTechnician.kt"
 test ! -e "$KOTLIN/ScreenCaptureService.kt"
 
@@ -130,22 +135,34 @@ if grep -R -n -E 'GenerativeService|generativelanguage\.googleapis\.com|auth_tok
   exit 1
 fi
 
-# Technical repair stays local-planned, server-validated and CI/confirmation gated. The local endpoint can also repair the Android source through a PR.
+# Technical repair stays local-planned, server-validated and CI/confirmation gated. Red CI may feed bounded diagnostics into at most two replacement rounds.
 grep -q 'localRepairContext' "$LOCAL"
 grep -q 'localRepairFiles' "$LOCAL"
 grep -q 'submitLocalRepairProposal' "$LOCAL"
-grep -q 'Prüfbranch erstellen?' "$LOCAL"
+grep -q 'Autonome Reparatur starten?' "$LOCAL"
+grep -q 'MAX_AUTO_REPAIR_ROUNDS = 3' "$LOCAL"
+grep -q 'waitForRepairCi' "$LOCAL"
+grep -q 'CI grün – Fix übernehmen?' "$LOCAL"
 grep -q 'bridge.createRepairBranch' "$LOCAL"
-grep -q 'CI grün' "$LOCAL"
+grep -q 'bridge.localRepairCiDiagnostics' "$LOCAL"
+grep -q 'bridge.status' "$LOCAL"
+grep -q 'bridge.merge' "$LOCAL"
 grep -q 'kp_mobile_local_bootstrap' "$WEB"
 grep -q 'kp_local_ai_repair_context' "$WEB"
 grep -q 'kp_local_ai_repair_files' "$WEB"
 grep -q 'kp_local_ai_repair_proposal' "$WEB"
 grep -q 'kp_local_ai_repair_create_pr' "$WEB"
+grep -q 'kp_local_ai_repair_ci_diagnostics' "$WEB"
 grep -q 'localAndroidSelfRepair:true' "$WEB"
 grep -q 'kp_ai_repair_status' "$WEB"
 grep -q 'kp_ai_repair_merge' "$WEB"
 grep -q 'if (repairNonce.isBlank()) localBootstrap()' "$WEB"
+grep -q 'wp_ajax_kp_local_ai_repair_ci_diagnostics' "$LOCAL_REPAIR"
+grep -q 'ai-repair/local-' "$LOCAL_REPAIR"
+grep -q 'kp-local-ai-ci-diagnostics' "$LOCAL_REPAIR"
+grep -q 'kp-local-ai-ci-diagnostics' "$ANDROID_REPORT"
+grep -q 'CIRCLE_BRANCH.*ai-repair/local-' "$ANDROID_REPORT"
+grep -q '/ai-repair\\/local-.*/' "$CIRCLE_CONFIG"
 grep -q "ai-repair/rollback-" "$REPAIR_HISTORY"
 grep -q 'kp_ai_repair_health_for_sha' "$REPAIR_LAB"
 
@@ -163,4 +180,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS local-ai: keyboard-safe readable local chat, 2048-token KV cache with bounded prompt and one fresh CPU retry, interruptible offline Live speech, selectable local voices, emergency Gemini handoff and protected CI-gated website/Android repair are present.'
+echo 'PASS local-ai: keyboard-safe local chat, bounded LiteRT inference, protected three-round CI self-repair loop with redacted diagnostics, offline Live speech and explicit green-CI merge confirmation are present.'
