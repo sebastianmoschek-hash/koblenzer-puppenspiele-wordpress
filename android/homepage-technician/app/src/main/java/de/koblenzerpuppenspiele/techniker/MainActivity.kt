@@ -482,8 +482,10 @@ class MainActivity : Activity() {
             }
             installButton.visibility = View.VISIBLE
             installButton.isEnabled = !busy && state.arm64
-            textInput.isEnabled = false
-            sendButton.isEnabled = false
+            // Writing a task must stay possible before the 2.6 GB model is installed.
+            // The draft remains in the composer until the model is available.
+            textInput.isEnabled = !busy
+            sendButton.isEnabled = !busy
         }
 
         liveVoiceButton.text = if (liveLocal) "■ Live beenden" else "🎤 Live lokal"
@@ -523,6 +525,17 @@ class MainActivity : Activity() {
         }
         val message = textInput.text?.toString()?.trim().orEmpty()
         if (message.isBlank()) return
+        if (!localAi.modelState().installed) {
+            lastRequest = message
+            addChatBubble(
+                "System",
+                "Deine Nachricht bleibt im Eingabefeld. Für eine lokale Antwort muss das Modell einmalig installiert werden; du kannst jetzt auf „Lokale KI installieren“ tippen oder den Text mit „Notfall Gemini“ verwenden.",
+                false,
+            )
+            showStatus("Nachricht gespeichert · lokale KI bitte einmalig installieren")
+            installButton.requestFocus()
+            return
+        }
         textInput.text?.clear()
         processLocalRequest(message, if (liveLocal) "Du (Chat)" else "Du", speakReply = liveLocal)
     }
