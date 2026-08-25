@@ -1,3 +1,3 @@
 This marker intentionally forces FULL staging validation for the exact current main snapshot: staging-only deploy, Mobile/Tablet/Desktop browser editor, Save→Reload→DB readback, Undo/Redo + 48h persistence, Chromium touch gates, and the 50-view visual QA. Production must never be touched.
-Validation request: 2026-08-24T23:44+02:00
-Reason: rerun the exact current meaningful main snapshot after hardening CircleCI artifact/workspace handoff directories; require a fresh FULL result rather than accepting the stale qa-results/circleci-latest report.
+Validation request: 2026-08-25T16:33+02:00
+Reason: the repository report is stale and the latest meaningful main verdict still shows editor/persistence red while infra/touch/visual are green. Force a fresh exact staging-only deployment and full browser/persistence run for the current main snapshot before making any completion claim.
