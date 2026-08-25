@@ -79,6 +79,29 @@ add_action( 'wp_footer', static function () {
     $GLOBALS['kp_local_ai_desktop_footer_buffer'] = null;
 }, 2321 );
 
+/** Return only basenames of server-side MU plugins containing legacy UI markers. */
+function kp_local_ai_desktop_legacy_matches() {
+    $needles = array(
+        'Gemini serverseitig',
+        'Was soll ich erklären, ändern oder reparieren?',
+        'Code nur über Prüfbranch',
+    );
+    $matches = array();
+    foreach ( (array) glob( WPMU_PLUGIN_DIR . '/*.php' ) as $file ) {
+        if ( ! is_file( $file ) || filesize( $file ) > 2 * 1024 * 1024 ) { continue; }
+        $bytes = @file_get_contents( $file );
+        if ( ! is_string( $bytes ) ) { continue; }
+        foreach ( $needles as $needle ) {
+            if ( false !== strpos( $bytes, $needle ) ) {
+                $matches[] = basename( $file );
+                break;
+            }
+        }
+    }
+    sort( $matches );
+    return array_values( array_unique( $matches ) );
+}
+
 // Harmless runtime probe used by the fast deploy lane.
 add_action( 'template_redirect', static function () {
     if ( ! isset( $_GET['kp_desktop_ai_probe'] ) ) { return; }
@@ -86,10 +109,11 @@ add_action( 'template_redirect', static function () {
     header( 'Content-Type: application/json; charset=utf-8' );
     echo wp_json_encode( array(
         'loaded'          => true,
-        'version'         => 'desktop-ai-fast-v5',
+        'version'         => 'desktop-ai-fast-v6',
         'desktopFile'     => is_file( WPMU_PLUGIN_DIR . '/kp-local-ai-desktop.php' ),
         'phpVersion'      => PHP_VERSION,
         'hasStrContains'  => function_exists( 'str_contains' ),
+        'legacyMatches'   => kp_local_ai_desktop_legacy_matches(),
     ) );
     exit;
 }, 0 );
