@@ -12,34 +12,20 @@ concurrency:
 
 jobs:
   publish:
+    # CircleCI emits many status contexts per pipeline. Only the terminal
+    # homepage-lab status needs a GitHub runner; filtering here prevents every
+    # intermediate status from consuming a hosted runner before the real handoff.
+    if: >-
+      contains(github.event.context, 'autonomous-homepage-lab/serial-end-2') &&
+      (github.event.state == 'success' || github.event.state == 'failure' || github.event.state == 'error')
     runs-on: ubuntu-latest
     steps:
-      - name: Select terminal homepage-lab status
-        id: gate
-        env:
-          STATUS_CONTEXT: ${{ github.event.context }}
-          STATUS_STATE: ${{ github.event.state }}
-        run: |
-          set -euo pipefail
-          publish=false
-          case "$STATUS_STATE" in
-            success|failure|error)
-              if [[ "$STATUS_CONTEXT" == *"autonomous-homepage-lab/serial-end-2"* ]]; then
-                publish=true
-              fi
-              ;;
-          esac
-          echo "publish=$publish" >> "$GITHUB_OUTPUT"
-          echo "context=$STATUS_CONTEXT state=$STATUS_STATE publish=$publish"
-
       - uses: actions/checkout@v4
-        if: steps.gate.outputs.publish == 'true'
         with:
           ref: main
           fetch-depth: 0
 
       - name: Fetch exact staging-lab handoff
-        if: steps.gate.outputs.publish == 'true'
         env:
           EXPECTED_SHA: ${{ github.event.sha }}
         run: |
@@ -67,7 +53,6 @@ jobs:
           cp /tmp/kp-circleci-handoff/editor-report.json qa-results/circleci-latest-editor.json
 
       - name: Publish report without triggering another CI round
-        if: steps.gate.outputs.publish == 'true'
         env:
           EXPECTED_SHA: ${{ github.event.sha }}
         run: |
