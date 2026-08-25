@@ -9,6 +9,10 @@ TARGET_DIAG='qa-results/circleci-latest-diagnostics.txt'
 REMOTE_REPORT='/wp-content/uploads/kp-homepage-lab/latest'
 REPO="${CIRCLE_PROJECT_USERNAME:-sebastianmoschek-hash}/${CIRCLE_PROJECT_REPONAME:-koblenzer-puppenspiele-wordpress}"
 SHA="${CIRCLE_SHA1:-unknown}"
+# CircleCI run steps start fresh shells. circleci-homepage-lab*.sh exports this
+# value only inside its own process, so restore it here before the standalone
+# report-publish step tries to upload the handoff to staging.
+export LFTP_PASSWORD="${STAGING_FTP_PASSWORD:-${LFTP_PASSWORD:-}}"
 
 mkdir -p qa-results/circleci
 
@@ -91,6 +95,8 @@ if [[ -n "${STAGING_FTP_SERVER:-}" && -n "${STAGING_FTP_USERNAME:-}" && -n "${LF
   if [[ $remote_rc -ne 0 ]]; then
     echo "WARN: complete staging report handoff upload failed (exit $remote_rc)."
   fi
+else
+  echo 'WARN: staging report handoff skipped because staging FTP credentials are unavailable in this step.'
 fi
 
 if [[ -z "${GITHUB_REPORT_TOKEN:-}" ]]; then
