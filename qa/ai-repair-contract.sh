@@ -71,16 +71,16 @@ grep -q "schnellen Web-Chat" "$WEB_FAST_JS"
 grep -q "kp-web-agent-active .kp-ai-trigger" "$WEB_CSS"
 
 # Explicit code tasks are intercepted before the old 55-second router and use the proven fast transport.
-grep -q "wp_ajax_kp_mobile_emergency_gemini" "$FAST_REPAIR"
-grep -q "}, 1 );" "$FAST_REPAIR"
-grep -q "gemini-3.5-flash-lite" "$FAST_REPAIR"
-grep -q "generativelanguage.googleapis.com/v1/interactions" "$FAST_REPAIR"
-grep -q "thinking_level' => 'low" "$FAST_REPAIR"
-grep -q "array_slice( (array) ( \$selection\['files'\] ?? array() ), 0, 2" "$FAST_REPAIR"
-grep -q "emergency_gemini' => true" "$FAST_REPAIR"
-grep -q "fast_web_repair'  => true" "$FAST_REPAIR"
-grep -q "kp_ai_repair_store_proposal" "$FAST_REPAIR"
-grep -q "keine weitere Chat-oder-Reparatur-Entscheidung" "$FAST_REPAIR"
+grep -Fq "wp_ajax_kp_mobile_emergency_gemini" "$FAST_REPAIR"
+grep -Fq "}, 1 );" "$FAST_REPAIR"
+grep -Fq "gemini-3.5-flash-lite" "$FAST_REPAIR"
+grep -Fq "generativelanguage.googleapis.com/v1/interactions" "$FAST_REPAIR"
+grep -Fq "thinking_level' => 'low" "$FAST_REPAIR"
+grep -Fq "array_slice( (array) ( \$selection['files'] ?? array() ), 0, 2" "$FAST_REPAIR"
+grep -Fq "emergency_gemini' => true" "$FAST_REPAIR"
+grep -Fq "fast_web_repair'  => true" "$FAST_REPAIR"
+grep -Fq "kp_ai_repair_store_proposal" "$FAST_REPAIR"
+grep -Fq "eine weitere Chat-oder-Reparatur-Entscheidung ist nicht nötig" "$FAST_REPAIR"
 
 if grep -Eq "AIza[A-Za-z0-9_-]{20,}|github_pat_|gh[pousr]_[A-Za-z0-9_-]{12,}" "$WEB_JS" "$WEB_FAST_JS" "$WEB_BOOT" "$FAST_REPAIR"; then
   echo 'Owner web agent must not contain durable Gemini/GitHub credentials'
