@@ -2,6 +2,8 @@
 set -euo pipefail
 
 REPORT_DIR='qa-results/circleci'
+EDITOR_DIR='qa-artifacts/homepage-lab'
+REMOTE_REPORT='/wp-content/uploads/kp-homepage-lab/latest'
 SHA="${CIRCLE_SHA1:-unknown}"
 mkdir -p "$REPORT_DIR"
 
@@ -25,6 +27,27 @@ rc=$?
 set -e
 rm -f "$tmp_lab"
 
+publish_remote_diagnostics(){
+  [[ -n "${STAGING_FTP_SERVER:-}" && -n "${STAGING_FTP_USERNAME:-}" && -n "${LFTP_PASSWORD:-}" ]] || return 0
+  local diag="$REPORT_DIR/diagnostics.txt"
+  : > "$diag"
+  for logfile in pipeline.log editor.log session-undo.log persistence.log touch-slider.log touch-runtime.log visual.log php-syntax.log deploy.log; do
+    local src="$REPORT_DIR/$logfile"
+    if [[ -s "$src" ]]; then
+      {
+        printf '\n===== %s =====\n' "$logfile"
+        tail -n 500 "$src"
+      } >> "$diag"
+    fi
+  done
+  [[ -s "$diag" ]] || printf 'No detailed browser diagnostics were produced.\n' > "$diag"
+
+  lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 2; set net:timeout 20; open --user '$STAGING_FTP_USERNAME' --env-password -p 21 '$STAGING_FTP_SERVER'; mkdir -p '$REMOTE_REPORT'; put '$REPORT_DIR/report.json' -o '$REMOTE_REPORT/report.json'; put '$REPORT_DIR/report.md' -o '$REMOTE_REPORT/report.md'; put '$diag' -o '$REMOTE_REPORT/diagnostics.txt'; bye" >/dev/null 2>&1 || true
+  if [[ -s "$EDITOR_DIR/report.json" ]]; then
+    lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 2; set net:timeout 20; open --user '$STAGING_FTP_USERNAME' --env-password -p 21 '$STAGING_FTP_SERVER'; mkdir -p '$REMOTE_REPORT/editor'; put '$EDITOR_DIR/report.json' -o '$REMOTE_REPORT/editor/report.json'; bye" >/dev/null 2>&1 || true
+  fi
+}
+
 # Add granular phase verdicts to every completed report. The public status jobs
 # can still keep their compact groups, but diagnostics now say whether the
 # editor viewport test or the session Undo test was the failing half.
@@ -43,6 +66,8 @@ if [[ -s "$REPORT_DIR/report.json" ]]; then
   jq --arg eb "$editor_browser" --arg su "$session_undo" --arg pe "$persistence" \
     '.checks.editorBrowser=$eb | .checks.sessionUndo=$su | .checks.persistenceBrowser=$pe' \
     "$REPORT_DIR/report.json" > "$tmp_json" && mv "$tmp_json" "$REPORT_DIR/report.json"
+
+  publish_remote_diagnostics
 
   # A completed red report is still a valid hand-off to the independent verdict
   # jobs. Return success here so the following real text Save→Reload→DB gate is
@@ -104,4 +129,5 @@ Der Lauf wurde absichtlich begrenzt, damit ein hängender Browser-/Visual-Schrit
 MD
 fi
 
+publish_remote_diagnostics
 exit "$rc"
