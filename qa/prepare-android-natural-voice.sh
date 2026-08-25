@@ -9,6 +9,7 @@ URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-pip
 
 if [[ -s "$VOICE_DIR/de_DE-thorsten-high.onnx" && -s "$VOICE_DIR/tokens.txt" && -d "$VOICE_DIR/espeak-ng-data" ]]; then
   echo "Natural voice assets already prepared."
+  bash "$ROOT/qa/android-natural-voice-contract.sh"
   exit 0
 fi
 
@@ -26,3 +27,4 @@ fi
 
 size="$(du -h "$VOICE_DIR/de_DE-thorsten-high.onnx" | awk '{print $1}')"
 echo "Natural voice prepared: Thorsten High ($size model)."
+bash "$ROOT/qa/android-natural-voice-contract.sh"
