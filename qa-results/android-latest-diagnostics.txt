@@ -148,7 +148,7 @@ Daemon will be stopped at the end of the build
 > Task :app:desugarDebugFileDependencies
 > Task :app:compileDebugKotlin
 w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/MainActivity.kt:89:60 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
-w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/MainActivity.kt:791:20 'fun onBackPressed(): Unit' is deprecated. Deprecated in Java.
+w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/MainActivity.kt:804:20 'fun onBackPressed(): Unit' is deprecated. Deprecated in Java.
 
 > Task :app:mergeExtDexDebug
 > Task :app:compileDebugJavaWithJavac
@@ -156,9 +156,9 @@ w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/d
 > Task :app:mergeLibDexDebug
 > Task :app:checkDebugAarMetadata
 > Task :app:mapDebugSourceSetPaths
+> Task :app:compileDebugNavigationResources
 > Task :app:mergeDebugJavaResource
 > Task :app:createDebugCompatibleScreenManifests
-> Task :app:compileDebugNavigationResources
 > Task :app:extractDeepLinksDebug
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
@@ -180,6 +180,6 @@ Unable to strip the following libraries, packaging them as they are: liblitertlm
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 2m 27s
+BUILD SUCCESSFUL in 2m 19s
 38 actionable tasks: 38 executed
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.5.0/userguide/configuration_cache_enabling.html
