@@ -94,8 +94,9 @@ class WebRepairBridge(private val webView: WebView) {
           redo:!!window.KPRepairMobile?.redo,
           localTechnicalRepair:true,
           localAndroidSelfRepair:true,
+          emergencyGeminiServerFallback:true,
           cloudPlanner:false,
-          capabilities:['inspect-elements','text','links','font','padding','width','radius','color','background','global-design','move','section-order','responsive-editor','undo','redo','save','local-technical-code-repair','android-self-repair-via-pr']
+          capabilities:['inspect-elements','text','links','font','padding','width','radius','color','background','global-design','move','section-order','responsive-editor','undo','redo','save','local-technical-code-repair','android-self-repair-via-pr','emergency-gemini-via-protected-server']
         }))())
         """.trimIndent()
     )
@@ -155,6 +156,22 @@ class WebRepairBridge(private val webView: WebView) {
 
     suspend fun localRepairCiDiagnostics(pr: String): JsonObject =
         repairPost("kp_local_ai_repair_ci_diagnostics", mapOf("pr" to pr))
+
+    /** Explicit cloud fallback. Gemini/API credentials stay on WordPress, never in Android. */
+    suspend fun emergencyGemini(request: String, history: String): JsonObject {
+        val browser = context().toString()
+        return repairPost(
+            "kp_mobile_emergency_gemini",
+            mapOf(
+                "request" to request,
+                "history" to history,
+                "browser" to browser,
+            ),
+        )
+    }
+
+    suspend fun createEmergencyGeminiBranch(proposalId: String): JsonObject =
+        repairPost("kp_mobile_emergency_gemini_create_pr", mapOf("proposal_id" to proposalId))
 
     suspend fun status(pr: String): JsonObject =
         repairPost("kp_ai_repair_status", mapOf("pr" to pr))
