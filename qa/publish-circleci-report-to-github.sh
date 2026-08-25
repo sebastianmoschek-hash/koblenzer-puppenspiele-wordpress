@@ -6,6 +6,7 @@ REPORT_MD='qa-results/circleci/report.md'
 TARGET_JSON='qa-results/circleci-latest.json'
 TARGET_MD='qa-results/circleci-latest.md'
 TARGET_DIAG='qa-results/circleci-latest-diagnostics.txt'
+REMOTE_REPORT='/wp-content/uploads/kp-homepage-lab/latest'
 REPO="${CIRCLE_PROJECT_USERNAME:-sebastianmoschek-hash}/${CIRCLE_PROJECT_REPONAME:-koblenzer-puppenspiele-wordpress}"
 SHA="${CIRCLE_SHA1:-unknown}"
 
@@ -58,11 +59,9 @@ if [[ "$mode" != 'pwa' ]]; then
   fi
 fi
 
-if [[ -z "${GITHUB_REPORT_TOKEN:-}" ]]; then
-  echo 'GITHUB_REPORT_TOKEN is not configured; report remains available as CircleCI artifact/staging copy.'
-  exit 0
-fi
-
+# Build the handoff before checking for a GitHub PAT. The Staging copy is the
+# source used by the repository's status-event handoff workflow and therefore
+# must stay current even when GITHUB_REPORT_TOKEN is unavailable or races main.
 cp "$REPORT_JSON" /tmp/kp-circleci-report.json
 cp "$REPORT_MD" /tmp/kp-circleci-report.md
 
@@ -80,10 +79,23 @@ for logfile in \
   fi
 done
 
-# Never publish an empty diagnostics file: it would hide that an early step
-# failed before it could write its own log.
 if [[ ! -s /tmp/kp-circleci-diagnostics.txt ]]; then
   printf 'No detailed contract log was produced. CircleCI failed before diagnostics were captured.\n' > /tmp/kp-circleci-diagnostics.txt
+fi
+
+if [[ -n "${STAGING_FTP_SERVER:-}" && -n "${STAGING_FTP_USERNAME:-}" && -n "${LFTP_PASSWORD:-}" ]]; then
+  set +e
+  lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 2; set net:timeout 20; open --user '$STAGING_FTP_USERNAME' --env-password -p 21 '$STAGING_FTP_SERVER'; mkdir -p '$REMOTE_REPORT'; put '/tmp/kp-circleci-report.json' -o '$REMOTE_REPORT/report.json'; put '/tmp/kp-circleci-report.md' -o '$REMOTE_REPORT/report.md'; put '/tmp/kp-circleci-diagnostics.txt' -o '$REMOTE_REPORT/diagnostics.txt'; bye" >/dev/null 2>&1
+  remote_rc=$?
+  set -e
+  if [[ $remote_rc -ne 0 ]]; then
+    echo "WARN: complete staging report handoff upload failed (exit $remote_rc)."
+  fi
+fi
+
+if [[ -z "${GITHUB_REPORT_TOKEN:-}" ]]; then
+  echo 'GITHUB_REPORT_TOKEN is not configured; complete report remains available via the staging handoff and CircleCI artifacts.'
+  exit 0
 fi
 
 # Publishing diagnostics is useful, but it must never turn the staging runner
