@@ -263,16 +263,30 @@ class LocalVoiceController(
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+        // One spoken request must arrive as one command. The previous segmented
+        // session could deliver fragments such as "unterstütz" immediately.
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, SPEECH_MINIMUM_MS)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, SPEECH_POSSIBLY_COMPLETE_SILENCE_MS)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SPEECH_COMPLETE_SILENCE_MS)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             putExtra(
                 RecognizerIntent.EXTRA_BIASING_STRINGS,
-                arrayListOf("Koblenzer Puppenspiele", "Homepage", "Überschrift", "Pfeile", "Menü", "Bearbeiten", "Speichern"),
+                arrayListOf(
+                    "Koblenzer Puppenspiele",
+                    "Homepage",
+                    "Begrüßungstext",
+                    "Überschrift",
+                    "was siehst du",
+                    "hilf mir",
+                    "unterstütz mich",
+                    "größer",
+                    "kleiner",
+                    "Pfeile",
+                    "Menü",
+                    "Bearbeiten",
+                    "Speichern",
+                ),
             )
-            putExtra(
-                RecognizerIntent.EXTRA_SEGMENTED_SESSION,
-                RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
-            )
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SEGMENT_SILENCE_MS)
         }
     }
 
@@ -323,12 +337,17 @@ class LocalVoiceController(
                 }
 
                 override fun onSegmentResults(segmentResults: Bundle) {
-                    consumeRecognition(bestText(segmentResults), keepSession = true)
+                    // Some Android recognizers may emit segment callbacks even
+                    // without a segmented session. Never execute those fragments.
+                    val segment = bestText(segmentResults)
+                    if (segment.isNotBlank() && active && !looksLikeOwnVoice(segment)) {
+                        onStatus("Live lokal · $segment …")
+                    }
                 }
 
                 override fun onEndOfSegmentedSession() {
                     listening = false
-                    if (active) continueListening(70L)
+                    if (active) continueListening(120L)
                 }
 
                 override fun onEvent(eventType: Int, params: Bundle?) = Unit
@@ -400,7 +419,9 @@ class LocalVoiceController(
         private const val MAX_VOICE_OPTIONS = 8
         private const val MAX_SPOKEN_CHARS = 520
         private const val BARGE_IN_LISTEN_DELAY_MS = 320L
-        private const val SEGMENT_SILENCE_MS = 720
+        private const val SPEECH_MINIMUM_MS = 900L
+        private const val SPEECH_POSSIBLY_COMPLETE_SILENCE_MS = 1100L
+        private const val SPEECH_COMPLETE_SILENCE_MS = 1800L
         private const val DUPLICATE_WINDOW_MS = 1800L
         private const val ECHO_WORD_OVERLAP = 0.72
         private const val PREVIEW_TEXT = "Hallo. Ich bin deine lokale Homepage-Hilfe. Was möchtest du ändern?"
