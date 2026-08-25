@@ -3,17 +3,12 @@ version: 2.1
 jobs:
   desktop-ai-fast-deploy:
     docker:
-      - image: mcr.microsoft.com/playwright:v1.55.0-noble
+      - image: cimg/php:8.3
     resource_class: small
     environment:
       STAGING_BASE: https://neu.koblenzer-puppenspiele.de
     steps:
       - checkout
-      - run:
-          name: Install minimal desktop deploy tools
-          command: |
-            apt-get update -qq
-            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lftp php-cli ca-certificates
       - run:
           name: Validate and deploy desktop AI only
           command: bash qa/deploy-desktop-ai-fast-circleci.sh
