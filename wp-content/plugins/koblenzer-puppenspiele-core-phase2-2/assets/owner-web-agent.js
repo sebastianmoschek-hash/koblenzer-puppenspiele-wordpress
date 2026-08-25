@@ -90,7 +90,10 @@
 
   function looksLikeVisibleEdit(text) {
     if (looksLikeCodeTask(text)) return false;
-    return /\b(mach|ändere|aendere|setz|schreib|kürz|kuerz|größer|groesser|kleiner|verschieb|farbe|hintergrund|überschrift|ueberschrift|text|button|link|bild|header|menü|menu|abstand|breite|rund|design|seite)\b/i.test(text);
+    const value = String(text || '').trim();
+    if (/^(was|wie|warum|wo|wer|wann|welche|welcher|welches|kannst du|siehst du|erklär|erklaer|sag mir)\b/i.test(value)) return false;
+    return /\b(mach|ändere|aendere|setz|schreib|kürz|kuerz|vergrößer|vergroesser|verkleiner|verschieb|gestalte|färb|faerb|entfern|lösche|loesche|füge|fuege|tausche|runde)\b/i.test(value)
+      || /\b(größer|groesser|kleiner|weiter links|weiter rechts|höher|hoeher|tiefer|orange|rot|blau|grün|gruen)\b/i.test(value);
   }
 
   function ensureUi() {
@@ -162,28 +165,34 @@
     q('.kp-wa-send')?.classList.toggle('is-busy', !!busy);
   }
 
+  function messageElement(message) {
+    const article = document.createElement('article');
+    article.className = `kp-wa-msg is-${message.role}`;
+    const who = document.createElement('b');
+    who.textContent = message.role === 'user' ? 'Du' : message.role === 'system' ? 'System' : 'KI';
+    const body = document.createElement('div');
+    body.textContent = message.text;
+    article.append(who, body);
+    return article;
+  }
+
   function addMessage(role, text, extra = null) {
-    messages.push({ role, text: String(text || ''), at: Date.now() });
+    const message = { role, text: String(text || ''), at: Date.now() };
+    messages.push(message);
     messages = messages.slice(-MAX_MESSAGES);
     saveMessages();
-    renderMessages();
-    if (extra) extra(q('.kp-wa-messages')?.lastElementChild);
+    const list = q('.kp-wa-messages');
+    if (!list) return;
+    const article = messageElement(message);
+    list.appendChild(article);
+    list.scrollTop = list.scrollHeight;
+    if (extra) extra(article);
   }
 
   function renderMessages() {
     const list = q('.kp-wa-messages');
     if (!list) return;
-    list.replaceChildren();
-    messages.forEach(message => {
-      const article = document.createElement('article');
-      article.className = `kp-wa-msg is-${message.role}`;
-      const who = document.createElement('b');
-      who.textContent = message.role === 'user' ? 'Du' : message.role === 'system' ? 'System' : 'KI';
-      const body = document.createElement('div');
-      body.textContent = message.text;
-      article.append(who, body);
-      list.appendChild(article);
-    });
+    list.replaceChildren(...messages.map(messageElement));
     list.scrollTop = list.scrollHeight;
   }
 
