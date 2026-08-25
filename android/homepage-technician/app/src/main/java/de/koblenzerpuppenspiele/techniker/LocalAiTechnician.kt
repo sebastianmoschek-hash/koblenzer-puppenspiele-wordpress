@@ -12,6 +12,7 @@ import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ThinkingConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -56,6 +57,12 @@ class LocalAiTechnician(
     )
 
     private data class ChatTurn(val user: String, val assistant: String)
+    private data class LocalRepairProposal(
+        val id: String,
+        val summary: String,
+        val risk: String,
+        val planJson: String,
+    )
 
     private val lock = Mutex()
     private val modelManager = LocalModelManager(context)
@@ -497,6 +504,16 @@ class LocalAiTechnician(
     }
 
     private suspend fun prepareLocalCodeRepair(description: String): String {
+        val first = buildLocalRepairProposal(description)
+        val create = confirm(
+            "Autonome Reparatur starten?",
+            "${first.summary}\n\nRisiko: ${first.risk}\n\nDie lokale KI darf jetzt einen isolierten GitHub-Prüfbranch erstellen, die CI beobachten und bei roter CI höchstens ${MAX_AUTO_REPAIR_ROUNDS - 1} korrigierte Ersatzversuche vorbereiten. Live-Dateien werden nie direkt überschrieben. Ein Merge wird auch bei grüner CI separat bestätigt."
+        )
+        if (!create) return "Der lokale Code-Vorschlag ist vorbereitet, aber der autonome Prüfzyklus wurde nicht gestartet."
+        return runLocalRepairAutopilot(description, first, round = 1)
+    }
+
+    private suspend fun buildLocalRepairProposal(description: String): LocalRepairProposal {
         status("Lokale KI untersucht den Code …")
         val contextJson = bridge.localRepairContext(description)
         val catalog = contextJson["catalog"]?.jsonPrimitive?.content.orEmpty()
@@ -504,13 +521,13 @@ class LocalAiTechnician(
 
         val selectionPrompt = """
             AUFGABE:
-            $description
+            ${description.take(1800)}
 
             BROWSER/SEITE:
-            ${contextJson["browser"]?.jsonPrimitive?.content.orEmpty()}
+            ${contextJson["browser"]?.jsonPrimitive?.content.orEmpty().take(700)}
 
             DEBUG:
-            ${contextJson["debug_tail"]?.jsonPrimitive?.content.orEmpty()}
+            ${contextJson["debug_tail"]?.jsonPrimitive?.content.orEmpty().takeLast(700)}
 
             ERLAUBTE DATEIEN (Pfad und Größe):
             $catalog
@@ -531,10 +548,10 @@ class LocalAiTechnician(
         status("Lokale KI erstellt einen sicheren Patch …")
         val patchPrompt = """
             AUFGABE:
-            $description
+            ${description.take(1800)}
 
             DIAGNOSE AUS DATEIAUSWAHL:
-            ${selection.optString("diagnosis")}
+            ${selection.optString("diagnosis").take(700)}
 
             DATEIINHALTE:
             $codeJson
@@ -543,30 +560,93 @@ class LocalAiTechnician(
         val proposal = bridge.submitLocalRepairProposal(plan.toString())
         val proposalId = proposal["proposal_id"]?.jsonPrimitive?.content.orEmpty()
         if (proposalId.isBlank()) {
-            return proposal["message"]?.jsonPrimitive?.content
-                ?: proposal["error"]?.jsonPrimitive?.content
-                ?: "Die lokale KI konnte keinen sicheren Code-Patch vorbereiten. Dafür kannst du „Notfall Gemini“ verwenden."
+            throw IllegalStateException(
+                proposal["message"]?.jsonPrimitive?.content
+                    ?: proposal["error"]?.jsonPrimitive?.content
+                    ?: "Die lokale KI konnte keinen sicheren Code-Patch vorbereiten."
+            )
         }
-
-        val summary = proposal["summary"]?.jsonPrimitive?.content.orEmpty().ifBlank { "Lokale Code-Reparatur" }
-        val risk = proposal["risk"]?.jsonPrimitive?.content.orEmpty().ifBlank { "medium" }
-        val create = confirm(
-            "Prüfbranch erstellen?",
-            "$summary\n\nRisiko: $risk\n\nDie lokale KI hat nur einen Vorschlag vorbereitet. Jetzt darf daraus ein isolierter GitHub-Prüfbranch mit CI erstellt werden. Live-Dateien werden nicht direkt überschrieben."
+        return LocalRepairProposal(
+            id = proposalId,
+            summary = proposal["summary"]?.jsonPrimitive?.content.orEmpty().ifBlank { "Lokale Code-Reparatur" },
+            risk = proposal["risk"]?.jsonPrimitive?.content.orEmpty().ifBlank { "medium" },
+            planJson = plan.toString(),
         )
-        if (!create) return "Der lokale Code-Vorschlag ist vorbereitet, aber du hast den Prüfbranch nicht erstellt."
+    }
 
-        status("Prüfbranch und CI werden erstellt …")
-        val pr = bridge.createRepairBranch(proposalId)
+    private suspend fun runLocalRepairAutopilot(
+        originalDescription: String,
+        proposal: LocalRepairProposal,
+        round: Int,
+    ): String {
+        status("Prüfbranch wird erstellt · Reparaturrunde $round/$MAX_AUTO_REPAIR_ROUNDS …")
+        val pr = bridge.createRepairBranch(proposal.id)
         val prObject = JSONObject(pr.toString())
         val number = prObject.optString("pr").ifBlank { prObject.optString("number") }
         val url = prObject.optString("url").ifBlank { prObject.optString("html_url") }
-        return buildString {
-            append("Lokale Code-Reparatur als Prüfbranch angelegt")
-            if (number.isNotBlank()) append(" (PR #$number)")
-            append(". Vor einer Übernahme muss die CI grün sein und du musst den Merge nochmals bestätigen.")
-            if (url.isNotBlank()) append("\n$url")
+        if (number.isBlank()) {
+            throw IllegalStateException(prObject.optString("message").ifBlank { "Prüfbranch konnte nicht erstellt werden." })
         }
+
+        val health = waitForRepairCi(number, round)
+        if (health == "success") {
+            status("CI grün · Übernahme wartet auf Bestätigung")
+            val mergeNow = confirm(
+                "CI grün – Fix übernehmen?",
+                "Reparaturrunde $round ist vollständig grün. PR #$number kann jetzt per Squash-Merge übernommen werden. Production-/Live-Dateien wurden bisher nicht direkt verändert."
+            )
+            if (!mergeNow) {
+                return "CI ist grün für PR #$number, aber der Merge wurde nicht bestätigt.${if (url.isNotBlank()) "\n$url" else ""}"
+            }
+            status("Geprüfter Fix wird übernommen …")
+            val merge = JSONObject(bridge.merge(number).toString())
+            if (!merge.optBoolean("merged", false)) {
+                throw IllegalStateException(merge.optString("message").ifBlank { "GitHub hat den geprüften Merge nicht bestätigt." })
+            }
+            return buildString {
+                append("Reparatur erfolgreich: PR #$number war grün und wurde nach deiner Bestätigung übernommen.")
+                merge.optString("sha").takeIf { it.isNotBlank() }?.let { append("\nMerge: ${it.take(12)}") }
+            }
+        }
+
+        if (health == "failure") {
+            if (round >= MAX_AUTO_REPAIR_ROUNDS) {
+                return "Die CI ist auch in Reparaturrunde $round rot. Der autonome Zyklus stoppt nach $MAX_AUTO_REPAIR_ROUNDS Versuchen, damit keine Endlosschleife entsteht.${if (url.isNotBlank()) "\n$url" else ""}"
+            }
+
+            status("CI rot · Compilerdiagnose wird sicher eingelesen …")
+            val diagnosticsJson = bridge.localRepairCiDiagnostics(number)
+            val diagnostics = diagnosticsJson["diagnostics"]?.jsonPrimitive?.content.orEmpty().trim()
+            if (diagnostics.isBlank()) {
+                return "PR #$number ist rot, aber es liegt noch keine sichere CI-Diagnose für eine automatische Korrektur vor.${if (url.isNotBlank()) "\n$url" else ""}"
+            }
+
+            val retryDescription = """
+                AUTONOME KORREKTURRUNDE ${round + 1}/$MAX_AUTO_REPAIR_ROUNDS.
+                Ursprüngliche Aufgabe: ${originalDescription.take(700)}
+                Der vorherige isolierte Patch ist in CI fehlgeschlagen. Erstelle einen vollständigen Ersatzfix gegen den aktuellen Hauptstand; übernimm keine fehlerhafte Annahme blind.
+                Vorheriger Patchplan: ${proposal.planJson.take(700)}
+                CI-Diagnose: ${diagnostics.takeLast(1700)}
+                Behebe nur die aus Diagnose und Code ableitbare Ursache. Sicherheitsprüfungen niemals schwächen.
+            """.trimIndent()
+            status("CI rot · lokale KI korrigiert automatisch · Runde ${round + 1}/$MAX_AUTO_REPAIR_ROUNDS …")
+            val corrected = buildLocalRepairProposal(retryDescription)
+            val next = runLocalRepairAutopilot(originalDescription, corrected, round + 1)
+            return "PR #$number war rot; die lokale KI hat die CI-Diagnose ausgewertet und automatisch eine Ersatzrunde gestartet.\n\n$next"
+        }
+
+        return "PR #$number wurde erstellt. Die CI ist nach dem begrenzten Beobachtungsfenster noch nicht fertig; der Prüfbranch bleibt sicher offen.${if (url.isNotBlank()) "\n$url" else ""}"
+    }
+
+    private suspend fun waitForRepairCi(pr: String, round: Int): String {
+        for (attempt in 0 until CI_POLL_ATTEMPTS) {
+            if (attempt > 0) delay(CI_POLL_INTERVAL_MS)
+            val result = runCatching { bridge.status(pr) }.getOrNull()
+            val health = result?.get("health")?.jsonPrimitive?.content.orEmpty().lowercase()
+            if (health == "success" || health == "failure") return health
+            status("CI prüft Reparaturrunde $round/$MAX_AUTO_REPAIR_ROUNDS · ${attempt + 1}/$CI_POLL_ATTEMPTS …")
+        }
+        return "pending"
     }
 
     companion object {
@@ -580,6 +660,9 @@ class LocalAiTechnician(
         private const val MAX_CPU_FALLBACK_PROMPT_CHARS = 2400
         private const val MAX_CONTENT_ELEMENTS = 16
         private const val MAX_EDITOR_UI_ELEMENTS = 4
+        private const val MAX_AUTO_REPAIR_ROUNDS = 3
+        private const val CI_POLL_ATTEMPTS = 45
+        private const val CI_POLL_INTERVAL_MS = 8_000L
 
         private val PLANNER_SYSTEM = """
             Du bist die lokale kostenlose Homepage-KI der Koblenzer Puppenspiele. Antworte nur als gültiges JSON ohne Markdown:
