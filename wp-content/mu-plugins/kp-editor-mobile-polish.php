@@ -13,6 +13,11 @@ add_action( 'wp_footer', static function () {
     if ( ! is_user_logged_in() || ! current_user_can( 'edit_pages' ) ) { return; }
     ?>
     <style id="kp-editor-mobile-polish-style">
+      /* The AI pill has an intentionally very high z-index. While an owner
+         bottom-sheet is open that would otherwise put it above sticky Save /
+         Reset controls. Hide it for the duration of the sheet and bring it
+         back automatically when the sheet closes. */
+      body.kp-oa-open .kp-ai-trigger{display:none!important}
       @media(max-width:782px){
         body.kp-fe2-editing .kp-ai-trigger{
           right:12px!important;
