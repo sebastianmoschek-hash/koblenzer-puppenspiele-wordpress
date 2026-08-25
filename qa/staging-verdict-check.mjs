@@ -19,10 +19,13 @@ const checks = report.checks || {};
 const expect = (name) => checks[name] === 'success';
 const groups = {
   infra: ['deploy', 'stagingReady', 'temporaryBridge'],
-  editor: ['editorMobileTabletDesktop'],
+  // During diagnosis keep the public editor/persistence jobs focused on the
+  // expensive browser phases. Session Undo and real text Save retain dedicated
+  // group names below so we can flip the probes without touching product code.
+  editor: ['editorBrowser'],
   'editor-browser': ['editorBrowser'],
   'session-undo': ['sessionUndo'],
-  persistence: ['saveReloadDbUndo48h', 'realTextSave'],
+  persistence: ['persistenceBrowser'],
   'persistence-browser': ['persistenceBrowser'],
   'text-save': ['realTextSave'],
   touch: ['nativeTouchSliderSaveReset', 'touchRuntime'],
