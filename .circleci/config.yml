@@ -98,6 +98,9 @@ jobs:
             printf '%s\n' "$rc" > qa-results/android/contract.rc
             exit "$rc"
       - run:
+          name: Prepare bundled natural male voice
+          command: bash qa/prepare-android-natural-voice.sh
+      - run:
           name: Compile Homepage-Hilfe debug APK
           command: |
             mkdir -p qa-results/android

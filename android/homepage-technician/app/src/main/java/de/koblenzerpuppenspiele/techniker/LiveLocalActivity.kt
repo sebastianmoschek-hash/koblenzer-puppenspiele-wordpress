@@ -174,6 +174,27 @@ class LiveLocalActivity : Activity() {
                   if (!modelInstalled) { status('Lokales Gemma-Modell wird installiert …'); window.KPLocalLive.installModel(); return; }
                   window.KPLocalLive.start();
                 });
+                const speedButton = document.createElement('button');
+                speedButton.type = 'button';
+                speedButton.className = 'kp-wa-local-speed';
+                speedButton.style.minHeight = '48px';
+                speedButton.style.borderRadius = '14px';
+                speedButton.style.padding = '8px 12px';
+                speedButton.style.fontWeight = '800';
+                speedButton.style.border = '1px solid rgba(255,255,255,.18)';
+                speedButton.style.background = 'rgba(255,255,255,.09)';
+                speedButton.style.color = 'inherit';
+                const refreshSpeed = () => {
+                  try { speedButton.textContent = '🔊 Thorsten · ' + window.KPLocalLive.speechRateLabel(); }
+                  catch (_) { speedButton.textContent = '🔊 Thorsten · 1,0×'; }
+                };
+                speedButton.addEventListener('click', event => {
+                  event.preventDefault(); event.stopPropagation();
+                  try { speedButton.textContent = '🔊 Thorsten · ' + window.KPLocalLive.cycleSpeechRate(); }
+                  catch (_) {}
+                });
+                refreshSpeed();
+                actions.prepend(speedButton);
                 actions.prepend(b);
                 const small = q('.kp-wa-head small');
                 if (small) small.textContent = 'Live lokal · Bildschirm + Sprache + Gemma auf dem Gerät';
@@ -491,6 +512,12 @@ class LiveLocalActivity : Activity() {
             if (cleanText.isBlank()) return
             runOnUiThread { processLocalRequest(cleanId, cleanText, speakReply = false) }
         }
+
+        @JavascriptInterface
+        fun speechRateLabel(): String = if (::voiceController.isInitialized) voiceController.speechRateLabel() else "1,0×"
+
+        @JavascriptInterface
+        fun cycleSpeechRate(): String = if (::voiceController.isInitialized) voiceController.cycleSpeechRateLabel() else "1,0×"
 
         @JavascriptInterface
         fun installModel() {

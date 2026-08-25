@@ -38,6 +38,8 @@ class LocalVoiceController(
 
     private val main = Handler(Looper.getMainLooper())
     private val prefs = context.getSharedPreferences("kp-local-voice", Context.MODE_PRIVATE)
+    private val naturalVoice = LocalNaturalVoice(context.applicationContext)
+    private var speechRate = prefs.getFloat("speech_rate", 1.0f).coerceIn(0.8f, 1.2f)
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
     private var offlineVoices: List<Voice> = emptyList()
@@ -62,6 +64,18 @@ class LocalVoiceController(
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
 
     fun isActive(): Boolean = active
+
+    fun naturalVoiceLabel(): String = naturalVoice.label()
+
+    fun speechRateLabel(): String = String.format(Locale.GERMANY, "%.1f×", speechRate)
+
+    fun cycleSpeechRateLabel(): String {
+        val rates = floatArrayOf(0.8f, 0.9f, 1.0f, 1.1f, 1.2f)
+        val current = rates.indices.minByOrNull { kotlin.math.abs(rates[it] - speechRate) } ?: 2
+        speechRate = rates[(current + 1) % rates.size]
+        prefs.edit().putFloat("speech_rate", speechRate).apply()
+        return speechRateLabel()
+    }
 
     fun hasOfflineGermanVoices(): Boolean = ttsReady && offlineVoices.isNotEmpty()
 
@@ -134,10 +148,10 @@ class LocalVoiceController(
     fun continueListening(delayMs: Long = 120L) {
         if (!active) return
         main.postDelayed({
-            if (!active || listening) return@postDelayed
+            if (!active || listening || speaking) return@postDelayed
             ensureRecognizer()
             listening = true
-            onStatus(if (speaking) "Live lokal · KI spricht · du kannst sie unterbrechen" else "Live lokal · ich höre zu und sehe die aktuelle Homepage")
+            onStatus("Live lokal · ich höre zu und sehe die aktuelle Homepage")
             runCatching { recognizer?.startListening(recognizerIntent()) }
                 .onFailure {
                     listening = false
@@ -149,46 +163,79 @@ class LocalVoiceController(
 
     fun speak(text: String) {
         if (!active) return
-        val engine = tts
         val spoken = speechFriendly(text)
         if (spoken.isBlank()) {
-            continueListening(80L)
-            return
-        }
-        if (!ttsReady || offlineVoices.isEmpty() || engine == null) {
-            onStatus("Live lokal · Antwort steht im Chat · keine deutsche Offline-Stimme installiert")
-            continueListening(120L)
+            continueListening(ECHO_RELEASE_MS)
             return
         }
 
-        runCatching { recognizer?.cancel() }
+        // Half duplex by design: while the assistant speaks, Android speech
+        // recognition is completely stopped so the phone cannot transcribe its
+        // own loudspeaker output as a new user command.
         listening = false
+        runCatching { recognizer?.cancel() }
         speaking = true
         spokenAssistantNormalized = normalize(spoken)
+        onStatus("Live lokal · Thorsten antwortet · Mikrofon ist kurz pausiert")
+
+        if (naturalVoice.isBundled()) {
+            naturalVoice.speak(
+                text = spoken,
+                speed = speechRate,
+                onStart = { Unit },
+                onDone = {
+                    main.post {
+                        speaking = false
+                        spokenAssistantNormalized = ""
+                        if (active) continueListening(ECHO_RELEASE_MS)
+                    }
+                },
+                onError = { error ->
+                    main.post {
+                        speaking = false
+                        spokenAssistantNormalized = ""
+                        onStatus("Natürliche Stimme konnte nicht starten · Systemstimme als Fallback")
+                        speakWithSystemVoice(spoken, error)
+                    }
+                },
+            )
+            return
+        }
+        speakWithSystemVoice(spoken, null)
+    }
+
+    private fun speakWithSystemVoice(spoken: String, cause: Throwable?) {
+        val engine = tts
+        if (!ttsReady || offlineVoices.isEmpty() || engine == null) {
+            speaking = false
+            spokenAssistantNormalized = ""
+            onStatus("Antwort steht im Chat · keine lokale Stimme verfügbar${cause?.message?.let { ": $it" } ?: ""}")
+            if (active) continueListening(ECHO_RELEASE_MS)
+            return
+        }
+        engine.setSpeechRate(speechRate)
         val utteranceId = "kp-local-${UUID.randomUUID()}"
-        onStatus("Live lokal · KI antwortet · reinreden zum Unterbrechen")
         val result = engine.speak(spoken, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
         if (result == TextToSpeech.ERROR) {
             speaking = false
             spokenAssistantNormalized = ""
-            continueListening(180L)
-            return
+            if (active) continueListening(ECHO_RELEASE_MS)
         }
-        // Listen again while TTS is still playing. Echo-like transcripts are
-        // ignored; a divergent transcript is treated as a real interruption.
-        continueListening(BARGE_IN_LISTEN_DELAY_MS)
     }
 
     fun stopSpeakingForBargeIn() {
         if (!speaking) return
+        naturalVoice.stop()
+        runCatching { tts?.stop() }
         speaking = false
         spokenAssistantNormalized = ""
-        runCatching { tts?.stop() }
-        onStatus("Live lokal · unterbrochen · ich höre dir zu")
+        onStatus("Live lokal · Sprachausgabe beendet")
+        if (active) continueListening(ECHO_RELEASE_MS)
     }
 
     fun release() {
         stop()
+        naturalVoice.release()
         runCatching { tts?.shutdown() }
         tts = null
     }
@@ -234,7 +281,7 @@ class LocalVoiceController(
                 main.post {
                     speaking = false
                     spokenAssistantNormalized = ""
-                    if (active && !listening) continueListening(70L)
+                    if (active && !listening) continueListening(ECHO_RELEASE_MS)
                 }
             }
 
@@ -243,7 +290,7 @@ class LocalVoiceController(
                 main.post {
                     speaking = false
                     spokenAssistantNormalized = ""
-                    if (active && !listening) continueListening(120L)
+                    if (active && !listening) continueListening(ECHO_RELEASE_MS)
                 }
             }
         })
@@ -418,6 +465,7 @@ class LocalVoiceController(
     companion object {
         private const val MAX_VOICE_OPTIONS = 8
         private const val MAX_SPOKEN_CHARS = 520
+        private const val ECHO_RELEASE_MS = 650L
         private const val BARGE_IN_LISTEN_DELAY_MS = 320L
         private const val SPEECH_MINIMUM_MS = 900L
         private const val SPEECH_POSSIBLY_COMPLETE_SILENCE_MS = 1100L
