@@ -6,6 +6,7 @@
   const STORE_KEY = 'kp-owner-web-agent-chat-v1';
   const MAX_MESSAGES = 24;
   let fastBusy = false;
+  let speechBusy = false;
 
   const q = (s, r = document) => r.querySelector(s);
 
@@ -148,7 +149,109 @@
     return true;
   }
 
+  function speechErrorText(code) {
+    const errors = {
+      'not-allowed': 'Mikrofonzugriff ist nicht erlaubt. Bitte in Chrome für diese Seite das Mikrofon erlauben und erneut tippen.',
+      'service-not-allowed': 'Die Chrome-Spracherkennung ist auf diesem Gerät nicht freigegeben.',
+      'audio-capture': 'Chrome findet gerade kein verfügbares Mikrofon.',
+      'no-speech': 'Ich habe keine Sprache erkannt. Bitte nach dem Signal deutlich sprechen.',
+      'network': 'Die Chrome-Spracherkennung konnte ihren Sprachdienst nicht erreichen.',
+      'aborted': 'Die Spracheingabe wurde abgebrochen.',
+      'language-not-supported': 'Deutsch wird von der Spracherkennung dieses Browsers nicht unterstützt.'
+    };
+    return errors[code] || `Die Spracherkennung meldet „${code || 'unbekannter Fehler'}“.`;
+  }
+
+  async function ensureMicrophonePermission() {
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(track => track.stop());
+  }
+
+  async function startSpeechReliable(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+    if (speechBusy) return;
+
+    const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Speech) {
+      setStatus('Spracherkennung ist in diesem Browser nicht verfügbar. Du kannst die Mikrofontaste der Bildschirmtastatur verwenden.');
+      return;
+    }
+
+    speechBusy = true;
+    const mic = q('.kp-wa-mic');
+    if (mic) mic.disabled = true;
+
+    try {
+      setStatus('Mikrofon wird vorbereitet …', true);
+      await ensureMicrophonePermission();
+
+      const runRecognition = retry => new Promise(resolve => {
+        const rec = new Speech();
+        const input = q('.kp-wa-input');
+        let transcript = '';
+        let errorCode = '';
+
+        rec.lang = 'de-DE';
+        rec.continuous = false;
+        rec.interimResults = true;
+        rec.maxAlternatives = 1;
+
+        rec.onstart = () => setStatus(retry ? 'Ich höre nochmal zu … sprich jetzt' : 'Ich höre zu … sprich jetzt', true);
+        rec.onspeechstart = () => setStatus('Sprache erkannt …', true);
+        rec.onresult = resultEvent => {
+          transcript = Array.from(resultEvent.results || [])
+            .map(result => result?.[0]?.transcript || '')
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          if (input && transcript) input.value = transcript;
+        };
+        rec.onerror = errorEvent => {
+          errorCode = String(errorEvent?.error || 'unknown');
+        };
+        rec.onend = () => resolve({ transcript, errorCode });
+
+        try {
+          rec.start();
+        } catch (error) {
+          resolve({ transcript: '', errorCode: error?.name || 'start-failed' });
+        }
+      });
+
+      let result = await runRecognition(false);
+      if (!result.transcript && (result.errorCode === 'no-speech' || result.errorCode === 'network')) {
+        setStatus(`${speechErrorText(result.errorCode)} Einmaliger neuer Versuch …`, true);
+        await new Promise(resolve => setTimeout(resolve, 450));
+        result = await runRecognition(true);
+      }
+
+      if (result.transcript) {
+        setStatus('Sprache erkannt · du kannst ergänzen oder senden');
+        q('.kp-wa-input')?.focus();
+      } else {
+        setStatus(speechErrorText(result.errorCode));
+      }
+    } catch (error) {
+      const code = error?.name === 'NotAllowedError' || error?.name === 'SecurityError'
+        ? 'not-allowed'
+        : error?.name === 'NotFoundError'
+          ? 'audio-capture'
+          : '';
+      setStatus(code ? speechErrorText(code) : `Mikrofon konnte nicht gestartet werden: ${error?.message || String(error)}`);
+    } finally {
+      speechBusy = false;
+      if (mic) mic.disabled = false;
+    }
+  }
+
   document.addEventListener('click', event => {
+    if (event.target?.closest?.('.kp-wa-mic')) {
+      startSpeechReliable(event);
+      return;
+    }
     if (event.target?.closest?.('.kp-wa-send')) interceptCurrent(event);
   }, true);
 
