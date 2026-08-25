@@ -51,7 +51,7 @@ sync_full_website(){
 
 if [[ "$MODE" == 'full' ]]; then
   sync_mu_plugins
-  exec bash qa/circleci-homepage-lab.sh
+  exec bash qa/run-full-lab-bounded.sh
 fi
 
 if [[ "$MODE" == 'qa' ]]; then
@@ -65,7 +65,7 @@ if [[ "$MODE" == 'qa' ]]; then
     echo 'CircleCI QA-only mode: staging is stale or unhealthy; performing one staging-only recovery deploy.'
     sync_full_website
   fi
-  exec bash qa/circleci-homepage-lab.sh
+  exec bash qa/run-full-lab-bounded.sh
 fi
 
 echo 'CircleCI fast PWA lab: deploy + manifest/meta/icon smoke checks.'
@@ -92,7 +92,7 @@ if [[ "$status_deploy" == success ]]; then
   for attempt in $(seq 1 12); do
     if curl --fail --silent --show-error --location -H 'Cache-Control: no-cache, no-store' \
       "$STAGING_BASE/?kp_staging_bridge_health=1&kp_circleci=${SHA}-${RUN_ID}-${attempt}" -o "$REPORT_DIR/health.json" \
-      && jq -e --arg version "$expected" '.success == true and .data.active == true and .data.version == $version' "$REPORT_DIR/health.json" >/dev/null 2>&1; then
+      && jq -e --arg version "$expected" '.success == true and .data.active == true and .data.version == $version' "$REPORT_DIR/health.json" >/dev/null; then
       status_health=success
       break
     fi
