@@ -1,58 +1,68 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DESKTOP='wp-content/mu-plugins/kp-local-ai-desktop.php'
+TAKEOVER='wp-content/mu-plugins/kp-local-ai-desktop-takeover.php'
+ASSET='wp-content/mu-plugins/kp-local-ai-desktop-assets/takeover-v8.js'
 AGENT='desktop/homepage-agent/server.mjs'
 
-php -l "$DESKTOP" >/dev/null
-node --check "$AGENT" >/dev/null
+php -l "$TAKEOVER" >/dev/null
+for file in "$ASSET" "$AGENT"; do node --check "$file" >/dev/null; done
 
-# Desktop browser helper: local Gemma, live display capture and voice.
-grep -Fq 'http://127.0.0.1:8765' "$DESKTOP"
-grep -Fq 'gemma3:4b' "$DESKTOP"
-grep -Fq 'getDisplayMedia' "$DESKTOP"
-grep -Fq 'SpeechRecognition' "$DESKTOP"
-grep -Fq 'speechSynthesis' "$DESKTOP"
-grep -Fq "'/v1/health'" "$DESKTOP"
-grep -Fq "'/v1/chat'" "$DESKTOP"
-grep -Fq "'/v1/catalog'" "$DESKTOP"
-grep -Fq "'/v1/files'" "$DESKTOP"
-grep -Fq "'/v1/apply'" "$DESKTOP"
-grep -Fq 'Android-Schreibzugriff: AUS' "$DESKTOP"
-grep -Fq 'KPRepairMobile' "$DESKTOP"
-grep -Fq 'kp.editElement' "$DESKTOP"
-grep -Fq 'kp.setDesign' "$DESKTOP"
-grep -Fq 'kp.saveChanges' "$DESKTOP"
-grep -Fq 'explicitSave' "$DESKTOP"
-grep -Fq 'request_code_change' "$DESKTOP"
+# Desktop-only browser UI, local Gemma, robust local voice and screen observation.
+grep -Fq 'http://127.0.0.1:8765' "$TAKEOVER"
+grep -Fq 'gemma3:4b' "$TAKEOVER" "$AGENT"
+grep -Fq 'getDisplayMedia' "$ASSET"
+grep -Fq 'processLocally = true' "$ASSET"
+grep -Fq 'Recognition.available' "$ASSET"
+grep -Fq 'Recognition.install' "$ASSET"
+grep -Fq 'speechSynthesis.getVoices' "$ASSET"
+grep -Fq 'localService === true' "$ASSET"
+grep -Fq 'Stimme testen' "$TAKEOVER"
+grep -Fq 'Beobachten' "$TAKEOVER"
+grep -Fq 'observationTick' "$ASSET"
+grep -Fq 'KPRepairMobile' "$ASSET"
+grep -Fq 'editElement' "$ASSET"
+grep -Fq 'setDesign' "$ASSET"
+grep -Fq 'saveChanges' "$ASSET"
+grep -Fq 'explicitSave' "$ASSET"
 
-# Local loopback agent: Ollama/Gemma vision + real local Git worktree patches.
-grep -Fq "HOST = process.env.KP_AGENT_HOST || '127.0.0.1'" "$AGENT"
-grep -Fq "MODEL = process.env.KP_GEMMA_MODEL || 'gemma3:4b'" "$AGENT"
-grep -Fq '/api/chat' "$AGENT"
+# Pairing, immutable tests, rollback, commit and staging push.
+grep -Fq "req.url === '/v1/pair'" "$AGENT"
+grep -Fq "req.url === '/v1/health'" "$AGENT"
 grep -Fq "req.url === '/v1/catalog'" "$AGENT"
 grep -Fq "req.url === '/v1/files'" "$AGENT"
 grep -Fq "req.url === '/v1/apply'" "$AGENT"
-grep -Fq 'applyPlan' "$AGENT"
-grep -Fq "git(['diff'" "$AGENT"
-grep -Fq "spawnSync('php', ['-l'" "$AGENT"
-grep -Fq 'qa/local-ai-contract.sh' "$AGENT"
-grep -Fq '  /^android\//i,' "$AGENT"
-grep -Fq '  /^qa\/mobile-/i,' "$AGENT"
-grep -Fq '  /^wp-content\/mu-plugins\/kp-mobile-/i,' "$AGENT"
+grep -Fq "req.url === '/v1/pending'" "$AGENT"
+grep -Fq "req.url === '/v1/revert'" "$AGENT"
+grep -Fq "req.url === '/v1/publish'" "$AGENT"
+grep -Fq "TARGET_BRANCH = process.env.KP_AGENT_BRANCH || 'desktop-ai-fast'" "$AGENT"
+grep -Fq "git(['diff', '--check'" "$AGENT"
+grep -Fq "run('php', ['-l'" "$AGENT"
+grep -Fq "run('node', ['--check'" "$AGENT"
+grep -Fq "run('bash', ['qa/local-ai-contract.sh']" "$AGENT"
+grep -Fq 'restoreSnapshots' "$AGENT"
+grep -Fq "git(['push', 'origin'" "$AGENT"
+grep -Fq 'Authorization, Content-Type, X-KP-Desktop-Agent' "$AGENT"
+grep -Fq 'Android-Schreibzugriff: AUS' "$AGENT"
 grep -Fq 'androidWrites: false' "$AGENT"
 grep -Fq 'Access-Control-Allow-Private-Network' "$AGENT"
 
-# Desktop path must not contain any cloud LLM fallback/API route.
-if grep -Eqi 'gemini\.google\.com|generativelanguage\.googleapis\.com|api\.openai\.com|@litert-lm/core' "$DESKTOP" "$AGENT"; then
-  echo 'FAIL local-ai: desktop flow still contains a cloud LLM/API route.' >&2
+# qa/ may be read for contracts, but may never be changed by Gemma.
+if awk '/const writableRoots = \[/,/^\];/' "$AGENT" | grep -Fq "'qa/'"; then
+  echo 'FAIL local-ai: qa/ appeared in the laptop agent write allowlist.' >&2
+  exit 1
+fi
+grep -Fq "'qa/'," "$AGENT"
+grep -Fq 'Keine Android-, qa/-, Workflow-' "$ASSET"
+
+# Android is deny-only and never a root. No cloud LLM fallback is permitted.
+if awk '/const readableRoots = \[/,/^\];/; /const writableRoots = \[/,/^\];/' "$AGENT" | grep -qi 'android'; then
+  echo 'FAIL local-ai: Android appeared in a laptop-agent allowlist.' >&2
+  exit 1
+fi
+if grep -Eqi 'gemini\.google\.com|generativelanguage\.googleapis\.com|api\.openai\.com|@litert-lm/core' "$TAKEOVER" "$ASSET" "$AGENT"; then
+  echo 'FAIL local-ai: desktop flow contains a cloud LLM/API route.' >&2
   exit 1
 fi
 
-# Android may occur only in explicit deny/safety language, never as an allow-root.
-if grep -F 'allowedRoots' "$AGENT" | grep -qi 'android'; then
-  echo 'FAIL local-ai: Android appeared in the laptop agent allowlist.' >&2
-  exit 1
-fi
-
-echo 'PASS local-ai: Chrome live share, voice, local Gemma vision and guarded local website-code edits are present; Android writes are blocked.'
+echo 'PASS local-ai: local German speech, conversation, vision, observation and guarded staging-only code changes are present; Android writes are blocked.'
