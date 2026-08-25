@@ -8,40 +8,40 @@ php -l "$DESKTOP" >/dev/null
 node --check "$AGENT" >/dev/null
 
 # Desktop browser helper: local Gemma, live display capture and voice.
-grep -q 'http://127.0.0.1:8765' "$DESKTOP"
-grep -q 'gemma3:4b' "$DESKTOP"
-grep -q 'getDisplayMedia' "$DESKTOP"
-grep -q 'SpeechRecognition' "$DESKTOP"
-grep -q 'speechSynthesis' "$DESKTOP"
-grep -q "'/v1/health'" "$DESKTOP"
-grep -q "'/v1/chat'" "$DESKTOP"
-grep -q "'/v1/catalog'" "$DESKTOP"
-grep -q "'/v1/files'" "$DESKTOP"
-grep -q "'/v1/apply'" "$DESKTOP"
-grep -q 'Android-Schreibzugriff: AUS' "$DESKTOP"
-grep -q 'KPRepairMobile' "$DESKTOP"
-grep -q 'kp.editElement' "$DESKTOP"
-grep -q 'kp.setDesign' "$DESKTOP"
-grep -q 'kp.saveChanges' "$DESKTOP"
-grep -q 'explicitSave' "$DESKTOP"
-grep -q 'request_code_change' "$DESKTOP"
+grep -Fq 'http://127.0.0.1:8765' "$DESKTOP"
+grep -Fq 'gemma3:4b' "$DESKTOP"
+grep -Fq 'getDisplayMedia' "$DESKTOP"
+grep -Fq 'SpeechRecognition' "$DESKTOP"
+grep -Fq 'speechSynthesis' "$DESKTOP"
+grep -Fq "'/v1/health'" "$DESKTOP"
+grep -Fq "'/v1/chat'" "$DESKTOP"
+grep -Fq "'/v1/catalog'" "$DESKTOP"
+grep -Fq "'/v1/files'" "$DESKTOP"
+grep -Fq "'/v1/apply'" "$DESKTOP"
+grep -Fq 'Android-Schreibzugriff: AUS' "$DESKTOP"
+grep -Fq 'KPRepairMobile' "$DESKTOP"
+grep -Fq 'kp.editElement' "$DESKTOP"
+grep -Fq 'kp.setDesign' "$DESKTOP"
+grep -Fq 'kp.saveChanges' "$DESKTOP"
+grep -Fq 'explicitSave' "$DESKTOP"
+grep -Fq 'request_code_change' "$DESKTOP"
 
 # Local loopback agent: Ollama/Gemma vision + real local Git worktree patches.
-grep -q "HOST = process.env.KP_AGENT_HOST || '127.0.0.1'" "$AGENT"
-grep -q "MODEL = process.env.KP_GEMMA_MODEL || 'gemma3:4b'" "$AGENT"
-grep -q '/api/chat' "$AGENT"
-grep -q "req.url === '/v1/catalog'" "$AGENT"
-grep -q "req.url === '/v1/files'" "$AGENT"
-grep -q "req.url === '/v1/apply'" "$AGENT"
-grep -q 'applyPlan' "$AGENT"
-grep -q "git.*diff" "$AGENT"
-grep -q 'php.*-l' "$AGENT"
-grep -q 'qa/local-ai-contract.sh' "$AGENT"
-grep -q "^  /\^android" "$AGENT"
-grep -q "^  /\^qa\\/mobile-" "$AGENT"
-grep -q "^  /\^wp-content\\/mu-plugins\\/kp-mobile-" "$AGENT"
-grep -q 'androidWrites: false' "$AGENT"
-grep -q 'Access-Control-Allow-Private-Network' "$AGENT"
+grep -Fq "HOST = process.env.KP_AGENT_HOST || '127.0.0.1'" "$AGENT"
+grep -Fq "MODEL = process.env.KP_GEMMA_MODEL || 'gemma3:4b'" "$AGENT"
+grep -Fq '/api/chat' "$AGENT"
+grep -Fq "req.url === '/v1/catalog'" "$AGENT"
+grep -Fq "req.url === '/v1/files'" "$AGENT"
+grep -Fq "req.url === '/v1/apply'" "$AGENT"
+grep -Fq 'applyPlan' "$AGENT"
+grep -Fq "git(['diff'" "$AGENT"
+grep -Fq "spawnSync('php', ['-l'" "$AGENT"
+grep -Fq 'qa/local-ai-contract.sh' "$AGENT"
+grep -Fq '  /^android\//i,' "$AGENT"
+grep -Fq '  /^qa\/mobile-/i,' "$AGENT"
+grep -Fq '  /^wp-content\/mu-plugins\/kp-mobile-/i,' "$AGENT"
+grep -Fq 'androidWrites: false' "$AGENT"
+grep -Fq 'Access-Control-Allow-Private-Network' "$AGENT"
 
 # Desktop path must not contain any cloud LLM fallback/API route.
 if grep -Eqi 'gemini\.google\.com|generativelanguage\.googleapis\.com|api\.openai\.com|@litert-lm/core' "$DESKTOP" "$AGENT"; then
@@ -49,8 +49,8 @@ if grep -Eqi 'gemini\.google\.com|generativelanguage\.googleapis\.com|api\.opena
   exit 1
 fi
 
-# The laptop agent itself must never target Android project files.
-if grep -Eq "allowedRoots.*android|['\"]android/" "$AGENT"; then
+# Android may occur only in explicit deny/safety language, never as an allow-root.
+if grep -F 'allowedRoots' "$AGENT" | grep -qi 'android'; then
   echo 'FAIL local-ai: Android appeared in the laptop agent allowlist.' >&2
   exit 1
 fi
