@@ -30,8 +30,9 @@ WEB_CSS='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-we
 EMERGENCY='wp-content/mu-plugins/kp-mobile-emergency-gemini.php'
 FAST_REPAIR='wp-content/mu-plugins/kp-owner-web-repair-fast.php'
 DEV_LOADER='wp-content/mu-plugins/kp-owner-web-dev-loader.php'
+SELF_HEAL='wp-content/mu-plugins/kp-owner-web-self-heal.php'
 
-for web_file in "$WEB_BOOT" "$WEB_JS" "$WEB_FAST_JS" "$WEB_CSS" "$EMERGENCY" "$FAST_REPAIR" "$DEV_LOADER"; do
+for web_file in "$WEB_BOOT" "$WEB_JS" "$WEB_FAST_JS" "$WEB_CSS" "$EMERGENCY" "$FAST_REPAIR" "$DEV_LOADER" "$SELF_HEAL"; do
   [[ -f "$web_file" ]] || { echo "missing web-agent file: $web_file"; exit 1; }
 done
 
@@ -40,6 +41,7 @@ if command -v php >/dev/null 2>&1; then
   php -l "$EMERGENCY" >/dev/null
   php -l "$FAST_REPAIR" >/dev/null
   php -l "$DEV_LOADER" >/dev/null
+  php -l "$SELF_HEAL" >/dev/null
 fi
 if command -v node >/dev/null 2>&1; then
   node --check "$WEB_JS"
@@ -69,6 +71,8 @@ grep -q "sessionStorage" "$WEB_JS"
 grep -q "kp-ai-trigger" "$WEB_JS"
 grep -q "Noch wurde kein Code übernommen" "$WEB_JS"
 grep -q "kp_owner_web_agent_chat" "$WEB_FAST_JS"
+grep -q "kp_owner_web_self_heal" "$WEB_FAST_JS"
+grep -q "KPOwnerWebDiagnostics" "$WEB_FAST_JS"
 grep -q "schnellen Web-Chat" "$WEB_FAST_JS"
 grep -q "kp-web-agent-active .kp-ai-trigger" "$WEB_CSS"
 
@@ -98,14 +102,35 @@ grep -Fq "kp_ai_repair_gh(" "$DEV_LOADER"
 grep -Fq "Cache-Control: private, no-store" "$DEV_LOADER"
 grep -Fq "X-Content-Type-Options: nosniff" "$DEV_LOADER"
 
-if grep -Eq "AIza[A-Za-z0-9_-]{20,}|github_pat_|gh[pousr]_[A-Za-z0-9_-]{12,}" "$WEB_JS" "$WEB_FAST_JS" "$WEB_BOOT" "$FAST_REPAIR" "$DEV_LOADER"; then
+# Direct self-heal exists only inside the staging browser-asset sandbox.
+grep -Fq "wp_ajax_kp_owner_web_self_heal" "$SELF_HEAL"
+grep -Fq "feature/webapp-primary-agent" "$SELF_HEAL"
+grep -Fq "neu.koblenzer-puppenspiele.de" "$SELF_HEAL"
+grep -Fq "kp_ai_repair_guard();" "$SELF_HEAL"
+grep -Fq "'risk'" "$SELF_HEAL"
+grep -Fq "'low' !==" "$SELF_HEAL"
+grep -Fq "owner-web-agent.js" "$SELF_HEAL"
+grep -Fq "owner-web-agent-fast-chat.js" "$SELF_HEAL"
+grep -Fq "owner-web-agent.css" "$SELF_HEAL"
+grep -Fq "branch' => KP_OWNER_WEB_SELF_HEAL_BRANCH" "$SELF_HEAL"
+grep -Fq "Production wurde nicht verändert" "$SELF_HEAL"
+if grep -Eq "wp-content/mu-plugins/.*\.php'" "$SELF_HEAL"; then
+  echo 'Self-heal sandbox must not target PHP/MU-plugin files'
+  exit 1
+fi
+if grep -Eq "android/|MainActivity|\.kt'" "$SELF_HEAL"; then
+  echo 'Self-heal sandbox must not target Android files'
+  exit 1
+fi
+
+if grep -Eq "AIza[A-Za-z0-9_-]{20,}|github_pat_|gh[pousr]_[A-Za-z0-9_-]{12,}" "$WEB_JS" "$WEB_FAST_JS" "$WEB_BOOT" "$FAST_REPAIR" "$DEV_LOADER" "$SELF_HEAL"; then
   echo 'Owner web agent must not contain durable Gemini/GitHub credentials'
   exit 1
 fi
 
-if grep -Eq "file_put_contents\(|WP_Filesystem\(|unlink\(" "$FILE" "$FAST_REPAIR" "$DEV_LOADER"; then
-  echo 'AI repair/dev-loader path contains direct filesystem mutation primitive'
+if grep -Eq "file_put_contents\(|WP_Filesystem\(|unlink\(" "$FILE" "$FAST_REPAIR" "$DEV_LOADER" "$SELF_HEAL"; then
+  echo 'AI repair/dev-loader/self-heal path contains direct filesystem mutation primitive'
   exit 1
 fi
 
-echo 'AI repair + primary owner web-agent + staging live-loader contract PASS'
+echo 'AI repair + primary owner web-agent + staging live-loader + self-heal sandbox contract PASS'
