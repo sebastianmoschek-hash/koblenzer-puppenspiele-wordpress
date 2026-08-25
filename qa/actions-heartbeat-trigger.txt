@@ -1,2 +1,2 @@
 Trigger für den minimalen GitHub-Actions-Heartbeat.
-Aktualisiert: 2026-08-22T13:03:00Z
+Aktualisiert: 2026-08-25T06:53:30Z
