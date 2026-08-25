@@ -51,7 +51,7 @@ if grep -q 'voiceMode[[:space:]]*=' "$MAIN"; then
   exit 1
 fi
 
-# Local model runtime: LiteRT-LM, bounded context/KV cache, GPU with CPU inference fallback, no cloud AI SDK.
+# Local model runtime: LiteRT-LM, Android-sized KV cache, bounded prompt, fresh CPU retry, no cloud AI SDK.
 grep -q 'com.google.ai.edge.litertlm:litertlm-android:0.16.0' "$GRADLE"
 if grep -q 'firebase-ai\|firebase-appcheck\|google-services' "$GRADLE"; then
   echo 'FAIL local-ai: cloud Firebase AI/AppCheck dependency remains in Android app.' >&2
@@ -63,14 +63,19 @@ grep -q 'EngineConfig' "$LOCAL"
 grep -q 'Backend.GPU()' "$LOCAL"
 grep -q 'Backend.CPU(' "$LOCAL"
 grep -q 'maxNumTokens = LOCAL_MAX_TOKENS' "$LOCAL"
-grep -q 'LOCAL_MAX_TOKENS = 6144' "$LOCAL"
+grep -q 'LOCAL_MAX_TOKENS = 2048' "$LOCAL"
+grep -q 'MAX_OUTPUT_TOKENS = 256' "$LOCAL"
+grep -q 'MAX_MODEL_PROMPT_CHARS = 3600' "$LOCAL"
+grep -q 'MAX_CPU_FALLBACK_PROMPT_CHARS = 2400' "$LOCAL"
 grep -q 'ThinkingConfig(enableThinking = false' "$LOCAL"
-grep -q 'MAX_OUTPUT_TOKENS' "$LOCAL"
 grep -q 'compactEditableElements' "$LOCAL"
-grep -q 'MAX_MODEL_PROMPT_CHARS' "$LOCAL"
-grep -q 'GPU-Inferenz fehlgeschlagen' "$LOCAL"
+grep -q 'CPU wird frisch gestartet' "$LOCAL"
+grep -q 'rebuilding CPU engine once' "$LOCAL"
+grep -q 'LiteRtLmJniException' "$LOCAL"
+grep -q 'resetEngine()' "$LOCAL"
 grep -q 'friendlyNativeFailure' "$LOCAL"
 grep -q 'isNativeInferenceFailure' "$LOCAL"
+grep -q 'Log.w(TAG' "$LOCAL"
 grep -q 'filesDir' "$LOCAL"
 grep -q 'REQUIRED_FREE_BYTES' "$LOCAL"
 grep -q 'ARM-Handy' "$LOCAL"
@@ -158,4 +163,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS local-ai: keyboard-safe readable local chat, bounded native inference with GPU/CPU fallback, interruptible offline Live speech, selectable local voices, emergency Gemini handoff and protected CI-gated website/Android repair are present.'
+echo 'PASS local-ai: keyboard-safe readable local chat, 2048-token KV cache with bounded prompt and one fresh CPU retry, interruptible offline Live speech, selectable local voices, emergency Gemini handoff and protected CI-gated website/Android repair are present.'
