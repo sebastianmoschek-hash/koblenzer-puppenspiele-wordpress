@@ -19,14 +19,16 @@ const checks = report.checks || {};
 const expect = (name) => checks[name] === 'success';
 const groups = {
   infra: ['deploy', 'stagingReady', 'temporaryBridge'],
-  // During diagnosis keep the public editor/persistence jobs focused on the
-  // expensive browser phases. Session Undo and real text Save retain dedicated
-  // group names below so we can flip the probes without touching product code.
-  editor: ['editorBrowser'],
-  'editor-browser': ['editorBrowser'],
-  'session-undo': ['sessionUndo'],
-  persistence: ['persistenceBrowser'],
-  'persistence-browser': ['persistenceBrowser'],
+  // The homepage lab currently publishes the editor browser and session-undo
+  // result together as editorMobileTabletDesktop. Keep verdict names stable,
+  // but consume the actual report schema instead of synthetic/missing keys.
+  editor: ['editorMobileTabletDesktop'],
+  'editor-browser': ['editorMobileTabletDesktop'],
+  'session-undo': ['editorMobileTabletDesktop'],
+  // Persistence must prove both the broad Save→Reload→DB/48h browser round and
+  // the isolated real text Save→Reload→DB readback appended by the publisher.
+  persistence: ['saveReloadDbUndo48h', 'realTextSave'],
+  'persistence-browser': ['saveReloadDbUndo48h'],
   'text-save': ['realTextSave'],
   touch: ['nativeTouchSliderSaveReset', 'touchRuntime'],
   visual: ['visual50Views'],
