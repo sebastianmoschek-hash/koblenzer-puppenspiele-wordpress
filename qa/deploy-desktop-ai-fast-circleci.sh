@@ -52,9 +52,9 @@ for attempt in 1 2 3 4 5 6; do
     -H 'Cache-Control: no-cache, no-store' \
     "$STAGING_BASE/?kp_desktop_ai_probe=1&kp_ci=${CIRCLE_SHA1:-manual}-$attempt" || true)"
   if printf '%s' "$probe" | grep -Fq '"loaded":true' \
-    && printf '%s' "$probe" | grep -Fq '"version":"desktop-ai-fast-v4"' \
+    && printf '%s' "$probe" | grep -Fq '"version":"desktop-ai-fast-v5"' \
     && printf '%s' "$probe" | grep -Fq '"desktopFile":true'; then
-    echo 'PASS desktop-ai-runtime: WordPress loaded the desktop AI MU plugin.'
+    echo "PASS desktop-ai-runtime: $probe"
     printf 'PASS desktop-ai-fast: %s aktualisiert; Runtime verifiziert; Android unberührt.\n' "$STAGING_BASE"
     exit 0
   fi
