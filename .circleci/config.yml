@@ -4,6 +4,7 @@ jobs:
   apply-voice-hotfix:
     docker:
       - image: cimg/base:stable
+    resource_class: small
     steps:
       - checkout
       - run:
@@ -18,74 +19,26 @@ jobs:
             git checkout -B work origin/feature/webapp-primary-agent
             python3 - <<'PY'
             from pathlib import Path
-
+            import re
             p = Path('android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LocalVoiceController.kt')
             s = p.read_text()
-            old = '''        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            putExtra(
-                RecognizerIntent.EXTRA_BIASING_STRINGS,
-                arrayListOf("Koblenzer Puppenspiele", "Homepage", "Überschrift", "Pfeile", "Menü", "Bearbeiten", "Speichern"),
-            )
-            putExtra(
-                RecognizerIntent.EXTRA_SEGMENTED_SESSION,
-                RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
-            )
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SEGMENT_SILENCE_MS)
-        }
-'''
-            new = '''        // Treat one spoken request as one utterance. Segmented sessions delivered
-        // fragments such as "unterstütz" as complete commands to Gemma.
-        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, SPEECH_MINIMUM_MS)
-        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, SPEECH_POSSIBLY_COMPLETE_SILENCE_MS)
-        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SPEECH_COMPLETE_SILENCE_MS)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            putExtra(
-                RecognizerIntent.EXTRA_BIASING_STRINGS,
-                arrayListOf(
-                    "Koblenzer Puppenspiele", "Homepage", "Begrüßungstext", "Überschrift",
-                    "was siehst du", "hilf mir", "unterstütz mich", "größer", "kleiner",
-                    "Pfeile", "Menü", "Bearbeiten", "Speichern"
-                ),
-            )
-        }
-'''
-            if s.count(old) != 1:
-                raise SystemExit(f'recognizer intent block count={s.count(old)}')
-            s = s.replace(old, new, 1)
-
-            old_seg = '''                override fun onSegmentResults(segmentResults: Bundle) {
-                    consumeRecognition(bestText(segmentResults), keepSession = true)
-                }
-'''
-            new_seg = '''                override fun onSegmentResults(segmentResults: Bundle) {
-                    // Some recognizers may still emit segment callbacks. Show the
-                    // partial text, but never execute it as a standalone command.
-                    val segment = bestText(segmentResults)
-                    if (segment.isNotBlank() && active && !looksLikeOwnVoice(segment)) {
-                        onStatus("Live lokal · $segment …")
-                    }
-                }
-'''
-            if s.count(old_seg) != 1:
-                raise SystemExit(f'segment callback count={s.count(old_seg)}')
+            pattern = re.compile(r'        if \(Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.TIRAMISU\) \{\n            putExtra\(\n                RecognizerIntent\.EXTRA_BIASING_STRINGS,\n                arrayListOf\("Koblenzer Puppenspiele", "Homepage", "Überschrift", "Pfeile", "Menü", "Bearbeiten", "Speichern"\),\n            \)\n            putExtra\(\n                RecognizerIntent\.EXTRA_SEGMENTED_SESSION,\n                RecognizerIntent\.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,\n            \)\n            putExtra\(RecognizerIntent\.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SEGMENT_SILENCE_MS\)\n        \}\n')
+            replacement = '        // Treat one spoken request as one utterance. Segmented sessions delivered\n        // fragments as complete commands to Gemma.\n        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, SPEECH_MINIMUM_MS)\n        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, SPEECH_POSSIBLY_COMPLETE_SILENCE_MS)\n        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SPEECH_COMPLETE_SILENCE_MS)\n        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {\n            putExtra(\n                RecognizerIntent.EXTRA_BIASING_STRINGS,\n                arrayListOf("Koblenzer Puppenspiele", "Homepage", "Begrüßungstext", "Überschrift", "was siehst du", "hilf mir", "unterstütz mich", "größer", "kleiner", "Pfeile", "Menü", "Bearbeiten", "Speichern"),\n            )\n        }\n'
+            s, n = pattern.subn(replacement, s, count=1)
+            if n != 1: raise SystemExit(f'recognizer block replacements={n}')
+            old_seg = '                override fun onSegmentResults(segmentResults: Bundle) {\n                    consumeRecognition(bestText(segmentResults), keepSession = true)\n                }\n'
+            new_seg = '                override fun onSegmentResults(segmentResults: Bundle) {\n                    val segment = bestText(segmentResults)\n                    if (segment.isNotBlank() && active && !looksLikeOwnVoice(segment)) {\n                        onStatus("Live lokal · $segment …")\n                    }\n                }\n'
+            if s.count(old_seg) != 1: raise SystemExit(f'segment callback count={s.count(old_seg)}')
             s = s.replace(old_seg, new_seg, 1)
-
             old_const = '        private const val SEGMENT_SILENCE_MS = 720\n'
-            new_const = '''        private const val SPEECH_MINIMUM_MS = 900L
-        private const val SPEECH_POSSIBLY_COMPLETE_SILENCE_MS = 1100L
-        private const val SPEECH_COMPLETE_SILENCE_MS = 1800L
-'''
-            if s.count(old_const) != 1:
-                raise SystemExit(f'silence constant count={s.count(old_const)}')
+            new_const = '        private const val SPEECH_MINIMUM_MS = 900L\n        private const val SPEECH_POSSIBLY_COMPLETE_SILENCE_MS = 1100L\n        private const val SPEECH_COMPLETE_SILENCE_MS = 1800L\n'
+            if s.count(old_const) != 1: raise SystemExit(f'silence constant count={s.count(old_const)}')
             s = s.replace(old_const, new_const, 1)
             p.write_text(s)
-
             gpath = Path('android/homepage-technician/app/build.gradle.kts')
             g = gpath.read_text()
-            if 'versionCode = 5' not in g:
-                raise SystemExit('expected versionCode 5')
+            if 'versionCode = 5' not in g: raise SystemExit('expected versionCode 5')
             g = g.replace('versionCode = 5', 'versionCode = 6', 1)
-            import re
             g = re.sub(r'versionName = "[^"]+"', 'versionName = "0.6.0-voice-utterance"', g, count=1)
             gpath.write_text(g)
             PY
