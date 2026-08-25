@@ -5,7 +5,10 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import com.k2fsa.sherpa.onnx.GenerationConfig
 import com.k2fsa.sherpa.onnx.OfflineTts
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig
@@ -17,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * Bundled, completely offline German male TTS voice for Live lokal.
  *
- * Model: Piper/VITS de_DE-thorsten-medium via sherpa-onnx.
+ * Model: Piper/VITS de_DE-thorsten-high via sherpa-onnx.
  * The model/tokens stay in APK assets; eSpeak data is copied once to filesDir
  * because the native phonemizer needs a real filesystem path.
  */
@@ -26,7 +29,7 @@ class LocalNaturalVoice(private val context: Context) {
     @Volatile private var tts: OfflineTts? = null
     @Volatile private var track: AudioTrack? = null
 
-    fun label(): String = "Thorsten · natürlich · lokal"
+    fun label(): String = "Thorsten High · natürlich · lokal"
 
     fun isBundled(): Boolean = runCatching {
         context.assets.open("$MODEL_DIR/tokens.txt").use { true }
@@ -91,8 +94,13 @@ class LocalNaturalVoice(private val context: Context) {
                     onDone()
                 }
             } catch (error: Throwable) {
-                Log.e(TAG, "Natural local voice failed", error)
-                if (request == generation.get()) onError(error)
+                Log.e(TAG, "Thorsten High local voice failed", error)
+                if (request == generation.get()) {
+                    showEngineError(error)
+                    // Deliberately finish instead of invoking the controller's
+                    // legacy onError path, which used Android system TTS.
+                    onDone()
+                }
             } finally {
                 runCatching { localTrack?.pause() }
                 runCatching { localTrack?.flush() }
@@ -122,7 +130,7 @@ class LocalNaturalVoice(private val context: Context) {
     @Synchronized
     private fun ensureTts(): OfflineTts {
         tts?.let { return it }
-        check(isBundled()) { "Die natürliche Offline-Stimme ist in dieser APK nicht enthalten." }
+        check(isBundled()) { "Thorsten High ist in dieser APK nicht enthalten." }
         val dataDir = ensureEspeakData()
         val config = OfflineTtsConfig(
             model = OfflineTtsModelConfig(
@@ -144,7 +152,7 @@ class LocalNaturalVoice(private val context: Context) {
     }
 
     private fun ensureEspeakData(): File {
-        val root = File(context.filesDir, "natural-voice/$ESPEAK_DIR")
+        val root = File(context.filesDir, "natural-voice/$MODEL_DIR/$ESPEAK_DIR")
         val marker = File(root, ".ready-v1")
         if (marker.isFile) return root
         if (root.exists()) root.deleteRecursively()
@@ -169,10 +177,21 @@ class LocalNaturalVoice(private val context: Context) {
         }
     }
 
+    private fun showEngineError(error: Throwable) {
+        val detail = error.message ?: error.javaClass.simpleName
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(
+                context,
+                "Thorsten High konnte nicht starten: $detail · keine Systemstimme verwendet",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
+
     companion object {
         private const val TAG = "KPNaturalVoice"
-        private const val MODEL_DIR = "vits-piper-de_DE-thorsten-medium"
-        private const val MODEL_FILE = "de_DE-thorsten-medium.onnx"
+        private const val MODEL_DIR = "vits-piper-de_DE-thorsten-high"
+        private const val MODEL_FILE = "de_DE-thorsten-high.onnx"
         private const val ESPEAK_DIR = "espeak-ng-data"
     }
 }
