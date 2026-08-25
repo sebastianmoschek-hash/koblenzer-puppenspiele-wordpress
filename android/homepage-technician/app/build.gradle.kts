@@ -10,8 +10,8 @@ android {
         applicationId = "de.koblenzerpuppenspiele.techniker"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.6.0-voice-utterance"
+        versionCode = 7
+        versionName = "0.7.0-natural-voice"
     }
 
     buildFeatures {
@@ -41,7 +41,7 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.0")
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.29.0")
+    implementation("com.github.k2-fsa:sherpa-onnx:v1.13.4")
     implementation("com.squareup.okhttp3:okhttp:5.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
