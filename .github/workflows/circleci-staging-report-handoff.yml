@@ -1,0 +1,65 @@
+name: CircleCI staging report handoff
+
+on:
+  status:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: circleci-staging-report-handoff
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.event.context == 'ci/circleci: homepage-staging-lab' &&
+      (github.event.state == 'success' || github.event.state == 'failure' || github.event.state == 'error')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Fetch exact staging-lab handoff
+        env:
+          EXPECTED_SHA: ${{ github.event.sha }}
+        run: |
+          set -euo pipefail
+          base='https://neu.koblenzer-puppenspiele.de/wp-content/uploads/kp-homepage-lab/latest'
+          mkdir -p /tmp/kp-circleci-handoff qa-results
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+            "$base/report.json?handoff=${EXPECTED_SHA}" -o /tmp/kp-circleci-handoff/report.json
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+            "$base/report.md?handoff=${EXPECTED_SHA}" -o /tmp/kp-circleci-handoff/report.md
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+            "$base/diagnostics.txt?handoff=${EXPECTED_SHA}" -o /tmp/kp-circleci-handoff/diagnostics.txt
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+            "$base/editor/report.json?handoff=${EXPECTED_SHA}" -o /tmp/kp-circleci-handoff/editor-report.json || printf '{"success":false,"failures":["editor report unavailable"]}\n' > /tmp/kp-circleci-handoff/editor-report.json
+
+          actual="$(jq -r '.commit // empty' /tmp/kp-circleci-handoff/report.json)"
+          if [[ "$actual" != "$EXPECTED_SHA" ]]; then
+            echo "Stale staging report: expected $EXPECTED_SHA, got ${actual:-empty}."
+            exit 1
+          fi
+
+          cp /tmp/kp-circleci-handoff/report.json qa-results/circleci-latest.json
+          cp /tmp/kp-circleci-handoff/report.md qa-results/circleci-latest.md
+          cp /tmp/kp-circleci-handoff/diagnostics.txt qa-results/circleci-latest-diagnostics.txt
+          cp /tmp/kp-circleci-handoff/editor-report.json qa-results/circleci-latest-editor.json
+
+      - name: Publish report without triggering another CI round
+        env:
+          EXPECTED_SHA: ${{ github.event.sha }}
+        run: |
+          set -euo pipefail
+          git config user.name 'kp-staging-report-handoff'
+          git config user.email 'staging-report@users.noreply.github.com'
+          git add qa-results/circleci-latest.json qa-results/circleci-latest.md qa-results/circleci-latest-diagnostics.txt qa-results/circleci-latest-editor.json
+          if git diff --cached --quiet; then
+            echo 'Staging handoff is already current.'
+            exit 0
+          fi
+          git commit -m "qa: hand off CircleCI staging report ${EXPECTED_SHA:0:8} [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
