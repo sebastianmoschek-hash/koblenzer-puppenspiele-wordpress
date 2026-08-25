@@ -175,12 +175,21 @@ jobs:
             fi
 
             set +e
-            bash qa/circleci-homepage-lab-smart.sh
+            (
+              while true; do
+                sleep 60
+                printf '[heartbeat] staging lab still running at %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+              done
+            ) &
+            heartbeat_pid=$!
+            timeout --foreground --signal=TERM --kill-after=30s 70m bash qa/circleci-homepage-lab-smart.sh
             lab_rc=$?
+            kill "$heartbeat_pid" >/dev/null 2>&1 || true
+            wait "$heartbeat_pid" 2>/dev/null || true
             text_rc=0
             if [[ $lab_rc -eq 0 && "${KP_CI_MODE:-full}" != "pwa" ]]; then
               echo '== text-save-staging =='
-              KP_TEXT_SAVE_SKIP_DEPLOY=1 bash qa/text-save-staging-lab.sh > >(tee qa-results/circleci/text-save-staging.log) 2>&1
+              timeout --foreground --signal=TERM --kill-after=20s 15m env KP_TEXT_SAVE_SKIP_DEPLOY=1 bash qa/text-save-staging-lab.sh > >(tee qa-results/circleci/text-save-staging.log) 2>&1
               text_rc=$?
               if [[ $text_rc -eq 0 ]]; then
                 echo 'PASS text-save-staging'
@@ -188,14 +197,14 @@ jobs:
                 echo "FAIL text-save-staging (exit $text_rc)"
               fi
             elif [[ $lab_rc -ne 0 ]]; then
-              echo 'Skipping extra text-save round because the main staging lab is already red.'
+              echo 'Skipping extra text-save round because the main staging lab is already red or timed out.'
             else
               echo 'PWA-fast mode: no editor text-save browser round needed.'
             fi
             printf 'lab_rc=%s\ntext_rc=%s\n' "$lab_rc" "$text_rc" > qa-results/circleci/runner-exit.txt
             set -e
             exit 0
-          no_output_timeout: 40m
+          no_output_timeout: 10m
       - run:
           name: Publish latest safe lab report back to GitHub
           when: always
