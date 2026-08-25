@@ -125,7 +125,7 @@ OS:            Linux 7.0.0-1009-aws amd64
 
 
 ===== contract.log =====
-PASS local-ai: writable preinstall chat with preserved draft, keyboard-safe local chat, bounded LiteRT inference, protected three-round CI self-repair loop with redacted diagnostics, offline Live speech and explicit green-CI merge confirmation are present.
+PASS local-ai: writable preinstall chat, bounded LiteRT inference, offline Live speech, protected local self-repair and in-chat server-side emergency Gemini with PR/CI/explicit merge gate are present.
 
 ===== build.log =====
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
@@ -147,12 +147,10 @@ Daemon will be stopped at the end of the build
 > Task :app:checkDebugDuplicateClasses
 > Task :app:desugarDebugFileDependencies
 > Task :app:compileDebugKotlin
-> Task :app:mergeExtDexDebug
-
-> Task :app:compileDebugKotlin
 w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/MainActivity.kt:89:60 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
-w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/MainActivity.kt:804:20 'fun onBackPressed(): Unit' is deprecated. Deprecated in Java.
+w: file:///home/circleci/project/android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/MainActivity.kt:927:20 'fun onBackPressed(): Unit' is deprecated. Deprecated in Java.
 
+> Task :app:mergeExtDexDebug
 > Task :app:compileDebugJavaWithJavac
 > Task :app:processDebugJavaRes
 > Task :app:mergeLibDexDebug
@@ -182,6 +180,6 @@ Unable to strip the following libraries, packaging them as they are: liblitertlm
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 3m 31s
+BUILD SUCCESSFUL in 2m 30s
 38 actionable tasks: 38 executed
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.5.0/userguide/configuration_cache_enabling.html
