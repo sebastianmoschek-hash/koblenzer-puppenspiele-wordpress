@@ -43,9 +43,11 @@ if [[ -s "$REPORT_DIR/report.json" ]]; then
   jq --arg eb "$editor_browser" --arg su "$session_undo" --arg pe "$persistence" \
     '.checks.editorBrowser=$eb | .checks.sessionUndo=$su | .checks.persistenceBrowser=$pe' \
     "$REPORT_DIR/report.json" > "$tmp_json" && mv "$tmp_json" "$REPORT_DIR/report.json"
-fi
 
-if [[ $rc -eq 0 ]]; then
+  # A completed red report is still a valid hand-off to the independent verdict
+  # jobs. Return success here so the following real text Save→Reload→DB gate is
+  # always executed on the same staging deployment. The component verdict jobs
+  # remain authoritative and will keep the workflow red for any failed check.
   exit 0
 fi
 
