@@ -28,14 +28,16 @@ WEB_JS='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web
 WEB_FAST_JS='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-agent-fast-chat.js'
 WEB_CSS='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-agent.css'
 EMERGENCY='wp-content/mu-plugins/kp-mobile-emergency-gemini.php'
+FAST_REPAIR='wp-content/mu-plugins/kp-owner-web-repair-fast.php'
 
-for web_file in "$WEB_BOOT" "$WEB_JS" "$WEB_FAST_JS" "$WEB_CSS" "$EMERGENCY"; do
+for web_file in "$WEB_BOOT" "$WEB_JS" "$WEB_FAST_JS" "$WEB_CSS" "$EMERGENCY" "$FAST_REPAIR"; do
   [[ -f "$web_file" ]] || { echo "missing web-agent file: $web_file"; exit 1; }
 done
 
 if command -v php >/dev/null 2>&1; then
   php -l "$WEB_BOOT" >/dev/null
   php -l "$EMERGENCY" >/dev/null
+  php -l "$FAST_REPAIR" >/dev/null
 fi
 if command -v node >/dev/null 2>&1; then
   node --check "$WEB_JS"
@@ -68,13 +70,25 @@ grep -q "kp_owner_web_agent_chat" "$WEB_FAST_JS"
 grep -q "schnellen Web-Chat" "$WEB_FAST_JS"
 grep -q "kp-web-agent-active .kp-ai-trigger" "$WEB_CSS"
 
-if grep -Eq "AIza[A-Za-z0-9_-]{20,}|github_pat_|gh[pousr]_[A-Za-z0-9_-]{12,}" "$WEB_JS" "$WEB_FAST_JS" "$WEB_BOOT"; then
+# Explicit code tasks are intercepted before the old 55-second router and use the proven fast transport.
+grep -q "wp_ajax_kp_mobile_emergency_gemini" "$FAST_REPAIR"
+grep -q "}, 1 );" "$FAST_REPAIR"
+grep -q "gemini-3.5-flash-lite" "$FAST_REPAIR"
+grep -q "generativelanguage.googleapis.com/v1/interactions" "$FAST_REPAIR"
+grep -q "thinking_level' => 'low" "$FAST_REPAIR"
+grep -q "array_slice( (array) ( \$selection\['files'\] ?? array() ), 0, 2" "$FAST_REPAIR"
+grep -q "emergency_gemini' => true" "$FAST_REPAIR"
+grep -q "fast_web_repair'  => true" "$FAST_REPAIR"
+grep -q "kp_ai_repair_store_proposal" "$FAST_REPAIR"
+grep -q "keine weitere Chat-oder-Reparatur-Entscheidung" "$FAST_REPAIR"
+
+if grep -Eq "AIza[A-Za-z0-9_-]{20,}|github_pat_|gh[pousr]_[A-Za-z0-9_-]{12,}" "$WEB_JS" "$WEB_FAST_JS" "$WEB_BOOT" "$FAST_REPAIR"; then
   echo 'Owner web agent must not contain durable Gemini/GitHub credentials'
   exit 1
 fi
 
-if grep -Eq "file_put_contents\(|WP_Filesystem\(|unlink\(" "$FILE"; then
-  echo 'AI repair lab contains direct filesystem mutation primitive'
+if grep -Eq "file_put_contents\(|WP_Filesystem\(|unlink\(" "$FILE" "$FAST_REPAIR"; then
+  echo 'AI repair path contains direct filesystem mutation primitive'
   exit 1
 fi
 
