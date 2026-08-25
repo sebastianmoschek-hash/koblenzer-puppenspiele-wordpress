@@ -1,49 +1,28 @@
 version: 2.1
 
 jobs:
-  patch-model-bridge:
+  apply-hotfix:
     docker:
       - image: cimg/base:stable
-    resource_class: small
     steps:
       - checkout
       - run:
-          name: Patch recursive model installer bridge on feature branch
+          name: Apply model bridge recursion fix
           command: |
-            set -euo pipefail
-            : "${GITHUB_REPORT_TOKEN:?GITHUB_REPORT_TOKEN fehlt}"
-            git config user.name 'kp-android-fix-bot'
-            git config user.email 'android-fix@users.noreply.github.com'
+            set -e
+            test -n "$GITHUB_REPORT_TOKEN"
+            git config user.name kp-android-fix-bot
+            git config user.email android-fix@users.noreply.github.com
             git remote set-url origin "https://x-access-token:${GITHUB_REPORT_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git"
             git fetch origin feature/webapp-primary-agent --quiet
             git checkout -B work origin/feature/webapp-primary-agent
-            python3 - <<'PY'
-            from pathlib import Path
-
-            live = Path('android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LiveLocalActivity.kt')
-            text = live.read_text()
-            old = 'runOnUiThread { installModel() }'
-            new = 'runOnUiThread { this@LiveLocalActivity.installModel() }'
-            if text.count(old) != 1:
-                raise SystemExit(f'expected exactly one recursive bridge call, found {text.count(old)}')
-            live.write_text(text.replace(old, new, 1))
-
-            gradle = Path('android/homepage-technician/app/build.gradle.kts')
-            g = gradle.read_text()
-            if 'versionCode = 4' not in g:
-                raise SystemExit('expected versionCode 4')
-            g = g.replace('versionCode = 4', 'versionCode = 5', 1)
-            g = g.replace('versionName = "0.4.0-owner-login"', 'versionName = "0.5.0-local-download-fix"', 1)
-            gradle.write_text(g)
-            PY
+            python3 -c "from pathlib import Path; p=Path('android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LiveLocalActivity.kt'); s=p.read_text(); old='runOnUiThread { installModel() }'; assert s.count(old)==1; p.write_text(s.replace(old,'runOnUiThread { this@LiveLocalActivity.installModel() }',1))"
+            python3 -c "from pathlib import Path; p=Path('android/homepage-technician/app/build.gradle.kts'); s=p.read_text(); assert 'versionCode = 4' in s; s=s.replace('versionCode = 4','versionCode = 5',1).replace('versionName = \"0.4.0-owner-login\"','versionName = \"0.5.0-local-download-fix\"',1); p.write_text(s)"
             git add android/homepage-technician/app/src/main/java/de/koblenzerpuppenspiele/techniker/LiveLocalActivity.kt android/homepage-technician/app/build.gradle.kts
-            git commit -m 'fix(android): stop recursive local model installer bridge'
+            git commit -m "fix(android): stop recursive local model installer bridge"
             git push origin HEAD:feature/webapp-primary-agent
 
 workflows:
-  patch-model-bridge:
+  hotfix-workflow:
     jobs:
-      - patch-model-bridge:
-          filters:
-            branches:
-              only: staging/android-model-bridge-fix-20260825
+      - apply-hotfix
