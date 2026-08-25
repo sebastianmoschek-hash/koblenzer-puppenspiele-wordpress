@@ -160,6 +160,8 @@ class WebRepairBridge(private val webView: WebView) {
     /** Explicit cloud fallback. Gemini/API credentials stay on WordPress, never in Android. */
     suspend fun emergencyGemini(request: String, history: String): JsonObject {
         val browser = context().toString()
+        // A cloud-model failure is not safely improved by repeating the same expensive
+        // generation four times. One attempt also surfaces the real server error quickly.
         return repairPost(
             "kp_mobile_emergency_gemini",
             mapOf(
@@ -167,11 +169,17 @@ class WebRepairBridge(private val webView: WebView) {
                 "history" to history,
                 "browser" to browser,
             ),
+            maxAttempts = 1,
         )
     }
 
     suspend fun createEmergencyGeminiBranch(proposalId: String): JsonObject =
-        repairPost("kp_mobile_emergency_gemini_create_pr", mapOf("proposal_id" to proposalId))
+        // Branch/PR creation is non-idempotent; never retry it blindly after a lost response.
+        repairPost(
+            "kp_mobile_emergency_gemini_create_pr",
+            mapOf("proposal_id" to proposalId),
+            maxAttempts = 1,
+        )
 
     suspend fun status(pr: String): JsonObject =
         repairPost("kp_ai_repair_status", mapOf("pr" to pr))
@@ -188,9 +196,13 @@ class WebRepairBridge(private val webView: WebView) {
     suspend fun undoSavedChange(): JsonObject = ownerPost("kp_owner_history_undo")
     suspend fun restoreSavedVersion(versionId: String): JsonObject = ownerPost("kp_owner_history_restore", mapOf("version_id" to versionId))
 
-    private suspend fun repairPost(action: String, fields: Map<String, String> = emptyMap()): JsonObject {
+    private suspend fun repairPost(
+        action: String,
+        fields: Map<String, String> = emptyMap(),
+        maxAttempts: Int = 4,
+    ): JsonObject {
         if (repairNonce.isBlank()) localBootstrap()
-        return post(action, repairNonce, fields)
+        return post(action, repairNonce, fields, maxAttempts)
     }
 
     private suspend fun ownerPost(action: String, fields: Map<String, String> = emptyMap()): JsonObject {
@@ -199,7 +211,14 @@ class WebRepairBridge(private val webView: WebView) {
         return post(action, ownerNonce, fields)
     }
 
-    private suspend fun post(action: String, nonce: String, fields: Map<String, String>): JsonObject {
+    private suspend fun post(
+        action: String,
+        nonce: String,
+        fields: Map<String, String>,
+        maxAttempts: Int = 4,
+    ): JsonObject {
+        val attempts = maxAttempts.coerceIn(1, 4)
+        val lastAttempt = attempts - 1
         val fieldLines = fields.entries.joinToString("\n") { (key, value) ->
             "fd.append(${JSONObject.quote(key)},${JSONObject.quote(value)});"
         }
@@ -208,7 +227,7 @@ class WebRepairBridge(private val webView: WebView) {
             (async()=>{
               const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
               let lastError=null;
-              for(let attempt=0;attempt<4;attempt++){
+              for(let attempt=0;attempt<$attempts;attempt++){
                 if(attempt){const base=700*Math.pow(2,attempt-1);await sleep(base+Math.floor(Math.random()*350));}
                 const fd=new FormData();fd.append('action',${JSONObject.quote(action)});fd.append('nonce',${JSONObject.quote(nonce)});$fieldLines
                 try{
@@ -217,12 +236,12 @@ class WebRepairBridge(private val webView: WebView) {
                   if(response.ok&&data?.success)return data.data||{};
                   const message=String(data?.data?.message||'Homepage-Aufruf fehlgeschlagen.');
                   const transient=[408,429,500,502,503,504].includes(response.status)||/(überlast|unavailable|temporar|temporary|server busy|try again)/i.test(message);
-                  if(!transient||attempt===3)throw new Error(message);
+                  if(!transient||attempt===$lastAttempt)throw new Error(message);
                   lastError=new Error(message);
                 }catch(error){
                   const message=String(error?.message||error||'Homepage-Aufruf fehlgeschlagen.');
                   const transient=/(überlast|unavailable|temporar|temporary|server busy|try again|network|failed to fetch)/i.test(message);
-                  if(!transient||attempt===3)throw error;
+                  if(!transient||attempt===$lastAttempt)throw error;
                   lastError=error;
                 }
               }
