@@ -118,3 +118,36 @@ add_action( 'wp_ajax_kp_owner_web_edit_plan', static function () {
         wp_send_json_error( array( 'message' => $message ), 504 );
     }
 } );
+
+/**
+ * Browser-side compatibility shim.
+ * The legacy direct-editor runtime already knows how to apply plans into its
+ * draft/Undo/Save model. Redirect only its planning request to the fast endpoint.
+ */
+add_action( 'wp_footer', static function () {
+    if ( is_admin() || ! is_user_logged_in() || ! current_user_can( 'edit_pages' ) ) { return; }
+    ?>
+    <script id="kp-owner-web-fast-edit-route">
+    (() => {
+      'use strict';
+      if (window.__kpOwnerFastEditRouteInstalled) return;
+      window.__kpOwnerFastEditRouteInstalled = true;
+      const nativeFetch = window.fetch.bind(window);
+      window.fetch = (input, init = {}) => {
+        try {
+          const cfg = window.KPOwnerWebAgent;
+          const body = init && init.body;
+          if (cfg?.repairNonce && body instanceof FormData && body.get('action') === 'kp_ai_plan') {
+            const routed = new FormData();
+            for (const [key, value] of body.entries()) routed.append(key, value);
+            routed.set('action', 'kp_owner_web_edit_plan');
+            routed.set('nonce', cfg.repairNonce);
+            return nativeFetch(input, { ...init, body: routed, cache: 'no-store' });
+          }
+        } catch (_) {}
+        return nativeFetch(input, init);
+      };
+    })();
+    </script>
+    <?php
+}, 999 );
