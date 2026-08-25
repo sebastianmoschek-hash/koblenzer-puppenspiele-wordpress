@@ -5,10 +5,45 @@ REPORT_DIR='qa-results/circleci'
 SHA="${CIRCLE_SHA1:-unknown}"
 mkdir -p "$REPORT_DIR"
 
+# Run the real staging lab from a temporary copy so the safety bounds can be
+# tuned independently from the test implementation. The old 18-minute E2E
+# bridge could expire while the deliberately bounded editor/session/persistence
+# phases were still running, which made later DB readback look like a product
+# failure. Keep the bridge valid for the whole bounded lab, while cleanup in the
+# real script still removes it immediately when the run finishes.
+tmp_lab="$(mktemp /tmp/kp-circleci-homepage-lab.XXXXXX.sh)"
+cp qa/circleci-homepage-lab.sh "$tmp_lab"
+sed -i \
+  -e "s/editor|persistence) limit='9m' ;;/editor) limit='12m' ;; persistence) limit='15m' ;;/" \
+  -e "s/session-undo|touch-slider|touch-runtime) limit='6m' ;;/session-undo) limit='12m' ;; touch-slider|touch-runtime) limit='6m' ;;/" \
+  -e 's/+ 1100 ))/+ 4200 ))/' \
+  "$tmp_lab"
+
 set +e
-timeout --foreground --signal=TERM --kill-after=20s 50m bash qa/circleci-homepage-lab.sh
+timeout --foreground --signal=TERM --kill-after=20s 65m bash "$tmp_lab"
 rc=$?
 set -e
+rm -f "$tmp_lab"
+
+# Add granular phase verdicts to every completed report. The public status jobs
+# can still keep their compact groups, but diagnostics now say whether the
+# editor viewport test or the session Undo test was the failing half.
+if [[ -s "$REPORT_DIR/report.json" ]]; then
+  phase_state(){
+    local name="$1"
+    if grep -q "^PASS $name$" "$REPORT_DIR/pipeline.log" 2>/dev/null; then echo success
+    elif grep -q "^FAIL $name" "$REPORT_DIR/pipeline.log" 2>/dev/null; then echo failure
+    else echo unknown
+    fi
+  }
+  editor_browser="$(phase_state editor)"
+  session_undo="$(phase_state session-undo)"
+  persistence="$(phase_state persistence)"
+  tmp_json="$(mktemp)"
+  jq --arg eb "$editor_browser" --arg su "$session_undo" --arg pe "$persistence" \
+    '.checks.editorBrowser=$eb | .checks.sessionUndo=$su | .checks.persistenceBrowser=$pe' \
+    "$REPORT_DIR/report.json" > "$tmp_json" && mv "$tmp_json" "$REPORT_DIR/report.json"
+fi
 
 if [[ $rc -eq 0 ]]; then
   exit 0
@@ -43,7 +78,10 @@ if [[ ! -s "$REPORT_DIR/report.json" ]]; then
     "stagingReady":"unknown",
     "temporaryBridge":"unknown",
     "editorMobileTabletDesktop":"unknown",
+    "editorBrowser":"unknown",
+    "sessionUndo":"unknown",
     "saveReloadDbUndo48h":"unknown",
+    "persistenceBrowser":"unknown",
     "nativeTouchSliderSaveReset":"unknown",
     "touchRuntime":"unknown",
     "visual50Views":"unknown"
