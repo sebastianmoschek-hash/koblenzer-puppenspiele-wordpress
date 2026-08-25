@@ -153,6 +153,9 @@ class WebRepairBridge(private val webView: WebView) {
     suspend fun createRepairBranch(proposalId: String): JsonObject =
         repairPost("kp_local_ai_repair_create_pr", mapOf("proposal_id" to proposalId))
 
+    suspend fun localRepairCiDiagnostics(pr: String): JsonObject =
+        repairPost("kp_local_ai_repair_ci_diagnostics", mapOf("pr" to pr))
+
     suspend fun status(pr: String): JsonObject =
         repairPost("kp_ai_repair_status", mapOf("pr" to pr))
 
