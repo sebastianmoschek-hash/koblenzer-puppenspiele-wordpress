@@ -38,9 +38,9 @@ const deniedPatterns = [
 ];
 
 function json(res, status, payload) {
-  const body = JSON.stringify(payload);
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(body) });
-  res.end(body);
+  const text = JSON.stringify(payload);
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(text) });
+  res.end(text);
 }
 
 function cors(req, res) {
@@ -77,6 +77,29 @@ function cleanRelative(input) {
   const prefix = REPO.endsWith(path.sep) ? REPO : REPO + path.sep;
   if (!absolute.startsWith(prefix)) throw new Error('Pfad verlässt das Repository.');
   return { relative: value, absolute };
+}
+
+function listAllowedFiles() {
+  const out = [];
+  const extensions = new Set(['.php', '.js', '.mjs', '.css', '.json', '.sh', '.md', '.html']);
+  const visit = relativeDir => {
+    if (out.length >= 1200) return;
+    const absoluteDir = path.join(REPO, relativeDir);
+    if (!fs.existsSync(absoluteDir) || !fs.statSync(absoluteDir).isDirectory()) return;
+    for (const entry of fs.readdirSync(absoluteDir, { withFileTypes: true })) {
+      if (out.length >= 1200) break;
+      const relative = path.posix.join(relativeDir.replace(/\\/g, '/'), entry.name);
+      if (deniedPatterns.some(re => re.test(relative))) continue;
+      if (entry.isDirectory()) { visit(relative); continue; }
+      if (!entry.isFile() || !extensions.has(path.extname(entry.name).toLowerCase())) continue;
+      try {
+        const safe = cleanRelative(relative);
+        if (fs.statSync(safe.absolute).size <= MAX_FILE) out.push(safe.relative);
+      } catch {}
+    }
+  };
+  for (const root of allowedRoots) visit(root.replace(/\/$/, ''));
+  return [...new Set(out)].sort();
 }
 
 function git(args) {
@@ -174,7 +197,11 @@ const server = http.createServer(async (req, res) => {
       const repoOk = fs.existsSync(path.join(REPO, '.git'));
       let ollama = false;
       try { const r = await fetch(`${OLLAMA}/api/tags`, { signal: AbortSignal.timeout(1500) }); ollama = r.ok; } catch {}
-      return json(res, 200, { ok: true, service: 'kp-homepage-agent', repo: REPO, repoOk, ollama, model: MODEL, androidWrites: false, capabilities: ['chat', 'vision', 'read-files', 'apply-safe-patch', 'git-diff'] });
+      return json(res, 200, { ok: true, service: 'kp-homepage-agent', repo: REPO, repoOk, ollama, model: MODEL, androidWrites: false, capabilities: ['chat', 'vision', 'catalog', 'read-files', 'apply-safe-patch', 'git-diff'] });
+    }
+
+    if (req.method === 'GET' && req.url === '/v1/catalog') {
+      return json(res, 200, { ok: true, files: listAllowedFiles(), androidWrites: false });
     }
 
     if (req.method === 'POST' && req.url === '/v1/chat') {
