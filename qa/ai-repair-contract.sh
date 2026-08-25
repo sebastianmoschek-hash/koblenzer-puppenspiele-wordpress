@@ -113,7 +113,7 @@ grep -Fq "owner-web-agent.js" "$SELF_HEAL"
 grep -Fq "owner-web-agent-fast-chat.js" "$SELF_HEAL"
 grep -Fq "owner-web-agent.css" "$SELF_HEAL"
 grep -Fq "branch' => KP_OWNER_WEB_SELF_HEAL_BRANCH" "$SELF_HEAL"
-grep -Fq "Production wurde nicht verändert" "$SELF_HEAL"
+grep -Fq "Production blieb unangetastet" "$SELF_HEAL"
 if grep -Eq "wp-content/mu-plugins/.*\.php'" "$SELF_HEAL"; then
   echo 'Self-heal sandbox must not target PHP/MU-plugin files'
   exit 1
