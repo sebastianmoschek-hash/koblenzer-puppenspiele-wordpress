@@ -51,18 +51,19 @@ class LocalNaturalVoice(private val context: Context) {
                 val sampleRate = engine.sampleRate()
                 check(sampleRate > 0) { "Ungültige Thorsten-Samplerate: $sampleRate Hz" }
 
-                // Follow sherpa-onnx's Android TTS sample: Android decides the
-                // minimum streaming buffer. Do not derive it from sampleRate;
-                // at 22.05 kHz that produced non-frame-aligned PCM_FLOAT sizes.
+                // Match sherpa-onnx's Android TTS engine. PCM16 is accepted by
+                // substantially more Android audio HALs than PCM_FLOAT and avoids
+                // device-specific AudioTrack initialization/buffer failures.
+                val encoding = AudioFormat.ENCODING_PCM_16BIT
                 val minBufferBytes = AudioTrack.getMinBufferSize(
                     sampleRate,
                     AudioFormat.CHANNEL_OUT_MONO,
-                    AudioFormat.ENCODING_PCM_FLOAT,
+                    encoding,
                 )
                 check(minBufferBytes > 0) {
                     "Android-Audiopuffer ist für $sampleRate Hz nicht verfügbar ($minBufferBytes)"
                 }
-                val frameBytes = Float.SIZE_BYTES
+                val frameBytes = Short.SIZE_BYTES
                 val bufferBytes = ((minBufferBytes + frameBytes - 1) / frameBytes) * frameBytes
 
                 val attributes = AudioAttributes.Builder()
@@ -70,7 +71,7 @@ class LocalNaturalVoice(private val context: Context) {
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
                 val format = AudioFormat.Builder()
-                    .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+                    .setEncoding(encoding)
                     .setSampleRate(sampleRate)
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                     .build()
@@ -101,9 +102,18 @@ class LocalNaturalVoice(private val context: Context) {
                 ) { samples ->
                     if (request != generation.get()) return@generateWithConfigAndCallback 0
                     if (samples.isEmpty()) return@generateWithConfigAndCallback 1
-                    val written = localTrack.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
+
+                    val pcm16 = ShortArray(samples.size) { index ->
+                        (samples[index].coerceIn(-1.0f, 1.0f) * Short.MAX_VALUE)
+                            .toInt()
+                            .toShort()
+                    }
+                    val written = localTrack.write(pcm16, 0, pcm16.size, AudioTrack.WRITE_BLOCKING)
                     if (written < 0) {
                         throw IllegalStateException("Android AudioTrack.write fehlgeschlagen: $written")
+                    }
+                    check(written == pcm16.size) {
+                        "Android hat Thorsten-Audio nur teilweise gepuffert ($written/${pcm16.size} Samples)"
                     }
                     sampleChunks += 1
                     sampleCount += written.toLong()
