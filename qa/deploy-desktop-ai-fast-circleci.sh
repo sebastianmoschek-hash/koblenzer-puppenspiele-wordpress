@@ -4,6 +4,7 @@ set -euo pipefail
 STAGING_BASE="${STAGING_BASE:-https://neu.koblenzer-puppenspiele.de}"
 DESKTOP='wp-content/mu-plugins/kp-local-ai-desktop.php'
 ACCESS='wp-content/mu-plugins/kp-local-ai-desktop-access.php'
+TAKEOVER='wp-content/mu-plugins/kp-local-ai-desktop-takeover.php'
 BASE_FTP="ftp://${STAGING_FTP_SERVER:-}:21/wp-content/mu-plugins"
 
 : "${STAGING_FTP_SERVER:?STAGING_FTP_SERVER fehlt}"
@@ -12,38 +13,34 @@ BASE_FTP="ftp://${STAGING_FTP_SERVER:-}:21/wp-content/mu-plugins"
 command -v php >/dev/null
 command -v curl >/dev/null
 
-for file in "$DESKTOP" "$ACCESS"; do
+for file in "$DESKTOP" "$ACCESS" "$TAKEOVER"; do
   [[ -f "$file" ]] || { echo "Fehlende Desktop-KI-Datei: $file" >&2; exit 1; }
   php -l "$file" >/dev/null
 done
 
-grep -Fq 'http://127.0.0.1:8765' "$DESKTOP"
-grep -Fq 'gemma3:4b' "$DESKTOP"
-grep -Fq 'Android-Schreibzugriff: AUS' "$DESKTOP"
-if grep -Eqi 'generativelanguage\.googleapis\.com|api\.openai\.com|@litert-lm/core' "$DESKTOP"; then
-  echo 'FAIL desktop-ai-fast: Cloud-LLM-Fallback in Desktop-Datei gefunden.' >&2
-  exit 1
-fi
+for file in "$DESKTOP" "$TAKEOVER"; do
+  grep -Fq 'http://127.0.0.1:8765' "$file"
+  grep -Fq 'gemma3:4b' "$file"
+  if grep -Eqi 'generativelanguage\.googleapis\.com|api\.openai\.com|@litert-lm/core' "$file"; then
+    echo "FAIL desktop-ai-fast: Cloud-LLM-Fallback in $file gefunden." >&2
+    exit 1
+  fi
+done
+grep -Fq 'Android-Schreibzugriff: AUS' "$TAKEOVER"
 
+auth="${STAGING_FTP_USERNAME}:${STAGING_FTP_PASSWORD}"
 curl_ftps(){
   curl --fail --silent --show-error --ssl-reqd --ftp-create-dirs \
     --connect-timeout 10 --max-time 45 --retry 1 \
-    --user "$STAGING_FTP_USERNAME:$STAGING_FTP_PASSWORD" "$@"
+    --user "$auth" "$@"
 }
 
-curl_ftps -T "$DESKTOP" "$BASE_FTP/kp-local-ai-desktop.php"
-curl_ftps -T "$ACCESS" "$BASE_FTP/kp-local-ai-desktop-access.php"
-curl_ftps "$BASE_FTP/kp-local-ai-desktop.php" -o /tmp/kp-local-ai-desktop.remote.php
-curl_ftps "$BASE_FTP/kp-local-ai-desktop-access.php" -o /tmp/kp-local-ai-desktop-access.remote.php
-
-cmp -s "$DESKTOP" /tmp/kp-local-ai-desktop.remote.php || {
-  echo 'Desktop-KI-Datei stimmt nach Upload nicht bytegenau mit Staging überein.' >&2
-  exit 1
-}
-cmp -s "$ACCESS" /tmp/kp-local-ai-desktop-access.remote.php || {
-  echo 'Desktop-Zugriffsdatei stimmt nach Upload nicht bytegenau mit Staging überein.' >&2
-  exit 1
-}
+for file in "$DESKTOP" "$ACCESS" "$TAKEOVER"; do
+  base="$(basename "$file")"
+  curl_ftps -T "$file" "$BASE_FTP/$base"
+  curl_ftps "$BASE_FTP/$base" -o "/tmp/$base"
+  cmp -s "$file" "/tmp/$base" || { echo "$base stimmt nach Upload nicht bytegenau mit Staging überein." >&2; exit 1; }
+done
 
 probe=''
 for attempt in 1 2 3 4 5 6; do
@@ -52,15 +49,16 @@ for attempt in 1 2 3 4 5 6; do
     -H 'Cache-Control: no-cache, no-store' \
     "$STAGING_BASE/?kp_desktop_ai_probe=1&kp_ci=${CIRCLE_SHA1:-manual}-$attempt" || true)"
   if printf '%s' "$probe" | grep -Fq '"loaded":true' \
-    && printf '%s' "$probe" | grep -Fq '"version":"desktop-ai-fast-v6"' \
-    && printf '%s' "$probe" | grep -Fq '"desktopFile":true'; then
+    && printf '%s' "$probe" | grep -Fq '"version":"desktop-ai-fast-v7"' \
+    && printf '%s' "$probe" | grep -Fq '"desktopFile":true' \
+    && printf '%s' "$probe" | grep -Fq '"takeoverFile":true'; then
     echo "PASS desktop-ai-runtime: $probe"
-    printf 'PASS desktop-ai-fast: %s aktualisiert; Runtime verifiziert; Android unberührt.\n' "$STAGING_BASE"
+    printf 'PASS desktop-ai-fast: %s aktualisiert; Takeover verifiziert; Android unberührt.\n' "$STAGING_BASE"
     exit 0
   fi
   sleep 1
 done
 
-echo 'FAIL desktop-ai-runtime: FTP ist aktuell, aber WordPress meldet das MU-Plugin nicht als geladen.' >&2
+echo 'FAIL desktop-ai-runtime: FTP ist aktuell, aber WordPress meldet den Desktop-Takeover nicht.' >&2
 printf 'Probe response: %s\n' "$probe" >&2
 exit 1
