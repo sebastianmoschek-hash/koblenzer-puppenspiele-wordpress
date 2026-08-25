@@ -7,6 +7,8 @@
   const MAX_MESSAGES = 24;
   let fastBusy = false;
   let speechBusy = false;
+  let selfHealBusy = false;
+  const runtime = window.KPOwnerWebDiagnostics = window.KPOwnerWebDiagnostics || {};
 
   const q = (s, r = document) => r.querySelector(s);
 
@@ -25,6 +27,15 @@
   function shouldUseFastChat(text) {
     const value = String(text || '').trim();
     return !!value && !looksLikeCodeTask(value) && !looksLikeVisibleEdit(value);
+  }
+
+  function shouldUseSelfHeal(text) {
+    const value = String(text || '').trim();
+    if (!/\b(beheb|beheben|reparier|reparieren|fix|korrigier|korrigieren|funktioniert.*nicht|geht.*nicht)\b/i.test(value)) return false;
+    if (/\b(android|apk|kotlin|gradle|php|wordpress|plugin|server|backend|production|live-seite|circleci)\b/i.test(value)) return false;
+    return /\b(web-?app|chat|button|taste|mikrofon|microphone|sprache|spracherkennung|speech|voice|audio|diktat|eingabe|textfeld|senden|fenster|dialog|layout|scroll|farbe|schrift|abstand|position|oberfläche|ui|browser)\b/i.test(value)
+      || !!runtime.speech
+      || !!runtime.lastClientError;
   }
 
   function loadMessages() {
@@ -51,6 +62,18 @@
       .slice(-4500);
   }
 
+  function runtimeContext() {
+    return {
+      speech: runtime.speech || null,
+      lastClientError: runtime.lastClientError || null,
+      capabilities: {
+        speechRecognition: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+        mediaDevices: !!navigator.mediaDevices?.getUserMedia,
+        secureContext: !!window.isSecureContext
+      }
+    };
+  }
+
   function pageContext() {
     const selected = q('.kp-fe2-selected');
     const target = selected?.matches?.('a,img,h1,h2,h3,h4,h5,h6,p,li,figcaption')
@@ -60,6 +83,7 @@
       url: location.href,
       title: document.title,
       viewport: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio },
+      runtime: runtimeContext(),
       selected: selected ? {
         tag: target?.tagName || selected.tagName || '',
         text: String(target?.textContent || selected.textContent || '').trim().slice(0, 900),
@@ -94,10 +118,10 @@
     }
   }
 
-  async function apiChat(text, history) {
+  async function apiRequest(action, text, history) {
     if (!cfg.repairNonce) throw new Error('Die geschützte Web-App-Sitzung ist nicht bereit. Bitte Seite neu laden.');
     const fd = new FormData();
-    fd.append('action', 'kp_owner_web_agent_chat');
+    fd.append('action', action);
     fd.append('nonce', cfg.repairNonce);
     fd.append('request', text);
     fd.append('history', history);
@@ -110,6 +134,10 @@
       throw new Error(json?.data?.message || `KI-Aufruf fehlgeschlagen (${response.status || 'Netzwerk'}).`);
     }
     return json.data || {};
+  }
+
+  async function apiChat(text, history) {
+    return apiRequest('kp_owner_web_agent_chat', text, history);
   }
 
   async function handleFastChat(text, input) {
@@ -129,6 +157,7 @@
       setStatus(elapsed > 0 ? `Bereit · ${Math.max(1, Math.round(elapsed / 100) / 10)} s` : 'Bereit');
     } catch (error) {
       const message = error?.message || String(error);
+      runtime.lastClientError = { feature: 'fast-chat', message, at: Date.now() };
       appendMessage('assistant', `Der schnelle Web-Chat ist fehlgeschlagen.\n\n${message}`);
       saveMessage('assistant', `Der schnelle Web-Chat ist fehlgeschlagen. ${message}`);
       setStatus('Gemini-Verbindung fehlgeschlagen');
@@ -138,9 +167,52 @@
     }
   }
 
+  async function handleSelfHeal(text, input) {
+    if (selfHealBusy) return;
+    selfHealBusy = true;
+    const priorHistory = historyText();
+    if (input) input.value = '';
+    appendMessage('user', text);
+    saveMessage('user', text);
+    setStatus('KI untersucht den Fehler und repariert die Staging-Web-App …', true);
+    try {
+      const data = await apiRequest('kp_owner_web_self_heal', text, priorHistory);
+      const summary = String(data.summary || 'Staging-Selbstheilung').trim();
+      const diagnosis = String(data.diagnosis || '').trim();
+      if (data.applied) {
+        const reply = `${summary}\n\n${diagnosis ? `${diagnosis}\n\n` : ''}Ich habe den risikoarmen Fix direkt auf dem Staging-Arbeitsbranch angewendet. Production wurde nicht verändert. Die Seite lädt jetzt neu, damit der reparierte Code aktiv wird.`;
+        appendMessage('assistant', reply);
+        saveMessage('assistant', reply);
+        setStatus('Fix angewendet · Web-App lädt neu …', true);
+        setTimeout(() => location.reload(), 1400);
+        return;
+      }
+      const reply = `${summary}${diagnosis ? `\n\n${diagnosis}` : ''}\n\nIch habe nichts geändert, weil kein ausreichend sicherer Direktfix belegt war.`;
+      appendMessage('assistant', reply);
+      saveMessage('assistant', reply);
+      setStatus('Kein sicherer Direktfix angewendet');
+    } catch (error) {
+      const message = error?.message || String(error);
+      runtime.lastClientError = { feature: 'self-heal', message, at: Date.now() };
+      appendMessage('assistant', `Die Selbstheilung konnte diesen Versuch nicht abschließen.\n\n${message}\n\nEs wurde nichts geändert.`);
+      saveMessage('assistant', `Selbstheilung fehlgeschlagen: ${message}`);
+      setStatus('Selbstheilung fehlgeschlagen · nichts geändert');
+    } finally {
+      selfHealBusy = false;
+      q('.kp-wa-input')?.focus();
+    }
+  }
+
   function interceptCurrent(event) {
     const input = q('.kp-wa-input');
     const text = String(input?.value || '').trim();
+    if (shouldUseSelfHeal(text)) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      handleSelfHeal(text, input);
+      return true;
+    }
     if (!shouldUseFastChat(text)) return false;
     event.preventDefault();
     event.stopPropagation();
@@ -162,6 +234,16 @@
     return errors[code] || `Die Spracherkennung meldet „${code || 'unbekannter Fehler'}“.`;
   }
 
+  async function microphonePermissionState() {
+    try {
+      if (!navigator.permissions?.query) return 'unknown';
+      const result = await navigator.permissions.query({ name: 'microphone' });
+      return String(result?.state || 'unknown');
+    } catch (_) {
+      return 'unknown';
+    }
+  }
+
   async function ensureMicrophonePermission() {
     if (!navigator.mediaDevices?.getUserMedia) return;
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -176,6 +258,13 @@
 
     const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Speech) {
+      runtime.speech = {
+        code: 'unsupported',
+        permission: await microphonePermissionState(),
+        speechRecognition: false,
+        mediaDevices: !!navigator.mediaDevices?.getUserMedia,
+        at: Date.now()
+      };
       setStatus('Spracherkennung ist in diesem Browser nicht verfügbar. Du kannst die Mikrofontaste der Bildschirmtastatur verwenden.');
       return;
     }
@@ -187,12 +276,14 @@
     try {
       setStatus('Mikrofon wird vorbereitet …', true);
       await ensureMicrophonePermission();
+      const permission = await microphonePermissionState();
 
       const runRecognition = retry => new Promise(resolve => {
         const rec = new Speech();
         const input = q('.kp-wa-input');
         let transcript = '';
         let errorCode = '';
+        let speechStarted = false;
 
         rec.lang = 'de-DE';
         rec.continuous = false;
@@ -200,7 +291,10 @@
         rec.maxAlternatives = 1;
 
         rec.onstart = () => setStatus(retry ? 'Ich höre nochmal zu … sprich jetzt' : 'Ich höre zu … sprich jetzt', true);
-        rec.onspeechstart = () => setStatus('Sprache erkannt …', true);
+        rec.onspeechstart = () => {
+          speechStarted = true;
+          setStatus('Sprache erkannt …', true);
+        };
         rec.onresult = resultEvent => {
           transcript = Array.from(resultEvent.results || [])
             .map(result => result?.[0]?.transcript || '')
@@ -212,12 +306,12 @@
         rec.onerror = errorEvent => {
           errorCode = String(errorEvent?.error || 'unknown');
         };
-        rec.onend = () => resolve({ transcript, errorCode });
+        rec.onend = () => resolve({ transcript, errorCode, speechStarted });
 
         try {
           rec.start();
         } catch (error) {
-          resolve({ transcript: '', errorCode: error?.name || 'start-failed' });
+          resolve({ transcript: '', errorCode: error?.name || 'start-failed', speechStarted: false });
         }
       });
 
@@ -227,6 +321,16 @@
         await new Promise(resolve => setTimeout(resolve, 450));
         result = await runRecognition(true);
       }
+
+      runtime.speech = {
+        code: result.transcript ? 'ok' : (result.errorCode || 'empty-result'),
+        transcriptLength: result.transcript.length,
+        speechStarted: !!result.speechStarted,
+        permission,
+        speechRecognition: true,
+        mediaDevices: !!navigator.mediaDevices?.getUserMedia,
+        at: Date.now()
+      };
 
       if (result.transcript) {
         setStatus('Sprache erkannt · du kannst ergänzen oder senden');
@@ -239,13 +343,37 @@
         ? 'not-allowed'
         : error?.name === 'NotFoundError'
           ? 'audio-capture'
-          : '';
-      setStatus(code ? speechErrorText(code) : `Mikrofon konnte nicht gestartet werden: ${error?.message || String(error)}`);
+          : (error?.name || 'microphone-start-failed');
+      runtime.speech = {
+        code,
+        message: String(error?.message || ''),
+        permission: await microphonePermissionState(),
+        speechRecognition: !!Speech,
+        mediaDevices: !!navigator.mediaDevices?.getUserMedia,
+        at: Date.now()
+      };
+      setStatus(speechErrorText(code));
     } finally {
       speechBusy = false;
       if (mic) mic.disabled = false;
     }
   }
+
+  window.addEventListener('error', event => {
+    runtime.lastClientError = {
+      feature: 'window-error',
+      message: String(event?.message || 'Unbekannter JavaScript-Fehler').slice(0, 800),
+      at: Date.now()
+    };
+  });
+
+  window.addEventListener('unhandledrejection', event => {
+    runtime.lastClientError = {
+      feature: 'unhandled-rejection',
+      message: String(event?.reason?.message || event?.reason || 'Unbehandelte Promise-Ablehnung').slice(0, 800),
+      at: Date.now()
+    };
+  });
 
   document.addEventListener('click', event => {
     if (event.target?.closest?.('.kp-wa-mic')) {
