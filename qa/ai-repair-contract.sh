@@ -29,8 +29,9 @@ WEB_FAST_JS='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owne
 WEB_CSS='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/owner-web-agent.css'
 EMERGENCY='wp-content/mu-plugins/kp-mobile-emergency-gemini.php'
 FAST_REPAIR='wp-content/mu-plugins/kp-owner-web-repair-fast.php'
+DEV_LOADER='wp-content/mu-plugins/kp-owner-web-dev-loader.php'
 
-for web_file in "$WEB_BOOT" "$WEB_JS" "$WEB_FAST_JS" "$WEB_CSS" "$EMERGENCY" "$FAST_REPAIR"; do
+for web_file in "$WEB_BOOT" "$WEB_JS" "$WEB_FAST_JS" "$WEB_CSS" "$EMERGENCY" "$FAST_REPAIR" "$DEV_LOADER"; do
   [[ -f "$web_file" ]] || { echo "missing web-agent file: $web_file"; exit 1; }
 done
 
@@ -38,6 +39,7 @@ if command -v php >/dev/null 2>&1; then
   php -l "$WEB_BOOT" >/dev/null
   php -l "$EMERGENCY" >/dev/null
   php -l "$FAST_REPAIR" >/dev/null
+  php -l "$DEV_LOADER" >/dev/null
 fi
 if command -v node >/dev/null 2>&1; then
   node --check "$WEB_JS"
@@ -82,14 +84,28 @@ grep -Fq "fast_web_repair'  => true" "$FAST_REPAIR"
 grep -Fq "kp_ai_repair_store_proposal" "$FAST_REPAIR"
 grep -Fq "eine weitere Chat-oder-Reparatur-Entscheidung ist nicht nötig" "$FAST_REPAIR"
 
-if grep -Eq "AIza[A-Za-z0-9_-]{20,}|github_pat_|gh[pousr]_[A-Za-z0-9_-]{12,}" "$WEB_JS" "$WEB_FAST_JS" "$WEB_BOOT" "$FAST_REPAIR"; then
+# Staging-only live asset loader: routine JS/CSS iterations come straight from the private feature branch.
+grep -Fq "feature/webapp-primary-agent" "$DEV_LOADER"
+grep -Fq "neu.koblenzer-puppenspiele.de" "$DEV_LOADER"
+grep -Fq "current_user_can( 'edit_pages' )" "$DEV_LOADER"
+grep -Fq "check_ajax_referer( KP_OWNER_WEB_DEV_NONCE" "$DEV_LOADER"
+grep -Fq "script_loader_src" "$DEV_LOADER"
+grep -Fq "style_loader_src" "$DEV_LOADER"
+grep -Fq "owner-web-agent.js" "$DEV_LOADER"
+grep -Fq "owner-web-agent-fast-chat.js" "$DEV_LOADER"
+grep -Fq "owner-web-agent.css" "$DEV_LOADER"
+grep -Fq "kp_ai_repair_gh(" "$DEV_LOADER"
+grep -Fq "Cache-Control: private, no-store" "$DEV_LOADER"
+grep -Fq "X-Content-Type-Options: nosniff" "$DEV_LOADER"
+
+if grep -Eq "AIza[A-Za-z0-9_-]{20,}|github_pat_|gh[pousr]_[A-Za-z0-9_-]{12,}" "$WEB_JS" "$WEB_FAST_JS" "$WEB_BOOT" "$FAST_REPAIR" "$DEV_LOADER"; then
   echo 'Owner web agent must not contain durable Gemini/GitHub credentials'
   exit 1
 fi
 
-if grep -Eq "file_put_contents\(|WP_Filesystem\(|unlink\(" "$FILE" "$FAST_REPAIR"; then
-  echo 'AI repair path contains direct filesystem mutation primitive'
+if grep -Eq "file_put_contents\(|WP_Filesystem\(|unlink\(" "$FILE" "$FAST_REPAIR" "$DEV_LOADER"; then
+  echo 'AI repair/dev-loader path contains direct filesystem mutation primitive'
   exit 1
 fi
 
-echo 'AI repair + primary owner web-agent contract PASS'
+echo 'AI repair + primary owner web-agent + staging live-loader contract PASS'
