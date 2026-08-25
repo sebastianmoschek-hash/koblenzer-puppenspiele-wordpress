@@ -29,6 +29,8 @@ add_action( 'wp_footer', static function () {
     add_filter( 'user_has_cap', 'kp_local_ai_desktop_footer_cap', 10, 4 );
 }, 1 );
 
+// Keep the temporary capability active until after kp-local-ai-desktop.php
+// renders at priority 2320, then remove it before wp_footer finishes.
 add_action( 'wp_footer', static function () {
     remove_filter( 'user_has_cap', 'kp_local_ai_desktop_footer_cap', 10 );
-}, 999 );
+}, 9999 );
