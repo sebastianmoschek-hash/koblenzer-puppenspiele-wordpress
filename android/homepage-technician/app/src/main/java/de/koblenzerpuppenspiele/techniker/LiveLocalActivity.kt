@@ -495,7 +495,7 @@ class LiveLocalActivity : Activity() {
         @JavascriptInterface
         fun installModel() {
             if (!currentPageTrusted) return
-            runOnUiThread { installModel() }
+            runOnUiThread { this@LiveLocalActivity.installModel() }
         }
     }
 
