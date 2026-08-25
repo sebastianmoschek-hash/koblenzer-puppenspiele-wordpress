@@ -5,48 +5,103 @@ on:
 
 permissions:
   contents: write
+  statuses: read
+
+concurrency:
+  # Every terminal verdict can wake this workflow. Keep only the newest wake-up
+  # for a source SHA; the surviving run waits until all five verdicts are terminal.
+  group: circleci-staging-report-handoff-${{ github.event.sha }}
+  cancel-in-progress: true
 
 jobs:
   publish:
-    # Do not allocate a GitHub-hosted runner for every CircleCI status event.
-    # Only the terminal autonomous homepage-lab status can publish a complete report.
-    # Intentionally no workflow-level concurrency here: GitHub keeps only one pending
-    # run per concurrency group, so later verdict-status events could cancel the
-    # terminal serial-end handoff before it ever received a runner.
+    # serial-end-2 belongs to CircleCI's serial group and fires BEFORE the parallel
+    # verdict jobs. Trigger from the verdict statuses themselves instead.
     if: >-
       ${{
-        contains(github.event.context, 'autonomous-homepage-lab/serial-end-2') &&
+        contains(github.event.context, 'staging-') &&
+        contains(github.event.context, '-verdict') &&
         (github.event.state == 'success' || github.event.state == 'failure' || github.event.state == 'error')
       }}
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
 
+      - name: Wait for all CircleCI staging verdicts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ github.event.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          expected=(
+            'ci/circleci: staging-infra-verdict'
+            'ci/circleci: staging-editor-verdict'
+            'ci/circleci: staging-persistence-verdict'
+            'ci/circleci: staging-touch-verdict'
+            'ci/circleci: staging-visual-verdict'
+          )
+
+          all_terminal=false
+          for attempt in $(seq 1 30); do
+            statuses="$(gh api "repos/$REPO/commits/$EXPECTED_SHA/statuses?per_page=100")"
+            all_terminal=true
+            for context in "${expected[@]}"; do
+              state="$(jq -r --arg context "$context" '[.[] | select(.context == $context)][0].state // "missing"' <<<"$statuses")"
+              echo "$context = $state"
+              case "$state" in
+                success|failure|error) ;;
+                *) all_terminal=false ;;
+              esac
+            done
+            if [[ "$all_terminal" == true ]]; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [[ "$all_terminal" != true ]]; then
+            echo "Not all staging verdicts reached a terminal state for $EXPECTED_SHA."
+            exit 1
+          fi
+
       - name: Fetch exact staging-lab handoff
         env:
           EXPECTED_SHA: ${{ github.event.sha }}
         run: |
           set -euo pipefail
-          echo "terminal context=${{ github.event.context }} state=${{ github.event.state }} sha=$EXPECTED_SHA"
           base='https://neu.koblenzer-puppenspiele.de/wp-content/uploads/kp-homepage-lab/latest'
           mkdir -p /tmp/kp-circleci-handoff qa-results
-          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
-            "$base/report.json?handoff=${EXPECTED_SHA}" -o /tmp/kp-circleci-handoff/report.json
+
+          found=false
+          for attempt in $(seq 1 24); do
+            if curl --fail --silent --show-error --location --max-time 20 \
+                "$base/report.json?handoff=${EXPECTED_SHA}-${attempt}" -o /tmp/kp-circleci-handoff/report.json; then
+              actual="$(jq -r '.commit // empty' /tmp/kp-circleci-handoff/report.json 2>/dev/null || true)"
+              if [[ "$actual" == "$EXPECTED_SHA" ]]; then
+                found=true
+                break
+              fi
+              echo "Waiting for exact staging report: expected=$EXPECTED_SHA current=${actual:-empty} attempt=$attempt"
+            fi
+            sleep 5
+          done
+          if [[ "$found" != true ]]; then
+            echo "No exact CircleCI staging report for $EXPECTED_SHA after all verdicts completed."
+            exit 1
+          fi
+
           curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
             "$base/report.md?handoff=${EXPECTED_SHA}" -o /tmp/kp-circleci-handoff/report.md
           curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
             "$base/diagnostics.txt?handoff=${EXPECTED_SHA}" -o /tmp/kp-circleci-handoff/diagnostics.txt
           curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
-            "$base/editor/report.json?handoff=${EXPECTED_SHA}" -o /tmp/kp-circleci-handoff/editor-report.json || printf '{"success":false,"failures":["editor report unavailable"]}\n' > /tmp/kp-circleci-handoff/editor-report.json
-
-          actual="$(jq -r '.commit // empty' /tmp/kp-circleci-handoff/report.json)"
-          if [[ "$actual" != "$EXPECTED_SHA" ]]; then
-            echo "Stale staging report: expected $EXPECTED_SHA, got ${actual:-empty}."
-            exit 1
-          fi
+            "$base/editor/report.json?handoff=${EXPECTED_SHA}" -o /tmp/kp-circleci-handoff/editor-report.json \
+            || printf '{"success":false,"failures":["editor report unavailable"]}\n' > /tmp/kp-circleci-handoff/editor-report.json
 
           cp /tmp/kp-circleci-handoff/report.json qa-results/circleci-latest.json
           cp /tmp/kp-circleci-handoff/report.md qa-results/circleci-latest.md
