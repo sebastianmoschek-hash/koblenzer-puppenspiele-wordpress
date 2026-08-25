@@ -41,12 +41,11 @@ MD
 fi
 
 # The real text Save→Reload→DB readback runs after the main browser lab on the
-# same staging deployment. Fold that result into the persisted verdict so a
-# green browser report can never hide a red/missing text-save gate.
+# same staging deployment. Record its verdict independently from unrelated
+# editor/touch/visual failures so persistence diagnostics stay trustworthy.
 mode="$(jq -r '.mode // "full"' "$REPORT_JSON" 2>/dev/null || echo full)"
-main_success="$(jq -r '.success // false' "$REPORT_JSON" 2>/dev/null || echo false)"
 text_log='qa-results/circleci/text-save-staging.log'
-if [[ "$mode" != 'pwa' && "$main_success" == 'true' ]]; then
+if [[ "$mode" != 'pwa' ]]; then
   if [[ -s "$text_log" ]] && grep -q 'PASS: isolated staging text-save lab\.' "$text_log"; then
     tmp="$(mktemp)"
     jq '.checks.realTextSave="success"' "$REPORT_JSON" > "$tmp" && mv "$tmp" "$REPORT_JSON"
