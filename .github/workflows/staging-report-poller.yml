@@ -8,8 +8,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: staging-report-poller
-  cancel-in-progress: true
+  # Keep each source commit's exact-report poll alive independently. A newer
+  # product/CI commit must not cancel the poll that is waiting for the staging
+  # report belonging to an earlier SHA, otherwise the failure diagnostics are
+  # lost precisely when CI is changing quickly.
+  group: staging-report-poller-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   publish:
