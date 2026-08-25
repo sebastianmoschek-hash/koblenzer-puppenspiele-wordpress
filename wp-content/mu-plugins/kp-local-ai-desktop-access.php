@@ -16,7 +16,9 @@ function kp_local_ai_desktop_footer_cap( $allcaps, $caps, $args, $user ) {
     $ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
     if ( str_contains( $ua, 'KoblenzerPuppenspieleTechnician/' ) ) { return $allcaps; }
 
-    if ( empty( $allcaps['edit_pages'] ) ) { return $allcaps; }
+    $editor_mode = isset( $_GET['kp_edit'] ) && '1' === sanitize_text_field( wp_unslash( $_GET['kp_edit'] ) );
+    if ( empty( $allcaps['edit_pages'] ) && ! $editor_mode ) { return $allcaps; }
+
     if ( in_array( 'kp_ai_repair_code', (array) $caps, true ) ) {
         $allcaps['kp_ai_repair_code'] = true;
     }
