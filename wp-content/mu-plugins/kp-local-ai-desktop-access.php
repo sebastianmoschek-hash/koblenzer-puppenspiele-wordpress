@@ -2,13 +2,16 @@
 /**
  * Front-end-only visibility bridge for the local desktop Homepage AI.
  *
- * The old desktop helper still checks the protected repair capability while
- * rendering. For the already-authorized owner editor request we therefore add
- * that capability only to the in-memory current user immediately before the
- * local AI footer callback runs, then restore the original value immediately
- * afterwards. Nothing is persisted and AJAX/admin requests are untouched.
+ * The legacy desktop helper still checks the protected repair capability while
+ * rendering. On an already-authorized owner editor request we expose that
+ * capability only for the tiny wp_footer window in which the local AI renders.
+ * If the registered callback still produces no local-AI markup, we invoke that
+ * exact callback once directly. Nothing is persisted; AJAX/admin is untouched.
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+
+$GLOBALS['kp_local_ai_desktop_force_cap'] = false;
+$GLOBALS['kp_local_ai_desktop_footer_buffer'] = null;
 
 function kp_local_ai_desktop_is_editor_request() {
     if ( is_admin() ) { return false; }
@@ -19,39 +22,61 @@ function kp_local_ai_desktop_is_editor_request() {
     if ( ! $editor_mode ) { return false; }
 
     $ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
-    return ! str_contains( $ua, 'KoblenzerPuppenspieleTechnician/' );
+    return false === strpos( $ua, 'KoblenzerPuppenspieleTechnician/' );
 }
 
-$GLOBALS['kp_local_ai_desktop_cap_restore'] = null;
+function kp_local_ai_desktop_force_repair_cap( $allcaps, $caps, $args, $user ) {
+    if ( empty( $GLOBALS['kp_local_ai_desktop_force_cap'] ) ) { return $allcaps; }
+    if ( in_array( 'kp_ai_repair_code', (array) $caps, true ) ) {
+        $allcaps['kp_ai_repair_code'] = true;
+    }
+    return $allcaps;
+}
+add_filter( 'user_has_cap', 'kp_local_ai_desktop_force_repair_cap', PHP_INT_MAX, 4 );
 
-// kp-local-ai-desktop.php renders at priority 2320. Grant the capability only
-// for that one rendering window and only to a user who already has edit_pages.
+// kp-local-ai-desktop.php registers its footer callback at priority 2320.
 add_action( 'wp_footer', static function () {
     if ( ! kp_local_ai_desktop_is_editor_request() ) { return; }
 
-    $user = wp_get_current_user();
-    if ( ! $user || ! $user->exists() ) { return; }
-
-    $had_cap = array_key_exists( 'kp_ai_repair_code', $user->allcaps );
-    $GLOBALS['kp_local_ai_desktop_cap_restore'] = array(
-        'user'    => $user,
-        'had_cap' => $had_cap,
-        'value'   => $had_cap ? $user->allcaps['kp_ai_repair_code'] : null,
-    );
-    $user->allcaps['kp_ai_repair_code'] = true;
+    $GLOBALS['kp_local_ai_desktop_force_cap'] = true;
+    $GLOBALS['kp_local_ai_desktop_footer_buffer'] = ob_get_level();
+    ob_start();
 }, 2319 );
 
 add_action( 'wp_footer', static function () {
-    $restore = $GLOBALS['kp_local_ai_desktop_cap_restore'];
-    if ( ! is_array( $restore ) || empty( $restore['user'] ) ) { return; }
+    $level = $GLOBALS['kp_local_ai_desktop_footer_buffer'];
+    if ( null === $level ) { return; }
 
-    $user = $restore['user'];
-    if ( ! empty( $restore['had_cap'] ) ) {
-        $user->allcaps['kp_ai_repair_code'] = $restore['value'];
-    } else {
-        unset( $user->allcaps['kp_ai_repair_code'] );
+    $captured = '';
+    if ( ob_get_level() > (int) $level ) {
+        $captured = (string) ob_get_clean();
     }
-    $GLOBALS['kp_local_ai_desktop_cap_restore'] = null;
+    $rendered = false !== strpos( $captured, 'kp-local-ai-desktop-runtime' );
+    echo $captured; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+
+    if ( ! $rendered ) {
+        global $wp_filter;
+        $hook = isset( $wp_filter['wp_footer'] ) ? $wp_filter['wp_footer'] : null;
+        $callbacks = ( is_object( $hook ) && isset( $hook->callbacks[2320] ) ) ? $hook->callbacks[2320] : array();
+        $target = wp_normalize_path( WPMU_PLUGIN_DIR . '/kp-local-ai-desktop.php' );
+
+        foreach ( $callbacks as $entry ) {
+            $fn = isset( $entry['function'] ) ? $entry['function'] : null;
+            if ( ! ( $fn instanceof Closure ) ) { continue; }
+            try {
+                $reflection = new ReflectionFunction( $fn );
+                $file = $reflection->getFileName();
+                if ( ! $file || wp_normalize_path( $file ) !== $target ) { continue; }
+                call_user_func( $fn );
+                break;
+            } catch ( Throwable $e ) {
+                break;
+            }
+        }
+    }
+
+    $GLOBALS['kp_local_ai_desktop_force_cap'] = false;
+    $GLOBALS['kp_local_ai_desktop_footer_buffer'] = null;
 }, 2321 );
 
 // Harmless runtime probe used by the fast deploy lane.
@@ -60,9 +85,11 @@ add_action( 'template_redirect', static function () {
     nocache_headers();
     header( 'Content-Type: application/json; charset=utf-8' );
     echo wp_json_encode( array(
-        'loaded'      => true,
-        'version'     => 'desktop-ai-fast-v4',
-        'desktopFile' => is_file( WPMU_PLUGIN_DIR . '/kp-local-ai-desktop.php' ),
+        'loaded'          => true,
+        'version'         => 'desktop-ai-fast-v5',
+        'desktopFile'     => is_file( WPMU_PLUGIN_DIR . '/kp-local-ai-desktop.php' ),
+        'phpVersion'      => PHP_VERSION,
+        'hasStrContains'  => function_exists( 'str_contains' ),
     ) );
     exit;
 }, 0 );
