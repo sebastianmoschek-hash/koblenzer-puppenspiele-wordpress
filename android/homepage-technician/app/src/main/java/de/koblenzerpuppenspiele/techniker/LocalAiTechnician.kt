@@ -3,6 +3,7 @@ package de.koblenzerpuppenspiele.techniker
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ConversationConfig
@@ -32,11 +33,12 @@ import java.util.concurrent.TimeUnit
  * existing branch -> CI -> explicit merge path. No Gemini/OpenAI API call is
  * required by this class.
  *
- * One important reliability rule: every inference uses exactly ONE
- * Conversation.sendMessage(). Several Android/SoC combinations have shown native
- * instability on a second sequential send in the same LiteRT conversation. JSON
- * cleanup therefore happens deterministically in Kotlin instead of asking the
- * model for a second repair turn.
+ * Reliability rules for Android:
+ * - every conversation performs exactly ONE native sendMessage;
+ * - the KV cache and prompt are deliberately kept close to the model's Android
+ *   benchmark profile instead of reserving a large desktop-style context;
+ * - any native inference failure tears the engine down and retries exactly once
+ *   on a freshly initialized CPU engine with an even smaller prompt.
  */
 class LocalAiTechnician(
     private val context: Context,
@@ -191,18 +193,18 @@ class LocalAiTechnician(
     }
 
     private fun buildPlannerPrompt(request: String, page: String, elements: String, capabilities: String): String {
-        val prior = history.takeLast(3)
-            .joinToString("\n") { "NUTZER: ${it.user.take(500)}\nKI: ${it.assistant.take(700)}" }
-            .take(1600)
-        val compactPage = page.take(2600)
+        val prior = history.takeLast(2)
+            .joinToString("\n") { "NUTZER: ${it.user.take(320)}\nKI: ${it.assistant.take(420)}" }
+            .take(900)
+        val compactPage = page.take(1500)
         val compactElements = compactEditableElements(elements)
-        val compactCapabilities = capabilities.take(1400)
+        val compactCapabilities = capabilities.take(700)
         return boundPrompt(
             """
                 AUFGABE: Erzeuge einen kleinen ausführbaren JSON-Plan. Verwende nur live_id-Werte aus dem kompakten Elementkontext. Wenn eine Eigenschaft dort nicht angeboten wird, verwende request_code_change.
 
                 AKTUELLER WUNSCH:
-                ${request.take(1400)}
+                ${request.take(900)}
 
                 LETZTE UNTERHALTUNG:
                 ${prior.ifBlank { "Noch keine." }}
@@ -216,7 +218,7 @@ class LocalAiTechnician(
                 EDITOR-FÄHIGKEITEN:
                 $compactCapabilities
 
-                Liefere ausschließlich den JSON-Plan. Nutze live_id exakt aus den sichtbaren Elementen. Für Editor-UI, App-Programmierung, PHP, JavaScript, CSS, komplette Umbauten oder nicht direkt unterstützte Eigenschaften verwende request_code_change statt so zu tun, als sei die Änderung schon erledigt.
+                Liefere ausschließlich den JSON-Plan. Nutze live_id exakt aus den sichtbaren Elementen. Für Editor-UI, App-Programmierung, PHP, JavaScript, CSS, komplette Umbauten oder nicht direkt unterstützte Eigenschaften verwende request_code_change.
             """.trimIndent(),
             MAX_MODEL_PROMPT_CHARS,
         )
@@ -235,7 +237,7 @@ class LocalAiTechnician(
                 .put("liveId", element.optString("liveId"))
                 .put("kind", element.optString("kind"))
                 .put("tag", element.optString("tag"))
-                .put("text", element.optString("text").take(140))
+                .put("text", element.optString("text").take(100))
             element.optJSONArray("properties")?.let { compact.put("properties", it) }
             element.optJSONObject("rect")?.let { rect ->
                 compact.put(
@@ -267,7 +269,7 @@ class LocalAiTechnician(
                 JSONObject()
                     .put("liveId", element.optString("liveId"))
                     .put("kind", "editor-ui")
-                    .put("text", element.optString("text").take(100))
+                    .put("text", element.optString("text").take(80))
                     .put("properties", element.optJSONArray("properties") ?: JSONArray()),
             )
         }
@@ -275,7 +277,7 @@ class LocalAiTechnician(
         out.put("editorUi", editorUi)
         out.put("count", content.length() + editorUi.length())
         out.toString()
-    }.getOrElse { raw.take(5200) }
+    }.getOrElse { raw.take(MAX_MODEL_PROMPT_CHARS / 2) }
 
     private fun boundPrompt(text: String, maxChars: Int): String {
         if (text.length <= maxChars) return text
@@ -285,8 +287,8 @@ class LocalAiTechnician(
     }
 
     private fun remember(user: String, assistant: String) {
-        history.addLast(ChatTurn(user.take(1000), assistant.take(2000)))
-        while (history.size > 5) history.removeFirst()
+        history.addLast(ChatTurn(user.take(700), assistant.take(1200)))
+        while (history.size > 4) history.removeFirst()
     }
 
     private fun explicitSaveRequested(text: String): Boolean = Regex(
@@ -313,10 +315,12 @@ class LocalAiTechnician(
                 )
             )
             return try {
+                Log.i(TAG, "Initializing LiteRT-LM backend=$label maxNumTokens=$LOCAL_MAX_TOKENS")
                 candidate.initialize()
                 engineBackend = label
                 candidate
             } catch (error: Throwable) {
+                Log.w(TAG, "LiteRT-LM backend=$label initialization failed: ${errorChain(error)}")
                 runCatching { candidate.close() }
                 throw error
             }
@@ -326,9 +330,10 @@ class LocalAiTechnician(
             initialize(cpuBackend(), "CPU")
         } else {
             runCatching { initialize(Backend.GPU(), "GPU") }
-                .getOrElse {
+                .getOrElse { gpuError ->
                     preferCpu = true
                     status("GPU nicht verfügbar · lokale KI nutzt CPU")
+                    Log.w(TAG, "GPU initialization unavailable; switching to CPU: ${errorChain(gpuError)}")
                     initialize(cpuBackend(), "CPU")
                 }
         }
@@ -337,7 +342,9 @@ class LocalAiTechnician(
     }
 
     private fun resetEngine() {
+        val closedBackend = engineBackend
         runCatching { engine?.close() }
+            .onFailure { Log.w(TAG, "Closing LiteRT-LM backend=$closedBackend failed: ${errorChain(it)}") }
         engine = null
         engineBackend = ""
     }
@@ -346,22 +353,35 @@ class LocalAiTechnician(
         val initialLimit = if (preferCpu) MAX_CPU_FALLBACK_PROMPT_CHARS else MAX_MODEL_PROMPT_CHARS
         val safePrompt = boundPrompt(prompt, initialLimit)
         return try {
+            Log.i(
+                TAG,
+                "LiteRT-LM send backend=${engineBackend.ifBlank { if (preferCpu) "CPU-pending" else "GPU-pending" }} promptChars=${safePrompt.length} systemChars=${system.length} maxOutput=$MAX_OUTPUT_TOKENS",
+            )
             oneShotJsonWithEngine(ensureEngine(), system, safePrompt, temperature)
         } catch (error: Throwable) {
             if (!isNativeInferenceFailure(error)) throw error
-            val failedBackend = engineBackend
+
+            val failedBackend = engineBackend.ifBlank { if (preferCpu) "CPU" else "GPU" }
+            Log.w(
+                TAG,
+                "Native LiteRT-LM inference failed on $failedBackend; rebuilding CPU engine once. ${errorChain(error)}",
+            )
             resetEngine()
-            if (failedBackend == "GPU") {
-                preferCpu = true
-                val compactCpuPrompt = boundPrompt(prompt, MAX_CPU_FALLBACK_PROMPT_CHARS)
-                status("Lokale KI: GPU-Inferenz fehlgeschlagen · CPU-Fallback mit kleinerem Kontext …")
-                return try {
-                    oneShotJsonWithEngine(ensureEngine(), system, compactCpuPrompt, temperature)
-                } catch (cpuError: Throwable) {
-                    throw friendlyNativeFailure(cpuError)
-                }
+            preferCpu = true
+
+            val compactCpuPrompt = boundPrompt(prompt, MAX_CPU_FALLBACK_PROMPT_CHARS)
+            status("Lokale KI: Inferenzfehler · CPU wird frisch gestartet …")
+            return try {
+                Log.i(
+                    TAG,
+                    "LiteRT-LM CPU retry promptChars=${compactCpuPrompt.length} systemChars=${system.length} maxOutput=$MAX_OUTPUT_TOKENS",
+                )
+                oneShotJsonWithEngine(ensureEngine(), system, compactCpuPrompt, temperature)
+            } catch (cpuError: Throwable) {
+                Log.e(TAG, "Fresh CPU retry failed: ${errorChain(cpuError)}")
+                resetEngine()
+                throw friendlyNativeFailure(cpuError, failedBackend)
             }
-            throw friendlyNativeFailure(error)
         }
     }
 
@@ -379,30 +399,46 @@ class LocalAiTechnician(
             val rawText = conversation.sendMessage(prompt).text
             return parseJsonObjectOrNull(rawText)
                 ?: throw IllegalStateException(
-                    "Die lokale KI hat geantwortet, aber der Änderungsplan war nicht eindeutig strukturiert. Ich habe ihn lokal repariert, ohne einen zweiten Modellaufruf zu starten. Bitte formuliere den Wunsch etwas kürzer oder konkreter."
+                    "Die lokale KI hat geantwortet, aber der Änderungsplan war nicht eindeutig strukturiert. Bitte formuliere den Wunsch etwas kürzer oder konkreter."
                 )
         }
     }
 
     private fun isNativeInferenceFailure(error: Throwable): Boolean {
         var current: Throwable? = error
-        repeat(6) {
+        repeat(8) {
             val type = current?.javaClass?.simpleName.orEmpty()
             val message = current?.message.orEmpty()
             if (type.contains("LiteRtLmJni", ignoreCase = true) ||
+                type.contains("LiteRtLmJniException", ignoreCase = true) ||
                 message.contains("nativeSendMessage", ignoreCase = true) ||
+                message.contains("Failed to call native", ignoreCase = true) ||
                 message.contains("resource exhausted", ignoreCase = true) ||
                 message.contains("kv cache", ignoreCase = true) ||
                 message.contains("command queue", ignoreCase = true) ||
-                message.contains("opencl", ignoreCase = true)
+                message.contains("opencl", ignoreCase = true) ||
+                message.contains("delegate", ignoreCase = true)
             ) return true
             current = current?.cause
         }
         return false
     }
 
-    private fun friendlyNativeFailure(error: Throwable): IllegalStateException = IllegalStateException(
-        "Das lokale Modell konnte die Aufgabe auf diesem Gerät gerade nicht berechnen. Die App hat nach einem GPU-Fehler automatisch auf CPU und einen deutlich kleineren Seitenkontext gewechselt. Bitte denselben Wunsch noch einmal senden. Wenn auch CPU scheitert, bleibt Notfall Gemini als Ausnahmeweg verfügbar.",
+    private fun errorChain(error: Throwable): String {
+        val parts = mutableListOf<String>()
+        var current: Throwable? = error
+        repeat(6) {
+            current ?: return@repeat
+            val type = current!!.javaClass.simpleName
+            val message = current!!.message.orEmpty().replace('\n', ' ').take(260)
+            parts += if (message.isBlank()) type else "$type: $message"
+            current = current!!.cause
+        }
+        return parts.joinToString(" <- ").take(1200)
+    }
+
+    private fun friendlyNativeFailure(error: Throwable, failedBackend: String): IllegalStateException = IllegalStateException(
+        "Das lokale Modell konnte die Aufgabe auf diesem Gerät gerade nicht berechnen. Die App hat den $failedBackend-Lauf verworfen, LiteRT-LM vollständig neu gestartet und genau einmal mit CPU sowie kleinerem Kontext wiederholt. Auch dieser lokale Versuch ist fehlgeschlagen. Bitte sende einen sehr kurzen Wunsch erneut; Notfall Gemini bleibt nur als Ausnahmeweg verfügbar.",
         error,
     )
 
@@ -434,10 +470,7 @@ class LocalAiTechnician(
         return null
     }
 
-    /**
-     * Conservative local cleanup for common small-model JSON slips. No model
-     * inference is performed here, so it cannot trigger a second native send.
-     */
+    /** Conservative local cleanup for common small-model JSON slips. */
     private fun repairJsonCandidate(raw: String): String {
         var out = raw
             .replace(Regex("(?i)\\bTrue\\b"), "true")
@@ -537,28 +570,21 @@ class LocalAiTechnician(
     }
 
     companion object {
-        private const val LOCAL_MAX_TOKENS = 6144
-        private const val MAX_OUTPUT_TOKENS = 384
-        private const val MAX_MODEL_PROMPT_CHARS = 9000
-        private const val MAX_CPU_FALLBACK_PROMPT_CHARS = 5200
-        private const val MAX_CONTENT_ELEMENTS = 24
-        private const val MAX_EDITOR_UI_ELEMENTS = 5
+        private const val TAG = "KPLocalAi"
+
+        // Gemma 4 E2B Android benchmarks use a 2048-token context. Keeping the
+        // KV cache here avoids the large native allocation previously caused by 6144.
+        private const val LOCAL_MAX_TOKENS = 2048
+        private const val MAX_OUTPUT_TOKENS = 256
+        private const val MAX_MODEL_PROMPT_CHARS = 3600
+        private const val MAX_CPU_FALLBACK_PROMPT_CHARS = 2400
+        private const val MAX_CONTENT_ELEMENTS = 16
+        private const val MAX_EDITOR_UI_ELEMENTS = 4
 
         private val PLANNER_SYSTEM = """
-            Du bist die lokale, kostenlose Allround-Homepage-KI der Koblenzer Puppenspiele. Antworte ausschließlich als syntaktisch gültiges JSON ohne Markdown:
-            {
-              "reply":"kurze deutsche Antwort",
-              "save":false,
-              "actions":[
-                {"type":"edit_element","live_id":"live-1","property":"text","value":"Neuer Text"},
-                {"type":"set_global_design","key":"accent_color","value":"#D97706"},
-                {"type":"undo"},
-                {"type":"redo"},
-                {"type":"save"},
-                {"type":"request_code_change","description":"präzise technische Änderung"}
-              ]
-            }
-            Regeln: Höchstens 10 Aktionen. Nutze nur sichtbare live_id-Werte und angebotene Eigenschaften. Für normale Texte, Links, Größe, Abstand, Radius, Farben, Position, Reihenfolge und globale Designwerte direkte Aktionen verwenden. ALLE String-Werte müssen in doppelten Anführungszeichen stehen; Farben als Hex-Strings wie "#0000FF", niemals als nacktes Wort. Für Editor-Bedienelemente, komplette Umgestaltung, App-Programmierung, PHP/JavaScript/CSS, neue Funktionen oder nicht angebotene Eigenschaften request_code_change verwenden. Nie behaupten, etwas sei geändert oder gespeichert, wenn keine passende Aktion vorhanden ist. save nur setzen/ausgeben, wenn der Nutzer ausdrücklich speichern, übernehmen oder dauerhaft machen verlangt. Wenn eine Bildaufgabe mit den angebotenen Bild-Eigenschaften nicht möglich ist, erkläre knapp, dass ein Spezialwerkzeug oder Notfall Gemini nötig ist; erfinde keine Cloud-Aktion.
+            Du bist die lokale kostenlose Homepage-KI der Koblenzer Puppenspiele. Antworte nur als gültiges JSON ohne Markdown:
+            {"reply":"kurz auf Deutsch","save":false,"actions":[{"type":"edit_element","live_id":"live-1","property":"text","value":"Neuer Text"}]}
+            Erlaubte Typen: edit_element, set_global_design, undo, redo, save, request_code_change. Höchstens 10 Aktionen. Nutze nur sichtbare live_id-Werte und angebotene Eigenschaften. Für App/PHP/JavaScript/CSS, neue Funktionen oder nicht angebotene Eigenschaften nutze request_code_change. save nur bei ausdrücklichem Speichern/Übernehmen. Nie behaupten, etwas sei erledigt, wenn keine passende Aktion vorhanden ist. Alle Strings in doppelten Anführungszeichen.
         """.trimIndent()
 
         private val SELECTION_SYSTEM = """
@@ -569,16 +595,8 @@ class LocalAiTechnician(
 
         private val PATCH_SYSTEM = """
             Du bist ein lokaler sicherer Code-Patcher für WordPress und die Android Homepage-Hilfe. Antworte ausschließlich als syntaktisch gültiges JSON ohne Markdown:
-            {
-              "summary":"kurz",
-              "diagnosis":"warum",
-              "risk":"low|medium|high",
-              "tests":["Test 1"],
-              "changes":[
-                {"path":"exakter Pfad","reason":"warum","operations":[{"search":"exakter vorhandener Block","replace":"vollständiger Ersatzblock"}]}
-              ]
-            }
-            Regeln: höchstens 4 Dateien, höchstens 8 Operationen je Datei. search muss ein exakter, ausreichend eindeutiger Ausschnitt aus dem gelieferten Code sein. Ändere so wenig wie möglich. Entferne niemals Berechtigungs-, Nonce-, Authentifizierungs- oder Sicherheitsprüfungen. Keine eval/shell/system-Aufrufe, keine Secrets, keine erfundenen Dateien. Wenn der gezeigte Code nicht reicht, liefere changes als leeres Array. Alle String-Werte müssen in doppelten Anführungszeichen stehen.
+            {"summary":"kurz","diagnosis":"warum","risk":"low|medium|high","tests":["Test 1"],"changes":[{"path":"exakter Pfad","reason":"warum","operations":[{"search":"exakter vorhandener Block","replace":"vollständiger Ersatzblock"}]}]}
+            Regeln: höchstens 4 Dateien, höchstens 8 Operationen je Datei. search muss ein exakter eindeutiger Ausschnitt aus dem gelieferten Code sein. Ändere so wenig wie möglich. Entferne niemals Berechtigungs-, Nonce-, Authentifizierungs- oder Sicherheitsprüfungen. Keine eval/shell/system-Aufrufe, keine Secrets, keine erfundenen Dateien. Wenn der gezeigte Code nicht reicht, liefere changes als leeres Array. Alle Strings in doppelten Anführungszeichen.
         """.trimIndent()
     }
 }
