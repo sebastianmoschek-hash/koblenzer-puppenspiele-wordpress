@@ -13,10 +13,7 @@ concurrency:
 jobs:
   publish:
     if: >-
-      (
-        github.event.context == 'ci/circleci: homepage-staging-lab' ||
-        contains(github.event.context, 'autonomous-homepage-lab/serial-end')
-      ) &&
+      contains(github.event.context, 'autonomous-homepage-lab/serial-end-2') &&
       (github.event.state == 'success' || github.event.state == 'failure' || github.event.state == 'error')
     runs-on: ubuntu-latest
     steps:
