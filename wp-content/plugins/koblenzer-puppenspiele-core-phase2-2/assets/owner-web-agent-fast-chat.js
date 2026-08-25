@@ -31,7 +31,7 @@
 
   function shouldUseSelfHeal(text) {
     const value = String(text || '').trim();
-    if (!/\b(beheb|beheben|reparier|reparieren|fix|korrigier|korrigieren|funktioniert.*nicht|geht.*nicht)\b/i.test(value)) return false;
+    if (!/\b(?:beheb(?:e|en)?|reparier(?:e|en)?|fix(?:e|en)?|korrigier(?:e|en)?|funktioniert.*nicht|geht.*nicht)\b/i.test(value)) return false;
     if (/\b(android|apk|kotlin|gradle|php|wordpress|plugin|server|backend|production|live-seite|circleci)\b/i.test(value)) return false;
     return /\b(web-?app|chat|button|taste|mikrofon|microphone|sprache|spracherkennung|speech|voice|audio|diktat|eingabe|textfeld|senden|fenster|dialog|layout|scroll|farbe|schrift|abstand|position|oberfläche|ui|browser)\b/i.test(value)
       || !!runtime.speech
@@ -176,7 +176,8 @@
     saveMessage('user', text);
     setStatus('KI untersucht den Fehler und repariert die Staging-Web-App …', true);
     try {
-      const data = await apiRequest('kp_owner_web_self_heal', text, priorHistory);
+      const repairRequest = `reparieren: ${text}`;
+      const data = await apiRequest('kp_owner_web_self_heal', repairRequest, priorHistory);
       const summary = String(data.summary || 'Staging-Selbstheilung').trim();
       const diagnosis = String(data.diagnosis || '').trim();
       if (data.applied) {
