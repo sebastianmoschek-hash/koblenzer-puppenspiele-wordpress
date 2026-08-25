@@ -261,6 +261,7 @@ workflows:
             branches:
               only:
                 - /feature\/android-.*/
+                - /ai-repair\/local-.*/
       - homepage-staging-lab:
           requires:
             - editor-contracts
