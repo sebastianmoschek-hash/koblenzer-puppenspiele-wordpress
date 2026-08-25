@@ -1,11 +1,11 @@
 {
-  "generatedAt":"2026-08-25T18:31:28Z",
-  "commit":"0fc0510de18b754563a211eb557cf73e2206b7fe",
-  "state":"success",
-  "apkArtifact":true,
+  "generatedAt":"2026-08-25T18:53:59Z",
+  "commit":"3c98a38be4be0cbb7bee4369fe0debd21562cfd7",
+  "state":"failure",
+  "apkArtifact":false,
   "checks":{
     "toolchain":0,
     "securityContract":0,
-    "androidBuild":0
+    "androidBuild":1
   }
 }
