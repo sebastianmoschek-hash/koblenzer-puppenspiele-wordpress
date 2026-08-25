@@ -34,10 +34,8 @@ function kp_local_ai_desktop_force_repair_cap( $allcaps, $caps, $args, $user ) {
 }
 add_filter( 'user_has_cap', 'kp_local_ai_desktop_force_repair_cap', PHP_INT_MAX, 4 );
 
-// kp-local-ai-desktop.php registers its footer callback at priority 2320.
 add_action( 'wp_footer', static function () {
     if ( ! kp_local_ai_desktop_is_editor_request() ) { return; }
-
     $GLOBALS['kp_local_ai_desktop_force_cap'] = true;
     $GLOBALS['kp_local_ai_desktop_footer_buffer'] = ob_get_level();
     ob_start();
@@ -46,11 +44,8 @@ add_action( 'wp_footer', static function () {
 add_action( 'wp_footer', static function () {
     $level = $GLOBALS['kp_local_ai_desktop_footer_buffer'];
     if ( null === $level ) { return; }
-
     $captured = '';
-    if ( ob_get_level() > (int) $level ) {
-        $captured = (string) ob_get_clean();
-    }
+    if ( ob_get_level() > (int) $level ) { $captured = (string) ob_get_clean(); }
     $rendered = false !== strpos( $captured, 'kp-local-ai-desktop-runtime' );
     echo $captured; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 
@@ -59,7 +54,6 @@ add_action( 'wp_footer', static function () {
         $hook = isset( $wp_filter['wp_footer'] ) ? $wp_filter['wp_footer'] : null;
         $callbacks = ( is_object( $hook ) && isset( $hook->callbacks[2320] ) ) ? $hook->callbacks[2320] : array();
         $target = wp_normalize_path( WPMU_PLUGIN_DIR . '/kp-local-ai-desktop.php' );
-
         foreach ( $callbacks as $entry ) {
             $fn = isset( $entry['function'] ) ? $entry['function'] : null;
             if ( ! ( $fn instanceof Closure ) ) { continue; }
@@ -69,48 +63,37 @@ add_action( 'wp_footer', static function () {
                 if ( ! $file || wp_normalize_path( $file ) !== $target ) { continue; }
                 call_user_func( $fn );
                 break;
-            } catch ( Throwable $e ) {
-                break;
-            }
+            } catch ( Throwable $e ) { break; }
         }
     }
-
     $GLOBALS['kp_local_ai_desktop_force_cap'] = false;
     $GLOBALS['kp_local_ai_desktop_footer_buffer'] = null;
 }, 2321 );
 
-/** Return only basenames of server-side MU plugins containing legacy UI markers. */
 function kp_local_ai_desktop_legacy_matches() {
-    $needles = array(
-        'Gemini serverseitig',
-        'Was soll ich erklären, ändern oder reparieren?',
-        'Code nur über Prüfbranch',
-    );
+    $needles = array( 'Gemini serverseitig', 'Was soll ich erklären, ändern oder reparieren?', 'Code nur über Prüfbranch' );
     $matches = array();
     foreach ( (array) glob( WPMU_PLUGIN_DIR . '/*.php' ) as $file ) {
         if ( ! is_file( $file ) || filesize( $file ) > 2 * 1024 * 1024 ) { continue; }
         $bytes = @file_get_contents( $file );
         if ( ! is_string( $bytes ) ) { continue; }
         foreach ( $needles as $needle ) {
-            if ( false !== strpos( $bytes, $needle ) ) {
-                $matches[] = basename( $file );
-                break;
-            }
+            if ( false !== strpos( $bytes, $needle ) ) { $matches[] = basename( $file ); break; }
         }
     }
     sort( $matches );
     return array_values( array_unique( $matches ) );
 }
 
-// Harmless runtime probe used by the fast deploy lane.
 add_action( 'template_redirect', static function () {
     if ( ! isset( $_GET['kp_desktop_ai_probe'] ) ) { return; }
     nocache_headers();
     header( 'Content-Type: application/json; charset=utf-8' );
     echo wp_json_encode( array(
         'loaded'          => true,
-        'version'         => 'desktop-ai-fast-v6',
+        'version'         => 'desktop-ai-fast-v7',
         'desktopFile'     => is_file( WPMU_PLUGIN_DIR . '/kp-local-ai-desktop.php' ),
+        'takeoverFile'    => is_file( WPMU_PLUGIN_DIR . '/kp-local-ai-desktop-takeover.php' ),
         'phpVersion'      => PHP_VERSION,
         'hasStrContains'  => function_exists( 'str_contains' ),
         'legacyMatches'   => kp_local_ai_desktop_legacy_matches(),
