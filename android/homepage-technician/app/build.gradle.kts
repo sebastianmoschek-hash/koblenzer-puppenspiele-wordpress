@@ -44,5 +44,5 @@ dependencies {
     implementation("com.github.k2-fsa:sherpa-onnx:v1.13.4")
     implementation("com.squareup.okhttp3:okhttp:5.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("org.jetbrains.kotlinx-serialization-json:1.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 }
