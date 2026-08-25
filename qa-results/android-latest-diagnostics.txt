@@ -182,6 +182,6 @@ Unable to strip the following libraries, packaging them as they are: liblitertlm
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 2m 37s
+BUILD SUCCESSFUL in 2m 35s
 38 actionable tasks: 38 executed
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.5.0/userguide/configuration_cache_enabling.html
