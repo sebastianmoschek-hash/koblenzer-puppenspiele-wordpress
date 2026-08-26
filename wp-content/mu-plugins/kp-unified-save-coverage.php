@@ -15,7 +15,7 @@ add_action( 'wp_footer', static function () {
     (()=>{
       'use strict';
       const ACTION_RE=/^kp_(owner_(design|sizes|menu_x|nav|social_menu)_save|fe_v2_save|touch_(free_layout|gesture)_save|image_position_save|canva_image_save|frontend_card_(image|button)_save|fe_v2_record_save|ai_.*_save)$/;
-      let saveGroup='',groupTimer=0,contextSaving=false,mainSaving=false,replayMainSave=false,registryFlushing=false;
+      let saveGroup='',groupTimer=0,contextSaving=false,registryFlushing=false;
       const makeGroup=()=>`save-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
       function beginGroup(){clearTimeout(groupTimer);saveGroup=makeGroup();groupTimer=setTimeout(()=>{saveGroup=''},12000);return saveGroup}
       function ensureGroup(){return saveGroup||beginGroup()}
@@ -46,12 +46,13 @@ add_action( 'wp_footer', static function () {
         if(!registry||registry.__kpUnifiedCoverage)return false;
         const baseFlush=registry.flushAll?.bind(registry),baseDirty=registry.isDirty?.bind(registry);
         registry.flushAll=async()=>{
-          // A visible Save may already have opened the transaction in another
-          // capture listener (notably the touch editor bridge). Never replace
-          // that group here: all specialist requests plus the native FE2 save
-          // must share exactly one 48-hour history checkpoint.
+          // The touch/editor save coordinator owns the visible primary Save.
+          // This layer owns only the transaction id and specialist coverage.
+          // Reuse a group already opened by a contextual Save; otherwise the
+          // first flush in a visible Save creates exactly one group for all
+          // specialist requests plus the following native FE2 request.
           if(!registryFlushing){
-            if(saveGroup||contextSaving||mainSaving)ensureGroup();else beginGroup();
+            if(saveGroup||contextSaving)ensureGroup();else beginGroup();
           }
           registryFlushing=true;
           try{
@@ -81,38 +82,14 @@ add_action( 'wp_footer', static function () {
         el.textContent=message;el.classList.add('is-visible','is-'+type);setTimeout(()=>el.classList.remove('is-visible'),1800);
       }
 
+      // Do not install a second capture listener for .kp-fe2-save here.
+      // touch-editor-bridge.js is the authoritative primary Save coordinator:
+      // it flushes KPOwnerSaveRegistry and then calls the captured native FE2
+      // save. Two stopImmediatePropagation capture listeners made behaviour
+      // depend on registration order and could leave the browser test waiting
+      // for a reload even though the individual save pieces were valid.
       window.addEventListener('click',async e=>{
         const t=e.target instanceof Element?e.target:null;if(!t)return;
-        const mainButton=t.closest('.kp-fe2-save');
-        if(mainButton&&!replayMainSave){
-          if(mainSaving)return;
-          e.preventDefault();e.stopImmediatePropagation();
-          mainSaving=true;
-          if(contextSaving)ensureGroup();else beginGroup();
-          const html=mainButton.innerHTML;
-          try{
-            installRegistryCoverage();
-            if(window.KPOwnerSaveRegistry?.flushAll)await window.KPOwnerSaveRegistry.flushAll();
-            replayMainSave=true;
-            try{
-              if(typeof window.KPFrontendEditorNativeSave==='function'){
-                await window.KPFrontendEditorNativeSave();
-              }else{
-                mainButton.click();
-              }
-            }finally{
-              replayMainSave=false;
-            }
-          }catch(error){
-            mainButton.disabled=false;mainButton.innerHTML=html;
-            showToast(error?.message||'Speichern fehlgeschlagen.','error');
-            if(contextSaving)contextSaving=false;
-          }finally{
-            mainSaving=false;
-          }
-          return;
-        }
-
         const button=t.closest('.kp-oa-design-save,.kp-oa-size-save');
         if(!button||contextSaving)return;
         e.preventDefault();e.stopImmediatePropagation();contextSaving=true;beginGroup();
@@ -137,7 +114,6 @@ add_action( 'wp_footer', static function () {
         const t=e.target instanceof Element?e.target:null;if(!t)return;
         if(t.closest('.kp-oa-design-save,.kp-oa-size-save'))return;
         if(t.closest('.kp-fe2-save')&&contextSaving){ensureGroup();return;}
-        if(t.closest('.kp-fe2-save')&&(mainSaving||replayMainSave)){ensureGroup();return;}
         if(t.closest('.kp-fe2-save,.kp-fe2-record-main-save'))beginGroup();
       },true);
 
