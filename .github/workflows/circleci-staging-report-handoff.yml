@@ -8,30 +8,38 @@ permissions:
   statuses: read
 
 concurrency:
-  # Exactly one verdict context below wakes the handoff for a source SHA. Do not
-  # cancel a run while it is waiting for the other verdicts: simultaneous final
-  # CircleCI status updates used to race and could cancel every handoff attempt.
   group: circleci-staging-report-handoff-${{ github.event.sha }}
   cancel-in-progress: false
 
 jobs:
   publish:
-    # Use one deterministic terminal verdict as the wake-up. It does not need to
-    # be the last verdict because the first step waits until all five are terminal.
-    if: >-
-      ${{
-        github.event.context == 'ci/circleci: staging-visual-verdict' &&
-        (github.event.state == 'success' || github.event.state == 'failure' || github.event.state == 'error')
-      }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
+      - name: Select the deterministic staging verdict event
+        id: gate
+        env:
+          STATUS_CONTEXT: ${{ github.event.context }}
+          STATUS_STATE: ${{ github.event.state }}
+        run: |
+          set -euo pipefail
+          eligible=false
+          if [[ "$STATUS_CONTEXT" == 'ci/circleci: staging-visual-verdict' ]]; then
+            case "$STATUS_STATE" in
+              success|failure|error) eligible=true ;;
+            esac
+          fi
+          echo "eligible=$eligible" >> "$GITHUB_OUTPUT"
+          echo "status context=$STATUS_CONTEXT state=$STATUS_STATE eligible=$eligible"
+
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.eligible == 'true'
         with:
           ref: main
           fetch-depth: 0
 
       - name: Wait for all CircleCI staging verdicts
+        if: steps.gate.outputs.eligible == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_SHA: ${{ github.event.sha }}
@@ -70,6 +78,7 @@ jobs:
           fi
 
       - name: Fetch exact staging-lab handoff
+        if: steps.gate.outputs.eligible == 'true'
         env:
           EXPECTED_SHA: ${{ github.event.sha }}
         run: |
@@ -109,6 +118,7 @@ jobs:
           cp /tmp/kp-circleci-handoff/editor-report.json qa-results/circleci-latest-editor.json
 
       - name: Publish report without triggering another CI round
+        if: steps.gate.outputs.eligible == 'true'
         env:
           EXPECTED_SHA: ${{ github.event.sha }}
         run: |
