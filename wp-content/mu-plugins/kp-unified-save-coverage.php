@@ -74,7 +74,7 @@ add_action( 'wp_footer', static function () {
         const t=e.target instanceof Element?e.target:null;if(!t)return;
         const button=t.closest('.kp-oa-design-save,.kp-oa-size-save');
         if(!button||contextSaving)return;
-        e.preventDefault();e.stopImmediatePropagation();contextSaving=true;ensureGroup();
+        e.preventDefault();e.stopImmediatePropagation();contextSaving=true;beginGroup();
         const html=button.innerHTML;button.disabled=true;button.textContent='Speichert alles…';
         const mainSave=document.querySelector('.kp-fe2-save');
         if(mainSave&&mainSave!==button){
@@ -94,7 +94,12 @@ add_action( 'wp_footer', static function () {
 
       document.addEventListener('click',e=>{
         const t=e.target instanceof Element?e.target:null;if(!t)return;
-        if(t.closest('.kp-fe2-save,.kp-oa-design-save,.kp-oa-size-save,.kp-fe2-record-main-save'))ensureGroup();
+        // Contextual design/size Save already opened the transaction above and
+        // then forwards to the main Save button. Do not create a second group
+        // for either the forwarded nested click or the outer bubbling click.
+        if(t.closest('.kp-oa-design-save,.kp-oa-size-save'))return;
+        if(t.closest('.kp-fe2-save')&&contextSaving){ensureGroup();return;}
+        if(t.closest('.kp-fe2-save,.kp-fe2-record-main-save'))beginGroup();
       },true);
 
       window.KPUnifiedSaveCoverage={beginGroup,ensureGroup,currentGroup:()=>saveGroup,refresh:installRegistryCoverage};
