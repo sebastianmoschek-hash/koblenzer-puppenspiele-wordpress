@@ -47,12 +47,12 @@ add_action( 'wp_footer', static function () {
         const baseFlush=registry.flushAll?.bind(registry),baseDirty=registry.isDirty?.bind(registry);
         registry.flushAll=async()=>{
           // The touch/editor save coordinator owns the visible primary Save.
-          // This layer owns only the transaction id and specialist coverage.
-          // Reuse a group already opened by a contextual Save; otherwise the
-          // first flush in a visible Save creates exactly one group for all
-          // specialist requests plus the following native FE2 request.
+          // Every top-level primary Save is a new user gesture and therefore
+          // must start a fresh history transaction. Only a contextual
+          // Design/Size Save pre-opens a group and forwards into the primary
+          // Save, so that path deliberately reuses its existing group.
           if(!registryFlushing){
-            if(saveGroup||contextSaving)ensureGroup();else beginGroup();
+            if(contextSaving)ensureGroup();else beginGroup();
           }
           registryFlushing=true;
           try{
