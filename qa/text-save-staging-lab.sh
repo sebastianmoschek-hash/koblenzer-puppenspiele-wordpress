@@ -24,7 +24,11 @@ else
 fi
 
 E2E_TOKEN="$(openssl rand -hex 32)"
-expires=$(( $(date +%s) + 720 ))
+# The CircleCI wrapper allows this browser gate up to 15 minutes. Keep the
+# temporary staging login valid beyond that entire bounded window plus setup
+# and cleanup time, otherwise a slow but healthy run can turn into a false 403
+# near the final Save→Reload→DB readback.
+expires=$(( $(date +%s) + 1800 ))
 cat > /tmp/kp-e2e-text-save.php <<PHP
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
