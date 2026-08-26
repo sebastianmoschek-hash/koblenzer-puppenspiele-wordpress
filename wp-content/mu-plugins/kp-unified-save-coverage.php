@@ -46,10 +46,12 @@ add_action( 'wp_footer', static function () {
         if(!registry||registry.__kpUnifiedCoverage)return false;
         const baseFlush=registry.flushAll?.bind(registry),baseDirty=registry.isDirty?.bind(registry);
         registry.flushAll=async()=>{
-          // A visible main/context Save is the transaction owner. Reuse the
-          // group it opened; standalone programmatic flushes get a fresh group.
+          // A visible Save may already have opened the transaction in another
+          // capture listener (notably the touch editor bridge). Never replace
+          // that group here: all specialist requests plus the native FE2 save
+          // must share exactly one 48-hour history checkpoint.
           if(!registryFlushing){
-            if(contextSaving||mainSaving)ensureGroup();else beginGroup();
+            if(saveGroup||contextSaving||mainSaving)ensureGroup();else beginGroup();
           }
           registryFlushing=true;
           try{
@@ -79,11 +81,6 @@ add_action( 'wp_footer', static function () {
         el.textContent=message;el.classList.add('is-visible','is-'+type);setTimeout(()=>el.classList.remove('is-visible'),1800);
       }
 
-      // Capture the primary orange FE2 Save before its private target listener.
-      // Flush every registered specialist draft first, then invoke the already
-      // captured native FE2 handler. This prevents its reload from cutting off
-      // pending design/navigation/Canva/AI persistence and keeps all requests in
-      // one durable history group.
       window.addEventListener('click',async e=>{
         const t=e.target instanceof Element?e.target:null;if(!t)return;
         const mainButton=t.closest('.kp-fe2-save');
@@ -138,9 +135,6 @@ add_action( 'wp_footer', static function () {
 
       document.addEventListener('click',e=>{
         const t=e.target instanceof Element?e.target:null;if(!t)return;
-        // Contextual design/size Save already opened the transaction above and
-        // then forwards to the main Save button. The replayed native main Save
-        // must also retain that same transaction instead of opening another one.
         if(t.closest('.kp-oa-design-save,.kp-oa-size-save'))return;
         if(t.closest('.kp-fe2-save')&&contextSaving){ensureGroup();return;}
         if(t.closest('.kp-fe2-save')&&(mainSaving||replayMainSave)){ensureGroup();return;}
