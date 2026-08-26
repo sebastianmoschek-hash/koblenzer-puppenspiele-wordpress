@@ -61,6 +61,10 @@ contains "$SAVE" 'KPAIEditorRuntime.*flush' 'unified Save does not flush AI draf
 contains "$SAVE" 'kp_history_group' 'unified Save transaction/history group missing'
 contains "$SAVE" 'social_menu' 'social Save is not attached to the unified history group'
 contains "$SAVE" 'mainSave.click' 'contextual design/size Save is not routed through the main Save gesture'
+contains "$SAVE" 'contextSaving=true;beginGroup()' 'contextual Save does not start a fresh history group per user gesture'
+contains "$SAVE" "if(t.closest('.kp-oa-design-save,.kp-oa-size-save'))return" 'contextual forwarded Save can create a second history group'
+contains "$SAVE" "if(t.closest('.kp-fe2-save')&&contextSaving){ensureGroup();return;}" 'forwarded main Save does not reuse the active history group'
+contains "$SAVE" "if(t.closest('.kp-fe2-save,.kp-fe2-record-main-save'))beginGroup()" 'independent main Save gestures can reuse an old history group'
 
 contains "$HISTORY" 'register,push:pushSpecialist' 'extensible specialist Undo registry missing'
 contains "$HISTORY" 'MAX=50' 'global Undo history is not capped at 50'
