@@ -151,6 +151,14 @@
     return settings;
   }
 
+  function ownerDesignDraftDirty() {
+    const owner = window.KPOwnerWebApp;
+    const draft = collectOwnerDesignDraft();
+    if (!draft) return false;
+    const saved = owner?.design || {};
+    return Object.keys(draft).some((key) => String(draft[key] ?? '') !== String(saved[key] ?? ''));
+  }
+
   async function flushOwnerDesignBeforeMainSave() {
     const owner = window.KPOwnerWebApp;
     const settings = collectOwnerDesignDraft();
@@ -181,7 +189,7 @@
     for (const runtime of runtimes) {
       try { if (runtime?.isDirty?.()) return true; } catch (_) { return true; }
     }
-    return !!collectOwnerDesignDraft();
+    return ownerDesignDraftDirty();
   }
 
   async function flushAllOwnerDraftsBeforeMainSave() {
