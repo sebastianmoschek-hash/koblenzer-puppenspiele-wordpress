@@ -19,19 +19,19 @@ const checks = report.checks || {};
 const expect = (name) => checks[name] === 'success';
 const groups = {
   infra: ['deploy', 'stagingReady', 'temporaryBridge'],
-  // Diagnostic routing: each existing CircleCI verdict context exposes one
-  // independent real browser phase. No test is skipped; only the public status
-  // labels are temporarily reused so failures can be identified without access
-  // to private CircleCI job logs. Restore the compact aggregate mapping once the
-  // failing phases are repaired.
-  editor: ['editorBrowser'],
+  // Keep public verdict names truthful while retaining the granular phase keys
+  // added by run-full-lab-bounded.sh. The editor verdict covers both the
+  // viewport/browser round and the independent session-Undo round.
+  editor: ['editorBrowser', 'sessionUndo'],
   'editor-browser': ['editorBrowser'],
   'session-undo': ['sessionUndo'],
-  persistence: ['persistenceBrowser'],
+  // Persistence is only green when the broad Save→Reload→DB/48h suite and the
+  // isolated real text Save→Reload→DB readback both pass.
+  persistence: ['persistenceBrowser', 'realTextSave'],
   'persistence-browser': ['persistenceBrowser'],
   'text-save': ['realTextSave'],
-  touch: ['sessionUndo'],
-  visual: ['realTextSave'],
+  touch: ['nativeTouchSliderSaveReset', 'touchRuntime'],
+  visual: ['visual50Views'],
 };
 
 if (group === 'overall') {
