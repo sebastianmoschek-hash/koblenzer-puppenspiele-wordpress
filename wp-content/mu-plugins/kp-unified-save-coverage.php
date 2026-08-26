@@ -15,7 +15,7 @@ add_action( 'wp_footer', static function () {
     (()=>{
       'use strict';
       const ACTION_RE=/^kp_(owner_(design|sizes|menu_x|nav|social_menu)_save|fe_v2_save|touch_(free_layout|gesture)_save|image_position_save|canva_image_save|frontend_card_(image|button)_save|fe_v2_record_save|ai_.*_save)$/;
-      let saveGroup='',groupTimer=0,contextSaving=false,registryFlushing=false;
+      let saveGroup='',groupTimer=0,contextSaving=false,mainSaving=false,replayMainSave=false,registryFlushing=false;
       const makeGroup=()=>`save-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
       function beginGroup(){clearTimeout(groupTimer);saveGroup=makeGroup();groupTimer=setTimeout(()=>{saveGroup=''},12000);return saveGroup}
       function ensureGroup(){return saveGroup||beginGroup()}
@@ -46,14 +46,10 @@ add_action( 'wp_footer', static function () {
         if(!registry||registry.__kpUnifiedCoverage)return false;
         const baseFlush=registry.flushAll?.bind(registry),baseDirty=registry.isDirty?.bind(registry);
         registry.flushAll=async()=>{
-          // A direct tap on the main orange Save is intercepted in capture phase
-          // before our document click listener can see it. Therefore the public
-          // registry is the reliable transaction boundary: every top-level Save
-          // gets a new history group, while nested/forwarded flushes reuse the
-          // already-open group. Without this, two saves within 12 seconds were
-          // collapsed into one 48-hour checkpoint.
+          // A visible main/context Save is the transaction owner. Reuse the
+          // group it opened; standalone programmatic flushes get a fresh group.
           if(!registryFlushing){
-            if(contextSaving)ensureGroup();else beginGroup();
+            if(contextSaving||mainSaving)ensureGroup();else beginGroup();
           }
           registryFlushing=true;
           try{
@@ -83,8 +79,43 @@ add_action( 'wp_footer', static function () {
         el.textContent=message;el.classList.add('is-visible','is-'+type);setTimeout(()=>el.classList.remove('is-visible'),1800);
       }
 
+      // Capture the primary orange FE2 Save before its private target listener.
+      // Flush every registered specialist draft first, then invoke the already
+      // captured native FE2 handler. This prevents its reload from cutting off
+      // pending design/navigation/Canva/AI persistence and keeps all requests in
+      // one durable history group.
       window.addEventListener('click',async e=>{
         const t=e.target instanceof Element?e.target:null;if(!t)return;
+        const mainButton=t.closest('.kp-fe2-save');
+        if(mainButton&&!replayMainSave){
+          if(mainSaving)return;
+          e.preventDefault();e.stopImmediatePropagation();
+          mainSaving=true;
+          if(contextSaving)ensureGroup();else beginGroup();
+          const html=mainButton.innerHTML;
+          try{
+            installRegistryCoverage();
+            if(window.KPOwnerSaveRegistry?.flushAll)await window.KPOwnerSaveRegistry.flushAll();
+            replayMainSave=true;
+            try{
+              if(typeof window.KPFrontendEditorNativeSave==='function'){
+                await window.KPFrontendEditorNativeSave();
+              }else{
+                mainButton.click();
+              }
+            }finally{
+              replayMainSave=false;
+            }
+          }catch(error){
+            mainButton.disabled=false;mainButton.innerHTML=html;
+            showToast(error?.message||'Speichern fehlgeschlagen.','error');
+            if(contextSaving)contextSaving=false;
+          }finally{
+            mainSaving=false;
+          }
+          return;
+        }
+
         const button=t.closest('.kp-oa-design-save,.kp-oa-size-save');
         if(!button||contextSaving)return;
         e.preventDefault();e.stopImmediatePropagation();contextSaving=true;beginGroup();
@@ -108,10 +139,10 @@ add_action( 'wp_footer', static function () {
       document.addEventListener('click',e=>{
         const t=e.target instanceof Element?e.target:null;if(!t)return;
         // Contextual design/size Save already opened the transaction above and
-        // then forwards to the main Save button. Do not create a second group
-        // for either the forwarded nested click or the outer bubbling click.
+        // then forwards to the main Save button. The replayed native main Save
+        // must also retain that same transaction instead of opening another one.
         if(t.closest('.kp-oa-design-save,.kp-oa-size-save'))return;
-        if(t.closest('.kp-fe2-save')&&contextSaving){ensureGroup();return;}
+        if(t.closest('.kp-fe2-save')&&(contextSaving||mainSaving||replayMainSave)){ensureGroup();return;}
         if(t.closest('.kp-fe2-save,.kp-fe2-record-main-save'))beginGroup();
       },true);
 
