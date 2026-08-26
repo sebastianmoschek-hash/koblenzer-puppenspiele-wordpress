@@ -16,11 +16,14 @@ try{
   await page.waitForSelector('.kp-fe2-save',{timeout:15000});
   await page.waitForFunction(()=>!!window.KPOwnerSaveRegistry&&!!window.KPWordHistory&&!!window.KPCanvaLayoutRuntime&&!!window.KPAIEditorRuntime,{timeout:15000});
 
-  // Every loaded specialist must be reached by the one orange Save. A clean
-  // page means these flush calls are no-ops and do not mutate staging.
+  // Verify the specialist runtimes that actually exist on the homepage are
+  // reached by the one orange Save. Record/header/card runtimes are contextual:
+  // they only exist on pages/sheets that expose those editors and are exercised
+  // later in this same test on the repertoire page. Treating them as mandatory
+  // at homepage boot produced a false red verdict before their context existed.
   const coverage=await page.evaluate(async()=>{
-    const required=['KPCanvaLayoutRuntime','KPCanvaImageRuntime','KPAIEditorRuntime','KPRecordDraftRuntime','KPHeaderImageDraftRuntime','KPNavigationDraftRuntime','KPSocialDraftRuntime'];
-    const optional=['KPCardDraftRuntime'];
+    const required=['KPCanvaLayoutRuntime','KPCanvaImageRuntime','KPAIEditorRuntime','KPNavigationDraftRuntime','KPSocialDraftRuntime'];
+    const optional=['KPRecordDraftRuntime','KPHeaderImageDraftRuntime','KPCardDraftRuntime'];
     const counts={},present={};
     for(const name of [...required,...optional]){
       const runtime=window[name];present[name]=!!runtime?.flush;counts[name]=0;
