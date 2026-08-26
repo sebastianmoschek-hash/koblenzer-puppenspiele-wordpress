@@ -249,6 +249,23 @@
     if (free?.flush && free !== generic) await free.flush();
   }
 
+  function canUsePureFrontendFastPath() {
+    if (!frontendDirty || typeof window.KPFrontendEditorNativeSave !== 'function') return false;
+    const registry = window.KPOwnerSaveRegistry;
+    if (!registry || typeof registry.isDirty !== 'function') return false;
+    try {
+      return registry.isDirty() === false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function beginUnifiedHistoryGroup() {
+    try {
+      window.KPUnifiedSaveCoverage?.beginGroup?.();
+    } catch (_) {}
+  }
+
   window.addEventListener('click', async event => {
     if (interceptMenuTap(event)) return;
 
@@ -277,10 +294,20 @@
     saveButton.innerHTML = '<span class="dashicons dashicons-update"></span><span>Alles sichern…</span>';
 
     try {
-      await withTimeout(
-        flushTouchDrafts(),
-        'Das vorbereitende Speichern dauert ungewöhnlich lange. Bitte erneut versuchen.'
-      );
+      // Pure FE2 text/content edits do not need the specialist owner/design/
+      // touch registry. Keep this optimization inside the one authoritative
+      // Save capture listener so registration order cannot create two competing
+      // owners. Start the normal unified history group explicitly because the
+      // document-level coverage listener is intentionally stopped here.
+      const pureFrontendFastPath = canUsePureFrontendFastPath();
+      if (pureFrontendFastPath) {
+        beginUnifiedHistoryGroup();
+      } else {
+        await withTimeout(
+          flushTouchDrafts(),
+          'Das vorbereitende Speichern dauert ungewöhnlich lange. Bitte erneut versuchen.'
+        );
+      }
 
       // Owner/design/size/menu/touch-only edits are already durably persisted by
       // the unified registry. Reload directly when FE2 page content is untouched.
