@@ -8,19 +8,19 @@ permissions:
   statuses: read
 
 concurrency:
-  # Every terminal verdict can wake this workflow. Keep only the newest wake-up
-  # for a source SHA; the surviving run waits until all five verdicts are terminal.
+  # Exactly one verdict context below wakes the handoff for a source SHA. Do not
+  # cancel a run while it is waiting for the other verdicts: simultaneous final
+  # CircleCI status updates used to race and could cancel every handoff attempt.
   group: circleci-staging-report-handoff-${{ github.event.sha }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   publish:
-    # serial-end-2 belongs to CircleCI's serial group and fires BEFORE the parallel
-    # verdict jobs. Trigger from the verdict statuses themselves instead.
+    # Use one deterministic terminal verdict as the wake-up. It does not need to
+    # be the last verdict because the first step waits until all five are terminal.
     if: >-
       ${{
-        contains(github.event.context, 'staging-') &&
-        contains(github.event.context, '-verdict') &&
+        github.event.context == 'ci/circleci: staging-visual-verdict' &&
         (github.event.state == 'success' || github.event.state == 'failure' || github.event.state == 'error')
       }}
     runs-on: ubuntu-latest
