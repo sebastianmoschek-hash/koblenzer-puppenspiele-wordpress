@@ -34,7 +34,45 @@ const groups = {
   visual: ['visual50Views'],
 };
 
+const localLogsByGroup = {
+  infra: ['deploy.log', 'pipeline.log'],
+  editor: ['editor.log', 'session-undo.log'],
+  'editor-browser': ['editor.log'],
+  'session-undo': ['session-undo.log'],
+  persistence: ['persistence.log', 'text-save-staging.log'],
+  'persistence-browser': ['persistence.log'],
+  'text-save': ['text-save-staging.log'],
+  touch: ['touch-slider.log', 'touch-runtime.log'],
+  visual: ['visual.log'],
+  overall: [
+    'pipeline.log', 'editor.log', 'session-undo.log', 'persistence.log',
+    'text-save-staging.log', 'touch-slider.log', 'touch-runtime.log', 'visual.log',
+  ],
+};
+
+function printLocalDiagnostics() {
+  const root = 'qa-results/circleci';
+  const names = localLogsByGroup[group] || localLogsByGroup.overall;
+  let printed = false;
+  for (const name of names) {
+    const file = `${root}/${name}`;
+    if (!fs.existsSync(file)) continue;
+    const text = fs.readFileSync(file, 'utf8').trim();
+    if (!text) continue;
+    const maxChars = 20000;
+    const tail = text.length > maxChars ? text.slice(-maxChars) : text;
+    console.error(`\n===== local ${name} =====\n${tail}`);
+    printed = true;
+  }
+  return printed;
+}
+
 async function printExactRemoteDiagnostics() {
+  // The parent staging job now persists its full qa-results/circleci directory
+  // into the workspace. Prefer those exact same-run logs so verdict diagnosis
+  // does not depend on GitHub Actions, FTP timing, DNS or a report-publication PAT.
+  if (printLocalDiagnostics()) return;
+
   const commit = String(report.commit || '').trim();
   const staging = String(report.staging || 'https://neu.koblenzer-puppenspiele.de').trim();
   if (!commit || !/^https:\/\//i.test(staging)) return;
