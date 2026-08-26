@@ -166,12 +166,32 @@
     owner.design = {...(json.data?.settings || settings)};
   }
 
+  function ownerDraftsDirty() {
+    const registry = window.KPOwnerSaveRegistry;
+    if (registry?.isDirty) {
+      try { return !!registry.isDirty(); } catch (_) { return true; }
+    }
+    const runtimes = [
+      window.KPOwnerResponsiveRuntime,
+      window.KPOwnerMenuXRuntime,
+      window.KPImagePositionRuntime,
+      window.KPTouchGestureRuntime,
+      window.KPFreeLayoutRuntime,
+    ];
+    for (const runtime of runtimes) {
+      try { if (runtime?.isDirty?.()) return true; } catch (_) { return true; }
+    }
+    return !!collectOwnerDesignDraft();
+  }
+
   async function flushAllOwnerDraftsBeforeMainSave() {
+    if (!ownerDraftsDirty()) return;
     if (ownerFlushInFlight) return ownerFlushInFlight;
     ownerFlushInFlight = (async () => {
       // The FE2 AJAX request is the one path every orange Save ultimately uses.
-      // Flush all specialist owner drafts here so persistence never depends on
-      // which click/capture bridge happened to win on a particular device.
+      // Flush specialist owner drafts only when one is actually dirty. Pure
+      // inline text/content saves must not pay for unrelated touch/design AJAX
+      // rounds; the authoritative Save controller already owns that distinction.
       const registry = window.KPOwnerSaveRegistry;
       if (registry?.flushAll) await registry.flushAll();
       else await flushOwnerDesignBeforeMainSave();
