@@ -12,14 +12,19 @@ permissions:
   contents: write
   statuses: read
 
+# CircleCI emits one status event per granular verdict. Keeping every waiter
+# alive serialized seven 10+ minute jobs for the same SHA, so the useful final
+# handoff could sit behind stale waiters for hours. The newest event has at least
+# as much status information as the older one, so cancel the older waiter and let
+# only the latest event wait for the complete verdict set.
 concurrency:
   group: circleci-staging-report-handoff-${{ github.event.sha || github.sha }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Select deterministic staging verdict or main push
         id: gate
@@ -83,7 +88,7 @@ jobs:
           )
 
           all_terminal=false
-          for attempt in $(seq 1 120); do
+          for attempt in $(seq 1 180); do
             statuses="$(gh api "repos/$REPO/commits/$EXPECTED_SHA/statuses?per_page=100")"
             all_terminal=true
             for context in "${expected[@]}"; do
