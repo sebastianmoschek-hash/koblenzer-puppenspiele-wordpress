@@ -39,7 +39,25 @@ add_action( 'wp_head', static function () {
       function patchedAdd(type,listener,options){
         if(type==='click'&&typeof listener==='function'&&this instanceof Element&&this.matches('.kp-fe2-save')&&looksLikeFe2Save(listener)){
           const target=this,nativeListener=listener;
-          window.KPFrontendEditorNativeSave=()=>nativeListener.call(target);
+          window.KPFrontendEditorNativeSave=async()=>{
+            // The authoritative orange-Save controller has already decided
+            // whether specialist owner/design/touch drafts need flushing before
+            // it calls this native FE2 save. During the FE2 AJAX itself, older
+            // compatibility wrappers must not run that expensive flush a second
+            // time. Temporarily report the owner registry as clean only for this
+            // native save call; any real owner drafts were either already flushed
+            // or the controller would not have reached this function yet.
+            const registry=window.KPOwnerSaveRegistry;
+            const nativeDirty=registry&&typeof registry.isDirty==='function'?registry.isDirty:null;
+            window.KPFrontendPureSaveInFlight=true;
+            if(registry&&nativeDirty)registry.isDirty=()=>false;
+            try{
+              return await nativeListener.call(target);
+            }finally{
+              if(registry&&nativeDirty)registry.isDirty=nativeDirty;
+              window.KPFrontendPureSaveInFlight=false;
+            }
+          };
           restore();
         }
         return nativeAdd.call(this,type,listener,options);
