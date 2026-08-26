@@ -125,10 +125,23 @@
     return `save-${Date.now().toString(36)}-${random}`.toLowerCase();
   }
 
+  function unifiedHistoryGroup(){
+    try {
+      const group=window.KPUnifiedSaveCoverage?.ensureGroup?.();
+      return typeof group==='string'&&group ? group : makeHistoryGroup();
+    } catch (_) {
+      return makeHistoryGroup();
+    }
+  }
+
   async function flushAll() {
     if(flushing)return flushing;
     flushing=(async()=>{
-      activeHistoryGroup=makeHistoryGroup();
+      // The late unified-save coverage owns the complete orange-Save gesture.
+      // Reuse its transaction id when available instead of creating a second
+      // group for the base design/size/menu requests. Otherwise one visible tap
+      // becomes two durable 48-hour checkpoints (base + specialist runtimes).
+      activeHistoryGroup=unifiedHistoryGroup();
       try{
         await flushDesign();
         if(window.KPOwnerResponsiveRuntime?.flush)await window.KPOwnerResponsiveRuntime.flush();
