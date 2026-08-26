@@ -15,7 +15,7 @@ add_action( 'wp_footer', static function () {
     (()=>{
       'use strict';
       const ACTION_RE=/^kp_(owner_(design|sizes|menu_x|nav|social_menu)_save|fe_v2_save|touch_(free_layout|gesture)_save|image_position_save|canva_image_save|frontend_card_(image|button)_save|fe_v2_record_save|ai_.*_save)$/;
-      let saveGroup='',groupTimer=0,contextSaving=false;
+      let saveGroup='',groupTimer=0,contextSaving=false,registryFlushing=false;
       const makeGroup=()=>`save-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
       function beginGroup(){clearTimeout(groupTimer);saveGroup=makeGroup();groupTimer=setTimeout(()=>{saveGroup=''},12000);return saveGroup}
       function ensureGroup(){return saveGroup||beginGroup()}
@@ -46,17 +46,30 @@ add_action( 'wp_footer', static function () {
         if(!registry||registry.__kpUnifiedCoverage)return false;
         const baseFlush=registry.flushAll?.bind(registry),baseDirty=registry.isDirty?.bind(registry);
         registry.flushAll=async()=>{
-          ensureGroup();
-          const result=baseFlush?await baseFlush():{success:true};
-          if(window.KPCanvaLayoutRuntime?.flush)await window.KPCanvaLayoutRuntime.flush();
-          if(window.KPCanvaImageRuntime?.flush)await window.KPCanvaImageRuntime.flush();
-          if(window.KPNavigationDraftRuntime?.flush)await window.KPNavigationDraftRuntime.flush();
-          if(window.KPSocialDraftRuntime?.flush)await window.KPSocialDraftRuntime.flush();
-          if(window.KPCardDraftRuntime?.flush)await window.KPCardDraftRuntime.flush();
-          if(window.KPRecordDraftRuntime?.flush)await window.KPRecordDraftRuntime.flush();
-          if(window.KPHeaderImageDraftRuntime?.flush)await window.KPHeaderImageDraftRuntime.flush();
-          if(window.KPAIEditorRuntime?.flush)await window.KPAIEditorRuntime.flush();
-          return result||{success:true};
+          // A direct tap on the main orange Save is intercepted in capture phase
+          // before our document click listener can see it. Therefore the public
+          // registry is the reliable transaction boundary: every top-level Save
+          // gets a new history group, while nested/forwarded flushes reuse the
+          // already-open group. Without this, two saves within 12 seconds were
+          // collapsed into one 48-hour checkpoint.
+          if(!registryFlushing){
+            if(contextSaving)ensureGroup();else beginGroup();
+          }
+          registryFlushing=true;
+          try{
+            const result=baseFlush?await baseFlush():{success:true};
+            if(window.KPCanvaLayoutRuntime?.flush)await window.KPCanvaLayoutRuntime.flush();
+            if(window.KPCanvaImageRuntime?.flush)await window.KPCanvaImageRuntime.flush();
+            if(window.KPNavigationDraftRuntime?.flush)await window.KPNavigationDraftRuntime.flush();
+            if(window.KPSocialDraftRuntime?.flush)await window.KPSocialDraftRuntime.flush();
+            if(window.KPCardDraftRuntime?.flush)await window.KPCardDraftRuntime.flush();
+            if(window.KPRecordDraftRuntime?.flush)await window.KPRecordDraftRuntime.flush();
+            if(window.KPHeaderImageDraftRuntime?.flush)await window.KPHeaderImageDraftRuntime.flush();
+            if(window.KPAIEditorRuntime?.flush)await window.KPAIEditorRuntime.flush();
+            return result||{success:true};
+          } finally {
+            registryFlushing=false;
+          }
         };
         registry.isDirty=()=>!!baseDirty?.()||!!window.KPCanvaLayoutRuntime?.isDirty?.()||!!window.KPCanvaImageRuntime?.isDirty?.()||!!window.KPNavigationDraftRuntime?.isDirty?.()||!!window.KPSocialDraftRuntime?.isDirty?.()||!!window.KPCardDraftRuntime?.isDirty?.()||!!window.KPRecordDraftRuntime?.isDirty?.()||!!window.KPHeaderImageDraftRuntime?.isDirty?.()||!!window.KPAIEditorRuntime?.isDirty?.();
         registry.__kpUnifiedCoverage=true;
