@@ -15,6 +15,13 @@ try{
   await page.goto(`${base}/?kp_e2e_login=${encodeURIComponent(token)}`,{waitUntil:'domcontentloaded',timeout:30000});
   await page.waitForSelector('.kp-fe2-save',{timeout:15000});
   await page.waitForFunction(()=>!!window.KPOwnerSaveRegistry&&!!window.KPWordHistory&&!!window.KPCanvaLayoutRuntime&&!!window.KPAIEditorRuntime,{timeout:15000});
+  // Several specialist runtimes are installed by late compatibility bridges.
+  // Do not judge unified-Save coverage during that short startup window: wait
+  // until every runtime that the contract requires is actually ready to flush.
+  await page.waitForFunction(()=>{
+    const required=['KPCanvaLayoutRuntime','KPCanvaImageRuntime','KPAIEditorRuntime','KPRecordDraftRuntime','KPHeaderImageDraftRuntime','KPNavigationDraftRuntime','KPSocialDraftRuntime'];
+    return required.every(name=>typeof window[name]?.flush==='function');
+  },{timeout:15000});
 
   // Every loaded specialist must be reached by the one orange Save. A clean
   // page means these flush calls are no-ops and do not mutate staging.
