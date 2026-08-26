@@ -212,7 +212,7 @@ jobs:
       - persist_to_workspace:
           root: .
           paths:
-            - qa-results/circleci/report.json
+            - qa-results/circleci
       - store_artifacts:
           path: qa-results/circleci
           destination: circleci-lab-report
