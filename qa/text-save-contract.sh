@@ -26,7 +26,7 @@ fi
 
 contains "$BRIDGE" 'KPFrontendEditorNativeSave' 'native FE2 Save handler is not exposed for direct invocation'
 contains "$BRIDGE" 'EventTarget.prototype.addEventListener=nativeAdd' 'temporary listener capture is not restored immediately'
-contains "$TOUCH" 'SAVE_TIMEOUT_MS = 12000' 'text Save lacks a finite watchdog'
+contains "$TOUCH" 'SAVE_TIMEOUT_MS = 13500' 'text Save watchdog is not aligned with the 14.5 s staging SLA'
 contains "$TOUCH" "requestAction(init?.body) !== 'kp_fe_v2_save'" 'FE2 text request is not protected by the watchdog'
 contains "$TOUCH" 'const nativeSave = window.KPFrontendEditorNativeSave' 'text Save still relies on a synthetic DOM replay instead of the native handler'
 contains "$TOUCH" 'await withTimeout(' 'unified/text Save can still wait forever'
