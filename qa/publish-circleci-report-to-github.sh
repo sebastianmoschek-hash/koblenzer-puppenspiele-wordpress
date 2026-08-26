@@ -63,9 +63,9 @@ if [[ "$mode" != 'pwa' ]]; then
   fi
 fi
 
-# Build the handoff before checking for a GitHub PAT. The Staging copy is the
+# Build the handoff before checking GitHub credentials. The Staging copy is the
 # source used by the repository's status-event handoff workflow and therefore
-# must stay current even when GITHUB_REPORT_TOKEN is unavailable or races main.
+# must stay current even when GitHub publication races main.
 cp "$REPORT_JSON" /tmp/kp-circleci-report.json
 cp "$REPORT_MD" /tmp/kp-circleci-report.md
 
@@ -99,20 +99,19 @@ else
   echo 'WARN: staging report handoff skipped because staging FTP credentials are unavailable in this step.'
 fi
 
-if [[ -z "${GITHUB_REPORT_TOKEN:-}" ]]; then
-  echo 'GITHUB_REPORT_TOKEN is not configured; complete report remains available via the staging handoff and CircleCI artifacts.'
-  exit 0
-fi
-
-# Publishing diagnostics is useful, but it must never turn the staging runner
-# red or prevent the component verdict jobs from consuming report.json. A report
-# push can legitimately race another [skip ci] report commit on main. Keep the
-# local report authoritative for this workflow and treat GitHub publication as
-# best-effort.
+# Prefer the dedicated report PAT when configured. If it is missing, keep the
+# checkout remote and try its existing CircleCI/GitHub credentials instead of
+# giving up immediately. Some projects have a write-capable checkout key but no
+# separate report token. Publication remains best-effort either way.
 set +e
 git config user.name 'kp-circleci-report-bot'
 git config user.email 'circleci-report@users.noreply.github.com'
-git remote set-url origin "https://x-access-token:${GITHUB_REPORT_TOKEN}@github.com/${REPO}.git"
+if [[ -n "${GITHUB_REPORT_TOKEN:-}" ]]; then
+  git remote set-url origin "https://x-access-token:${GITHUB_REPORT_TOKEN}@github.com/${REPO}.git"
+else
+  echo 'GITHUB_REPORT_TOKEN is not configured; attempting report publication with existing checkout credentials.'
+fi
+
 git fetch origin main --quiet
 publish_rc=$?
 if [[ $publish_rc -eq 0 ]]; then
