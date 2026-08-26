@@ -4,7 +4,11 @@
   const editor = window.KPFrontendEditorV2;
   if (!editor?.editMode) return;
 
-  const SAVE_TIMEOUT_MS = 12000;
+  // The real-save staging contract accepts the complete Save -> reload roundtrip
+  // up to 14.5 s. Keep the native FE2 request watchdog below that ceiling, but
+  // leave enough headroom for a healthy staging request that takes >12 s plus
+  // FE2's 500 ms post-save reload delay.
+  const SAVE_TIMEOUT_MS = 13500;
   let replayingMainSave = false;
   let waitingForMainSave = false;
   let frontendDirty = false;
