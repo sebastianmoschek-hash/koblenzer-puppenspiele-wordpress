@@ -2,35 +2,51 @@ name: CircleCI staging report handoff
 
 on:
   status:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'qa-results/**'
 
 permissions:
   contents: write
   statuses: read
 
 concurrency:
-  group: circleci-staging-report-handoff-${{ github.event.sha }}
+  group: circleci-staging-report-handoff-${{ github.event.sha || github.sha }}
   cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
-      - name: Select the deterministic staging verdict event
+      - name: Select deterministic staging verdict or main push
         id: gate
         env:
+          EVENT_NAME: ${{ github.event_name }}
           STATUS_CONTEXT: ${{ github.event.context }}
           STATUS_STATE: ${{ github.event.state }}
+          STATUS_SHA: ${{ github.event.sha }}
+          PUSH_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           eligible=false
-          if [[ "$STATUS_CONTEXT" == 'ci/circleci: staging-visual-verdict' ]]; then
+          expected_sha=''
+          if [[ "$EVENT_NAME" == 'push' ]]; then
+            eligible=true
+            expected_sha="$PUSH_SHA"
+          elif [[ "$EVENT_NAME" == 'status' && "$STATUS_CONTEXT" == 'ci/circleci: staging-visual-verdict' ]]; then
             case "$STATUS_STATE" in
-              success|failure|error) eligible=true ;;
+              success|failure|error)
+                eligible=true
+                expected_sha="$STATUS_SHA"
+                ;;
             esac
           fi
           echo "eligible=$eligible" >> "$GITHUB_OUTPUT"
-          echo "status context=$STATUS_CONTEXT state=$STATUS_STATE eligible=$eligible"
+          echo "expected_sha=$expected_sha" >> "$GITHUB_OUTPUT"
+          echo "event=$EVENT_NAME context=$STATUS_CONTEXT state=$STATUS_STATE expected=$expected_sha eligible=$eligible"
 
       - uses: actions/checkout@v4
         if: steps.gate.outputs.eligible == 'true'
@@ -42,7 +58,7 @@ jobs:
         if: steps.gate.outputs.eligible == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          EXPECTED_SHA: ${{ github.event.sha }}
+          EXPECTED_SHA: ${{ steps.gate.outputs.expected_sha }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -55,7 +71,7 @@ jobs:
           )
 
           all_terminal=false
-          for attempt in $(seq 1 30); do
+          for attempt in $(seq 1 120); do
             statuses="$(gh api "repos/$REPO/commits/$EXPECTED_SHA/statuses?per_page=100")"
             all_terminal=true
             for context in "${expected[@]}"; do
@@ -80,14 +96,14 @@ jobs:
       - name: Fetch exact staging-lab handoff
         if: steps.gate.outputs.eligible == 'true'
         env:
-          EXPECTED_SHA: ${{ github.event.sha }}
+          EXPECTED_SHA: ${{ steps.gate.outputs.expected_sha }}
         run: |
           set -euo pipefail
           base='https://neu.koblenzer-puppenspiele.de/wp-content/uploads/kp-homepage-lab/latest'
           mkdir -p /tmp/kp-circleci-handoff qa-results
 
           found=false
-          for attempt in $(seq 1 24); do
+          for attempt in $(seq 1 60); do
             if curl --fail --silent --show-error --location --max-time 20 \
                 "$base/report.json?handoff=${EXPECTED_SHA}-${attempt}" -o /tmp/kp-circleci-handoff/report.json; then
               actual="$(jq -r '.commit // empty' /tmp/kp-circleci-handoff/report.json 2>/dev/null || true)"
@@ -120,7 +136,7 @@ jobs:
       - name: Publish report without triggering another CI round
         if: steps.gate.outputs.eligible == 'true'
         env:
-          EXPECTED_SHA: ${{ github.event.sha }}
+          EXPECTED_SHA: ${{ steps.gate.outputs.expected_sha }}
         run: |
           set -euo pipefail
           git config user.name 'kp-staging-report-handoff'
