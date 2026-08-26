@@ -240,8 +240,18 @@ jobs:
       - attach_workspace:
           at: .
       - run:
-          name: Mobile tablet desktop editor verdict
-          command: node qa/staging-verdict-check.mjs editor
+          name: Mobile tablet desktop editor browser verdict
+          command: node qa/staging-verdict-check.mjs editor-browser
+
+  staging-session-undo-verdict:
+    executor: editor-contract
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Session Undo Redo verdict
+          command: node qa/staging-verdict-check.mjs session-undo
 
   staging-persistence-verdict:
     executor: editor-contract
@@ -250,8 +260,18 @@ jobs:
       - attach_workspace:
           at: .
       - run:
-          name: Save reload DB Undo 48h and text-save verdict
-          command: node qa/staging-verdict-check.mjs persistence
+          name: Save reload DB Undo 48h persistence verdict
+          command: node qa/staging-verdict-check.mjs persistence-browser
+
+  staging-text-save-verdict:
+    executor: editor-contract
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Isolated real text Save Reload DB verdict
+          command: node qa/staging-verdict-check.mjs text-save
 
   staging-touch-verdict:
     executor: editor-contract
@@ -311,7 +331,19 @@ workflows:
           filters:
             branches:
               only: main
+      - staging-session-undo-verdict:
+          requires:
+            - homepage-staging-lab
+          filters:
+            branches:
+              only: main
       - staging-persistence-verdict:
+          requires:
+            - homepage-staging-lab
+          filters:
+            branches:
+              only: main
+      - staging-text-save-verdict:
           requires:
             - homepage-staging-lab
           filters:
