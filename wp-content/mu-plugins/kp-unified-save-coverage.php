@@ -142,7 +142,8 @@ add_action( 'wp_footer', static function () {
         // then forwards to the main Save button. The replayed native main Save
         // must also retain that same transaction instead of opening another one.
         if(t.closest('.kp-oa-design-save,.kp-oa-size-save'))return;
-        if(t.closest('.kp-fe2-save')&&(contextSaving||mainSaving||replayMainSave)){ensureGroup();return;}
+        if(t.closest('.kp-fe2-save')&&contextSaving){ensureGroup();return;}
+        if(t.closest('.kp-fe2-save')&&(mainSaving||replayMainSave)){ensureGroup();return;}
         if(t.closest('.kp-fe2-save,.kp-fe2-record-main-save'))beginGroup();
       },true);
 
