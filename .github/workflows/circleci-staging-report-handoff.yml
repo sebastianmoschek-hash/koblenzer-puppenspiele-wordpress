@@ -36,11 +36,21 @@ jobs:
           if [[ "$EVENT_NAME" == 'push' ]]; then
             eligible=true
             expected_sha="$PUSH_SHA"
-          elif [[ "$EVENT_NAME" == 'status' && "$STATUS_CONTEXT" == 'ci/circleci: staging-visual-verdict' ]]; then
-            case "$STATUS_STATE" in
-              success|failure|error)
-                eligible=true
-                expected_sha="$STATUS_SHA"
+          elif [[ "$EVENT_NAME" == 'status' ]]; then
+            case "$STATUS_CONTEXT" in
+              'ci/circleci: staging-infra-verdict'|\
+              'ci/circleci: staging-editor-verdict'|\
+              'ci/circleci: staging-session-undo-verdict'|\
+              'ci/circleci: staging-persistence-verdict'|\
+              'ci/circleci: staging-text-save-verdict'|\
+              'ci/circleci: staging-touch-verdict'|\
+              'ci/circleci: staging-visual-verdict')
+                case "$STATUS_STATE" in
+                  success|failure|error)
+                    eligible=true
+                    expected_sha="$STATUS_SHA"
+                    ;;
+                esac
                 ;;
             esac
           fi
@@ -65,7 +75,9 @@ jobs:
           expected=(
             'ci/circleci: staging-infra-verdict'
             'ci/circleci: staging-editor-verdict'
+            'ci/circleci: staging-session-undo-verdict'
             'ci/circleci: staging-persistence-verdict'
+            'ci/circleci: staging-text-save-verdict'
             'ci/circleci: staging-touch-verdict'
             'ci/circleci: staging-visual-verdict'
           )
