@@ -34,12 +34,51 @@ const groups = {
   visual: ['visual50Views'],
 };
 
+async function printExactRemoteDiagnostics() {
+  const commit = String(report.commit || '').trim();
+  const staging = String(report.staging || 'https://neu.koblenzer-puppenspiele.de').trim();
+  if (!commit || !/^https:\/\//i.test(staging)) return;
+  try {
+    const origin = new URL(staging).origin;
+    const base = `${origin}/wp-content/uploads/kp-homepage-lab/latest`;
+    const cacheBust = encodeURIComponent(`${commit}-${group}-${Date.now()}`);
+    const remoteReportResponse = await fetch(`${base}/report.json?verdict=${cacheBust}`, {
+      signal: AbortSignal.timeout(15000),
+      headers: { 'cache-control': 'no-cache' },
+    });
+    if (!remoteReportResponse.ok) {
+      console.error(`Remote staging diagnostics unavailable: report HTTP ${remoteReportResponse.status}.`);
+      return;
+    }
+    const remoteReport = await remoteReportResponse.json();
+    if (String(remoteReport.commit || '') !== commit) {
+      console.error(`Remote staging diagnostics are stale: expected ${commit}, got ${remoteReport.commit || 'missing'}.`);
+      return;
+    }
+    const diagnosticsResponse = await fetch(`${base}/diagnostics.txt?verdict=${cacheBust}`, {
+      signal: AbortSignal.timeout(15000),
+      headers: { 'cache-control': 'no-cache' },
+    });
+    if (!diagnosticsResponse.ok) {
+      console.error(`Remote staging diagnostics unavailable: diagnostics HTTP ${diagnosticsResponse.status}.`);
+      return;
+    }
+    const diagnostics = await diagnosticsResponse.text();
+    const maxChars = 40000;
+    const tail = diagnostics.length > maxChars ? diagnostics.slice(-maxChars) : diagnostics;
+    console.error(`\n===== exact staging diagnostics for ${commit} =====\n${tail}`);
+  } catch (error) {
+    console.error(`Could not fetch exact staging diagnostics: ${error?.message || error}`);
+  }
+}
+
 if (group === 'overall') {
   if (report.success === true) {
     console.log(`PASS overall staging verdict for ${report.commit || 'unknown commit'}.`);
     process.exit(0);
   }
   console.error(`FAIL overall staging verdict: ${JSON.stringify(checks)}`);
+  await printExactRemoteDiagnostics();
   process.exit(1);
 }
 
@@ -52,6 +91,7 @@ if (!names) {
 const failed = names.filter((name) => !expect(name));
 if (failed.length) {
   console.error(`FAIL ${group}: ${failed.map((name) => `${name}=${checks[name] ?? 'missing'}`).join(', ')}`);
+  await printExactRemoteDiagnostics();
   process.exit(1);
 }
 
