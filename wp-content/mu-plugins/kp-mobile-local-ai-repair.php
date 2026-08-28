@@ -343,3 +343,51 @@ add_action( 'wp_ajax_kp_local_ai_repair_create_pr', static function () {
         wp_send_json_error( array( 'message' => $e->getMessage() ), 500 );
     }
 } );
+
+/** Return only bounded, redacted CI diagnostics for a local-AI repair PR. */
+add_action( 'wp_ajax_kp_local_ai_repair_ci_diagnostics', static function () {
+    kp_local_ai_repair_guard();
+    $pr_number = isset( $_POST['pr'] ) ? absint( $_POST['pr'] ) : 0;
+    if ( ! $pr_number ) { wp_send_json_error( array( 'message' => 'Reparatur-PR fehlt.' ), 400 ); }
+    try {
+        $pr = kp_ai_repair_gh( 'GET', '/pulls/' . $pr_number, null, array( 200 ) );
+        $data = (array) $pr['data'];
+        $head_ref = (string) ( $data['head']['ref'] ?? '' );
+        $sha = (string) ( $data['head']['sha'] ?? '' );
+        if ( ! defined( 'KP_AI_REPAIR_BASE' ) || KP_AI_REPAIR_BASE !== ( $data['base']['ref'] ?? '' ) || ! str_starts_with( $head_ref, 'ai-repair/local-' ) ) {
+            throw new RuntimeException( 'Dieser Pull Request gehört nicht zur lokalen App-Reparatur.' );
+        }
+        if ( ! preg_match( '/^[a-f0-9]{40}$/', $sha ) ) { throw new RuntimeException( 'Commit der Reparatur konnte nicht bestimmt werden.' ); }
+
+        $health = function_exists( 'kp_ai_repair_health_for_sha' )
+            ? kp_ai_repair_health_for_sha( $sha )
+            : array( 'health' => 'pending', 'checks' => array() );
+        $comments = kp_ai_repair_gh( 'GET', '/commits/' . $sha . '/comments?per_page=100', null, array( 200 ) );
+        $diagnostics = '';
+        foreach ( array_reverse( (array) ( $comments['data'] ?? array() ) as $comment ) {
+            $body = is_array( $comment ) ? (string) ( $comment['body'] ?? '' ) : '';
+            if ( str_contains( $body, '<!-- kp-local-ai-ci-diagnostics -->' ) ) {
+                $diagnostics = str_replace( '<!-- kp-local-ai-ci-diagnostics -->', '', $body );
+                break;
+            }
+        }
+        if ( '' === trim( $diagnostics ) ) {
+            $lines = array();
+            foreach ( (array) ( $health['checks'] ?? array() ) as $check ) {
+                if ( ! is_array( $check ) ) { continue; }
+                $lines[] = sanitize_text_field( (string) ( $check['name'] ?? 'CI' ) ) . ': ' . sanitize_text_field( (string) ( $check['state'] ?? 'unknown' ) );
+            }
+            $diagnostics = $lines ? implode( "\n", $lines ) : 'CI-Diagnose ist noch nicht verfügbar.';
+        }
+        $diagnostics = preg_replace( '/(?:AIza|gh[pousr]_|github_pat_)[A-Za-z0-9_\-]{12,}/', '[REDACTED]', (string) $diagnostics );
+        $diagnostics = preg_replace( '/Authorization\s*:\s*Bearer\s+\S+/i', 'Authorization: Bearer ***', (string) $diagnostics );
+        wp_send_json_success( array(
+            'health'      => (string) ( $health['health'] ?? 'pending' ),
+            'sha'         => $sha,
+            'diagnostics' => mb_substr( wp_strip_all_tags( $diagnostics ), 0, 14000 ),
+            'local_ai'    => true,
+        ) );
+    } catch ( Throwable $e ) {
+        wp_send_json_error( array( 'message' => $e->getMessage() ), 500 );
+    }
+} );
