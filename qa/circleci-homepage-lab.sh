@@ -4,6 +4,7 @@ set -uo pipefail
 STAGING_BASE="${STAGING_BASE:-https://neu.koblenzer-puppenspiele.de}"
 PLUGIN='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
 THEME='wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
+MU_PLUGINS='wp-content/mu-plugins'
 ASSETS="$PLUGIN/assets"
 REPORT_DIR='qa-results/circleci'
 EDITOR_DIR='qa-artifacts/homepage-lab'
@@ -80,7 +81,7 @@ if [[ "$MODE" == 'qa' ]]; then
   log 'QA-only mode: website code unchanged; reusing the current staging deployment.'
   echo 'QA-only: no plugin/theme/MU code changed, so no website deploy was required.' > "$REPORT_DIR/deploy.log"
   status_deploy=success
-elif ftp_cmd "mirror -R --verbose --transfer-all --no-perms --parallel=2 '$PLUGIN' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'; mirror -R --verbose --transfer-all --no-perms --parallel=2 '$THEME' '/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'" > "$REPORT_DIR/deploy.log" 2>&1; then
+elif ftp_cmd "mirror -R --verbose --transfer-all --no-perms --parallel=2 '$PLUGIN' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'; mirror -R --verbose --transfer-all --no-perms --parallel=2 '$THEME' '/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'; mirror -R --verbose --transfer-all --no-perms --parallel=2 '$MU_PLUGINS' '/wp-content/mu-plugins'" > "$REPORT_DIR/deploy.log" 2>&1; then
   status_deploy=success
 else
   status_deploy=failure
