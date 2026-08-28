@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "750255344246",
+    "project_id": "kp-homepage-hilfe",
+    "storage_bucket": "kp-homepage-hilfe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:750255344246:android:33b8881bcc6481c85b6d57",
+        "android_client_info": {
+          "package_name": "de.koblenzerpuppenspiele.techniker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCC63kpQVuS_qtmtRqf7MZWm4KayStLgjQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

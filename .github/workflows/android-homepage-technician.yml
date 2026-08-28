@@ -23,6 +23,8 @@ jobs:
   android-contract-and-build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      FIREBASE_GOOGLE_SERVICES_JSON_B64: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_B64 }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 17
@@ -38,8 +40,25 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.5.0'
+      - name: Inject Firebase Android configuration when available
+        shell: bash
+        run: |
+          target='android/homepage-technician/app/google-services.json'
+          if [[ -n "${FIREBASE_GOOGLE_SERVICES_JSON_B64:-}" ]]; then
+            printf '%s' "$FIREBASE_GOOGLE_SERVICES_JSON_B64" | base64 --decode > "$target"
+            echo 'Firebase configuration injected for test APK.'
+          else
+            echo 'No Firebase configuration secret present; building offline-safe APK shell.'
+          fi
       - name: Mobile live security contract
         run: bash qa/mobile-live-contract.sh
-      - name: Compile debug APK without production secrets
+      - name: Compile debug APK
         working-directory: android/homepage-technician
         run: gradle --no-daemon :app:assembleDebug
+      - name: Upload installable debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: homepage-hilfe-debug-apk
+          path: android/homepage-technician/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

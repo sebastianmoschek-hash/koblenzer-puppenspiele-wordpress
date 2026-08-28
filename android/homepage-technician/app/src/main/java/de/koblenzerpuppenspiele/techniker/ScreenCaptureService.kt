@@ -1,5 +1,6 @@
 package de.koblenzerpuppenspiele.techniker
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -17,194 +18,211 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import java.io.ByteArrayOutputStream
-import kotlin.math.min
+import android.os.SystemClock
+import java.io.File
+import java.io.FileOutputStream
+import java.util.concurrent.atomic.AtomicLong
 
-object ScreenFrameBus {
-    val jpegFrames = MutableSharedFlow<ByteArray>(
-        replay = 0,
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST,
-    )
-}
-
-/** Captures a user-approved screen/app share and emits about one JPEG frame per second. */
+/**
+ * Keeps one low-rate screenshot of the currently shared Android display.
+ *
+ * Nothing is uploaded by this service. Frames stay in the app cache and are
+ * consumed locally by LiteRT-LM when the user speaks or sends a message.
+ * Pixel conversion/JPEG work runs on a dedicated thread so screen sharing does
+ * not stall the WebView, speech callbacks or the local conversation UI.
+ */
 class ScreenCaptureService : Service() {
-    companion object {
-        const val ACTION_START = "de.koblenzerpuppenspiele.techniker.START_CAPTURE"
-        const val ACTION_STOP = "de.koblenzerpuppenspiele.techniker.STOP_CAPTURE"
-        const val EXTRA_RESULT_CODE = "result_code"
-        const val EXTRA_RESULT_DATA = "result_data"
-        private const val CHANNEL_ID = "homepage_live_share"
-        private const val NOTIFICATION_ID = 4401
-    }
-
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
-    private var reader: ImageReader? = null
-    private var thread: HandlerThread? = null
-    private var handler: Handler? = null
-    private var lastFrameAt = 0L
-    @Volatile private var stopping = false
+    private var imageReader: ImageReader? = null
+    private var captureThread: HandlerThread? = null
+    private var captureHandler: Handler? = null
+    private var lastSavedAt = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP -> stopCapture()
-            ACTION_START -> startCapture(intent)
+    override fun onCreate() {
+        super.onCreate()
+        captureThread = HandlerThread("KPLocalLiveCapture").also { thread ->
+            thread.start()
+            captureHandler = Handler(thread.looper)
         }
-        return START_NOT_STICKY
-    }
-
-    private fun startCapture(intent: Intent) {
-        if (projection != null) return
-        stopping = false
         createNotificationChannel()
-        val notification = androidx.core.app.NotificationCompat.Builder(this, CHANNEL_ID)
+        val notification = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_view)
-            .setContentTitle("Homepage-Hilfe ist live")
-            .setContentText("Bildschirmfreigabe für die KI-Fehleranalyse")
+            .setContentTitle("Homepage-Hilfe · Live lokal")
+            .setContentText("Bildschirmfreigabe läuft nur für die lokale KI")
             .setOngoing(true)
-            .setCategory(androidx.core.app.NotificationCompat.CATEGORY_SERVICE)
             .build()
-
-        if (Build.VERSION.SDK_INT >= 30) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
-            )
-        } else if (Build.VERSION.SDK_INT >= 29) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
-            )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+    }
 
-        val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
-        val resultData = if (Build.VERSION.SDK_INT >= 33) {
-            intent.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, Int.MIN_VALUE) ?: Int.MIN_VALUE
+        val resultData = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent?.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
         } else {
             @Suppress("DEPRECATION")
-            intent.getParcelableExtra(EXTRA_RESULT_DATA)
-        } ?: run {
-            stopCapture(stopProjection = false)
-            return
+            intent?.getParcelableExtra(EXTRA_RESULT_DATA) as? Intent
         }
+        if (resultCode == Int.MIN_VALUE || resultData == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        startProjection(resultCode, resultData)
+        return START_NOT_STICKY
+    }
 
+    private fun startProjection(resultCode: Int, resultData: Intent) {
+        if (projection != null) return
         val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        projection = manager.getMediaProjection(resultCode, resultData)
-        val mediaProjection = projection ?: run {
-            stopCapture(stopProjection = false)
+        val active = manager.getMediaProjection(resultCode, resultData) ?: run {
+            stopSelf()
             return
         }
-
-        thread = HandlerThread("kp-screen-capture").also { it.start() }
-        handler = Handler(thread!!.looper)
-        mediaProjection.registerCallback(object : MediaProjection.Callback() {
-            override fun onStop() = stopCapture(stopProjection = false)
-        }, handler)
+        projection = active
+        active.registerCallback(object : MediaProjection.Callback() {
+            override fun onStop() {
+                stopSelf()
+            }
+        }, Handler(mainLooper))
 
         val metrics = resources.displayMetrics
         val sourceWidth = metrics.widthPixels.coerceAtLeast(1)
         val sourceHeight = metrics.heightPixels.coerceAtLeast(1)
-        val width = min(768, sourceWidth)
-        val height = ((sourceHeight.toDouble() / sourceWidth.toDouble()) * width)
-            .toInt()
-            .coerceIn(320, 1365)
-
-        reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2).also { imageReader ->
-            imageReader.setOnImageAvailableListener({ source ->
-                val now = System.currentTimeMillis()
-                val image = source.acquireLatestImage() ?: return@setOnImageAvailableListener
+        imageReader = ImageReader.newInstance(sourceWidth, sourceHeight, PixelFormat.RGBA_8888, 2).also { reader ->
+            reader.setOnImageAvailableListener({ available ->
+                val image = available.acquireLatestImage() ?: return@setOnImageAvailableListener
                 try {
-                    if (now - lastFrameAt < 900L) return@setOnImageAvailableListener
-                    lastFrameAt = now
+                    val now = SystemClock.elapsedRealtime()
+                    if (now - lastSavedAt < FRAME_INTERVAL_MS) return@setOnImageAvailableListener
+                    lastSavedAt = now
                     val plane = image.planes.firstOrNull() ?: return@setOnImageAvailableListener
                     val pixelStride = plane.pixelStride
                     val rowStride = plane.rowStride
-                    val rowPadding = rowStride - pixelStride * width
-                    val paddedWidth = width + rowPadding / pixelStride
-                    val padded = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888)
+                    val rowPadding = (rowStride - pixelStride * sourceWidth).coerceAtLeast(0)
+                    val paddedWidth = sourceWidth + rowPadding / pixelStride.coerceAtLeast(1)
+                    val padded = Bitmap.createBitmap(paddedWidth, sourceHeight, Bitmap.Config.ARGB_8888)
                     padded.copyPixelsFromBuffer(plane.buffer)
-                    val cropped = Bitmap.createBitmap(padded, 0, 0, width, height)
-                    val output = ByteArrayOutputStream()
-                    cropped.compress(Bitmap.CompressFormat.JPEG, 76, output)
-                    ScreenFrameBus.jpegFrames.tryEmit(output.toByteArray())
+                    val cropped = Bitmap.createBitmap(padded, 0, 0, sourceWidth, sourceHeight)
+                    if (cropped !== padded) padded.recycle()
+                    saveScaledFrame(cropped)
                     cropped.recycle()
-                    padded.recycle()
+                } catch (_: Throwable) {
+                    // A missed frame is harmless; the previous local frame remains available.
                 } finally {
                     image.close()
                 }
-            }, handler)
+            }, captureHandler)
         }
 
-        virtualDisplay = mediaProjection.createVirtualDisplay(
-            "KoblenzerPuppenspieleLive",
-            width,
-            height,
+        virtualDisplay = active.createVirtualDisplay(
+            "KPLocalLiveScreen",
+            sourceWidth,
+            sourceHeight,
             metrics.densityDpi,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            reader!!.surface,
+            imageReader?.surface,
             null,
-            handler,
+            null,
         )
+        running = true
     }
 
-    @Synchronized
-    private fun stopCapture(stopProjection: Boolean = true) {
-        if (stopping) return
-        stopping = true
-
-        virtualDisplay?.release()
-        virtualDisplay = null
-        reader?.setOnImageAvailableListener(null, null)
-        reader?.close()
-        reader = null
-
-        val activeProjection = projection
-        projection = null
-        if (stopProjection) runCatching { activeProjection?.stop() }
-
-        thread?.quitSafely()
-        thread = null
-        handler = null
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+    private fun saveScaledFrame(source: Bitmap) {
+        val maxSide = maxOf(source.width, source.height)
+        val scale = if (maxSide > MAX_FRAME_SIDE) MAX_FRAME_SIDE.toFloat() / maxSide.toFloat() else 1f
+        val target = if (scale < 1f) {
+            Bitmap.createScaledBitmap(
+                source,
+                (source.width * scale).toInt().coerceAtLeast(1),
+                (source.height * scale).toInt().coerceAtLeast(1),
+                true,
+            )
+        } else source
+        val dir = File(cacheDir, "local-live-screen").apply { mkdirs() }
+        val tmp = File(dir, "latest.tmp.jpg")
+        val final = File(dir, "latest.jpg")
+        FileOutputStream(tmp).use { output ->
+            target.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
+            output.fd.sync()
+        }
+        if (final.exists()) final.delete()
+        if (!tmp.renameTo(final)) {
+            tmp.copyTo(final, overwrite = true)
+            tmp.delete()
+        }
+        latestPath = final.absolutePath
+        latestTimestamp.set(System.currentTimeMillis())
+        if (target !== source) target.recycle()
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT < 26) return
-        val manager = getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                "KI-Bildschirmfreigabe",
+                "Live lokale Bildschirmfreigabe",
                 NotificationManager.IMPORTANCE_LOW,
             )
         )
     }
 
     override fun onDestroy() {
-        if (!stopping) {
-            virtualDisplay?.release()
-            virtualDisplay = null
-            reader?.setOnImageAvailableListener(null, null)
-            reader?.close()
-            reader = null
-            val activeProjection = projection
-            projection = null
-            runCatching { activeProjection?.stop() }
-            thread?.quitSafely()
-            thread = null
-            handler = null
-        }
+        running = false
+        runCatching { virtualDisplay?.release() }
+        virtualDisplay = null
+        runCatching { imageReader?.close() }
+        imageReader = null
+        runCatching { projection?.stop() }
+        projection = null
+        captureHandler = null
+        captureThread?.quitSafely()
+        captureThread = null
         super.onDestroy()
+    }
+
+    companion object {
+        private const val CHANNEL_ID = "kp-local-live-screen"
+        private const val NOTIFICATION_ID = 8401
+        private const val EXTRA_RESULT_CODE = "result_code"
+        private const val EXTRA_RESULT_DATA = "result_data"
+        private const val ACTION_STOP = "de.koblenzerpuppenspiele.techniker.STOP_SCREEN_CAPTURE"
+        private const val FRAME_INTERVAL_MS = 900L
+        private const val MAX_FRAME_SIDE = 768
+        private const val JPEG_QUALITY = 76
+
+        @Volatile private var latestPath: String = ""
+        private val latestTimestamp = AtomicLong(0L)
+        @Volatile var running: Boolean = false
+            private set
+
+        fun start(context: Context, resultCode: Int, resultData: Intent) {
+            val intent = Intent(context, ScreenCaptureService::class.java)
+                .putExtra(EXTRA_RESULT_CODE, resultCode)
+                .putExtra(EXTRA_RESULT_DATA, resultData)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
+            else context.startService(intent)
+        }
+
+        fun stop(context: Context) {
+            context.startService(Intent(context, ScreenCaptureService::class.java).setAction(ACTION_STOP))
+        }
+
+        fun latestFrame(maxAgeMs: Long = 6_000L): File? {
+            val path = latestPath
+            if (path.isBlank()) return null
+            if (System.currentTimeMillis() - latestTimestamp.get() > maxAgeMs) return null
+            return File(path).takeIf { it.isFile && it.length() > 0 }
+        }
     }
 }

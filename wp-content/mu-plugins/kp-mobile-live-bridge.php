@@ -7,8 +7,9 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 /**
- * Legacy-compatible bootstrap. kp-mobile-live-bootstrap-v2.php runs at priority 0 on current
- * installs and issues the unconstrained v1beta-u1 token before this callback is reached.
+ * Bootstrap the native technician even when the public template is broken before wp_footer.
+ * This action intentionally does not require a pre-existing nonce: it requires an authenticated
+ * WordPress session with the repair capability and only returns short-lived/single-session material.
  */
 add_action( 'wp_ajax_kp_mobile_live_bootstrap', static function () {
     if ( ! is_user_logged_in() || ! current_user_can( 'kp_ai_repair_code' ) ) {
@@ -34,12 +35,17 @@ add_action( 'wp_ajax_kp_mobile_live_bootstrap', static function () {
         'newSessionExpireTime' => gmdate( 'Y-m-d\\TH:i:s\\Z', $now + 2 * MINUTE_IN_SECONDS ),
         'liveConnectConstraints' => array(
             'model' => 'models/' . $model,
-            'config' => array( 'responseModalities' => array( 'AUDIO' ) ),
+            'config' => array(
+                'responseModalities' => array( 'AUDIO' ),
+            ),
         ),
     );
     $response = wp_remote_post( 'https://generativelanguage.googleapis.com/v1beta/auth_tokens', array(
         'timeout' => 20,
-        'headers' => array( 'Content-Type' => 'application/json', 'x-goog-api-key' => $gemini_key ),
+        'headers' => array(
+            'Content-Type'   => 'application/json',
+            'x-goog-api-key' => $gemini_key,
+        ),
         'body' => wp_json_encode( $payload ),
     ) );
     if ( is_wp_error( $response ) ) {
@@ -57,12 +63,13 @@ add_action( 'wp_ajax_kp_mobile_live_bootstrap', static function () {
     if ( class_exists( 'KP_Owner_Web_App' ) && defined( 'KP_Owner_Web_App::NONCE_ACTION' ) ) {
         $owner_nonce = wp_create_nonce( KP_Owner_Web_App::NONCE_ACTION );
     }
+    $github_connected = function_exists( 'kp_ai_repair_token' ) && (bool) kp_ai_repair_token();
     wp_send_json_success( array(
         'liveToken'       => sanitize_text_field( (string) $body['name'] ),
         'model'           => $model,
         'repairNonce'     => wp_create_nonce( KP_AI_REPAIR_NONCE ),
         'ownerNonce'      => $owner_nonce,
-        'githubConnected' => function_exists( 'kp_ai_repair_token' ) && (bool) kp_ai_repair_token(),
+        'githubConnected' => $github_connected,
         'canMerge'        => current_user_can( 'kp_ai_repair_merge' ),
         'expiresAt'       => gmdate( 'c', $now + 30 * MINUTE_IN_SECONDS ),
     ) );
