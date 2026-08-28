@@ -456,9 +456,11 @@ final class KP_Termine {
             'post_type'      => 'kp_termin',
             'post_status'    => 'publish',
             'posts_per_page' => (int) $limit,
-            'meta_key'       => '_kp_sort',
-            'orderby'        => 'meta_value',
-            'order'          => 'ASC',
+            'meta_key'       => '_kp_date',
+            'orderby'        => array(
+                'meta_value' => 'ASC',
+                'title'      => 'ASC',
+            ),
             'meta_query'     => array(
                 array(
                     'key'     => '_kp_date',
@@ -565,7 +567,10 @@ final class KP_Termine {
             return '';
         }
         $timestamp = strtotime( $date . ' 12:00:00' );
-        return wp_date( $format, $timestamp, wp_timezone() );
+        if ( false === $timestamp || ! is_numeric( $timestamp ) ) {
+            return $date;
+        }
+        return wp_date( $format, (int) $timestamp, wp_timezone() );
     }
 
     private function legacy_data_path() {
