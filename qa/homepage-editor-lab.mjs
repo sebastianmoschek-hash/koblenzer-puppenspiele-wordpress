@@ -57,12 +57,46 @@ async function restoreState(page, snapshot) {
   if (!result.ok || !result.json?.success) throw new Error(`E2E restore failed: ${JSON.stringify(result)}`);
 }
 
+async function pageSnippet(page) {
+  try {
+    const title = await page.title().catch(() => '?');
+    const text = await page.evaluate(() => (document.body ? document.body.innerText : '')).catch(() => '');
+    return `URL=${page.url()} Titel=${title} Body=${String(text).replace(/\s+/g, ' ').slice(0, 300)}`;
+  } catch (error) {
+    return `URL=${page.url()} (Snippet nicht lesbar: ${String(error).slice(0, 120)})`;
+  }
+}
+
 async function login(page) {
-  const response = await page.goto(`${base}/?kp_e2e_login=${encodeURIComponent(token)}`, {
-    waitUntil: 'domcontentloaded', timeout: 35000,
-  });
-  await page.waitForSelector('.kp-fe2-save', { timeout: 18000 });
-  await page.waitForSelector('.kp-oa-tools', { timeout: 18000 });
+  const loginUrl = `${base}/?kp_e2e_login=${encodeURIComponent(token)}`;
+  let response = null;
+  let lastError = null;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      response = await page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 1) {
+        console.warn(`WARN: Login-Goto (Versuch 1) fehlgeschlagen (${String(error).slice(0, 160)}); ${await pageSnippet(page)} – ein Retry folgt.`);
+        await page.waitForTimeout(1500).catch(() => {});
+      }
+    }
+  }
+  if (lastError) {
+    throw new Error(`Login-Goto fehlgeschlagen: ${String(lastError).slice(0, 300)} | ${await pageSnippet(page)}`);
+  }
+  try {
+    await page.waitForSelector('.kp-fe2-save', { timeout: 20000 });
+  } catch (error) {
+    throw new Error(`Login: .kp-fe2-save fehlt nach Login | ${await pageSnippet(page)}`);
+  }
+  try {
+    await page.waitForSelector('.kp-oa-tools', { timeout: 20000 });
+  } catch (error) {
+    throw new Error(`Login: .kp-oa-tools fehlt nach Login | ${await pageSnippet(page)}`);
+  }
   return response?.status() || 0;
 }
 
