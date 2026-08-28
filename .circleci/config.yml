@@ -40,38 +40,6 @@ jobs:
     resource_class: medium
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - kp-android-debug-keystore-v1
-      - run:
-          name: Prepare stable Android debug signing key
-          command: |
-            mkdir -p ~/.android qa-results/android
-            if [[ ! -s ~/.android/debug.keystore ]]; then
-              echo 'No cached Android debug keystore found; creating the long-lived CI test key once.'
-              keytool -genkeypair \
-                -keystore ~/.android/debug.keystore \
-                -storepass android \
-                -alias androiddebugkey \
-                -keypass android \
-                -dname 'CN=Koblenzer Puppenspiele CI Debug,O=Koblenzer Puppenspiele,C=DE' \
-                -keyalg RSA \
-                -keysize 2048 \
-                -validity 10000 \
-                -noprompt
-            else
-              echo 'Reusing cached Android debug signing key.'
-            fi
-            keytool -list -v \
-              -keystore ~/.android/debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              | sed -n 's/^[[:space:]]*SHA256: /SHA256: /p' \
-              | tee qa-results/android/signing-sha256.txt
-      - save_cache:
-          key: kp-android-debug-keystore-v1
-          paths:
-            - ~/.android/debug.keystore
       - run:
           name: Install Android build prerequisites
           command: |
@@ -97,9 +65,6 @@ jobs:
             rc=$?
             printf '%s\n' "$rc" > qa-results/android/contract.rc
             exit "$rc"
-      - run:
-          name: Prepare bundled natural male voice
-          command: bash qa/prepare-android-natural-voice.sh
       - run:
           name: Compile Homepage-Hilfe debug APK
           command: |
@@ -342,7 +307,6 @@ workflows:
             branches:
               only:
                 - /feature\/android-.*/
-                - /ai-repair\/local-.*/
       - mobile-live-staging-deploy:
           serial-group: << pipeline.project.slug >>/mobile-live-staging-deploy-v1
           filters:
