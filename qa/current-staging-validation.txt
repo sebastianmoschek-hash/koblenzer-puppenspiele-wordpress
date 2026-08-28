@@ -1,3 +1,6 @@
 This marker intentionally forces FULL staging validation for the exact current main snapshot: staging-only deploy, Mobile/Tablet/Desktop browser editor, Save→Reload→DB readback, Undo/Redo + 48h persistence, Chromium touch gates, and the 50-view visual QA. Production must never be touched.
 Validation request: 2026-08-25T16:33+02:00
 Reason: the repository report is stale and the latest meaningful main verdict still shows editor/persistence red while infra/touch/visual are green. Force a fresh exact staging-only deployment and full browser/persistence run for the current main snapshot before making any completion claim.
+
+Validation request: 2026-08-28T17:25+02:00
+Reason: mu-plugin deploy fix (081a97d) was QA-classified (no deploy) - staging still lacks the kp_e2e takeover skip, editor/session/persistence/text-save gates still red. Force FULL staging validation incl. mu-plugins mirror so the fix reaches staging and gates can be re-verified.
