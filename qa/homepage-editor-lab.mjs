@@ -10,7 +10,21 @@ if (!token) throw new Error('KP_E2E_TOKEN fehlt.');
 await fs.rm(outDir, { recursive: true, force: true });
 await fs.mkdir(outDir, { recursive: true });
 
-const browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage'] });
+let browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage'] });
+
+// Lauf 24: Ein gecrashter Renderer haelt Playwrights goto trotz 45s-Timeout +
+// 75s-Wand bis zum Teardown fest (12-min-Stall, Node-Timer laufen in den
+// Session-Cleanup). Der Watchdog schliesst nach 60s den GANZEN Browser und
+// entriegelt damit jede haengende Playwright-Operation; ensureBrowser() startet
+// ihn fuer das naechste Geraet neu. Nur CI-Diagnose, kein Produktcode.
+const BROWSER_ARGS = ['--disable-dev-shm-usage'];
+async function ensureBrowser() {
+  if (!browser.isConnected()) {
+    mark('BROWSER NEU GESTARTET (Watchdog hatte ihn geschlossen)');
+    browser = await chromium.launch({ headless: true, args: BROWSER_ARGS });
+  }
+  return browser;
+}
 const report = {
   generatedAt: new Date().toISOString(),
   base,
@@ -327,13 +341,24 @@ async function login(page, probeGuest = false) {
         page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 45000 })
           .then(r => { clearTimeout(wall); resolve(r); }, e => { clearTimeout(wall); reject(e); });
       });
-      mark('LOGIN-GOTO start');
-      try {
-        response = await gotoBounded();
-        lastError = null;
-        mark(`LOGIN-GOTO ok status=${response?.status?.() ?? '?'} reqs=${netTrace.length}`);
-        await dumpNetAndProfile();
-      } catch (error) {
+      // Browser-Watchdog (Lauf 24): In der Crash-Variante haelt Playwrights goto
+          // trotz 45s-Timeout + 75s-Wand bis zum Teardown fest (12-min-Stall, alle
+          // Node-Timer laufen in den Session-Cleanup). Der Watchdog schliesst nach
+          // 60s den GANZEN Browser -> jede haengende Operation rejected sofort;
+          // ensureBrowser() relauncht fuer das naechste Geraet.
+          const watchdog = setTimeout(() => {
+            mark('BROWSER-WATCHDOG 60s: goto haengt im toten Target -> Browser schliessen (entriegelt Playwright)');
+            browser.close().catch(() => {});
+          }, 60000);
+          mark('LOGIN-GOTO start');
+          try {
+            response = await gotoBounded();
+            clearTimeout(watchdog);
+            lastError = null;
+            mark(`LOGIN-GOTO ok status=${response?.status?.() ?? '?'} reqs=${netTrace.length}`);
+            await dumpNetAndProfile();
+          } catch (error) {
+            clearTimeout(watchdog);
             lastError = error;
             mark(`LOGIN-GOTO FEHLGESCHLAGEN (${String(error).slice(0, 160)})`);
             // HUNGSTACK VOR dem Close: Ein NICHT gecrashter Renderer im Busy-Loop
@@ -583,8 +608,39 @@ const KP_XHR_TRACE = `(() => {
         ' caller=' + entry.stack.join(' | '));
     }
     return entry;
-  };
-  try {
+      };
+      // CLASS-STORM-Detektor (Lauf 25): Edit-Mode-Observer/rAF-Pumpen erzeugen
+      // einen classList-Mutations-Sturm auf dem Hauptthread (dcl feuert nie).
+      // Ab 200 Toggles innerhalb 1s wird der Aufrufer-Stack der ausloesenden
+      // Aenderung gemeldet (max 3 Stuerme) - funktioniert auch in der Crash-
+      // Variante, weil Playwright Console-Events bis zum Crash zustellt.
+      let classToggles = 0;
+      let classWindowStart = Date.now();
+      let classStorms = 0;
+      const wrapClassList = (proto, method) => {
+        const orig = proto[method];
+        proto[method] = function (...args) {
+          try {
+            const now = Date.now();
+            if (now - classWindowStart > 1000) { classToggles = 0; classWindowStart = now; }
+            classToggles += 1;
+            if (classToggles === 200 && classStorms < 3) {
+              classStorms += 1;
+              const frames = String(new Error().stack || '').split(String.fromCharCode(10)).slice(2)
+                .map(s => s.trim().replace(/^at /, ''))
+                .filter(f => f && !f.includes('wrapClassList') && !f.includes('<anonymous>'));
+              console.error('[KP-CLASS-STORM] 200 classList-' + method + '-Toggles in 1s; caller=' + frames.slice(0, 6).join(' | '));
+            }
+          } catch (_) {}
+          return orig.apply(this, args);
+        };
+      };
+      try {
+        wrapClassList(DOMTokenList.prototype, 'add');
+        wrapClassList(DOMTokenList.prototype, 'remove');
+        wrapClassList(DOMTokenList.prototype, 'toggle');
+      } catch (_) {}
+      try {
     const xhrMeta = new WeakMap();
     const origOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (method, url, isAsync) {
@@ -721,6 +777,7 @@ async function guestFetchProbe() {
     }
 
 for (const spec of deviceSpecs) {
+  await ensureBrowser();
   const context = await browser.newContext({
     viewport: spec.viewport,
     hasTouch: spec.hasTouch,
