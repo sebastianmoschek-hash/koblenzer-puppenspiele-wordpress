@@ -26,7 +26,7 @@ class LocalNaturalVoice(private val context: Context) {
     @Volatile private var tts: OfflineTts? = null
     @Volatile private var track: AudioTrack? = null
 
-    fun label(): String = "Thorsten · natürlich · lokal"
+    fun label(): String = "Thorsten High · natürlich · lokal"
 
     fun isBundled(): Boolean = runCatching {
         context.assets.open("$MODEL_DIR/tokens.txt").use { true }
@@ -144,7 +144,7 @@ class LocalNaturalVoice(private val context: Context) {
     }
 
     private fun ensureEspeakData(): File {
-        val root = File(context.filesDir, "natural-voice/$ESPEAK_DIR")
+        val root = File(context.filesDir, "natural-voice/$MODEL_DIR/$ESPEAK_DIR")
         val marker = File(root, ".ready-v1")
         if (marker.isFile) return root
         if (root.exists()) root.deleteRecursively()
@@ -171,8 +171,8 @@ class LocalNaturalVoice(private val context: Context) {
 
     companion object {
         private const val TAG = "KPNaturalVoice"
-        private const val MODEL_DIR = "vits-piper-de_DE-thorsten-medium"
-        private const val MODEL_FILE = "de_DE-thorsten-medium.onnx"
+        private const val MODEL_DIR = "vits-piper-de_DE-thorsten-high"
+        private const val MODEL_FILE = "de_DE-thorsten-high.onnx"
         private const val ESPEAK_DIR = "espeak-ng-data"
     }
 }

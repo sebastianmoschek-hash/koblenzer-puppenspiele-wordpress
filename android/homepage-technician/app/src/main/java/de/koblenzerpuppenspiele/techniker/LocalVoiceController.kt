@@ -176,7 +176,7 @@ class LocalVoiceController(
         runCatching { recognizer?.cancel() }
         speaking = true
         spokenAssistantNormalized = normalize(spoken)
-        onStatus("Live lokal · Thorsten antwortet · Mikrofon ist kurz pausiert")
+        onStatus("Live lokal · Thorsten High antwortet · Mikrofon ist kurz pausiert")
 
         if (naturalVoice.isBundled()) {
             naturalVoice.speak(
@@ -194,14 +194,18 @@ class LocalVoiceController(
                     main.post {
                         speaking = false
                         spokenAssistantNormalized = ""
-                        onStatus("Natürliche Stimme konnte nicht starten · Systemstimme als Fallback")
-                        speakWithSystemVoice(spoken, error)
+                        val detail = error.message ?: error.javaClass.simpleName
+                        onStatus("Thorsten High konnte nicht starten: $detail")
+                        if (active) continueListening(ECHO_RELEASE_MS)
                     }
                 },
             )
             return
         }
-        speakWithSystemVoice(spoken, null)
+        speaking = false
+        spokenAssistantNormalized = ""
+        onStatus("Thorsten High fehlt in dieser APK · keine Systemstimme verwendet")
+        if (active) continueListening(ECHO_RELEASE_MS)
     }
 
     private fun speakWithSystemVoice(spoken: String, cause: Throwable?) {

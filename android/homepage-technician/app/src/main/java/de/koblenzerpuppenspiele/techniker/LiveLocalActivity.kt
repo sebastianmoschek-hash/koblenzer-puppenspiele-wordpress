@@ -185,12 +185,12 @@ class LiveLocalActivity : Activity() {
                 speedButton.style.background = 'rgba(255,255,255,.09)';
                 speedButton.style.color = 'inherit';
                 const refreshSpeed = () => {
-                  try { speedButton.textContent = '🔊 Thorsten · ' + window.KPLocalLive.speechRateLabel(); }
-                  catch (_) { speedButton.textContent = '🔊 Thorsten · 1,0×'; }
+                  try { speedButton.textContent = '🔊 Thorsten High · ' + window.KPLocalLive.speechRateLabel(); }
+                  catch (_) { speedButton.textContent = '🔊 Thorsten High · 1,0×'; }
                 };
                 speedButton.addEventListener('click', event => {
                   event.preventDefault(); event.stopPropagation();
-                  try { speedButton.textContent = '🔊 Thorsten · ' + window.KPLocalLive.cycleSpeechRate(); }
+                  try { speedButton.textContent = '🔊 Thorsten High · ' + window.KPLocalLive.cycleSpeechRate(); }
                   catch (_) {}
                 });
                 refreshSpeed();

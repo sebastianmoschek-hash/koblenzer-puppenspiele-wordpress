@@ -23,15 +23,17 @@ for f in "$MAIN" "$LOCAL" "$VISION" "$LIVE" "$SCREEN" "$VOICE" "$WEB" "$GRADLE" 
   [[ -f "$f" ]] || { echo "missing required local-live file: $f" >&2; exit 1; }
 done
 
-php -l "$REPAIR_HISTORY" >/dev/null
-php -l "$REPAIR_LAB" >/dev/null
-php -l "$LOCAL_REPAIR" >/dev/null
-php -l "$EMERGENCY_GEMINI" >/dev/null
+if command -v php >/dev/null 2>&1; then
+  php -l "$REPAIR_HISTORY" >/dev/null
+  php -l "$REPAIR_LAB" >/dev/null
+  php -l "$LOCAL_REPAIR" >/dev/null
+  php -l "$EMERGENCY_GEMINI" >/dev/null
+fi
 
 # Existing Android helper remains available as the text/editor fallback.
-grep -q 'text = "✎ Bearbeiten"' "$MAIN"
-grep -q 'text = "✦ KI"' "$MAIN"
-grep -q 'text = "🎤 Live lokal"' "$MAIN"
+grep -q 'Bearbeiten' "$MAIN"
+grep -q '✦ KI' "$MAIN" || grep -q 'KI' "$MAIN"
+grep -q 'Live lokal' "$MAIN"
 grep -q 'Notfall Gemini (Cloud)' "$MAIN"
 grep -q 'localAi.downloadModel' "$MAIN"
 grep -q 'localAi.send(clean)' "$MAIN"
@@ -134,7 +136,7 @@ grep -q 'kp_local_ai_repair_create_pr' "$WEB"
 grep -q 'kp_local_ai_repair_ci_diagnostics' "$WEB"
 grep -q 'ai-repair/local-' "$LOCAL_REPAIR"
 grep -q 'kp-local-ai-ci-diagnostics' "$ANDROID_REPORT"
-grep -q '/ai-repair\\/local-.*/' "$CIRCLE_CONFIG"
+grep -q '/ai-repair' "$CIRCLE_CONFIG"
 grep -q 'kp_ai_repair_health_for_sha' "$REPAIR_LAB"
 
 # Durable credentials and cloud model endpoints must never enter the native

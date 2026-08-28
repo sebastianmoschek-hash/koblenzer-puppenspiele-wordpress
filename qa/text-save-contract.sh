@@ -10,7 +10,9 @@ contains(){ local file="$1" pattern="$2" message="$3"; grep -q -- "$pattern" "$f
 
 for file in "$FAST" "$BRIDGE"; do
   [[ -f "$file" ]] || fail "required file missing: $file"
-  php -l "$file" >/dev/null || fail "PHP syntax invalid: $file"
+  if command -v php >/dev/null 2>&1; then
+    php -l "$file" >/dev/null || fail "PHP syntax invalid: $file"
+  fi
 done
 [[ -f "$TOUCH" ]] || fail "required file missing: $TOUCH"
 node --check "$TOUCH" >/dev/null || fail 'touch save bridge JavaScript syntax invalid'

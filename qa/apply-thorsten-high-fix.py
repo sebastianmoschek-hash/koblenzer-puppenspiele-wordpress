@@ -55,9 +55,11 @@ replace_once(
 )
 
 prepare = ROOT / "qa/prepare-android-natural-voice.sh"
-replace_once(prepare, 'vits-piper-de_DE-thorsten-medium', 'vits-piper-de_DE-thorsten-high')
-replace_once(prepare, 'de_DE-thorsten-medium.onnx', 'de_DE-thorsten-high.onnx')
-replace_once(prepare, 'Thorsten medium', 'Thorsten High')
+text = prepare.read_text()
+text = text.replace('vits-piper-de_DE-thorsten-medium', 'vits-piper-de_DE-thorsten-high')
+text = text.replace('de_DE-thorsten-medium.onnx', 'de_DE-thorsten-high.onnx')
+text = text.replace('Thorsten medium', 'Thorsten High')
+prepare.write_text(text)
 
 gradle = ROOT / "android/homepage-technician/app/build.gradle.kts"
 replace_once(gradle, 'versionCode = 7', 'versionCode = 8')

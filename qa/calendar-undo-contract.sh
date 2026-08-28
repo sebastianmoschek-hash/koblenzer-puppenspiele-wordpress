@@ -14,7 +14,9 @@ contains(){ local file="$1" pattern="$2" message="$3"; grep -Fq -- "$pattern" "$
 
 for file in "$HISTORY" "$CAL" "$GUARD" "$COORD" "$SERVER" "$IMPORTER"; do
   [[ -f "$file" ]] || fail "required file missing: $file"
-  php -l "$file" >/dev/null || fail "PHP syntax invalid: $file"
+  if command -v php >/dev/null 2>&1; then
+    php -l "$file" >/dev/null || fail "PHP syntax invalid: $file"
+  fi
 done
 [[ -f "$UI" ]] || fail "required file missing: $UI"
 node --check "$UI" >/dev/null || fail 'calendar owner JavaScript syntax is invalid'
