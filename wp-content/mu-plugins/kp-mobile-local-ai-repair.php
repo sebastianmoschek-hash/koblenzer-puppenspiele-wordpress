@@ -364,7 +364,7 @@ add_action( 'wp_ajax_kp_local_ai_repair_ci_diagnostics', static function () {
             : array( 'health' => 'pending', 'checks' => array() );
         $comments = kp_ai_repair_gh( 'GET', '/commits/' . $sha . '/comments?per_page=100', null, array( 200 ) );
         $diagnostics = '';
-        foreach ( array_reverse( (array) ( $comments['data'] ?? array() ) as $comment ) {
+        foreach ( array_reverse( (array) ( $comments['data'] ?? array() ) ) as $comment ) {
             $body = is_array( $comment ) ? (string) ( $comment['body'] ?? '' ) : '';
             if ( str_contains( $body, '<!-- kp-local-ai-ci-diagnostics -->' ) ) {
                 $diagnostics = str_replace( '<!-- kp-local-ai-ci-diagnostics -->', '', $body );
