@@ -80,6 +80,40 @@ function mark(...parts) {
   try { fs.appendFileSync(PROGRESS_FILE, line + '\n'); } catch (_) {}
 }
 
+// HOTSTACK: CPU-Profil in kompakte "heisse Funktionen" verdichten. Wenn der
+// Main-Thread haengt (synchroner Loop in Daten-/DOM-Verarbeitung), zeigt jedes
+// Sample den Call-Stack; die hotesten Funktionen verraten die Endlosschleife.
+function printHotStack(profile) {
+  try {
+    const samples = profile.samples || [];
+    const timeDeltas = profile.timeDeltas || [];
+    const nodes = new Map((profile.nodes || []).map(n => [n.id, n]));
+    const selfWeight = new Map();
+    for (let i = 0; i < samples.length; i += 1) {
+      const id = samples[i];
+      const w = timeDeltas[i] != null ? timeDeltas[i] : 1;
+      selfWeight.set(id, (selfWeight.get(id) || 0) + w);
+    }
+    const byFunc = new Map();
+    for (const [id, w] of selfWeight) {
+      let n = nodes.get(id);
+      for (let depth = 0; n && depth < 60; depth += 1) {
+        const cf = n.callFrame || {};
+        const src = String(cf.url || '?').split('/').pop();
+        const key = `${src} :: ${cf.functionName || '(anon)'}`;
+        byFunc.set(key, (byFunc.get(key) || 0) + w);
+        n = nodes.get(n.parent);
+      }
+    }
+    const total = [...byFunc.values()].reduce((a, b) => a + b, 0) || 1;
+    const top = [...byFunc.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14);
+    mark(`HOTSTACK samples=${samples.length} ms=${(profile.endTime || 0) - (profile.startTime || 0)} gesamt=${total}`);
+    top.forEach(([k, v]) => mark(`  HOT ${(100 * v / total).toFixed(1).padStart(5)}% ${k}`));
+  } catch (e) {
+    mark(`HOTSTACK AUSWERTUNG FEHLER: ${String(e).slice(0, 200)}`);
+  }
+}
+
 async function login(page) {
   const loginUrl = `${base}/?kp_e2e_login=${encodeURIComponent(token)}`;
   // Preflight-Diagnostik: Serverantwortzeit des Login-Endpunkts OHNE Browser
@@ -131,18 +165,82 @@ async function login(page) {
   } catch (error) {
     mark(`PREFLIGHT kp_e2e_login FEHLGESCHLAGEN (${Date.now() - pf0}ms): ${String(error).slice(0, 240)}`);
   }
-  // Waehrend des Browser-Logins jeden Antwortstatus der Login-/Editor-Navigation
-  // mitschneiden, damit Timeouts mit einem HTTP-Trace belegt sind.
-  const loginTrace = [];
+  // Volles Same-Origin-Netzwerk-Trace: zeichnet ALLE Assets (Stile/Scripts/Ajax)
+  // waehrend der Editor-Navigation auf. Feuert domcontentloaded nie, zeigt der
+  // Dump danach exakt, welches Asset pending/haengend ist (Blocking-Kandidat).
+  const netTrace = [];
+  const tNow = () => Date.now();
+  const onRequest = (req) => {
+    try {
+      const u = new URL(req.url());
+      if (u.origin !== new URL(base).origin) return;
+      const kind = (u.pathname.match(/\.(css|js|png|jpe?g|webp|gif|svg|woff2?|json|php)$/i) || [])[1] || 'other';
+      netTrace.push({ url: req.url(), kind, t0: tNow(), status: 0, done: false, failed: false, ms: -1 });
+    } catch (_) {}
+  };
   const onResponse = (response) => {
     try {
       const u = new URL(response.url());
-      if (u.origin === new URL(base).origin && /kp_e2e_login|kp_edit|kp_e2e/.test(u.search)) {
-        loginTrace.push(`${response.status()} ${response.url().slice(-120)}`);
-      }
+      if (u.origin !== new URL(base).origin) return;
+      const rec = netTrace.find(r => !r.done && r.url === response.url());
+      if (rec) { rec.done = true; rec.status = response.status(); rec.ms = tNow() - rec.t0; }
     } catch (_) {}
   };
+  const onReqFailed = (req) => {
+    try {
+      const u = new URL(req.url());
+      if (u.origin !== new URL(base).origin) return;
+      const rec = netTrace.find(r => !r.done && r.url === req.url());
+      if (rec) { rec.done = true; rec.failed = true; rec.ms = tNow() - rec.t0; }
+    } catch (_) {}
+  };
+  page.on('request', onRequest);
   page.on('response', onResponse);
+  page.on('requestfailed', onReqFailed);
+
+  // CPU-Profil waehrend der Navigation mitsampeln: haengt der Main-Thread in
+  // einer synchronen Schleife, zeigt HOTSTACK die heisse Funktion — unabhaengig
+  // davon, ob domcontentloaded je feuert.
+  let cdp = null;
+  let profilerOn = false;
+  try {
+    cdp = await page.context().newCDPSession(page);
+    await cdp.send('Profiler.enable');
+    await cdp.send('Profiler.setSamplingInterval', { interval: 150 });
+    await cdp.send('Profiler.start');
+    profilerOn = true;
+    mark('PROFILER gestartet');
+  } catch (e) {
+    mark(`PROFILER start FEHLER: ${String(e).slice(0, 160)}`);
+  }
+
+  const dumpNetAndProfile = async () => {
+    const pending = netTrace.filter(r => !r.done && tNow() - r.t0 > 8000);
+    const slow = netTrace.filter(r => r.done && r.ms > 3000).sort((a, b) => b.ms - a.ms).slice(0, 15);
+    const pendingKinds = {};
+    for (const r of pending) pendingKinds[r.kind] = (pendingKinds[r.kind] || 0) + 1;
+    mark(`NETTRACE gesamt=${netTrace.length} fertig=${netTrace.length - pending.length} PENDING=${pending.length} pendingKinds=${JSON.stringify(pendingKinds)}`);
+    if (pending.length) {
+      mark('NETTRACE PENDING (>8s ohne Antwort -> BLOCKER-KANDIDAT):');
+      pending.slice(0, 30).forEach(r => mark(`  PEND ${r.kind} ${r.url.slice(-130)}`));
+    }
+    if (slow.length) {
+      mark('NETTRACE SLOWEST (>3s):');
+      slow.forEach(r => mark(`  ${r.status || 'FAIL'} ${r.ms}ms ${r.kind} ${r.url.slice(-130)}`));
+    }
+    if (profilerOn && cdp) {
+      try {
+        const { profile } = await Promise.race([
+          cdp.send('Profiler.stop'),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('Profiler.stop timeout 15s')), 15000)),
+        ]);
+        printHotStack(profile);
+      } catch (e) {
+        mark(`PROFILER stop FEHLER: ${String(e).slice(0, 200)}`);
+      }
+    }
+  };
+
   let response = null;
   let lastError = null;
   mark('LOGIN-GOTO start');
@@ -150,21 +248,26 @@ async function login(page) {
     try {
       response = await page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
       lastError = null;
-      mark(`LOGIN-GOTO ok (Versuch ${attempt}) status=${response?.status?.() ?? '?'} Trace=${loginTrace.join(' | ')}`);
+      mark(`LOGIN-GOTO ok (Versuch ${attempt}) status=${response?.status?.() ?? '?'} reqs=${netTrace.length}`);
+      await dumpNetAndProfile();
       break;
     } catch (error) {
       lastError = error;
       if (attempt === 1) {
-        mark(`LOGIN-GOTO Versuch1 FEHLGESCHLAGEN (${String(error).slice(0, 160)}); ${await pageSnippet(page)}; Trace=${loginTrace.join(' | ')} – Retry folgt.`);
+        mark(`LOGIN-GOTO Versuch1 FEHLGESCHLAGEN (${String(error).slice(0, 160)}); ${await pageSnippet(page)} – Retry folgt.`);
+        await dumpNetAndProfile();
         await page.waitForTimeout(1500).catch(() => {});
       } else {
-        mark(`LOGIN-GOTO Versuch2 FEHLGESCHLAGEN; ${await pageSnippet(page)}; Trace=${loginTrace.join(' | ')}`);
+        mark(`LOGIN-GOTO Versuch2 FEHLGESCHLAGEN; ${await pageSnippet(page)}`);
+        await dumpNetAndProfile();
       }
     }
   }
+  page.off('request', onRequest);
   page.off('response', onResponse);
+  page.off('requestfailed', onReqFailed);
   if (lastError) {
-    throw new Error(`Login-Goto fehlgeschlagen: ${String(lastError).slice(0, 300)} | ${await pageSnippet(page)} | Trace=${loginTrace.join(' | ')}`);
+    throw new Error(`Login-Goto fehlgeschlagen: ${String(lastError).slice(0, 300)} | ${await pageSnippet(page)} | reqs=${netTrace.length}`);
   }
   try {
     await page.waitForSelector('.kp-fe2-save', { timeout: 20000 });
