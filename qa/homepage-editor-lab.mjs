@@ -227,20 +227,32 @@ async function login(page) {
   page.on('requestfailed', onReqFailed);
 
   // CPU-Profil waehrend der Navigation mitsampeln: haengt der Main-Thread in
-  // einer synchronen Schleife, zeigt HOTSTACK die heisse Funktion — unabhaengig
-  // davon, ob domcontentloaded je feuert.
-  let cdp = null;
-  let profilerOn = false;
-  try {
-    cdp = await page.context().newCDPSession(page);
-    await cdp.send('Profiler.enable');
-    await cdp.send('Profiler.setSamplingInterval', { interval: 150 });
-    await cdp.send('Profiler.start');
-    profilerOn = true;
-    mark('PROFILER gestartet');
-  } catch (e) {
-    mark(`PROFILER start FEHLER: ${String(e).slice(0, 160)}`);
-  }
+    // einer synchronen Schleife, zeigt HOTSTACK die heisse Funktion — unabhaengig
+    // davon, ob domcontentloaded je feuert.
+    // (Profil entfernt: lieferte in 2 Laeufen nichts, erhoeht nur die CPU-Last
+    // im 1-vCPU-Sandbox.)
+
+    // Event-Zaehler: Dialog-/Crash-/Console-Flood identifizieren. Wenn die
+    // authentifizierte Boot-Seite in einem Fehler- oder Dialog-Loop steckt,
+    // explodieren diese Zaehler und die ersten Meldungen nennen die Quelle.
+    const evCounters = { dialogs: 0, crashes: 0, consoleErrors: 0, pageErrors: 0 };
+    const evFirst = { dialogs: [], crashes: [], consoleErrors: [], pageErrors: [] };
+    const evPush = (kind, msg) => { if (evFirst[kind].length < 3) evFirst[kind].push(String(msg || '').slice(0, 300)); };
+    page.on('dialog', d => {
+      evCounters.dialogs += 1;
+      evPush('dialogs', `${d.type()}: ${d.message()}`);
+      d.dismiss().catch(() => {});
+    });
+    page.on('crash', () => { evCounters.crashes += 1; });
+    page.on('console', msg => {
+      if (msg.type() !== 'error') return;
+      evCounters.consoleErrors += 1;
+      evPush('consoleErrors', msg.text());
+    });
+    page.on('pageerror', err => {
+      evCounters.pageErrors += 1;
+      evPush('pageErrors', String(err));
+    });
 
   const dumpNetAndProfile = async () => {
     const pending = netTrace.filter(r => !r.done && tNow() - r.t0 > 8000);
@@ -256,19 +268,11 @@ async function login(page) {
       mark('NETTRACE SLOWEST (>3s):');
       slow.forEach(r => mark(`  ${r.status || 'FAIL'} ${r.ms}ms ${r.kind} ${r.url.slice(-130)}`));
     }
-    if (profilerOn && cdp) {
-          await stackWhileHung(cdp);
-          try {
-        const { profile } = await Promise.race([
-          cdp.send('Profiler.stop'),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('Profiler.stop timeout 15s')), 15000)),
-        ]);
-        printHotStack(profile);
-      } catch (e) {
-        mark(`PROFILER stop FEHLER: ${String(e).slice(0, 200)}`);
-      }
-    }
-  };
+    mark(`EVENTS dialogs=${evCounters.dialogs} crashes=${evCounters.crashes} consoleErrors=${evCounters.consoleErrors} pageErrors=${evCounters.pageErrors}`);
+        for (const kind of ['dialogs', 'crashes', 'consoleErrors', 'pageErrors']) {
+          if (evFirst[kind].length) evFirst[kind].forEach(m => mark(`  FIRST-${kind.toUpperCase()}: ${m}`));
+        }
+      };
 
   let response = null;
   let lastError = null;
