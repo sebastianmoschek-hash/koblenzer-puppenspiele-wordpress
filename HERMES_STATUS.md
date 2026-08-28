@@ -1,36 +1,38 @@
-# HERMES STATUS – Stand 28.08.2026 (Run 16 – ROOT-CAUSE: Client-Hang, 1 pending admin-ajax; Diagnose-Lauf läuft)
+# HERMES STATUS – Stand 28.08.2026 (Run 16 – Editor-Hang: Root-Cause eingekreist; AUTHPOST-Lauf läuft)
 
 ## Letzte Aktionen (autonom, OpenRouter)
 
-1. **Staging `/termine/` (500-Fix)**: ✅ **Frisch browser-verifiziert** (echter lokaler Chromium-Headless): HTTP 200, Titel „Termine – puppenspiele“, H1 „Termine“, **75 Termin-Karten** (`kp-termin-main` × 75), 0 fatal/critical Fehler im DOM (6 „500“-Treffer = reine CSS-z-index-Werte), Homepage rendert ebenso. Fix weiterhin live; Branch längst konsolidiert → **kein Deploy nötig**.
+1. **Staging `/termine/` (500-Fix)**: ✅ **Frisch browser-verifiziert** (echter lokaler Chromium-Headless): HTTP 200, Titel „Termine – puppenspiele“, H1 „Termine“, **75 Termin-Karten** (`kp-termin-main` × 75), 0 fatal/critical Fehler im DOM (die 6 „500“-Treffer sind nur CSS-z-index-Werte); Homepage rendert ebenso (200, Titel „puppenspiele“). Fix weiterhin live; Branch längst konsolidiert → **kein Deploy nötig**.
 
-2. **Unified Editor Contract / beforeunload-Fix**: a5e3b5c weiterhin in main (verifiziert). CI weiterhin rot auf denselben 6 Editor-Gates (letzter Stand vor diesem Lauf: 92c47ae/18:53:12Z). GHA fällt sofort mit Billing-Blocker aus (nicht primär). **Kein manueller Trigger nötig.**
+2. **Unified Editor Contract / beforeunload-Fix**: a5e3b5c weiterhin in main. CI weiterhin rot auf denselben 6 Editor-Gates (zuletzt e8e97e4/19:32:59Z). GHA fällt sofort mit Billing-Blocker aus (nicht primär). **Kein manueller Trigger nötig** — relevante Pushes starten das Lab automatisch.
 
-3. **Editor-Login-Hang — ROOT-CAUSE-DURCHBRUCH (2 Diagnose-Läufe)**:
-   - **Lauf 9868902 (AUTHRENDER)**: Serverseitige Messung des authentifizierten kp_edit-Renders: **200, 457.741 Bytes HTML, 592ms** → Server ist blitzschnell. Der Browser bekam die 200 (Trace), **dcl feuert trotzdem nie**, Titel/Body unlesbar, Goto-Timer im 1-vCPU-Sandbox um Faktor ~15 ausgehungert (45s-Timeout erst nach 12min). ⇒ **Hang ist 100% CLIENT-SEITIG.**
-   - **Lauf 92c47ae (NETTRACE+HOTSTACK)**: Volle Request-Trace: **84 Requests, 83 fertig, GENAU EINER pending: `wp-admin/admin-ajax.php` (>12min ohne Antwort)** — der Browser-Boot der authentifizierten Editor-Seite stößt einen admin-ajax-Request an, der nie zurückkommt; dcl blockiert. HOTSTACK nicht verfügbar (Browser-Profil stoppen scheiterte, weil Target beim 12m-Kill bereits zu). Alle PHP-Renderpfade (mu-plugins+grep) und Assets sind ohne sync-XHR/schleifen -> Verdacht: Mutation-Observer-Kaskade oder blockierender Boot-Call; der POST-Body (action=...) steht NICHT in der URL.
-   - **Lauf 4c5c23a (läuft)**: loggt jetzt den **POST-Body der pending admin-ajax (action!)** + **HUNGSTACK-Debugger-Pause** (unterbricht den hängenden Main-Thread an breakable points → exakter Call-Stack). ⇒ nächster Report identifiziert die Action/die Schleife → dann gezielter Fix.
-   - Alle Änderungen nur `qa/homepage-editor-lab.mjs` (Diagnose), staging-gebunden, reversibel, keine Secrets.
+3. **Editor-Login-Hang — ROOT-CAUSE-EINGRENZUNG (4 Diagnose-Läufe, nur qa/homepage-editor-lab.mjs)**:
+   - **AUTHRENDER (9868902)**: Server rendert die authentifizierte kp_edit-Seite in **592ms/457KB** → Server blitzschnell; Browser bekommt die 200, **dcl feuert trotzdem nie** (Titel=?/Body=), 45s-Goto-Timeout erst nach ~12min (1-vCPU-Sandbox) ⇒ **100% Client-seitig**.
+   - **NETTRACE (92c47ae → e8e97e4)**: 83-84 Requests, ALLE fertig, **0 Dialogs/0 Crashes/0 Console-/Page-Fehler**; in den meisten Läufen GENAU EIN pending Request: **`POST admin-ajax.php action=kp_touch_free_layout_load page_key=post-12`** (→ touch-persistence.js `loadLive()` beim Boot, `wp_ajax_`+`wp_ajax_nopriv_`).
+   - **Externer Gegenprobe**: derselbe POST antwortet von außen in **145-175ms mit 200** (urlencoded UND multipart, mit Origin-Header; Payload winzig: 271B, global=3 Einträge, page={}) → Endpoint + Daten sind gesund, **„riesige Option“-These verworfen**.
+   - **Statische Analyse (komplett)**: KEIN sync-XHR, KEINE Boot-alert/confirm-Schleifen, keine unbounded while/for in Assets/MU-Plugins; die **fetch-Wrapper-Kette** (frontend-editor-compat → touch-persistence → calendar-undo-redo → kp-ai-image-draft-safety) reicht `kp_touch_free_layout_load` nachweislich durch (kein Deadlock/Recursion).
+   - **Offene Variablen**: (a) authentifizierter admin-ajax-Serverpfad (nur mit Login-Cookie testbar), (b) Browser-JS-Boot (v.a. `frontend-editor.js` — auth-only und im lokalen Auth-Sim nie geladen).
+   - **Lauf d5040b2 (läuft)**: **AUTHPOST** wiederholt exakt diesen POST mit dem Login-Cookie serverseitig → schnell ⇒ Server-Pfad gesund, Hang ist Browser-JS-seitig (nächster Schritt: Bisect/Boot-Fix); hängend ⇒ authentifizierter Serverpfad = Root-Cause.
 
-4. **Thorsten-Voice-Smoke-Test**: ⚠️ **Erneut verifiziert: existiert NICHT** — kein `tests/`-Verzeichnis, keinerlei git-Objekte auf irgendeinem Branch, 0 CI-Verweise (`verify-thorsten-and-web` hat nur `qa/apply-thorsten-high-fix.py`). → **User-Entscheidung weiterhin offen: anlegen oder verwerfen.**
+4. **Thorsten-Voice-Smoke-Test**: ⚠️ **Erneut verifiziert: existiert NICHT** — kein `tests/`-Verzeichnis, keinerlei git-Objekte auf irgendeinem Branch, 0 CI-Verweise. **User-Entscheidung weiterhin offen: anlegen oder verwerfen.**
 
-5. **Branch-Konsolidierung**: ✅ Beide Branches (`feature/webapp-primary-agent`, `ai-repair/local-thorsten-high-v8-20260825`) erneut als **Ancestors von main** verifiziert → bereits gemergt. `staging/fix-termine-500` existiert nicht mehr.
+5. **Branch-Konsolidierung**: ✅ `feature/webapp-primary-agent` und `ai-repair/local-thorsten-high-v8-20260825` erneut als **Ancestors von main** verifiziert → bereits gemergt. `staging/fix-termine-500` existiert nicht mehr.
 
 ## Aktueller CI-Stand (Stand dieses Laufs)
 
-- Lauf 92c47ae (18:53:12Z): **FAILURE** auf denselben 6 Editor-Gates (editorMobileTabletDesktop, saveReloadDbUndo48h, editorBrowser, sessionUndo, persistenceBrowser, realTextSave); deploy/stagingReady/temporaryBridge/touch/visual grün.
-- **Neuer Diagnose-Lauf 4c5c23a läuft** (POST-Body + HUNGSTACK); Ergebnis wird gepollt (~19:25Z erwartet).
+- Zuletzt abgeschlossen: **e8e97e4 (19:32:59Z)** — FAILURE auf denselben 6 Editor-Gates; grün: deploy, stagingReady, temporaryBridge, touch-Slider, touch-Runtime, visual.
+- **Diagnose-Lauf d5040b2 (AUTHPOST) läuft**; Ergebnis wird gepollt (~20:00Z erwartet).
 
 ## Was funktioniert
 
-- ✅ `/termine/` + Homepage: frisch browser-verifiziert (75 Karten, 0 Fehler).
+- ✅ `/termine/` + Homepage frisch browser-verifiziert (75 Karten, 0 Fehler).
 - ✅ Termine-Fix live, beforeunload-Fix in main.
 - ✅ Branch-Konsolidierung abgeschlossen.
-- ✅ **Root-Cause eingekreist**: Server schnell (0,6s), Client-Hang, 1 pending admin-ajax (action folgt aus 4c5c23a).
+- ✅ Editor-Hang massiv eingekreist (Server 0,6s; alle Assets; 0 Events; ein pending kp_touch_free_layout_load; Endpoint extern gesund; AUTHPOST trennt final).
 
 ## Offen / Nächste Schritte
 
-1. **4c5c23a auswerten** (Report ~19:25Z): pending admin-ajax POST-Body → action; HUNGSTACK → exakte Loop-Stelle. Danach **erster gezielter Fix-Versuch** (Server-Handler der Action oder Client-Boot-Call defensiv/async). Erwartung: 1-2 weitere Läufe bis grün.
+1. **d5040b2-AUTHPOST auswerten**: schnell → Browser-JS-Boot ist der Root-Cause; dann `frontend-editor.js`-Boot per addInitScript-Bisect ausschalten (ist der einzige nie-lokal-getestete auth-only Boot-Pfad) und/oder lokales Sim um frontend-editor.js+echte Configs erweitern → gezielter Fix. Hängend → authentifizierten admin-ajax-Pfad (Session-Lock/WAF-Cookie-Pfad) serverseitig untersuchen.
 2. 🔴 **GitHub-Billing fixen** (User-Aktion) — GHA wieder startfähig.
 3. **Thorsten-Smoke-Test**: User-Entscheidung: anlegen oder verwerfen.
 4. Optional: Deploy-Mirror härten gegen „kritischer Fehler“-Blitzer.
