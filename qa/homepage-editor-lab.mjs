@@ -1,6 +1,5 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
-import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 const base = (process.env.KP_E2E_BASE || 'https://neu.koblenzer-puppenspiele.de').replace(/\/$/, '');
@@ -284,7 +283,8 @@ async function login(page) {
     });
 
   const dumpNetAndProfile = async () => {
-    const pending = netTrace.filter(r => !r.done && tNow() - r.t0 > 8000);
+      await dumpXhrTrace(page).catch(() => {});
+      const pending = netTrace.filter(r => !r.done && tNow() - r.t0 > 8000);
     const slow = netTrace.filter(r => r.done && r.ms > 3000).sort((a, b) => b.ms - a.ms).slice(0, 15);
     const pendingKinds = {};
     for (const r of pending) pendingKinds[r.kind] = (pendingKinds[r.kind] || 0) + 1;
@@ -489,58 +489,110 @@ async function mobileSaveAndResetRoundTrip(page, cdp, deviceResult) {
   }
 }
 
-// BISECT (Editor-Hang, Lauf 19): Nur fuer CI-Diagnoselaeufe. Der komplette
-// Touch-Stack ist seit 6e3e05f zu 100% exculpiert (Run 18-FULL: Touch- und
-// Visual-Verdict success, Editor/Persistence/TextSave/SessionUndo weiterhin
-// rot, dcl-Hang unveraendert) - sein Stub wurde ENTFERNT, eine Mit-Abschaltung
-// wuerde den Lauf verfaelschen. Naechste Kandidaten: der KPOwnerWebApp-Boot +
-// seine Basis (frontend-editor-v2.js, WP-Handle 'kp-frontend-editor-v2' und
-// owner-web-app.js, Handle 'kp-owner-web-app'; WP-Script-Tag-IDs enden auf -js).
-// Dieser Stub deaktiviert die <script>-Tags per ID auf Dokumentebene BEVOR der
-// Parser/der defer-Laeufer sie ausfuehrt (type wird auf einen nicht
-// ausfuehrbaren MIME-Typ gesetzt, src und Inline-Text werden geraeumt). Guests
-// sind unbetroffen (deaktiviert nur die Editor-Shell, keine Daten). GATE: dcl
-// feuert wieder / kein Pending / Editor-Gates verlassen das Event-0-Bild =>
-// v2-/Owner-Boot ist der Uebeltaeter (danach v2 vs. owner-web-app trennen).
-// Bleibt der dcl-Hang mit gleichem Fehlerbild, sind v2+owner unschuldig und der
-// naechste Kandidat ist der Owner-/Adminbar-Pfad. Aktivierung: Marker
-// qa/bisect-frontend-v2-owner.txt ODER env KP_BISECT_V2OWNER=1. Reversibel:
-// Marker/Env entfernen deaktiviert.
-const KP_V2OWNER_SCRIPT_IDS = new Set([
-  'kp-frontend-editor-v2-js',
-  'kp-owner-web-app-js',
-]);
-const KP_V2OWNER_STUB = `(() => {
-  const disable = (script) => {
+// XHR-ISSUER-INSTRUMENTIERUNG (Lauf 21): Kein weiteres Blind-Stubbing. Lauf 19
+// (Marker-ONLY-Commit fad7af0, Modus FULL) hat v2+owner-web-app zu 100%
+// exculpiert; der dcl-Hang bleibt mit exakt demselben Fehlerbild (LOGIN-GOTO
+// Timeout 45s, 0 Events, NETTRACE 1 Pending = POST admin-ajax.php
+// action=kp_touch_free_layout_load, Server sonst 145-154ms). Verdacht:
+// SYNCHRONER XHR (async=false) auf dem Hauptthread blockiert den Parser,
+// daher feuert domcontentloaded nie. Dieses addInitScript wrappt
+// XMLHttpRequest.open/send + fetch und zeichnet fuer JEDE admin-ajax.php-
+// Anfrage: async-Flag, action (aus dem send()-Body), URL und den Aufrufer-
+// Stack (new Error().stack -> nennt die ausloesende Skript-Datei/Funktion).
+// dumpXhrTrace() laeuft nach dem Login-Goto (Erfolg UND Timeout) und benennt
+// damit den ISSUER des Blocker-POSTs direkt - gezielter Fix statt Bisect.
+// Reversibel: qa-only, addInitScript im CI-Browser, kein Theme/Plugin-Eingriff.
+const KP_XHR_TRACE = `(() => {
+  const trace = (window.__kpXhrTrace = []);
+  const readAction = (body) => {
     try {
-      const id = script.id || '';
-      const targets = ${JSON.stringify([...KP_V2OWNER_SCRIPT_IDS])};
-      if (!targets.includes(id)) return;
-      if (script.getAttribute('data-kp-bisect-disabled') === '1') return;
-      script.setAttribute('data-kp-bisect-disabled', '1');
-      script.type = 'text/kp-bisect-noop';
-      if (script.src) { script.removeAttribute('src'); }
-      script.textContent = '/* kp-bisect: frontend-editor-v2/owner-web-app neutralisiert */';
-      console.info('[KP-BISECT] v2/owner-Script neutralisiert: ' + id);
-    } catch (e) { console.warn('[KP-BISECT] v2/owner-Script-Fehler: ' + String(e)); }
+      if (typeof FormData !== 'undefined' && body instanceof FormData) return String(body.get('action') || '');
+      if (typeof body === 'string' && body.includes('action=')) {
+        const m = body.match(/(?:^|&)action=([^&]*)/);
+        return m ? decodeURIComponent(m[1]) : '';
+      }
+    } catch (_) {}
+    return '';
+  };
+  const record = (kind, method, url, isAsync, body, origin) => {
+    if (trace.length >= 600) return;
+    const u = String(url || '');
+    const entry = {
+      kind, method, url: u.slice(0, 200),
+      action: u.includes('admin-ajax.php') ? readAction(body) : '',
+      async: isAsync !== false, t: Date.now(), origin: origin || '',
+      stack: (new Error().stack || '').split('\\n').slice(2, 10).map(s => s.trim().replace(/^at /, '')),
+    };
+    trace.push(entry);
+    if (entry.action === 'kp_touch_free_layout_load' || entry.async === false) {
+      // Sofortige Signatur per console.error, damit der Issuer auch dann
+      // ankommt, wenn die Seite nach dem Hang nicht mehr lesbar ist
+      // (Playwright liefert Console-Events ueber CDP, unabhaengig vom Thread).
+      console.error('[KP-XHR-TRACE] ' + entry.kind + ' ' + entry.method + ' ' + u.slice(-90) +
+        ' async=' + entry.async + ' action=' + (entry.action || '-') +
+        ' caller=' + entry.stack.join(' | '));
+    }
   };
   try {
-    document.querySelectorAll('script').forEach(disable);
-    new MutationObserver((records) => {
-      for (const record of records) {
-        for (const node of record.addedNodes) {
-          if (node.nodeType === 1) {
-            if (node.tagName === 'SCRIPT') disable(node);
-            node.querySelectorAll && node.querySelectorAll('script').forEach(disable);
-          }
-        }
-      }
-    }).observe(document.documentElement, { childList: true, subtree: true });
-    console.info('[KP-BISECT] v2/owner-Entwaffner installiert');
-  } catch (err) { console.warn('[KP-BISECT] v2/owner-Stub fehlgeschlagen: ' + String(err)); }
+    const xhrMeta = new WeakMap();
+    const origOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (method, url, isAsync) {
+      xhrMeta.set(this, { method: String(method || ''), url: String(url || ''), async: isAsync !== false });
+      return origOpen.apply(this, arguments);
+    };
+    const origSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function (body) {
+      try {
+        const meta = xhrMeta.get(this) || { method: '?', url: '?', async: true };
+        record('xhr', meta.method, meta.url, meta.async, body, 'xhr.send');
+      } catch (_) {}
+      return origSend.apply(this, arguments);
+    };
+    const origFetch = window.fetch;
+    if (typeof origFetch === 'function') {
+      window.fetch = function (input, init) {
+        try {
+          const url = typeof input === 'string' ? input : (input && (input.url || '')) || String(input);
+          const method = (init && init.method) || (typeof input === 'string' ? 'GET' : 'POST');
+          record('fetch', method, url, true, (init && init.body) || null, 'window.fetch');
+        } catch (_) {}
+        return origFetch.apply(this, arguments);
+      };
+    }
+    console.info('[KP-XHR-TRACE] Instrumentierung aktiv');
+  } catch (err) {
+    console.warn('[KP-XHR-TRACE] Install-Fehler: ' + String(err));
+  }
 })();`;
-const KP_BISECT_V2OWNER = process.env.KP_BISECT_V2OWNER === '1' || existsSync('qa/bisect-frontend-v2-owner.txt');
-if (KP_BISECT_V2OWNER) mark('BISECT aktiv: kp-frontend-editor-v2 + kp-owner-web-app werden in allen Contexts vor Ausfuehrung deaktiviert (KPOwnerWebApp-Boot aus, Verdacht: Boot-/Renderer-Hang).');
+
+async function dumpXhrTrace(page) {
+  try {
+    const data = await page.evaluate(() => {
+      const t = window.__kpXhrTrace || [];
+      return {
+        total: t.length,
+        sync: t.filter(e => e.kind === 'xhr' && e.async === false),
+        adminAjax: t.filter(e => e.action),
+        touchLoad: t.filter(e => e.action === 'kp_touch_free_layout_load'),
+      };
+    }, { timeout: 5000 }).catch(() => null);
+    if (!data) { mark('XHRTRACE nicht lesbar (Seite hängt zu hart / Script nicht gelaufen)'); return; }
+    mark(`XHRTRACE total=${data.total} syncXhr=${data.sync.length} adminAjax=${data.adminAjax.length} touchLoad=${data.touchLoad.length}`);
+    for (const e of data.sync.slice(0, 12)) {
+      mark(`  SYNC-XHR ${e.method} ${e.url.slice(-110)} action=${e.action || '-'} caller=${(e.stack || []).join(' | ').slice(0, 400)}`);
+    }
+    for (const e of data.touchLoad.slice(0, 12)) {
+      mark(`  TOUCHLOAD ${e.kind} ${e.method} async=${e.async} caller=${(e.stack || []).join(' | ').slice(0, 500)}`);
+    }
+    if (!data.sync.length && !data.touchLoad.length) {
+      for (const e of data.adminAjax.slice(0, 10)) {
+        mark(`  AJAX ${e.kind} ${e.method} action=${e.action} async=${e.async} caller=${(e.stack || []).join(' | ').slice(0, 400)}`);
+      }
+    }
+  } catch (e) {
+    mark(`XHRTRACE FEHLER: ${String(e).slice(0, 120)}`);
+  }
+}
 
 for (const spec of deviceSpecs) {
   const context = await browser.newContext({
@@ -549,11 +601,8 @@ for (const spec of deviceSpecs) {
     isMobile: spec.isMobile,
     deviceScaleFactor: 1,
   });
-  if (KP_BISECT_V2OWNER) {
-      await context.addInitScript(KP_V2OWNER_STUB);
-      mark(`BISECT ${spec.name}: addInitScript installiert`);
-    }
-    const page = await context.newPage();
+  await context.addInitScript(KP_XHR_TRACE);
+      const page = await context.newPage();
   const deviceResult = {
     name: spec.name,
     viewport: spec.viewport,
