@@ -11,6 +11,11 @@ add_action( 'wp_footer', static function () {
     if ( is_admin() || ! is_user_logged_in() || ! current_user_can( 'edit_pages' ) ) { return; }
     $edit_mode = isset( $_GET['kp_edit'] ) && '1' === sanitize_text_field( wp_unslash( $_GET['kp_edit'] ) );
     if ( ! $edit_mode ) { return; }
+    // E2E/CI-Durchläufe (kp_e2e=1) dürfen das lokale Laptop-Takeover nie laden:
+    // Der Agent unter 127.0.0.1:8765 existiert in CircleCI nicht und blockiert
+    // sonst domcontentloaded (Staging-Labor Timeouts).
+    $is_e2e = isset( $_GET['kp_e2e'] ) && '1' === sanitize_text_field( wp_unslash( $_GET['kp_e2e'] ) );
+    if ( $is_e2e ) { return; }
     $ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
     if ( false !== strpos( $ua, 'KoblenzerPuppenspieleTechnician/' ) ) { return; }
 
