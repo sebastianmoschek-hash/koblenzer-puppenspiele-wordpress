@@ -184,8 +184,36 @@ async function login(page) {
       authEditHtml = body ? /<html|<!doctype/i.test(body) : false;
       mark(`AUTHRENDER kp_edit -> status=${authEditStatus} bytes=${authEditBytes} html=${authEditHtml} ms=${authEditMs} target=${target}`);
     } else {
-      mark('AUTHRENDER UEBERSPRUNGEN (kein Location/kein Set-Cookie aus dem Login).');
-    }
+          mark('AUTHRENDER UEBERSPRUNGEN (kein Location/kein Set-Cookie aus dem Login).');
+        }
+
+        // AUTHPOST: Der einzige pending Request aller Editor-Laeufe ist der
+        // Boot-POST kp_touch_free_layout_load (action=..., page_key=...) an
+        // admin-ajax.php — haengt im CI-Browser >12min, antwortet von aussen aber
+        // in ~150ms. Hier wird GENAU dieser POST mit dem Login-Cookie serverseitig
+        // vermessen: schnell => Server-Pfad ist gesund, Hang ist Browser-JS-seitig
+        // (z.B. fetch-Wrapper-Kette/CPU); haengend => authentifizierter
+        // admin-ajax-Pfad ist der Root-Cause.
+        if (loginCookie) {
+          const t0 = Date.now();
+          try {
+            const fd = new FormData();
+            fd.append('action', 'kp_touch_free_layout_load');
+            fd.append('page_key', 'post-12');
+            const authPostResp = await fetch(`${base}/wp-admin/admin-ajax.php`, {
+              method: 'POST',
+              credentials: 'omit',
+              redirect: 'follow',
+              signal: AbortSignal.timeout(60000),
+              headers: { 'user-agent': 'kp-lab-auth-post', cookie: loginCookie },
+              body: fd,
+            });
+            const body = await authPostResp.text().catch(() => '');
+            mark(`AUTHPOST kp_touch_free_layout_load -> status=${authPostResp.status} bytes=${body.length} ms=${Date.now() - t0}`);
+          } catch (error) {
+            mark(`AUTHPOST kp_touch_free_layout_load FEHLGESCHLAGEN (${Date.now() - t0}ms): ${String(error).slice(0, 220)}`);
+          }
+        }
   } catch (error) {
     mark(`PREFLIGHT kp_e2e_login FEHLGESCHLAGEN (${Date.now() - pf0}ms): ${String(error).slice(0, 240)}`);
   }
