@@ -66,6 +66,24 @@ jobs:
             printf '%s\n' "$rc" > qa-results/android/contract.rc
             exit "$rc"
       - run:
+          name: Prepare Thorsten High voice assets
+          command: |
+            mkdir -p qa-results/android
+            set +e
+            bash qa/prepare-android-natural-voice.sh > >(tee qa-results/android/thorsten-prepare.log) 2>&1
+            rc=$?
+            printf '%s\n' "$rc" > qa-results/android/thorsten-prepare.rc
+            exit "$rc"
+      - run:
+          name: Thorsten natural voice contract
+          command: |
+            mkdir -p qa-results/android
+            set +e
+            bash qa/android-natural-voice-contract.sh > >(tee qa-results/android/thorsten-contract.log) 2>&1
+            rc=$?
+            printf '%s\n' "$rc" > qa-results/android/thorsten-contract.rc
+            exit "$rc"
+      - run:
           name: Compile Homepage-Hilfe debug APK
           command: |
             mkdir -p qa-results/android
