@@ -10,7 +10,7 @@ if (!token) throw new Error('KP_E2E_TOKEN fehlt.');
 await fs.rm(outDir, { recursive: true, force: true });
 await fs.mkdir(outDir, { recursive: true });
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage'] });
 const report = {
   generatedAt: new Date().toISOString(),
   base,
@@ -138,7 +138,7 @@ function printHotStack(profile) {
     }
   }
 
-async function login(page) {
+async function login(page, probeGuest = false) {
   const loginUrl = `${base}/?kp_e2e_login=${encodeURIComponent(token)}`;
   // Preflight-Diagnostik: Serverantwortzeit des Login-Endpunkts OHNE Browser
   // messen (Node-fetch, redirect:'manual' => Set-Cookie/302 werden nur gelesen).
@@ -264,23 +264,27 @@ async function login(page) {
     // authentifizierte Boot-Seite in einem Fehler- oder Dialog-Loop steckt,
     // explodieren diese Zaehler und die ersten Meldungen nennen die Quelle.
     const evCounters = { dialogs: 0, crashes: 0, consoleErrors: 0, pageErrors: 0 };
-    const evFirst = { dialogs: [], crashes: [], consoleErrors: [], pageErrors: [] };
-    const evPush = (kind, msg) => { if (evFirst[kind].length < 3) evFirst[kind].push(String(msg || '').slice(0, 300)); };
-    page.on('dialog', d => {
-      evCounters.dialogs += 1;
-      evPush('dialogs', `${d.type()}: ${d.message()}`);
-      d.dismiss().catch(() => {});
-    });
-    page.on('crash', () => { evCounters.crashes += 1; });
-    page.on('console', msg => {
-      if (msg.type() !== 'error') return;
-      evCounters.consoleErrors += 1;
-      evPush('consoleErrors', msg.text());
-    });
-    page.on('pageerror', err => {
-      evCounters.pageErrors += 1;
-      evPush('pageErrors', String(err));
-    });
+    const evFirst = { dialogs: [], crashes: [], consoleErrors: [], pageErrors: [], consoleAll: [] };
+    const evPush = (kind, msg) => { if (evFirst[kind].length < 3) evFirst[kind].push(String(msg || '').slice(0, 900)); };
+        page.on('dialog', d => {
+          evCounters.dialogs += 1;
+          evPush('dialogs', `${d.type()}: ${d.message()}`);
+          d.dismiss().catch(() => {});
+        });
+        page.on('crash', () => {
+          evCounters.crashes += 1;
+          mark(`RENDERER-CRASH zu ${new Date().toISOString()} (page.on('crash'))`);
+        });
+        page.on('console', msg => {
+          if (evFirst.consoleAll.length < 5) evFirst.consoleAll.push(`${new Date().toISOString()} [${msg.type()}] ${msg.text().slice(0, 400)}`);
+          if (msg.type() !== 'error') return;
+          evCounters.consoleErrors += 1;
+          evPush('consoleErrors', msg.text());
+        });
+        page.on('pageerror', err => {
+          evCounters.pageErrors += 1;
+          evPush('pageErrors', String(err));
+        });
 
   const dumpNetAndProfile = async () => {
       await dumpXhrTrace(page).catch(() => {});
@@ -290,42 +294,58 @@ async function login(page) {
     for (const r of pending) pendingKinds[r.kind] = (pendingKinds[r.kind] || 0) + 1;
     mark(`NETTRACE gesamt=${netTrace.length} fertig=${netTrace.length - pending.length} PENDING=${pending.length} pendingKinds=${JSON.stringify(pendingKinds)}`);
     if (pending.length) {
-          mark('NETTRACE PENDING (>8s ohne Antwort -> BLOCKER-KANDIDAT):');
-          pending.slice(0, 30).forEach(r => mark(`  PEND ${r.kind} ${r.url.slice(-130)}${r.postData ? ` POST[${r.postData}]` : ''}`));
-        }
+              mark('NETTRACE PENDING (>8s ohne Antwort -> BLOCKER-KANDIDAT):');
+              pending.slice(0, 30).forEach(r => mark(`  PEND ${r.kind} ${r.url.slice(-130)}${r.postData ? ` POST[${r.postData.slice(0, 200)}]` : ''}`));
+            }
     if (slow.length) {
       mark('NETTRACE SLOWEST (>3s):');
       slow.forEach(r => mark(`  ${r.status || 'FAIL'} ${r.ms}ms ${r.kind} ${r.url.slice(-130)}`));
     }
     mark(`EVENTS dialogs=${evCounters.dialogs} crashes=${evCounters.crashes} consoleErrors=${evCounters.consoleErrors} pageErrors=${evCounters.pageErrors}`);
-        for (const kind of ['dialogs', 'crashes', 'consoleErrors', 'pageErrors']) {
-          if (evFirst[kind].length) evFirst[kind].forEach(m => mark(`  FIRST-${kind.toUpperCase()}: ${m}`));
-        }
-      };
+            for (const kind of ['dialogs', 'crashes', 'consoleErrors', 'pageErrors']) {
+              if (evFirst[kind].length) evFirst[kind].forEach(m => mark(`  FIRST-${kind.toUpperCase()}: ${m}`));
+            }
+            if (evFirst.consoleAll.length) evFirst.consoleAll.forEach(m => mark(`  CONSOLE-ALL: ${m}`));
+          };
 
   let response = null;
-  let lastError = null;
-  mark('LOGIN-GOTO start');
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    try {
-      response = await page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-      lastError = null;
-      mark(`LOGIN-GOTO ok (Versuch ${attempt}) status=${response?.status?.() ?? '?'} reqs=${netTrace.length}`);
-      await dumpNetAndProfile();
-      break;
-    } catch (error) {
-      lastError = error;
-      if (attempt === 1) {
-        mark(`LOGIN-GOTO Versuch1 FEHLGESCHLAGEN (${String(error).slice(0, 160)}); ${await pageSnippet(page)} – Retry folgt.`);
+    let lastError = null;
+    // Hard-Cap 75s: Nach einem Renderer-Crash haengt page.goto trotz 45s-Timeot
+    // im toten CDP-Target bis zum Context-Schliessen (Lauf 21: 12-min-Stall).
+    // Diese Wand begrenzt jeden Versuch hart, damit alle 3 Geraete Daten liefern.
+    const gotoBounded = () => new Promise((resolve, reject) => {
+      const wall = setTimeout(() => reject(new Error('GOTO-HARDCAP 75s (totes CDP-Target?)')), 75000);
+      page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 45000 })
+        .then(r => { clearTimeout(wall); resolve(r); }, e => { clearTimeout(wall); reject(e); });
+    });
+    mark('LOGIN-GOTO start');
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        response = await gotoBounded();
+        lastError = null;
+        mark(`LOGIN-GOTO ok (Versuch ${attempt}) status=${response?.status?.() ?? '?'} reqs=${netTrace.length}`);
         await dumpNetAndProfile();
-        await page.waitForTimeout(1500).catch(() => {});
-      } else {
-        mark(`LOGIN-GOTO Versuch2 FEHLGESCHLAGEN; ${await pageSnippet(page)}`);
-        await dumpNetAndProfile();
+        break;
+      } catch (error) {
+        lastError = error;
+        const cdp = await page.context().newCDPSession(page).catch(() => null);
+        if (attempt === 1) {
+          mark(`LOGIN-GOTO Versuch1 FEHLGESCHLAGEN (${String(error).slice(0, 160)}); ${await pageSnippet(page)} – Retry folgt.`);
+          await dumpNetAndProfile();
+                  await stackWhileHung(cdp).catch(() => {});
+                  await page.waitForTimeout(1500).catch(() => {});
+        } else {
+          mark(`LOGIN-GOTO Versuch2 FEHLGESCHLAGEN; ${await pageSnippet(page)}`);
+          await dumpNetAndProfile();
+          await stackWhileHung(cdp).catch(() => {});
+        }
       }
     }
-  }
-  page.off('request', onRequest);
+    if (probeGuest) {
+      const ctl = await guestFetchProbe().catch(e => ({ error: String(e).slice(0, 120) }));
+      mark(`GUEST-CTL ${JSON.stringify(ctl).slice(0, 600)}`);
+    }
+    page.off('request', onRequest);
   page.off('response', onResponse);
   page.off('requestfailed', onReqFailed);
   if (lastError) {
@@ -493,14 +513,20 @@ async function mobileSaveAndResetRoundTrip(page, cdp, deviceResult) {
 // (Marker-ONLY-Commit fad7af0, Modus FULL) hat v2+owner-web-app zu 100%
 // exculpiert; der dcl-Hang bleibt mit exakt demselben Fehlerbild (LOGIN-GOTO
 // Timeout 45s, 0 Events, NETTRACE 1 Pending = POST admin-ajax.php
-// action=kp_touch_free_layout_load, Server sonst 145-154ms). Verdacht:
-// SYNCHRONER XHR (async=false) auf dem Hauptthread blockiert den Parser,
-// daher feuert domcontentloaded nie. Dieses addInitScript wrappt
-// XMLHttpRequest.open/send + fetch und zeichnet fuer JEDE admin-ajax.php-
-// Anfrage: async-Flag, action (aus dem send()-Body), URL und den Aufrufer-
-// Stack (new Error().stack -> nennt die ausloesende Skript-Datei/Funktion).
-// dumpXhrTrace() laeuft nach dem Login-Goto (Erfolg UND Timeout) und benennt
-// damit den ISSUER des Blocker-POSTs direkt - gezielter Fix statt Bisect.
+// action=kp_touch_free_layout_load, Server sonst 145-154ms).
+// Lauf-21-Befund (442bdea): KEIN synchroner XHR - der Blocker ist ein
+// window.fetch (async=true) auf kp_touch_free_layout_load, aufgerufen aus dem
+// Boot-Stapel touch-editor-bridge.js/touch-persistence.js. Der Renderer
+// CRASHT danach (crashes=1 via page.on('crash')), dcl feuert nie, der Request
+// bleibt als Zombie pending, page.goto haengt trotz 45s-Timeot bis zum
+// Context-Schliessen (12-min-Stall).
+// Lauf 22 misst deshalb hier:
+//   - fetch-ANTWORT pro Eintrag (status/ms) => kam die Response im Renderer an
+//     (Verarbeitungs-Crash) oder kam sie nie (Netzwerk-Wedge)?
+//   - GUEST-CTL-Kontrollexperiment: derselbe POST aus frischem Guest-Renderer
+//   - page.on('crash') mit Zeitstempel, erste Console-Meldungen aller Typen
+//   - Hard-Cap 75s pro Goto (kein 12-Minuten-Stall mehr pro Geraet)
+//   - Caller-Stack ohne Wrapper-Rauschen (echte ausloesende .js:Zeile zuerst)
 // Reversibel: qa-only, addInitScript im CI-Browser, kein Theme/Plugin-Eingriff.
 const KP_XHR_TRACE = `(() => {
   const trace = (window.__kpXhrTrace = []);
@@ -514,14 +540,23 @@ const KP_XHR_TRACE = `(() => {
     } catch (_) {}
     return '';
   };
+  const callerFrames = (raw) => {
+    const frames = String(raw || '').split(String.fromCharCode(10)).slice(2)
+      .map(s => s.trim().replace(/^at /, ''))
+      .filter(f => f && !f.includes('<anonymous>') && !f.startsWith('window.fetch') &&
+        !f.startsWith('XMLHttpRequest') && !f.includes('ModuleJob') &&
+        !f.includes('node:internal') && !f.includes('eval at'));
+    return frames.slice(0, 5);
+  };
   const record = (kind, method, url, isAsync, body, origin) => {
-    if (trace.length >= 600) return;
+    if (trace.length >= 800) return null;
     const u = String(url || '');
     const entry = {
       kind, method, url: u.slice(0, 200),
       action: u.includes('admin-ajax.php') ? readAction(body) : '',
       async: isAsync !== false, t: Date.now(), origin: origin || '',
-      stack: (new Error().stack || '').split('\\n').slice(2, 10).map(s => s.trim().replace(/^at /, '')),
+      stack: callerFrames(new Error().stack),
+      status: 0, doneAt: 0, failed: '',
     };
     trace.push(entry);
     if (entry.action === 'kp_touch_free_layout_load' || entry.async === false) {
@@ -532,6 +567,7 @@ const KP_XHR_TRACE = `(() => {
         ' async=' + entry.async + ' action=' + (entry.action || '-') +
         ' caller=' + entry.stack.join(' | '));
     }
+    return entry;
   };
   try {
     const xhrMeta = new WeakMap();
@@ -551,12 +587,20 @@ const KP_XHR_TRACE = `(() => {
     const origFetch = window.fetch;
     if (typeof origFetch === 'function') {
       window.fetch = function (input, init) {
+        let entry = null;
         try {
           const url = typeof input === 'string' ? input : (input && (input.url || '')) || String(input);
           const method = (init && init.method) || (typeof input === 'string' ? 'GET' : 'POST');
-          record('fetch', method, url, true, (init && init.body) || null, 'window.fetch');
+          entry = record('fetch', method, url, true, (init && init.body) || null, 'window.fetch');
         } catch (_) {}
-        return origFetch.apply(this, arguments);
+        const responsePromise = origFetch.apply(this, arguments);
+        if (entry) {
+          responsePromise.then(
+            (response) => { entry.status = typeof response?.status === 'number' ? response.status : -1; entry.doneAt = Date.now(); },
+            (error) => { entry.failed = String(error).slice(0, 160); entry.doneAt = Date.now(); }
+          );
+        }
+        return responsePromise;
       };
     }
     console.info('[KP-XHR-TRACE] Instrumentierung aktiv');
@@ -574,23 +618,53 @@ async function dumpXhrTrace(page) {
         sync: t.filter(e => e.kind === 'xhr' && e.async === false),
         adminAjax: t.filter(e => e.action),
         touchLoad: t.filter(e => e.action === 'kp_touch_free_layout_load'),
+        noResponse: t.filter(e => (e.kind === 'fetch' || e.kind === 'xhr') && e.action && !e.status && !e.failed),
       };
     }, { timeout: 5000 }).catch(() => null);
-    if (!data) { mark('XHRTRACE nicht lesbar (Seite hängt zu hart / Script nicht gelaufen)'); return; }
-    mark(`XHRTRACE total=${data.total} syncXhr=${data.sync.length} adminAjax=${data.adminAjax.length} touchLoad=${data.touchLoad.length}`);
+    if (!data) { mark('XHRTRACE nicht lesbar (Renderer tot / Script nicht gelaufen)'); return; }
+    mark(`XHRTRACE total=${data.total} syncXhr=${data.sync.length} adminAjax=${data.adminAjax.length} touchLoad=${data.touchLoad.length} ohneAntwort=${data.noResponse.length}`);
+    for (const e of data.noResponse.slice(0, 15)) {
+      mark(`  NO-RESPONSE ${e.kind} ${e.method} action=${e.action} async=${e.async} t=${e.t} caller=${(e.stack || []).join(' | ').slice(0, 400)}`);
+    }
+    for (const e of data.touchLoad.slice(0, 15)) {
+      mark(`  TOUCHLOAD ${e.kind} ${e.method} async=${e.async} status=${e.status || '-'} ${e.failed ? 'failed=' + e.failed : ''} ms=${e.doneAt ? e.doneAt - e.t : '?'} caller=${(e.stack || []).join(' | ').slice(0, 500)}`);
+    }
     for (const e of data.sync.slice(0, 12)) {
       mark(`  SYNC-XHR ${e.method} ${e.url.slice(-110)} action=${e.action || '-'} caller=${(e.stack || []).join(' | ').slice(0, 400)}`);
     }
-    for (const e of data.touchLoad.slice(0, 12)) {
-      mark(`  TOUCHLOAD ${e.kind} ${e.method} async=${e.async} caller=${(e.stack || []).join(' | ').slice(0, 500)}`);
-    }
-    if (!data.sync.length && !data.touchLoad.length) {
+    if (!data.sync.length && !data.touchLoad.length && !data.noResponse.length) {
       for (const e of data.adminAjax.slice(0, 10)) {
         mark(`  AJAX ${e.kind} ${e.method} action=${e.action} async=${e.async} caller=${(e.stack || []).join(' | ').slice(0, 400)}`);
       }
     }
   } catch (e) {
     mark(`XHRTRACE FEHLER: ${String(e).slice(0, 120)}`);
+  }
+}
+
+// GUEST-CTL: Derselbe Blocker-POST (kp_touch_free_layout_load) aus einem
+// frischen Guest-Renderer ohne kp_edit-Boot - trennt eindeutig:
+// "kp_edit-Boot-Kontext kaputt" vs. "Browser->Staging-Netzwerkpfad kaputt".
+// Kein Login, kein Schreiben, kein kp_edit. Ergebnis landet als GUEST-CTL-Mark.
+async function guestFetchProbe() {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  try {
+    const p = await ctx.newPage();
+    await p.goto(`${base}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    const result = await p.evaluate(async () => {
+      const fd = new FormData();
+      fd.append('action', 'kp_touch_free_layout_load');
+      fd.append('page_key', 'post-12');
+      const t0 = Date.now();
+      try {
+        const res = await fetch('/wp-admin/admin-ajax.php', { method: 'POST', credentials: 'same-origin', cache: 'no-store', body: fd, signal: AbortSignal.timeout(15000) });
+        const txt = await res.text();
+        return { status: res.status, bytes: txt.length, ms: Date.now() - t0, snippet: txt.slice(0, 80) };
+      } catch (e) { return { error: String(e).slice(0, 120), ms: Date.now() - t0 }; }
+    }, { timeout: 20000 }).catch(e => ({ error: 'evaluate: ' + String(e).slice(0, 120) }));
+    return result;
+  } finally {
+    await ctx.close().catch(() => {});
   }
 }
 
@@ -627,7 +701,7 @@ for (const spec of deviceSpecs) {
   });
 
   try {
-    deviceResult.loginStatus = await login(page);
+    deviceResult.loginStatus = await login(page, spec.name === 'mobile-390');
     mark(`DEVICE ${spec.name} loginStatus=${deviceResult.loginStatus}`);
     await page.waitForTimeout(350);
     const geometry = await page.evaluate(() => ({
