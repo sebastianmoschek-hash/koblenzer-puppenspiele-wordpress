@@ -1,4 +1,4 @@
 This marker intentionally forces FULL staging validation for the exact current main snapshot: staging-only deploy, Mobile/Tablet/Desktop browser editor, Save→Reload→DB readback, Undo/Redo + 48h persistence, Chromium touch gates, and the 50-view visual QA. Production must never be touched.
 
-Validation request: 2026-08-28T22:50+02:00 (Run 18)
-Reason: BISECT-Lauf 18 - Touch-Stack-Stub (qa/bisect-touch-stack.txt) aktiv. Notwendig: voller Deploy des aktuellen main-Stands (inkl. mu-plugins) auf Staging, damit der Browser-Editor-Lauf mit deaktivierten kp-touch-*-Scripts den echten Hauptstand gegen den dcl-Hang testet. Dieser Marker war in den bisherigen Laeufen nur lokal vorhanden und ist daher jetzt erstmals remote - die Vorgaengerlaeufe (QA-mode) haben den Plugin-Deploy uebersprungen.
+Validation request: 2026-08-28T23:05+02:00 (Run 19)
+Reason: BISECT-Lauf 19 - v2/Owner-Stub (qa/bisect-frontend-v2-owner.txt) aktiv, Touch-Stub entfernt (6e3e05f exculpiert den Touch-Stack). Notwendig: voller Deploy des aktuellen main-Stands (inkl. mu-plugins) auf Staging, damit der Browser-Editor-Lauf mit deaktiviertem frontend-editor-v2/owner-web-app den echten Hauptstand gegen den dcl-Hang testet.

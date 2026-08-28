@@ -489,39 +489,40 @@ async function mobileSaveAndResetRoundTrip(page, cdp, deviceResult) {
   }
 }
 
-// BISECT (Editor-Hang, Lauf 18): Nur fuer CI-Diagnoselaeufe. v1
-// (window.KPFrontendEditor) ist seit a14c26c zu 100% exculpiert, sein Stub
-// wurde entfernt. Naechster Verdaechtiger ist der Touch-Stack, der als
-// EINZIGER Request den seit Run 15 im NETTRACE behaengenden Boot-POST
-// kp_touch_free_layout_load startet (touch-free-layout.js / touch-persistence.js
-// / touch-gestures.js + Safety). Dieser Stub deaktiviert die betroffenen
-// <script>-Tags per ID auf Dokumentebene BEVOR der Parser/der defer-Laeufer sie
-// ausfuehrt (type wird auf einen nicht ausfuehrbaren MIME-Typ gesetzt, src und
-// Inline-Text werden geraeumt). Guests sind unbetroffen (deaktiviert nur die
-// Shell-Scripts, keine Daten). GATE: Erscheint keiner der Pend-Requests im
-// naechsten NETTRACE UND der dcl-Hang ist weg => Touch-Stack ist der
-// Uebeltaeter. Bleibt der Hang, ist der Touch-Boot unschuldig. Aktivierung:
-// Marker qa/bisect-touch-stack.txt ODER env KP_BISECT_TOUCH=1. Reversibel:
+// BISECT (Editor-Hang, Lauf 19): Nur fuer CI-Diagnoselaeufe. Der komplette
+// Touch-Stack ist seit 6e3e05f zu 100% exculpiert (Run 18-FULL: Touch- und
+// Visual-Verdict success, Editor/Persistence/TextSave/SessionUndo weiterhin
+// rot, dcl-Hang unveraendert) - sein Stub wurde ENTFERNT, eine Mit-Abschaltung
+// wuerde den Lauf verfaelschen. Naechste Kandidaten: der KPOwnerWebApp-Boot +
+// seine Basis (frontend-editor-v2.js, WP-Handle 'kp-frontend-editor-v2' und
+// owner-web-app.js, Handle 'kp-owner-web-app'; WP-Script-Tag-IDs enden auf -js).
+// Dieser Stub deaktiviert die <script>-Tags per ID auf Dokumentebene BEVOR der
+// Parser/der defer-Laeufer sie ausfuehrt (type wird auf einen nicht
+// ausfuehrbaren MIME-Typ gesetzt, src und Inline-Text werden geraeumt). Guests
+// sind unbetroffen (deaktiviert nur die Editor-Shell, keine Daten). GATE: dcl
+// feuert wieder / kein Pending / Editor-Gates verlassen das Event-0-Bild =>
+// v2-/Owner-Boot ist der Uebeltaeter (danach v2 vs. owner-web-app trennen).
+// Bleibt der dcl-Hang mit gleichem Fehlerbild, sind v2+owner unschuldig und der
+// naechste Kandidat ist der Owner-/Adminbar-Pfad. Aktivierung: Marker
+// qa/bisect-frontend-v2-owner.txt ODER env KP_BISECT_V2OWNER=1. Reversibel:
 // Marker/Env entfernen deaktiviert.
-const KP_TOUCH_SCRIPT_IDS = new Set([
-  'kp-touch-gestures-js',
-  'kp-touch-gesture-safety-js',
-  'kp-touch-free-layout-js',
-  'kp-touch-persistence-js',
+const KP_V2OWNER_SCRIPT_IDS = new Set([
+  'kp-frontend-editor-v2-js',
+  'kp-owner-web-app-js',
 ]);
-const KP_TOUCH_STUB = `(() => {
+const KP_V2OWNER_STUB = `(() => {
   const disable = (script) => {
     try {
       const id = script.id || '';
-      const targets = ${JSON.stringify([...KP_TOUCH_SCRIPT_IDS])};
+      const targets = ${JSON.stringify([...KP_V2OWNER_SCRIPT_IDS])};
       if (!targets.includes(id)) return;
       if (script.getAttribute('data-kp-bisect-disabled') === '1') return;
       script.setAttribute('data-kp-bisect-disabled', '1');
       script.type = 'text/kp-bisect-noop';
       if (script.src) { script.removeAttribute('src'); }
-      script.textContent = '/* kp-bisect: touch-stack neutralisiert */';
-      console.info('[KP-BISECT] Touch-Script neutralisiert: ' + id);
-    } catch (e) { console.warn('[KP-BISECT] Touch-Script-Fehler: ' + String(e)); }
+      script.textContent = '/* kp-bisect: frontend-editor-v2/owner-web-app neutralisiert */';
+      console.info('[KP-BISECT] v2/owner-Script neutralisiert: ' + id);
+    } catch (e) { console.warn('[KP-BISECT] v2/owner-Script-Fehler: ' + String(e)); }
   };
   try {
     document.querySelectorAll('script').forEach(disable);
@@ -535,11 +536,11 @@ const KP_TOUCH_STUB = `(() => {
         }
       }
     }).observe(document.documentElement, { childList: true, subtree: true });
-    console.info('[KP-BISECT] Touch-Stack-Entwaffner installiert');
-  } catch (err) { console.warn('[KP-BISECT] Touch-Stub fehlgeschlagen: ' + String(err)); }
+    console.info('[KP-BISECT] v2/owner-Entwaffner installiert');
+  } catch (err) { console.warn('[KP-BISECT] v2/owner-Stub fehlgeschlagen: ' + String(err)); }
 })();`;
-const KP_BISECT_TOUCH = process.env.KP_BISECT_TOUCH === '1' || existsSync('qa/bisect-touch-stack.txt');
-if (KP_BISECT_TOUCH) mark('BISECT aktiv: kp-touch-*-Scripts werden in allen Contexts vor Ausfuehrung deaktiviert (Touch-Stack aus, Verdacht: kp_touch_free_layout_load / Renderer-Loop).');
+const KP_BISECT_V2OWNER = process.env.KP_BISECT_V2OWNER === '1' || existsSync('qa/bisect-frontend-v2-owner.txt');
+if (KP_BISECT_V2OWNER) mark('BISECT aktiv: kp-frontend-editor-v2 + kp-owner-web-app werden in allen Contexts vor Ausfuehrung deaktiviert (KPOwnerWebApp-Boot aus, Verdacht: Boot-/Renderer-Hang).');
 
 for (const spec of deviceSpecs) {
   const context = await browser.newContext({
@@ -548,8 +549,8 @@ for (const spec of deviceSpecs) {
     isMobile: spec.isMobile,
     deviceScaleFactor: 1,
   });
-  if (KP_BISECT_TOUCH) {
-      await context.addInitScript(KP_TOUCH_STUB);
+  if (KP_BISECT_V2OWNER) {
+      await context.addInitScript(KP_V2OWNER_STUB);
       mark(`BISECT ${spec.name}: addInitScript installiert`);
     }
     const page = await context.newPage();
