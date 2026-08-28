@@ -297,6 +297,8 @@ async function login(page, probeGuest = false) {
               mark('NETTRACE PENDING (>8s ohne Antwort -> BLOCKER-KANDIDAT):');
               pending.slice(0, 30).forEach(r => mark(`  PEND ${r.kind} ${r.url.slice(-130)}${r.postData ? ` POST[${r.postData.slice(0, 200)}]` : ''}`));
             }
+        const lastReqs = netTrace.slice(-14).map(r => `${r.kind}${r.done ? '' : '*PEND'} ${r.url.slice(-70)}`);
+        mark(`NETTRACE LAST-REQS (Reihenfolge = Ausfuehrungsnaehe des Freeze): ${lastReqs.join(' | ')}`);
     if (slow.length) {
       mark('NETTRACE SLOWEST (>3s):');
       slow.forEach(r => mark(`  ${r.status || 'FAIL'} ${r.ms}ms ${r.kind} ${r.url.slice(-130)}`));
@@ -332,17 +334,23 @@ async function login(page, probeGuest = false) {
         mark(`LOGIN-GOTO ok status=${response?.status?.() ?? '?'} reqs=${netTrace.length}`);
         await dumpNetAndProfile();
       } catch (error) {
-        lastError = error;
-        mark(`LOGIN-GOTO FEHLGESCHLAGEN (${String(error).slice(0, 160)})`);
-        // Lauf-22-Befund: Die CDP-Session zum gewedgten Renderer blockiert ALLE
-        // weiteren Kommandos (pageSnippet/evals haengen bis Context-Close = 12min
-        // Budgetverlust). page.close() mit Zeitbegrenzung entriegelt den Node-
-        // Fluss sofort; die Diagnose-Daten stehen bereits in Node (netTrace,
-        // EVENTS, XHR-Signaturen per console.error).
-        await Promise.race([
-          page.close().catch(() => {}),
-          new Promise(r => setTimeout(r, 5000)),
-        ]).catch(() => {});
+            lastError = error;
+            mark(`LOGIN-GOTO FEHLGESCHLAGEN (${String(error).slice(0, 160)})`);
+            // HUNGSTACK VOR dem Close: Ein NICHT gecrashter Renderer im Busy-Loop
+            // (Lauf 23: alle Requests fertig, crashes=0, dcl feuert nie, Timer+eval
+            // tot) kann per Debugger.pause unterbrochen werden -> exakter Loop-Ort
+            // (Datei:Zeile im Call-Stack). Nur wenn der Renderer tot ist, schlaegt
+            // das fehl - dann liefert der Rest des Dumps trotzdem die NETTRACE-Basis.
+            const cdp = await page.context().newCDPSession(page).catch(() => null);
+            await stackWhileHung(cdp).catch(() => {});
+            // Lauf-22/23-Befund: Die CDP-Session zum gewedgten Renderer blockiert
+            // ALLE weiteren Kommandos (haengen bis Context-Close = Budgetverlust).
+            // page.close() mit Zeitbegrenzung entriegelt den Node-Fluss sofort; die
+            // Diagnose-Daten stehen bereits in Node (netTrace, EVENTS, Signaturen).
+            await Promise.race([
+              page.close().catch(() => {}),
+              new Promise(r => setTimeout(r, 5000)),
+            ]).catch(() => {});
         await dumpNetAndProfile().catch(() => {});
         // FRESH-AUTH-CTL: Wiederhole den Login in einem frischen Kontext mit
         // frischer Netzwerk-Partition. Gelingt er, ist der Wedge an den ersten
