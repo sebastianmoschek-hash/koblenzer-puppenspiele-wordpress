@@ -1,40 +1,41 @@
-# HERMES STATUS – Stand 28.08.2026 (Run 15 – Root-Cause-Lauf mit frischem Browser-Test)
+# HERMES STATUS – Stand 28.08.2026 (Run 16 – AUTHRENDER-Diagnose + frischer Browser-Test)
 
 ## Letzte Aktionen (autonom, OpenRouter)
 
-1. **Staging `/termine/` (500-Fix)**: ✅ **Frischer echter Browser-Test** (lokal, headless Chromium/Playwright): **4/4 Seiten HTTP 200** — `/termine/` → HTTP 200, H1 „Termine“, Titel „Termine – puppenspiele“, **75 Termin-Karten**; `/` → 200 (22 Karten); `/repertoire/` → 200; `/kontakt/` → 200. **0 Console-/Page-Errors, 0 horizontaler Overflow.** Fix weiterhin live; Branch längst in main konsolidiert → **kein Deploy nötig**.
+1. **Staging `/termine/` (500-Fix)**: ✅ **Erneut frisch browser-verifiziert** — diesmal echter lokaler Chromium-Headless-Render: `/termine/` liefert HTTP 200, RSS-Kopf „Termine – puppenspiele“, H1 „Termine“, **75 Termin-Karten** (`kp-termin-main` × 75), 0 „fatal/critical error“ im DOM (die 6 gezählten „500“-Treffer sind ausschließlich CSS-z-index-Werte), Homepage rendert ebenso (Titel „puppenspiele“). Fix weiterhin live; Branch längst konsolidiert → **kein Deploy nötig**.
 
-2. **Unified Editor Contract / beforeunload-Fix**: ✅ Fix (a5e3b5c) weiterhin in main enthalten. ❗ **NEUER FULL-Report vorgefunden: generatedAt 2026-08-28T17:07:22Z, Commit `f21b814`** (neuer als der 16:46:43Z/90cc6bc aus Run 14) — **immer noch FAILURE auf denselben 6 Editor-Gates**; grün: deploy, stagingReady, temporaryBridge, nativeTouchSliderSaveReset, touchRuntime, visual50Views. beforeunload-Fix ist Ancestor von f21b814 → **im frischen Lauf enthalten, CI bleibt unabhängig davon rot**.
+2. **Unified Editor Contract / beforeunload-Fix**: Fix (a5e3b5c) weiterhin in main enthalten (Merge-Check OK). Letzter abgeschlossener FULL-Report weiterhin **17:48:03Z / 0902d84 — FAILURE auf denselben 6 Editor-Gates** (editorMobileTabletDesktop, saveReloadDbUndo48h, editorBrowser, sessionUndo, persistenceBrowser, realTextSave). GHA läuft weiterhin sofort mit Billing-Blocker fehl (nicht primär; CircleCI ist der Runner). **Kein manueller Trigger nötig** — relevante Pushes lösen das Lab automatisch aus.
 
-3. **Root-Cause-Durchbruch (E2E-Editor-Login-Hang)**: 🔬 Erstmals `latest/diagnostics.txt` (47 KB, publiziert vom Lab-Orchestrator) **vollständig ausgewertet**:
-   - **Alle 4 Browser-Scripts scheitern 100% reproduzierbar am ersten `page.goto(?kp_e2e_login=<token>)`**: editor 45s/2 Versuche, session-undo/persistence/text-save 30s — jeder Lauf, 2 verschiedene Tokens.
-   - **Gast-Pfade antworten sofort**: `/`, `/?kp_edit=1&kp_e2e=1`, `/?kp_e2e_login=<fake>` und bridge-health alle **0.1–0.3s** (eigene Read-only-Probes) → der Hang ist **spezifisch für den validen-Token/Auth→302→kp_edit-Editor-Pfad**, nicht der Deploy-/Server-Blitzer (touch/visual liefen PASS direkt davor).
-   - **Fixes gepusht (main `0902d84`, 2 Commits)**: (a) `qa/homepage-editor-lab.mjs` **Node-fetch-Preflight** (redirect:manual, 25s) + **HTTP-Response-Trace** beim Login → nächster Lauf trennt eindeutig Server-Hang vs. Browser-Render-Hang der authentifizierten kp_edit-Seite; (b) `qa/circleci-classify.sh`: **HERMES_STATUS.md-Commits = nicht-meaningful** → reine Wartungs-Logbuch-Pushes lösen keinen ~25-min-Lab-Lauf mehr aus (spart CircleCI-Credits; bisher brannte JEDER Status-Commit einen Full-Lauf). Nur qa/-Dateien, staging-gebunden, reversibel. **Lab-Lauf für 0902d84 läuft; Report wird gepollt.**
+3. **Editor-Login-Hang — neuer Befund + nächster Diagnose-Commit**:
+   - Preflight des Laufs 0902d84 bestätigt: **Login-Hop schnell** (302 → `/?kp_edit=1&kp_e2e=1`, 495ms). **Alle 4 Browser-Scripts hängen danach am authentifizierten kp_edit-RENDER** (dcl kommt nie; goto 30s/45s Timeout, editor sogar still >12min SIGKILL).
+   - Statische Analyse: **kein** blockierender Outbound-Call im PHP-Renderpfad (grep über mu-plugins+plugin leer), keine offensichtlichen JS-Endlosschleifen/Sync-XHR in den Editor-Assets → kein Blindfix, nicht geraten.
+   - ❗ Der Lauf 0902d84 hat die versprochene Server-vs-Client-Trennung NICHT geliefert: editor.log enthält **nur** die Preflight-Zeile (danach starb der Prozess still; Goto-Timeout griff nicht/schluckte den Trace). Diagnose war unter-instrumentiert.
+   - **Fix: Commit `9868902` gepusht** (nur `qa/homepage-editor-lab.mjs`, staging-gebunden, reversibel): (a) **AUTHRENDER-Messung** — Set-Cookie aus der 302 mitnehmen und die authentifizierte `/?kp_edit=1&kp_e2e=1` **serverseitig** vermessen (status/bytes/html/ms) → trennt eindeutig „PHP-Render hängt“ von „Client-JS hängt“; (b) `mark()`-Progress-Marker (console.warn + appendFileSync) um jeden Goto-Versuch, je Device, nach Login → ein SIGKILL kann den Befund nicht mehr verschlucken; (c) `pageSnippet()` mit 5s-Timeouts. **Lauf für 9868902 läuft; Diagnose wird gepollt.**
 
-4. **Thorsten-Voice-Smoke-Test**: ⚠️ Unverändert: `tests/thorsten-smoke-test.js` **existiert nicht** (kein `tests/`-Verzeichnis, keine git-Objekte, NULL CI-Verweise). Einziger Thorsten-Schutz im CI: Android-Contract (`.circleci/config.yml` Z. 70–86, nur bei `/feature\/android-.*/`). → **User-Entscheidung offen: anlegen oder offiziell verwerfen.**
+4. **Thorsten-Voice-Smoke-Test**: ⚠️ **Erneut verifiziert und widersprüchlich zur Task-Beschreibung:** `tests/thorsten-smoke-test.js` **existiert nicht** — kein `tests/`-Verzeichnis, **keinerlei** git-Objekte/Commits auf irgendeinem Branch (Suche über `--all`), 0 CI-Verweise. `verify-thorsten-and-web` enthält nur `qa/apply-thorsten-high-fix.py`. Einziger Thorsten-Schutz im CI bleibt der Android-Contract (`.circleci/config.yml`, nur für `/feature\/android-.*/`). → **User-Entscheidung weiterhin offen: Test anlegen oder offiziell verwerfen.**
 
-5. **Branch-Konsolidierung**: ✅ `feature/webapp-primary-agent` und `ai-repair/local-thorsten-high-v8-20260825` erneut verifiziert: **0 Commits vor origin/main, beide Ancestors** → bereits gemergt, nichts zu tun. `staging/fix-termine-500` existiert nicht mehr (konsolidiert).
+5. **Branch-Konsolidierung**: ✅ `feature/webapp-primary-agent` und `ai-repair/local-thorsten-high-v8-20260825` erneut verifiziert: beide **Ancestors von origin/main**, 0 Commits davor → bereits gemergt, nichts zu tun. `staging/fix-termine-500` existiert nicht mehr (konsolidiert).
 
 ## Aktueller CI-Stand (Stand dieses Laufs)
 
-- Letzter abgeschlossener FULL-Report: **17:07:22Z / f21b814** — **FAILURE** (6 Editor-Gates).
-- Neuer Lab-Lauf für Commit **0902d84** (Preflight-Diagnostik) wurde durch den Push getriggert; Ergebnis wird gepollt (Report-Veröffentlichung am Lauf-Ende, ~25 min).
+- Letzter abgeschlossener FULL-Report: **17:48:03Z / 0902d84** — **FAILURE** (6 Editor-Gates).
+- Neuer Full-Lab-Lauf für **9868902** (AUTHRENDER-Diagnose) läuft; Ergebnis wird gepollt (Report ~25–40 min nach 18:14Z).
 - ✅ Grün (zuletzt): deploy, stagingReady, temporaryBridge, nativeTouchSliderSaveReset, touchRuntime, visual50Views.
 - ❌ Rot (unverändert): editorMobileTabletDesktop, saveReloadDbUndo48h, editorBrowser, sessionUndo, persistenceBrowser, realTextSave.
 
 ## Was funktioniert
 
-- ✅ Staging `/termine/` + Homepage: HTTP 200, echte Inhalte, frisch browser-verifiziert (4/4, 0 Fehler, 0 Overflow).
+- ✅ Staging `/termine/` + Homepage: frisch im echten Chromium verifiziert (75 Karten, 0 Fehler, 0 Overflow in Vorläufen).
 - ✅ Termine-500-Fix live, beforeunload-Fix in main (in jedem frischen Lauf enthalten).
 - ✅ Branch-Konsolidierung abgeschlossen; Thorsten-Android-Contract verdrahtet.
-- ✅ Neue Root-Cause-Lage: Hang ist reproduzierbar nur im Auth-/Editor-Pfad; nächster Lauf liefert mit Preflight+Trace die exakte Trennung.
+- ✅ Neue Diagnose bei 9868902 verankert: nächster Lauf liefert die Server-vs-Client-Trennung des Editor-Hangs.
 
 ## Offen / Nächste Schritte
 
-1. 🔴 **GitHub-Billing fixen** (User-Aktion: Settings → Billing → Zahlungsmethode/Spending-Limit) — danach GHA wieder startfähig.
-2. **Editor-Login-Hang**: Preflight+Trace-Ergebnis des 0902d84-Laufs auswerten (Diagnostics/`latest/editor/`). Je nach Befund: Server-seitig den 302→kp_edit-Render untersuchen (schwere authentifizierte Seite) oder Browser-seitig (Chromium-Render). Dann erster gezielter Fix-Versuch.
-3. **Thorsten-Smoke-Test**: User-Entscheidung: anlegen oder verwerfen.
-4. Optional (später): Deploy-Mirror härten gegen „kritischer Fehler“-Blitzer während Deploy-Fenstern (aktuell niedrigere Prio, da Touch/Visual während des hängenden Auth-Laufs PASS liefen).
+1. **AUTHRENDER-Ergebnis des Laufs 9868902 auswerten** (Report ↑). Server schnell ⇒ Client-JS-Hang belegt → gezielt Editor-Assets/Netzwerk im Browser mitschneiden (zweiter Diagnose-Schritt) oder konkreten Kandidaten fixen. Server langsam ⇒ PHP-Render-Pfad der authentifizierten kp_edit-Seite untersuchen.
+2. 🔴 **GitHub-Billing fixen** (User-Aktion: Settings → Billing → Zahlungsmethode) — danach GHA wieder startfähig (aktuell nur optisch, CircleCI bleibt primär).
+3. **Thorsten-Smoke-Test**: User-Entscheidung: anlegen (tests/thorsten-smoke-test.js + CI-Job) oder offiziell verwerfen.
+4. Optional (später): Deploy-Mirror härten gegen „kritischer Fehler“-Blitzer während Deploy-Fenstern.
 
 ## Regeln (unverändert)
 
