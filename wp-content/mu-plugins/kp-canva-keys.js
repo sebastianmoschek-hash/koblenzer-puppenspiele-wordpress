@@ -111,9 +111,14 @@
     if (root instanceof Element && root.matches(selectors)) nodes.push(root);
     root.querySelectorAll?.(selectors).forEach(el => nodes.push(el));
     nodes.forEach(el => {
-      const key = ensureGestureKey(el);
-      if (key) el.classList.add('kp-canva-movable');
-    });
+          const key = ensureGestureKey(el);
+          // Idempotenz (Root-Cause-Fix, CI-Lauf 25): classList.add nur wenn die
+          // Klasse fehlt. Vorher wurde bei JEDER childList-Mutation der gesamte
+          // Selektoren-Bestand neu markiert; zusammen mit den Observer-Kaskaden
+          // (canva-editor uiObserver/imageButtonObserver) erzeugte das einen
+          // selbstverstaerkenden Klassen-Mutations-Sturm auf dem Hauptthread.
+          if (key && !el.classList.contains('kp-canva-movable')) el.classList.add('kp-canva-movable');
+        });
     const images = [];
     if (root instanceof HTMLImageElement) images.push(root);
     root.querySelectorAll?.('img').forEach(img => images.push(img));

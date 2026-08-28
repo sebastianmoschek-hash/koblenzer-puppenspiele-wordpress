@@ -114,13 +114,28 @@
     }
   }
 
-  function updateUi() {
-    const row = q('.kp-wa-local-live');
-    const toggle = q('.kp-wa-live-toggle');
-    const see = q('.kp-wa-live-see');
-    const note = q('.kp-wa-live-note');
-    const subtitle = q('.kp-wa-head small');
-    if (!row || !toggle || !see) return;
+  // Re-Entrancy-Schutz (Root-Cause-Befund CI-Lauf 25, CLASS-STORM): Dieser
+    // Script wird von einem dokumentweiten childList-MutationObserver (s. u.)
+    // bei JEDER Mutation aufgerufen. updateUi() schreibt textContent/classList
+    // - und genau diese Schreibe sind selbst childList-Mutationen. Dadurch
+    // erzeugt updateUi() eine sich selbst am Leben haltende Kette
+    // (updateUi -> textContent -> Observer -> updateUi -> ...), die den
+    // Hauptthread dauerhaft blockiert (dcl feuert nie; Renderer-Crash nach
+    // Minuten). Die UI-Texte haengen NUR von den Zustandsflags ab: Ist der
+    // Zustand unveraendert, werden KEINE DOM-Schreibe ausgefuehrt und die Kette
+    // bricht sofort ab. Sichtbares Verhalten bleibt identisch.
+    let uiStateKey = '';
+    function updateUi() {
+      const row = q('.kp-wa-local-live');
+      const toggle = q('.kp-wa-live-toggle');
+      const see = q('.kp-wa-live-see');
+      const note = q('.kp-wa-live-note');
+      const subtitle = q('.kp-wa-head small');
+      if (!row || !toggle || !see) return;
+
+      const stateKey = [desktopLive, helperReady, modelReady, repoReady, autoPush, busy].join('|');
+      if (stateKey === uiStateKey) return;
+      uiStateKey = stateKey;
 
     row.classList.toggle('is-live', desktopLive);
     if (desktopLive) {
@@ -423,11 +438,18 @@
     }
   }, true);
 
-  const observer = new MutationObserver(() => {
-    if (!q('.kp-wa-local-live')) return;
-    updateUi();
-  });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  // Re-Entrancy-Debounce (Root-Cause-Fix, CI-Lauf 25): Den dokumentweiten
+    // childList-Observer entkoppeln - Mutationen, die updateUi() selbst
+    // ausloest (z. B. textContent beim allerersten Zustandswechsel), duerfen
+    // nicht synchron eine weitere updateUi()-Runde starten. Pro Frame hoechstens
+    // eine Aktualisierung; der stateKey-Guard in updateUi() bricht die Kette.
+    let uiScheduled = false;
+    const observer = new MutationObserver(() => {
+      if (!q('.kp-wa-local-live') || uiScheduled) return;
+      uiScheduled = true;
+      requestAnimationFrame(() => { uiScheduled = false; updateUi(); });
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
   setTimeout(() => health(), 250);
   setTimeout(() => updateUi(), 500);
 })();
