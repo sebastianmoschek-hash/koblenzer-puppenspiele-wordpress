@@ -120,18 +120,34 @@
   }
 
   async function loadLive() {
-    if (editorHasLocalTouchState()) return;
-    const fd = new FormData();
-    fd.append('action', 'kp_touch_free_layout_load');
-    fd.append('page_key', cfg.pageKey);
-    const response = await upstreamFetch(cfg.ajaxUrl, {method:'POST', credentials:'same-origin', cache:'no-store', body:fd});
-    const json = await response.json().catch(() => null);
-    if (!response.ok || !json?.success || editorHasLocalTouchState()) return;
-    const live = saveMirror(json.data || {});
-    authoritative = live;
-    hydrateEditorInPlace(live);
-    applyAuthoritative();
-  }
+      if (editorHasLocalTouchState()) return;
+      const fd = new FormData();
+      fd.append('action', 'kp_touch_free_layout_load');
+      fd.append('page_key', cfg.pageKey);
+      // Watchdog (Lauf 21/22, CI-Staging nachgewiesen): Ein haengender
+      // Layout-Load-POST durfte den Seiteneinstieg blockieren - der Renderer
+      // wedged, domcontentloaded feuert nie. Abort nach 12s gibt die Verbindung
+      // frei; bis dahin bleibt der letzte spiegelbildliche Stand aus
+      // localStorage aktiv (siehe Mirror-Restore unten). Server gesund = Antwort
+      // in ~150ms, das Timeout greift nie. Reversibel und rein defensiv.
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      try {
+        const response = await upstreamFetch(cfg.ajaxUrl, {method:'POST', credentials:'same-origin', cache:'no-store', body:fd, signal:controller.signal});
+        const json = await response.json().catch(() => null);
+        if (!response.ok || !json?.success || editorHasLocalTouchState()) return;
+        const live = saveMirror(json.data || {});
+        authoritative = live;
+        hydrateEditorInPlace(live);
+        applyAuthoritative();
+      } catch (_) {
+        // Layout-Load fehlgeschlagen oder abgebrochen: gespiegelten Stand weiter
+        // verwenden; der naechste loadLive()-Aufruf (focus/pageshow) versucht es
+        // erneut. Kein Fehler-Toast noetig, das Layout ist progressiv.
+      } finally {
+        clearTimeout(timer);
+      }
+    }
 
   const upstreamFetch = window.fetch.bind(window);
   window.fetch = function(input, init = {}) {

@@ -309,43 +309,50 @@ async function login(page, probeGuest = false) {
           };
 
   let response = null;
-    let lastError = null;
-    // Hard-Cap 75s: Nach einem Renderer-Crash haengt page.goto trotz 45s-Timeot
-    // im toten CDP-Target bis zum Context-Schliessen (Lauf 21: 12-min-Stall).
-    // Diese Wand begrenzt jeden Versuch hart, damit alle 3 Geraete Daten liefern.
-    const gotoBounded = () => new Promise((resolve, reject) => {
-      const wall = setTimeout(() => reject(new Error('GOTO-HARDCAP 75s (totes CDP-Target?)')), 75000);
-      page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 45000 })
-        .then(r => { clearTimeout(wall); resolve(r); }, e => { clearTimeout(wall); reject(e); });
-    });
-    mark('LOGIN-GOTO start');
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      let lastError = null;
+      // GUEST-CTL VOR dem ersten Goto: Derselbe Blocker-POST aus einem frischen
+      // Guest-Renderer. Antwortet er (Server ~150ms), ist der Netzwerkpfad
+      // Browser->Staging gesund und der Wedge ist an den kp_edit-Boot gebunden.
+      if (probeGuest) {
+        const ctl = await guestFetchProbe().catch(e => ({ error: String(e).slice(0, 120) }));
+        mark(`GUEST-CTL ${JSON.stringify(ctl).slice(0, 600)}`);
+      }
+      // Hard-Cap 75s: Nach einem Renderer-Crash/Wedge haengt page.goto trotz
+      // 45s-Timeout im toten CDP-Target bis zum Context-Schliessen (Lauf 21/22:
+      // 12-min-Stall). Diese Wand begrenzt den Versuch hart.
+      const gotoBounded = () => new Promise((resolve, reject) => {
+        const wall = setTimeout(() => reject(new Error('GOTO-HARDCAP 75s (totes CDP-Target?)')), 75000);
+        page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 45000 })
+          .then(r => { clearTimeout(wall); resolve(r); }, e => { clearTimeout(wall); reject(e); });
+      });
+      mark('LOGIN-GOTO start');
       try {
         response = await gotoBounded();
         lastError = null;
-        mark(`LOGIN-GOTO ok (Versuch ${attempt}) status=${response?.status?.() ?? '?'} reqs=${netTrace.length}`);
+        mark(`LOGIN-GOTO ok status=${response?.status?.() ?? '?'} reqs=${netTrace.length}`);
         await dumpNetAndProfile();
-        break;
       } catch (error) {
         lastError = error;
-        const cdp = await page.context().newCDPSession(page).catch(() => null);
-        if (attempt === 1) {
-          mark(`LOGIN-GOTO Versuch1 FEHLGESCHLAGEN (${String(error).slice(0, 160)}); ${await pageSnippet(page)} – Retry folgt.`);
-          await dumpNetAndProfile();
-                  await stackWhileHung(cdp).catch(() => {});
-                  await page.waitForTimeout(1500).catch(() => {});
-        } else {
-          mark(`LOGIN-GOTO Versuch2 FEHLGESCHLAGEN; ${await pageSnippet(page)}`);
-          await dumpNetAndProfile();
-          await stackWhileHung(cdp).catch(() => {});
+        mark(`LOGIN-GOTO FEHLGESCHLAGEN (${String(error).slice(0, 160)})`);
+        // Lauf-22-Befund: Die CDP-Session zum gewedgten Renderer blockiert ALLE
+        // weiteren Kommandos (pageSnippet/evals haengen bis Context-Close = 12min
+        // Budgetverlust). page.close() mit Zeitbegrenzung entriegelt den Node-
+        // Fluss sofort; die Diagnose-Daten stehen bereits in Node (netTrace,
+        // EVENTS, XHR-Signaturen per console.error).
+        await Promise.race([
+          page.close().catch(() => {}),
+          new Promise(r => setTimeout(r, 5000)),
+        ]).catch(() => {});
+        await dumpNetAndProfile().catch(() => {});
+        // FRESH-AUTH-CTL: Wiederhole den Login in einem frischen Kontext mit
+        // frischer Netzwerk-Partition. Gelingt er, ist der Wedge an den ersten
+        // Verbindungsaufbau gebunden; haengt er identisch, ist es seitenweit.
+        if (probeGuest) {
+          const ctl = await freshLoginProbe().catch(e => ({ error: String(e).slice(0, 120) }));
+          mark(`FRESH-AUTH-CTL ${JSON.stringify(ctl).slice(0, 800)}`);
         }
       }
-    }
-    if (probeGuest) {
-      const ctl = await guestFetchProbe().catch(e => ({ error: String(e).slice(0, 120) }));
-      mark(`GUEST-CTL ${JSON.stringify(ctl).slice(0, 600)}`);
-    }
-    page.off('request', onRequest);
+      page.off('request', onRequest);
   page.off('response', onResponse);
   page.off('requestfailed', onReqFailed);
   if (lastError) {
@@ -662,11 +669,48 @@ async function guestFetchProbe() {
         return { status: res.status, bytes: txt.length, ms: Date.now() - t0, snippet: txt.slice(0, 80) };
       } catch (e) { return { error: String(e).slice(0, 120), ms: Date.now() - t0 }; }
     }, { timeout: 20000 }).catch(e => ({ error: 'evaluate: ' + String(e).slice(0, 120) }));
-    return result;
-  } finally {
-    await ctx.close().catch(() => {});
-  }
-}
+        return result;
+      } finally {
+        await ctx.close().catch(() => {});
+      }
+    }
+
+    // FRESH-AUTH-CTL (Lauf 23): Nach einem Wedge im ersten Kontext wird der
+    // authentifizierte Login in einem FRISCHEN Kontext wiederholt (frische
+    // Netzwerk-Partition, gleiche URL/Token). Ergebnis sagt, ob der Wedge an den
+    // ersten Verbindungsaufbau gebunden ist oder seitenweit auftritt. Kein Einfluss
+    // auf den Hauptfluss; laeuft nur bei fehlgeschlagenem ersten Login (mobile-390).
+    async function freshLoginProbe() {
+      const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
+      try {
+        await ctx.addInitScript(KP_XHR_TRACE);
+        const p = await ctx.newPage();
+        const body = (async () => {
+          const resp = await p.goto(`${base}/?kp_e2e_login=${encodeURIComponent(token)}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+          const result = { phase: 'ok', status: resp?.status?.() ?? '?' };
+          await p.waitForTimeout(600);
+          const trace = await p.evaluate(() => (window.__kpXhrTrace || [])
+            .filter(e => e.action)
+            .map(e => ({ action: e.action, status: e.status || 0, failed: !!e.failed, ms: e.doneAt ? e.doneAt - e.t : -1 })),
+          { timeout: 4000 }).catch(() => null);
+          if (trace) result.trace = trace;
+          return result;
+        })();
+        const result = await Promise.race([
+          body,
+          new Promise(res => setTimeout(() => res({ phase: 'walltimeout-80s' }), 80000)),
+        ]);
+        if (result.phase === 'ok') {
+          try { await p.close(); } catch (_) {}
+        }
+        return result;
+      } finally {
+        await Promise.race([
+          ctx.close().catch(() => {}),
+          new Promise(r => setTimeout(r, 5000)),
+        ]).catch(() => {});
+      }
+    }
 
 for (const spec of deviceSpecs) {
   const context = await browser.newContext({
