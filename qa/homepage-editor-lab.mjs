@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 const base = (process.env.KP_E2E_BASE || 'https://neu.koblenzer-puppenspiele.de').replace(/\/$/, '');
@@ -488,6 +489,33 @@ async function mobileSaveAndResetRoundTrip(page, cdp, deviceResult) {
   }
 }
 
+// BISECT (Editor-Hang): Nur fuer CI-Diagnoselaeufe. Wenn aktiv, wird
+// window.KPFrontendEditor (Config des Legacy-Editors frontend-editor.js,
+// auth-only, im lokalen Sim nie geladen) per Accessor neutralisiert:
+// Getter liefert undefined, Setter ist no-op. Alle Konsumenten beginnen mit
+// `const cfg = window.KPFrontendEditor; if (!cfg) return;` => v1-Boot endet
+// sofort. .kp-fe2-save/.kp-oa-tools stammen aus v2/owner-web-app und bleiben
+// unberuehrt. Verschwindet der dcl-Hang mit aktivem Stub, ist der v1-Boot der
+// Uebeltaeter. Aktivierung: Marker qa/bisect-frontend-editor.txt ODER env
+// KP_BISECT_KPFEND=1. Reversibel: Marker/Env entfernen deaktiviert.
+const KP_FE_STUB = `(() => {
+  try {
+    const desc = Object.getOwnPropertyDescriptor(window, 'KPFrontendEditor');
+    if (desc && desc.configurable === false) return;
+    Object.defineProperty(window, 'KPFrontendEditor', {
+      configurable: true,
+      enumerable: true,
+      get: () => undefined,
+      set: () => {},
+    });
+    console.info('[KP-BISECT] KPFrontendEditor neutralisiert (Getter undefined, Setter no-op)');
+  } catch (e) {
+    console.warn('[KP-BISECT] Stub fehlgeschlagen: ' + String(e));
+  }
+})();`;
+const KP_BISECT_KPFEND = process.env.KP_BISECT_KPFEND === '1' || existsSync('qa/bisect-frontend-editor.txt');
+if (KP_BISECT_KPFEND) mark('BISECT aktiv: window.KPFrontendEditor wird in allen Contexts neutralisiert (v1-Legacy-Boot aus).');
+
 for (const spec of deviceSpecs) {
   const context = await browser.newContext({
     viewport: spec.viewport,
@@ -495,6 +523,10 @@ for (const spec of deviceSpecs) {
     isMobile: spec.isMobile,
     deviceScaleFactor: 1,
   });
+  if (KP_BISECT_KPFEND) {
+    await context.addInitScript(KP_FE_STUB);
+    mark(`BISECT ${spec.name}: addInitScript installiert`);
+  }
   const page = await context.newPage();
   const deviceResult = {
     name: spec.name,
