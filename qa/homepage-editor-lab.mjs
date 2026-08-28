@@ -110,9 +110,33 @@ function printHotStack(profile) {
     mark(`HOTSTACK samples=${samples.length} ms=${(profile.endTime || 0) - (profile.startTime || 0)} gesamt=${total}`);
     top.forEach(([k, v]) => mark(`  HOT ${(100 * v / total).toFixed(1).padStart(5)}% ${k}`));
   } catch (e) {
-    mark(`HOTSTACK AUSWERTUNG FEHLER: ${String(e).slice(0, 200)}`);
+      mark(`HOTSTACK AUSWERTUNG FEHLER: ${String(e).slice(0, 200)}`);
+    }
   }
-}
+
+  // HUNGSTACK: Den haengenden Main-Thread per CDP-Debugger unterbrechen und den
+  // aktuellen Call-Stack lesen. Mutation-Observer-Kaskaden und nicht-endende
+  // Boot-Loops laufen ueber breakable points; Debugger.pause greift dort und
+  // zeigt die exakte Stelle — unabhaengig davon, dass domcontentloaded nie feuert.
+  async function stackWhileHung(cdp) {
+    try {
+      if (!cdp) return;
+      await cdp.send('Debugger.enable').catch(() => {});
+      await Promise.race([
+        cdp.send('Debugger.pause'),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('pause timeout 3s')), 3000)),
+      ]).catch(() => {});
+      await new Promise(r => setTimeout(r, 400));
+      const { result } = await Promise.race([
+        cdp.send('Runtime.evaluate', { expression: 'new Error().stack', returnByValue: true }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('eval timeout 3s')), 3000)),
+      ]);
+      mark(`HUNGSTACK ${String(result?.value || '').replace(/\n+/g, ' | ').slice(0, 1600)}`);
+      await cdp.send('Debugger.resume').catch(() => {});
+    } catch (e) {
+      mark(`HUNGSTACK FEHLER: ${String(e).slice(0, 120)}`);
+    }
+  }
 
 async function login(page) {
   const loginUrl = `${base}/?kp_e2e_login=${encodeURIComponent(token)}`;
@@ -171,13 +195,17 @@ async function login(page) {
   const netTrace = [];
   const tNow = () => Date.now();
   const onRequest = (req) => {
-    try {
-      const u = new URL(req.url());
-      if (u.origin !== new URL(base).origin) return;
-      const kind = (u.pathname.match(/\.(css|js|png|jpe?g|webp|gif|svg|woff2?|json|php)$/i) || [])[1] || 'other';
-      netTrace.push({ url: req.url(), kind, t0: tNow(), status: 0, done: false, failed: false, ms: -1 });
-    } catch (_) {}
-  };
+      try {
+        const u = new URL(req.url());
+        if (u.origin !== new URL(base).origin) return;
+        const kind = (u.pathname.match(/\.(css|js|png|jpe?g|webp|gif|svg|woff2?|json|php)$/i) || [])[1] || 'other';
+        let postData = '';
+        if (u.pathname.endsWith('admin-ajax.php')) {
+          postData = String(req.postData() || '').slice(0, 300);
+        }
+        netTrace.push({ url: req.url(), kind, postData, t0: tNow(), status: 0, done: false, failed: false, ms: -1 });
+      } catch (_) {}
+    };
   const onResponse = (response) => {
     try {
       const u = new URL(response.url());
@@ -221,15 +249,16 @@ async function login(page) {
     for (const r of pending) pendingKinds[r.kind] = (pendingKinds[r.kind] || 0) + 1;
     mark(`NETTRACE gesamt=${netTrace.length} fertig=${netTrace.length - pending.length} PENDING=${pending.length} pendingKinds=${JSON.stringify(pendingKinds)}`);
     if (pending.length) {
-      mark('NETTRACE PENDING (>8s ohne Antwort -> BLOCKER-KANDIDAT):');
-      pending.slice(0, 30).forEach(r => mark(`  PEND ${r.kind} ${r.url.slice(-130)}`));
-    }
+          mark('NETTRACE PENDING (>8s ohne Antwort -> BLOCKER-KANDIDAT):');
+          pending.slice(0, 30).forEach(r => mark(`  PEND ${r.kind} ${r.url.slice(-130)}${r.postData ? ` POST[${r.postData}]` : ''}`));
+        }
     if (slow.length) {
       mark('NETTRACE SLOWEST (>3s):');
       slow.forEach(r => mark(`  ${r.status || 'FAIL'} ${r.ms}ms ${r.kind} ${r.url.slice(-130)}`));
     }
     if (profilerOn && cdp) {
-      try {
+          await stackWhileHung(cdp);
+          try {
         const { profile } = await Promise.race([
           cdp.send('Profiler.stop'),
           new Promise((_, rej) => setTimeout(() => rej(new Error('Profiler.stop timeout 15s')), 15000)),
