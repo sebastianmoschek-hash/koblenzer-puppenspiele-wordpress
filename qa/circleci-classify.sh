@@ -16,7 +16,9 @@ meaningful_files(){
   if [[ -z "$changed" ]]; then
     changed="$(git show --pretty='' --name-only "$commit" 2>/dev/null || true)"
   fi
-  printf '%s\n' "$changed" | sed '/^$/d' | grep -Ev '^(qa-results/|qa-artifacts/homepage-lab/\.gitkeep$|visual-qa/output/\.gitkeep$|README\.md$|AGENTS\.md$)' || true
+  # HERMES_STATUS.md ist reines Wartungs-Logbuch (cron-Commits): soll keinen
+  # teuren Full-Lab-Lauf ausloesen. Code-/QA-Commits bleiben meaningful.
+  printf '%s\n' "$changed" | sed '/^$/d' | grep -Ev '^(qa-results/|qa-artifacts/homepage-lab/\.gitkeep$|visual-qa/output/\.gitkeep$|README\.md$|AGENTS\.md$|HERMES_STATUS\.md$)' || true
 }
 
 if [[ -n "$SHA" ]]; then
