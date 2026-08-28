@@ -59,12 +59,25 @@ async function restoreState(page, snapshot) {
 
 async function pageSnippet(page) {
   try {
-    const title = await page.title().catch(() => '?');
-    const text = await page.evaluate(() => (document.body ? document.body.innerText : '')).catch(() => '');
+    // Kurze explizite Timeouts: Bei einer haengenden (z.B. CPU-pinned) Seite darf
+    // das Snippet selbst nicht 30s+ blockieren, sonst fehlt nach einem Goto-
+    // Timeout jede weitere Diagnosezeile (stilles 12m-SIGKILL im 1-vCPU-Sandbox).
+    const title = await page.title({ timeout: 5000 }).catch(() => '?');
+    const text = await page.evaluate(() => (document.body ? document.body.innerText : ''), { timeout: 5000 }).catch(() => '');
     return `URL=${page.url()} Titel=${title} Body=${String(text).replace(/\s+/g, ' ').slice(0, 300)}`;
   } catch (error) {
     return `URL=${page.url()} (Snippet nicht lesbar: ${String(error).slice(0, 120)})`;
   }
+}
+
+// Progress-Marker: Jede Zeile sofort ausgeben (console.warn flusht) UND an eine
+// Datei appenden (fs.appendFileSync flusht), damit ein spaeteres SIGKILL nie den
+// Befund verschluckt. Der Datei-Pfad landet via qa-artifacts im CI-Artefakt.
+const PROGRESS_FILE = path.join(outDir, 'login-progress.log');
+function mark(...parts) {
+  const line = `${new Date().toISOString()} ${parts.join(' ')}`;
+  console.warn(line);
+  try { fs.appendFileSync(PROGRESS_FILE, line + '\n'); } catch (_) {}
 }
 
 async function login(page) {
@@ -74,15 +87,49 @@ async function login(page) {
   // Trennt beim naechsten CI-Lauf eindeutig: "Server haengt" vs. "Browser-Render
   // haengt" (z.B. schwere authentifizierte kp_edit-Seite nach dem 302).
   let pf0 = Date.now();
+  let loginCookie = '';
+  let authEditMs = -1;
+  let authEditStatus = 0;
+  let authEditBytes = 0;
+  let authEditHtml = false;
   try {
     const preflight = await fetch(loginUrl, {
       redirect: 'manual',
       signal: AbortSignal.timeout(25000),
       headers: { 'user-agent': 'kp-lab-preflight' },
     });
-    console.warn(`PREFLIGHT kp_e2e_login -> status=${preflight.status} location=${preflight.headers.get('location') || '-'} ms=${Date.now() - pf0}`);
+    // Set-Cookie aus der 302 mitnehmen (getSetCookie ist ab Node 19.7/undici).
+    const setCookies = typeof preflight.headers.getSetCookie === 'function'
+      ? preflight.headers.getSetCookie()
+      : (preflight.headers.get('set-cookie') ? [preflight.headers.get('set-cookie')] : []);
+    loginCookie = setCookies.map(c => c.split(';')[0]).filter(Boolean).join('; ');
+    const location = preflight.headers.get('location') || '';
+    mark(`PREFLIGHT kp_e2e_login -> status=${preflight.status} location=${location} cookies=${setCookies.length} ms=${Date.now() - pf0}`);
+
+    // AUTHRENDER: Der Browser-Goto wartet auf domcontentloaded und kann daher
+    // einen Server-Render-Hang NICHT von einem Client-JS-Hang unterscheiden.
+    // Hier wird der authentifizierte kp_edit-Render (302->/?kp_edit=1&kp_e2e=1
+    // mit dem Login-Cookie) ZUSAETZLICH serverseitig vermessen. Schneller
+    // Server-Render => Client-JS-Hang ist belegt; hängender Fetch => PHP-Render.
+    if (loginCookie && location) {
+      const target = new URL(location, loginUrl).toString();
+      const t0 = Date.now();
+      const authResp = await fetch(target, {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(60000),
+        headers: { 'user-agent': 'kp-lab-auth-render', cookie: loginCookie },
+      });
+      const body = await authResp.text().catch(() => '');
+      authEditMs = Date.now() - t0;
+      authEditStatus = authResp.status;
+      authEditBytes = body.length;
+      authEditHtml = body ? /<html|<!doctype/i.test(body) : false;
+      mark(`AUTHRENDER kp_edit -> status=${authEditStatus} bytes=${authEditBytes} html=${authEditHtml} ms=${authEditMs} target=${target}`);
+    } else {
+      mark('AUTHRENDER UEBERSPRUNGEN (kein Location/kein Set-Cookie aus dem Login).');
+    }
   } catch (error) {
-    console.warn(`PREFLIGHT kp_e2e_login FEHLGESCHLAGEN (${Date.now() - pf0}ms): ${String(error).slice(0, 240)}`);
+    mark(`PREFLIGHT kp_e2e_login FEHLGESCHLAGEN (${Date.now() - pf0}ms): ${String(error).slice(0, 240)}`);
   }
   // Waehrend des Browser-Logins jeden Antwortstatus der Login-/Editor-Navigation
   // mitschneiden, damit Timeouts mit einem HTTP-Trace belegt sind.
@@ -98,16 +145,20 @@ async function login(page) {
   page.on('response', onResponse);
   let response = null;
   let lastError = null;
+  mark('LOGIN-GOTO start');
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
       response = await page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
       lastError = null;
+      mark(`LOGIN-GOTO ok (Versuch ${attempt}) status=${response?.status?.() ?? '?'} Trace=${loginTrace.join(' | ')}`);
       break;
     } catch (error) {
       lastError = error;
       if (attempt === 1) {
-        console.warn(`WARN: Login-Goto (Versuch 1) fehlgeschlagen (${String(error).slice(0, 160)}); ${await pageSnippet(page)}; Trace=${loginTrace.join(' | ')} – ein Retry folgt.`);
+        mark(`LOGIN-GOTO Versuch1 FEHLGESCHLAGEN (${String(error).slice(0, 160)}); ${await pageSnippet(page)}; Trace=${loginTrace.join(' | ')} – Retry folgt.`);
         await page.waitForTimeout(1500).catch(() => {});
+      } else {
+        mark(`LOGIN-GOTO Versuch2 FEHLGESCHLAGEN; ${await pageSnippet(page)}; Trace=${loginTrace.join(' | ')}`);
       }
     }
   }
@@ -289,6 +340,7 @@ for (const spec of deviceSpecs) {
     httpErrors: [],
   };
   report.devices.push(deviceResult);
+  mark(`DEVICE ${spec.name} START`);
 
   page.on('console', msg => {
     if (msg.type() === 'error') deviceResult.consoleErrors.push(msg.text().slice(0, 600));
@@ -305,6 +357,7 @@ for (const spec of deviceSpecs) {
 
   try {
     deviceResult.loginStatus = await login(page);
+    mark(`DEVICE ${spec.name} loginStatus=${deviceResult.loginStatus}`);
     await page.waitForTimeout(350);
     const geometry = await page.evaluate(() => ({
       innerWidth: window.innerWidth,
