@@ -25,20 +25,25 @@
 
 - **Lauf-18-Auswertung (6e3e05f, Modus FULL, veröffentlicht 20:55:54Z)**: Deploy/Staging/Bridge/**Touch**/Visual = success; **Editor/Persistence/TextSave/SessionUndo = failure** → **Touch-Stack zu 100% exculpiert** (der zuletzt einzige Pending kp_touch_free_layout_load war Symptom, nicht Ursache).
 - **BISECT Lauf 19 vorbereitet (`b98ddfb`)**: Stub in `qa/homepage-editor-lab.mjs` deaktiviert jetzt `kp-frontend-editor-v2-js` + `kp-owner-web-app-js` (KPOwnerWebApp-Boot + Basis) per addInitScript vor Ausführung; Touch-Stub entfernt (keine Mit-Abschaltung → kein verfälschter Lauf); v1-Marker-Reste `qa/bisect-frontend-editor.txt` + `qa/bisect-touch-stack.txt` gelöscht; `qa/bisect-frontend-v2-owner.txt` neu.
-- **⚠️ Stolperstein behoben (Push-Head-Überlagerung)**: `b98ddfb` wurde zusammen mit dem Docs-Commit gepusht — CircleCI baut nur den Push-Head (Docs → `circleci-classify.sh` → „docs-only, kein Lab“ → STOP). Der Bisect-Lauf lief dadurch zunächst NICHT. Lösung: **Marker-ONLY-Commit `fad7af0`** (einzige Änderung = `qa/current-staging-validation.txt`) → `force_full`-Pfad im Klassifizierer → der **FULL-Lab-Lauf läuft jetzt** (Deploy inkl. mu-plugins + Browser-Editor mit v2/Owner-Stub + Persistence + Touch + Visual). Wichtig für künftige Läufe: Bisect-/Marker-Commits **immer separat pushen**, niemals gebündelt mit HERMES_STATUS.md.
+- **⚠️ Stolperstein behoben (Push-Head-Überlagerung)**: `b98ddfb` wurde zusammen mit dem Docs-Commit gepusht — CircleCI baut nur den Push-Head (Docs → `circleci-classify.sh` → „docs-only, kein Lab“ → STOP). Der Bisect-Lauf lief dadurch zunächst NICHT. Lösung: **Marker-ONLY-Commit `fad7af0`** (einzige Änderung = `qa/current-staging-validation.txt`) → `force_full`-Pfad im Klassifizierer → der **FULL-Lab-Lauf lief komplett durch**. Wichtig für künftige Läufe: Bisect-/Marker-Commits **immer separat pushen**, niemals gebündelt mit HERMES_STATUS.md.
+- **🔬 Lauf-19-Auswertung (`fad7af0`, Modus FULL, veröffentlicht 00:03:31Z+2h): v2/Owner-Boot EXCULPIERT — mit harter Evidenz aus `latest/diagnostics.txt`**:
+  - Stub war aktiv (Log: „BISECT aktiv: kp-frontend-editor-v2 + kp-owner-web-app … deaktiviert“), Server-Render gesund (AUTHRENDER 200/618ms, AUTHPOST kp_touch_free_layout_load 200/144ms).
+  - **dcl-Hang bleibt**: LOGIN-GOTO Timeout 45s; NETTRACE 84 Requests, **1 Pending = POST `admin-ajax.php action=kp_touch_free_layout_load`** — derselbe Blocker wie in Runs 15–18, obwohl v2+owner aus sind.
+  - Gates: deploy/ready/bridge/touch/visual = success; editor/persistence/text-save/session-undo = failure (editor kann mit gestubbtem Kern logischerweise nicht grün sein).
+  - Damit sind exculpiert: Server+Auth (Run 15/16), v1 KPFrontendEditor (17), Touch-Stack (18), **v2+owner-web-app (19)**. Der Blocker-POST wird von einem Script ISSUED, das in KEINEM bisherigen Stub-Set lag → nächste Kandidaten: verbleibende Owner-/Bridge-Scripts (`kp-touch-editor-bridge-js` war in keinem Set!) + Adminbar-/Login-Pfad.
+- **🎯 Lauf-20-Plan (nächster Lauf, vorbereitet)**: Kein weiteres Blind-Stubbing — Stub-Set komplett deaktivieren und stattdessen im Lab **XHR-Instrumentierung** einbauen (addInitScript wrappt `XMLHttpRequest.open`/`fetch` und loggt `async`-Flag + aufrufendes Script per `document.currentScript`/Stack), damit der Issuer des Sync-Hangs direkt benannt wird. Vermuteter Mechanismus: **synchroner XHR** auf kp_touch_free_layout_load blockiert den Parser → dcl feuert nie (passt zu „0 Events, 1 Pending, Server sonst 145–154ms“). QA-Mode-Lauf reicht (kein Deploy nötig, Staging-Code = main).
 
 ## Aktueller CI- & Pipeline-Stand
 
 - `editor-contracts`: **SUCCESS** (CircleCI)
 - `mobile-live-staging-deploy`: **SUCCESS** (CircleCI)
-- `homepage-staging-lab` (6e3e05f): **abgeschlossen** — Touch/Visual/Deploy grün, Editor/Persistence/TextSave/SessionUndo rot (Bisect-Zwischenstand)
-- `homepage-staging-lab` (fad7af0): **läuft** (Bisect Lauf 19, Modus FULL, v2/Owner-Stub aktiv — via Marker-ONLY-Commit erzwungen)
-- Hinweis: Pipeline für `b98ddfb` wurde nie gebaut (Push-Head-Überlagerung durch Docs-Commit, s. o.).
+- `homepage-staging-lab` (fad7af0): **abgeschlossen, Modus FULL** — deploy/ready/bridge/touch/visual grün, editor/persistence/text-save/session-undo rot (Bisect-Ergebnis s. o.)
+- Pipeline für `b98ddfb` wurde nie gebaut (Push-Head-Überlagerung durch Docs-Commit, s. o.).
 - GitHub Actions: weiterhin durch Billing limitiert („CircleCI staging report handoff“-Jobs failed/cancelled); CircleCI übernimmt alle Workflows.
 
 ## Offene Punkte
 
-1. **Lauf-19-Auswertung (fad7af0)**: Nach Lab-Abschluss Report + `latest/editor/report.json`/`summary.md` prüfen: Feuert dcl wieder / verlassen die Editor-Gates das Event-0-Bild (page-load-normal, aber Editor-UI fehlt wegen Stub) → v2/Owner-Boot ist der Übeltäter (dann in Lauf 20 `kp-owner-web-app-js` allein einkreisen); bleibt der dcl-Hang mit Timeout/0-Events → v2+owner unschuldig, nächster Kandidat Owner-/Adminbar-Pfad der kp_e2e_login-Sequenz.
+1. **Lauf 20: XHR-Issuer-Instrumentierung** (Plan steht, s. o.): Lab-patch (qa-only, eigenständiger Push), QA-Mode-Lauf genügt; Ziel: das aufrufende Script des Blockers `admin-ajax.php action=kp_touch_free_layout_load` (Verdacht: synchroner XHR) direkt benennen → dann gezielter Fix statt weiterem Bisect.
 2. **Thorsten-Standalone-Test**: User-Entscheidung ob/ wie `tests/thorsten-smoke-test.js` angelegt wird (bestehende CI-Contracts decken Thorsten bereits ab).
 3. **GitHub Billing**: User-Aktion erforderlich, falls GHA reaktiviert werden soll.
 
