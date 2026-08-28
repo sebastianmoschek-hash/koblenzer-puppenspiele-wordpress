@@ -489,32 +489,57 @@ async function mobileSaveAndResetRoundTrip(page, cdp, deviceResult) {
   }
 }
 
-// BISECT (Editor-Hang): Nur fuer CI-Diagnoselaeufe. Wenn aktiv, wird
-// window.KPFrontendEditor (Config des Legacy-Editors frontend-editor.js,
-// auth-only, im lokalen Sim nie geladen) per Accessor neutralisiert:
-// Getter liefert undefined, Setter ist no-op. Alle Konsumenten beginnen mit
-// `const cfg = window.KPFrontendEditor; if (!cfg) return;` => v1-Boot endet
-// sofort. .kp-fe2-save/.kp-oa-tools stammen aus v2/owner-web-app und bleiben
-// unberuehrt. Verschwindet der dcl-Hang mit aktivem Stub, ist der v1-Boot der
-// Uebeltaeter. Aktivierung: Marker qa/bisect-frontend-editor.txt ODER env
-// KP_BISECT_KPFEND=1. Reversibel: Marker/Env entfernen deaktiviert.
-const KP_FE_STUB = `(() => {
+// BISECT (Editor-Hang, Lauf 18): Nur fuer CI-Diagnoselaeufe. v1
+// (window.KPFrontendEditor) ist seit a14c26c zu 100% exculpiert, sein Stub
+// wurde entfernt. Naechster Verdaechtiger ist der Touch-Stack, der als
+// EINZIGER Request den seit Run 15 im NETTRACE behaengenden Boot-POST
+// kp_touch_free_layout_load startet (touch-free-layout.js / touch-persistence.js
+// / touch-gestures.js + Safety). Dieser Stub deaktiviert die betroffenen
+// <script>-Tags per ID auf Dokumentebene BEVOR der Parser/der defer-Laeufer sie
+// ausfuehrt (type wird auf einen nicht ausfuehrbaren MIME-Typ gesetzt, src und
+// Inline-Text werden geraeumt). Guests sind unbetroffen (deaktiviert nur die
+// Shell-Scripts, keine Daten). GATE: Erscheint keiner der Pend-Requests im
+// naechsten NETTRACE UND der dcl-Hang ist weg => Touch-Stack ist der
+// Uebeltaeter. Bleibt der Hang, ist der Touch-Boot unschuldig. Aktivierung:
+// Marker qa/bisect-touch-stack.txt ODER env KP_BISECT_TOUCH=1. Reversibel:
+// Marker/Env entfernen deaktiviert.
+const KP_TOUCH_SCRIPT_IDS = new Set([
+  'kp-touch-gestures-js',
+  'kp-touch-gesture-safety-js',
+  'kp-touch-free-layout-js',
+  'kp-touch-persistence-js',
+]);
+const KP_TOUCH_STUB = `(() => {
+  const disable = (script) => {
+    try {
+      const id = script.id || '';
+      const targets = ${JSON.stringify([...KP_TOUCH_SCRIPT_IDS])};
+      if (!targets.includes(id)) return;
+      if (script.getAttribute('data-kp-bisect-disabled') === '1') return;
+      script.setAttribute('data-kp-bisect-disabled', '1');
+      script.type = 'text/kp-bisect-noop';
+      if (script.src) { script.removeAttribute('src'); }
+      script.textContent = '/* kp-bisect: touch-stack neutralisiert */';
+      console.info('[KP-BISECT] Touch-Script neutralisiert: ' + id);
+    } catch (e) { console.warn('[KP-BISECT] Touch-Script-Fehler: ' + String(e)); }
+  };
   try {
-    const desc = Object.getOwnPropertyDescriptor(window, 'KPFrontendEditor');
-    if (desc && desc.configurable === false) return;
-    Object.defineProperty(window, 'KPFrontendEditor', {
-      configurable: true,
-      enumerable: true,
-      get: () => undefined,
-      set: () => {},
-    });
-    console.info('[KP-BISECT] KPFrontendEditor neutralisiert (Getter undefined, Setter no-op)');
-  } catch (e) {
-    console.warn('[KP-BISECT] Stub fehlgeschlagen: ' + String(e));
-  }
+    document.querySelectorAll('script').forEach(disable);
+    new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node.nodeType === 1) {
+            if (node.tagName === 'SCRIPT') disable(node);
+            node.querySelectorAll && node.querySelectorAll('script').forEach(disable);
+          }
+        }
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+    console.info('[KP-BISECT] Touch-Stack-Entwaffner installiert');
+  } catch (err) { console.warn('[KP-BISECT] Touch-Stub fehlgeschlagen: ' + String(err)); }
 })();`;
-const KP_BISECT_KPFEND = process.env.KP_BISECT_KPFEND === '1' || existsSync('qa/bisect-frontend-editor.txt');
-if (KP_BISECT_KPFEND) mark('BISECT aktiv: window.KPFrontendEditor wird in allen Contexts neutralisiert (v1-Legacy-Boot aus).');
+const KP_BISECT_TOUCH = process.env.KP_BISECT_TOUCH === '1' || existsSync('qa/bisect-touch-stack.txt');
+if (KP_BISECT_TOUCH) mark('BISECT aktiv: kp-touch-*-Scripts werden in allen Contexts vor Ausfuehrung deaktiviert (Touch-Stack aus, Verdacht: kp_touch_free_layout_load / Renderer-Loop).');
 
 for (const spec of deviceSpecs) {
   const context = await browser.newContext({
@@ -523,11 +548,11 @@ for (const spec of deviceSpecs) {
     isMobile: spec.isMobile,
     deviceScaleFactor: 1,
   });
-  if (KP_BISECT_KPFEND) {
-    await context.addInitScript(KP_FE_STUB);
-    mark(`BISECT ${spec.name}: addInitScript installiert`);
-  }
-  const page = await context.newPage();
+  if (KP_BISECT_TOUCH) {
+      await context.addInitScript(KP_TOUCH_STUB);
+      mark(`BISECT ${spec.name}: addInitScript installiert`);
+    }
+    const page = await context.newPage();
   const deviceResult = {
     name: spec.name,
     viewport: spec.viewport,
