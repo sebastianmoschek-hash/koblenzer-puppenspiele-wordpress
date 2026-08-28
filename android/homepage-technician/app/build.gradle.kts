@@ -10,8 +10,8 @@ android {
         applicationId = "de.koblenzerpuppenspiele.techniker"
         minSdk = 24
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.8.0-thorsten-high"
+        versionCode = 10
+        versionName = "0.10.0-thorsten-pcm16"
     }
 
     buildFeatures {

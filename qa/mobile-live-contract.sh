@@ -9,6 +9,7 @@ VISION="$KOTLIN/LocalVisualAgent.kt"
 LIVE="$KOTLIN/LiveLocalActivity.kt"
 SCREEN="$KOTLIN/ScreenCaptureService.kt"
 VOICE="$KOTLIN/LocalVoiceController.kt"
+NATURAL_VOICE="$KOTLIN/LocalNaturalVoice.kt"
 WEB="$KOTLIN/WebRepairBridge.kt"
 GRADLE='android/homepage-technician/app/build.gradle.kts'
 MANIFEST="$APP/AndroidManifest.xml"
@@ -19,7 +20,7 @@ EMERGENCY_GEMINI='wp-content/mu-plugins/kp-mobile-emergency-gemini.php'
 CIRCLE_CONFIG='.circleci/config.yml'
 ANDROID_REPORT='qa/publish-android-build-report.sh'
 
-for f in "$MAIN" "$LOCAL" "$VISION" "$LIVE" "$SCREEN" "$VOICE" "$WEB" "$GRADLE" "$MANIFEST" "$REPAIR_HISTORY" "$REPAIR_LAB" "$LOCAL_REPAIR" "$EMERGENCY_GEMINI"; do
+for f in "$MAIN" "$LOCAL" "$VISION" "$LIVE" "$SCREEN" "$VOICE" "$NATURAL_VOICE" "$WEB" "$GRADLE" "$MANIFEST" "$REPAIR_HISTORY" "$REPAIR_LAB" "$LOCAL_REPAIR" "$EMERGENCY_GEMINI"; do
   [[ -f "$f" ]] || { echo "missing required local-live file: $f" >&2; exit 1; }
 done
 
@@ -107,15 +108,25 @@ grep -q 'fun ask(requestId: String, text: String)' "$LIVE"
 grep -q 'fun installModel()' "$LIVE"
 grep -q 'endsWith(".koblenzer-puppenspiele.de")' "$LIVE"
 
-# Speech remains explicitly on-device. No generic remote recognizer fallback.
+# Speech recognition remains explicitly on-device. Output is exclusively the
+# bundled Thorsten High engine; Android/Google system TTS must not re-enter.
 grep -q 'android.permission.RECORD_AUDIO' "$MANIFEST"
 grep -q 'SpeechRecognizer.isOnDeviceRecognitionAvailable' "$VOICE"
 grep -q 'SpeechRecognizer.createOnDeviceSpeechRecognizer' "$VOICE"
 grep -q 'RecognizerIntent.EXTRA_PREFER_OFFLINE' "$VOICE"
-grep -q '!voice.isNetworkConnectionRequired' "$VOICE"
+grep -q 'LocalNaturalVoice' "$VOICE"
+grep -q 'naturalVoice.speak' "$VOICE"
+grep -q 'keine Systemstimme verwendet' "$VOICE"
+grep -q 'Thorsten High' "$NATURAL_VOICE"
+grep -q 'OfflineTts' "$NATURAL_VOICE"
 grep -q 'stopSpeakingForBargeIn' "$VOICE"
 if grep -q 'SpeechRecognizer.createSpeechRecognizer' "$VOICE"; then
   echo 'FAIL: local Live speech must not fall back to potentially remote SpeechRecognizer.' >&2
+  exit 1
+fi
+if grep -R -n -E 'android\.speech\.tts\.TextToSpeech|\bTextToSpeech\s*\(' "$KOTLIN" >/tmp/kp-system-tts.txt 2>/dev/null; then
+  cat /tmp/kp-system-tts.txt >&2
+  echo 'FAIL: Android/Google system TTS fallback re-entered the local voice path.' >&2
   exit 1
 fi
 
@@ -155,4 +166,4 @@ if grep -Eq 'file_put_contents|WP_Filesystem|unlink\(' "$REPAIR_HISTORY"; then
   exit 1
 fi
 
-echo 'PASS local-live: same-device Gemma vision + MediaProjection + on-device speech + web bridge are present; cloud screen transport is absent and code repair remains CI-gated.'
+echo 'PASS local-live: same-device Gemma vision + MediaProjection + on-device recognition + Thorsten High local TTS + web bridge are present; cloud screen transport/system TTS are absent and code repair remains CI-gated.'

@@ -164,4 +164,6 @@ if grep -Eq "file_put_contents\(|WP_Filesystem\(|unlink\(" "$FILE" "$FAST_REPAIR
   exit 1
 fi
 
+# The local browser/phone planner must preserve the same protected repair boundary.
+bash qa/local-ai-contract.sh
 echo 'AI repair + local-first screen Live + cloud fallback + fast visible edits + staging live-loader + self-heal sandbox contract PASS'
