@@ -352,6 +352,23 @@ function publishPending(summary) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
+      const p = path.join(HERE, 'public', 'index.html');
+      if (fs.existsSync(p)) {
+        const body = fs.readFileSync(p, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': Buffer.byteLength(body) });
+        return res.end(body);
+      }
+    }
+    if (req.method === 'GET' && req.url === '/app.js') {
+      const p = path.join(HERE, 'public', 'app.js');
+      if (fs.existsSync(p)) {
+        const body = fs.readFileSync(p, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Content-Length': Buffer.byteLength(body) });
+        return res.end(body);
+      }
+    }
+
     if (!cors(req, res)) return json(res, 403, { ok: false, error: 'Origin ist für den lokalen Laptop-Agenten nicht freigegeben.' });
     if (req.method === 'OPTIONS') return json(res, 200, { ok: true });
     if (req.headers['x-kp-desktop-agent'] !== '1') return json(res, 403, { ok: false, error: 'Lokaler Agent-Header fehlt.' });
