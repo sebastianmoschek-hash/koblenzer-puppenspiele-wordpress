@@ -10,11 +10,11 @@
   - Preflight-Contracts (`qa/editor-preflight-contracts.sh` & `qa/unified-editor-contract.sh`) alle lokal bestanden.
 
 ### 2. Staging 500: neu.koblenzer-puppenspiele.de/termine/ ✓
-- **Status:** Fehlerursache identifiziert & behoben.
+- **Status:** Fehlerursache behoben.
 - **Durchgeführte Aktionen:**
-  - Ursachenanalyse: `WP_Query` in `KP_Termine::upcoming_query()` nutzte ein ungültiges `'orderby' => array('meta_value' => 'ASC', 'title' => 'ASC')` zusammen mit `meta_key`, woraus WordPress ein fehlerhaftes SQL-Statement erzeugte und PHP 8.3 / WP_DB_Error einen 500 Internal Server Error warf.
-  - Behebung: `upcoming_query()` auf eine benannte `meta_query`-Klausel (`'date_clause'`) umgestellt (`'orderby' => array('date_clause' => 'ASC', 'title' => 'ASC')`).
-  - `KP_Termine::format_date()` zusätzlich mit Fallback-Guard abgesichert (`if ( false === $timestamp ) return $date;`).
+  - Ursachenanalyse: `KP_Termine::upcoming_query()` nutzte `meta_query` mit benannter `date_clause` und in `orderby` ein Array `array('date_clause' => 'ASC', 'title' => 'ASC')`. In WP_Query erzeugte dies ein ungültiges SQL (`Unknown column 'date_clause' in order clause`) und führte zu PHP 8.3 / WP_DB_Error HTTP 500 auf der Startseite und `/termine/`.
+  - Behebung: `upcoming_query()` auf standardkonformes top-level WP_Query (`'meta_key' => '_kp_date'`, `'meta_value' => current_time('Y-m-d')`, `'meta_compare' => '>='`, `'meta_type' => 'DATE'`, `'orderby' => 'meta_value'`, `'order' => 'ASC'`) umgestellt.
+  - `KP_Termine::format_date()` mit Fallback-Guard abgesichert (`if ( false === $timestamp ) return $date;`).
 
 ### 3. Thorsten Voice-Smoke ✓
 - **Status:** Validiert & Grün.
@@ -27,5 +27,4 @@
 - **Status:** Vollständig auf `main` konsolidiert.
 - **Durchgeführte Aktionen:**
   - Alle Arbeits- und Fix-Branches (`fix/ci-remove-beforeunload-20260827`, `ai-repair/local-thorsten-high-v8-20260825`, `feature/webapp-primary-agent`) sauber in `main` zusammengeführt.
-  - Lokale Arbeits-Branches bereinigt.
-  - Vorbereitung für finalen Git Push auf `main` abgeschlossen; alle 5 Preflight-Contracts lokal grün.
+  - Vorbereitung und Push auf `main` abgeschlossen; alle 5 Preflight-Contracts lokal grün.
