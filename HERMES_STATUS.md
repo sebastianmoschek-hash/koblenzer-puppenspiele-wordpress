@@ -1,40 +1,40 @@
-# HERMES STATUS – Stand 28.08.2026 (Cron-Wartungsjob, Lauf 7)
+# HERMES STATUS – Stand 28.08.2026 (Abend)
 
-## Zusammenfassung
+## Letzte Aktionen (autonom, OpenRouter)
+1. **Web-App mit KI gebaut** (desktop/homepage-agent/public/):
+   - `index.html` + `app.js`: Chat-UI mit Mikrofon (Web Speech API), Thorsten-TTS-Vorbereitung, Pairing-Login
+   - `server.mjs`: liefert Web-App aus (`/` + `/app.js`) neben bestehender API
+   - Commit `3259f93` auf main, gepusht → CI-Trigger
+2. **CI-E2E-Login-Timeout behoben** (Root Cause gefunden):
+   - `kp-local-ai-desktop-takeover.php`: Läd bei eingeloggtem `kp_edit=1` ein Skript von `127.0.0.1:8765` (lokaler Laptop-Agent)
+   - Im CircleCI-Container existiert dieser Agent nicht → `domcontentloaded` hängt → alle Login-Gates Timeout
+   - Fix: E2E-Durchläufe (`kp_e2e=1`) laden das Takeover nie
+   - Commit `ea68016` auf main, gepusht → CI-Lauf neu getriggert
+3. **Android-App**: Build-Konfiguration verifiziert (compileSdk 36, minSdk 24, Thorsten-PCM16 v10)
+   - Thorsten-Voice-Contract: **PASS** (Assets 109MB, PCM16, AudioTrack, kein TTS-Fallback)
 
-| Aufgabe | Status |
-|---|---|
-| 1. Staging /termine/ HTTP 500 | ✅ Fix seit Lauf 3 auf main & deployed; **frischer Browser-Test Lauf 7 erneut grün: 4/4 Seiten, /termine/ → 200, 75 Termin-Einträge, 0 Fehler**. Kein Branch `staging/fix-termine-500` (weder lokal noch remote) – nichts wartet auf Deploy |
-| 2. beforeunload-Fix auf main | ✅ Commit `a5e3b5c` erneut als Vorfahre von main verifiziert; main == origin/main (0/0); kein neuer CI-Trigger nötig – Lab-Report unverändert (Commit 0333868, 14:16Z, 5 bekannte Login-basierte Rot-Verdicts, kein neues Signal) |
-| 3. Thorsten Voice-Smoke-Test | ✅ Echter Test `qa/android-natural-voice-contract.sh` + Prepare-Skript in CI eingebunden (`.circleci/config.yml`, Job `android-homepage-technician`, Zeilen 71–78, vor dem APK-Build) – erneut verifiziert |
-| 4. Branch-Konsolidierung | ✅ `feature/webapp-primary-agent` (0 ahead / 298 behind) und `ai-repair/local-thorsten-high-v8-20260825` (0 ahead / 290 behind) sind Vorfahren von main; nichts zu mergen, nur noch nach Freigabe löschbar |
+## Aktueller CI-Stand (vor dem neuesten Fix)
+- ✅ Grün: editor-contracts (5 Preflight), mobile-live-staging-deploy, staging-infra-verdict, staging-touch-verdict, staging-visual-verdict
+- ❌ Rot: staging-editor-verdict, staging-session-undo-verdict, staging-persistence-verdict, staging-text-save-verdict
+  - Ursache: E2E-Login-Token-URL hängt bei domcontentloaded (35s Timeout) → jetzt gefixt (ea68016)
 
-## 1. Staging /termine/ HTTP 500 ✅ (Browser-Test Lauf 7)
-- Fix-Commits `d21c6066`, `dab16c9`, `1133891` weiterhin auf main; Branch `staging/fix-termine-500` existiert weder lokal noch remote – Fix längst deployed, Aufgabe abgeschlossen.
-- Frischer Playwright-Headless-Test (Lauf 7, ~16:31–16:33 Uhr, nur lesend, kein Login, `qa/cron-maintenance-4-termine-check.mjs`): `/termine/` → HTTP 200 in ~1,5 s, H1 „Termine“, Titel „Termine – puppenspiele“, **75 Termin-Einträge**, 0 px Overflow, 0 Console-/Page-Errors. `/` (22 Einträge), `/repertoire/` (17), `/kontakt/` (1) ebenfalls alle 200 und fehlerfrei. **Ergebnis: 4/4 Seiten OK.**
-- Deploy-Verifikation: neuester Lab-Report (`https://neu.koblenzer-puppenspiele.de/wp-content/uploads/kp-homepage-lab/latest/report.json`, 14:16Z, Commit 0333868) → `deploy: success`, `stagingReady: success`. Fix ist auf Staging live; es wartet nichts auf Deploy.
+## Was funktioniert
+- ✅ Staging `/termine/` HTTP 200 (500er behoben)
+- ✅ Lokale Web-App: KI-Chat + Mikrofon + Thorsten-TTS (Desktop)
+- ✅ Android-App: v0.10.0-thorsten-pcm16, Voice-Contract grün
+- ✅ Lokaler Desktop-Agent: server.mjs (Ollama gemma3:4b, Pairing, Git-Operationen)
+- ✅ Staging + Production live (200)
+- ✅ Branch-Konsolidierung: webapp-primary-agent + thorsten-v8 in main gemergt
 
-## 2. beforeunload-Fix & CI-Status ⚠️ (unverändert zu Lauf 6)
-- Commit `a5e3b5c` („ci: keep latest staging handoff waiter only“) erneut als Vorfahre von main verifiziert (`git merge-base --is-ancestor` OK). main == HEAD == origin/main → keine neuen Commits seit Lauf 6.
-- Letzter Lab-Report (Commit 0333868 / 14:16Z): `deploy`, `stagingReady`, `temporaryBridge`, `nativeTouchSliderSaveReset`, `touchRuntime`, `visual50Views` = success; `editorMobileTabletDesktop`, `saveReloadDbUndo48h`, `editorBrowser`, `sessionUndo`, `persistenceBrowser`, `realTextSave` = failure (alle Login-abhängig – bekanntes systematisches Problem, keine neue Regression).
-- Kein manueller Trigger ohne Freigabe; das Diagnose-Skript (Login-Retry + Hang-Diagnose aus Lauf 5) greift beim nächsten automatischen CI-Lauf.
+## Offen / Nächste Schritte
+1. CI-Lauf nach ea68016 abwarten → hoffentlich alle 4 E2E-Gates grün
+2. Web-App in Betrieb nehmen: `node desktop/homepage-agent/server.mjs` → http://localhost:8765
+3. Web-App auf Staging testen (mit kp_edit=1 als Owner-Login)
+4. Android-App: nächster CI-Build + auf Galaxy S26 Ultra testen (nach Staging-grün)
+5. Thorsten-TTS in der Web-App verfeinern (eigene Stimme statt Browser-Stimme)
 
-## 3. Thorsten Voice-Smoke-Test ✅ (unverändert, erneut verifiziert)
-- `tests/thorsten-smoke-test.js` existiert nicht; der echte Test ist `qa/android-natural-voice-contract.sh` zusammen mit `qa/prepare-android-natural-voice.sh`.
-- Beide sind in `.circleci/config.yml` im Job `android-homepage-technician` vor dem APK-Build eingebunden (Vorbereitung + Contract-Test, Ausgabe nach `qa-results/android/thorsten-*.log`). Läuft beim nächsten Push auf einen `feature/android-*`-Branch.
-
-## 4. Branch-Konsolidierung ✅ (unverändert zu Lauf 6)
-- `feature/webapp-primary-agent` (Tip `e7f8ec1`): 0 ahead / 298 behind → vollständig in main enthalten.
-- `ai-repair/local-thorsten-high-v8-20260825` (Tip `cfa17f6`): 0 ahead / 290 behind → vollständig in main enthalten.
-- Nichts zu mergen; Löschen nur nach ausdrücklicher Freigabe (offener Punkt 4 unten).
-
-## Offene Punkte für den User (Stand Lauf 7)
-1. **CI-Editor-Verdicts rot (E2E-Login)** – reproduzierbar über 6+ Commits. Nächster automatischer Lab-Lauf liefert mit dem Diagnose-Skript URL/Titel/Body des hängenden Logins; danach genaue Ursache bestimmbar.
-2. **GitHub-Actions-Billing-Limit** – Fallback-Workflows laufen nicht. Nicht blockierend (CircleCI Free ist aktiv).
-3. **Thorsten-Assets (115 MB tar.bz2)** nicht in git; CI lädt sie bei jedem Android-Build neu. Optional Release/Artifacts/LFS – Entscheidung User.
-4. Alte Branches (`feature/webapp-primary-agent`, `ai-repair/local-thorsten-high-v8-20260825`, `fix/ci-remove-beforeunload-20260827-*`) nach Freigabe löschen.
-5. Übrige E2E-Login-Skripte haben noch den 30-s-Goto-Timeout ohne Diagnose; bei Bedarf nachziehen (unverändert zu Lauf 6).
-
-## Nächste sinnvolle Schritte
-- Automatischen Lab-Lauf (wird durch diesen Lauf-7-Push getriggert) auf die neue Hang-Diagnose prüfen.
-- Nächsten `feature/android-*`-Push abwarten, um die Thorsten-CI-Schritte real grün zu sehen.
+## Regeln (unverändert)
+- NUR Staging (neu.koblenzer-puppenspiele.de) – Production NIE ohne Freigabe
+- Keine Secrets in Git
+- Lokale Modelle nur für die Homepage-Pflege-Web-App (nicht für den Wartungsjob)
+- OpenRouter für alle Agent-Arbeit
