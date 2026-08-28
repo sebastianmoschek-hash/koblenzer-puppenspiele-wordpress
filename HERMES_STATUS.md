@@ -10,11 +10,11 @@
   - Preflight-Contracts (`qa/editor-preflight-contracts.sh` & `qa/unified-editor-contract.sh`) alle lokal bestanden.
 
 ### 2. Staging 500: neu.koblenzer-puppenspiele.de/termine/ ✓
-- **Status:** Fehlerursache behoben.
+- **Status:** Vollständig behoben & Staging verifiziert (HTTP 200 OK).
 - **Durchgeführte Aktionen:**
-  - Ursachenanalyse: `KP_Termine::upcoming_query()` nutzte `meta_query` mit benannter `date_clause` und in `orderby` ein Array `array('date_clause' => 'ASC', 'title' => 'ASC')`. In WP_Query erzeugte dies ein ungültiges SQL (`Unknown column 'date_clause' in order clause`) und führte zu PHP 8.3 / WP_DB_Error HTTP 500 auf der Startseite und `/termine/`.
-  - Behebung: `upcoming_query()` auf standardkonformes top-level WP_Query (`'meta_key' => '_kp_date'`, `'meta_value' => current_time('Y-m-d')`, `'meta_compare' => '>='`, `'meta_type' => 'DATE'`, `'orderby' => 'meta_value'`, `'order' => 'ASC'`) umgestellt.
-  - `KP_Termine::format_date()` mit Fallback-Guard abgesichert (`if ( false === $timestamp ) return $date;`).
+  - Ursachenanalyse 1 (Termine-Query): `KP_Termine::upcoming_query()` auf standardkonformes top-level WP_Query (`'meta_key' => '_kp_date'`, `'meta_value' => current_time('Y-m-d')`, `'meta_compare' => '>='`, `'meta_type' => 'DATE'`, `'orderby' => 'meta_value'`, `'order' => 'ASC'`) umgestellt. `KP_Termine::format_date()` mit Fallback-Guard abgesichert.
+  - Ursachenanalyse 2 (MU-Plugin Syntaxfehler): In `wp-content/mu-plugins/kp-mobile-local-ai-repair.php` Zeile 367 wurde ein Syntaxfehler in `foreach ( array_reverse(...) as $comment )` behoben.
+  - Verifikation: Live-Requests auf `https://neu.koblenzer-puppenspiele.de/` und `https://neu.koblenzer-puppenspiele.de/termine/` liefern HTTP 200 OK und vollständiges HTML.
 
 ### 3. Thorsten Voice-Smoke ✓
 - **Status:** Validiert & Grün.
@@ -27,4 +27,4 @@
 - **Status:** Vollständig auf `main` konsolidiert.
 - **Durchgeführte Aktionen:**
   - Alle Arbeits- und Fix-Branches (`fix/ci-remove-beforeunload-20260827`, `ai-repair/local-thorsten-high-v8-20260825`, `feature/webapp-primary-agent`) sauber in `main` zusammengeführt.
-  - Vorbereitung und Push auf `main` abgeschlossen; alle 5 Preflight-Contracts lokal grün.
+  - Alle lokalen Preflight-Contracts grün; Fixes committed und auf `origin/main` gepusht.
