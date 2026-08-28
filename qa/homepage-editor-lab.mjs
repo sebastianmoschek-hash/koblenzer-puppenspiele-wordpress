@@ -69,6 +69,33 @@ async function pageSnippet(page) {
 
 async function login(page) {
   const loginUrl = `${base}/?kp_e2e_login=${encodeURIComponent(token)}`;
+  // Preflight-Diagnostik: Serverantwortzeit des Login-Endpunkts OHNE Browser
+  // messen (Node-fetch, redirect:'manual' => Set-Cookie/302 werden nur gelesen).
+  // Trennt beim naechsten CI-Lauf eindeutig: "Server haengt" vs. "Browser-Render
+  // haengt" (z.B. schwere authentifizierte kp_edit-Seite nach dem 302).
+  let pf0 = Date.now();
+  try {
+    const preflight = await fetch(loginUrl, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(25000),
+      headers: { 'user-agent': 'kp-lab-preflight' },
+    });
+    console.warn(`PREFLIGHT kp_e2e_login -> status=${preflight.status} location=${preflight.headers.get('location') || '-'} ms=${Date.now() - pf0}`);
+  } catch (error) {
+    console.warn(`PREFLIGHT kp_e2e_login FEHLGESCHLAGEN (${Date.now() - pf0}ms): ${String(error).slice(0, 240)}`);
+  }
+  // Waehrend des Browser-Logins jeden Antwortstatus der Login-/Editor-Navigation
+  // mitschneiden, damit Timeouts mit einem HTTP-Trace belegt sind.
+  const loginTrace = [];
+  const onResponse = (response) => {
+    try {
+      const u = new URL(response.url());
+      if (u.origin === new URL(base).origin && /kp_e2e_login|kp_edit|kp_e2e/.test(u.search)) {
+        loginTrace.push(`${response.status()} ${response.url().slice(-120)}`);
+      }
+    } catch (_) {}
+  };
+  page.on('response', onResponse);
   let response = null;
   let lastError = null;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
@@ -79,13 +106,14 @@ async function login(page) {
     } catch (error) {
       lastError = error;
       if (attempt === 1) {
-        console.warn(`WARN: Login-Goto (Versuch 1) fehlgeschlagen (${String(error).slice(0, 160)}); ${await pageSnippet(page)} – ein Retry folgt.`);
+        console.warn(`WARN: Login-Goto (Versuch 1) fehlgeschlagen (${String(error).slice(0, 160)}); ${await pageSnippet(page)}; Trace=${loginTrace.join(' | ')} – ein Retry folgt.`);
         await page.waitForTimeout(1500).catch(() => {});
       }
     }
   }
+  page.off('response', onResponse);
   if (lastError) {
-    throw new Error(`Login-Goto fehlgeschlagen: ${String(lastError).slice(0, 300)} | ${await pageSnippet(page)}`);
+    throw new Error(`Login-Goto fehlgeschlagen: ${String(lastError).slice(0, 300)} | ${await pageSnippet(page)} | Trace=${loginTrace.join(' | ')}`);
   }
   try {
     await page.waitForSelector('.kp-fe2-save', { timeout: 20000 });
