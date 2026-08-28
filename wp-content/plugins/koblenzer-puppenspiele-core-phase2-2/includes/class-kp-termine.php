@@ -456,18 +456,17 @@ final class KP_Termine {
             'post_type'      => 'kp_termin',
             'post_status'    => 'publish',
             'posts_per_page' => (int) $limit,
-            'meta_key'       => '_kp_date',
-            'orderby'        => array(
-                'meta_value' => 'ASC',
-                'title'      => 'ASC',
-            ),
             'meta_query'     => array(
-                array(
+                'date_clause' => array(
                     'key'     => '_kp_date',
                     'value'   => current_time( 'Y-m-d' ),
                     'compare' => '>=',
                     'type'    => 'DATE',
                 ),
+            ),
+            'orderby'        => array(
+                'date_clause' => 'ASC',
+                'title'       => 'ASC',
             ),
             'no_found_rows'  => true,
         ) );

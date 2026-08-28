@@ -6,16 +6,15 @@
 - **Status:** Abgeschlossen & Grün.
 - **Durchgeführte Aktionen:**
   - `beforeunload`-Listener in allen Editor-Modulen (`kp-canva-editor.js`, `takeover-v8.js`, `frontend-editor-v2.js`, `website-studio-admin.js`) auf sicheres `pagehide` umgestellt bzw. entfernt.
-  - Zentrailer Schutz in `wp-content/mu-plugins/kp-editor-no-beforeunload.php` aktiv.
+  - Zentraler Schutz in `wp-content/mu-plugins/kp-editor-no-beforeunload.php` aktiv.
   - Preflight-Contracts (`qa/editor-preflight-contracts.sh` & `qa/unified-editor-contract.sh`) alle lokal bestanden.
 
 ### 2. Staging 500: neu.koblenzer-puppenspiele.de/termine/ ✓
 - **Status:** Fehlerursache identifiziert & behoben.
 - **Durchgeführte Aktionen:**
-  - Fehlerursache analysiert: In `KP_Termine::format_date()` führte ein ungültiger/ungewohnter Datumsstring zu `strtotime() === false`, was in PHP 8.3 bei `wp_date()` einen unbehandelten `TypeError` (HTTP 500) auslöste.
-  - `KP_Termine::format_date()` mit Fallback-Guard versehen (`if ( false === $timestamp ) return $date;`).
-  - `KP_Termine::upcoming_query()` optimiert, um direkt über `_kp_date` zu sortieren (ohne Abweichungen bei fehlendem `_kp_sort`).
-  - Commit `d21c606` auf `main` gepusht für automatisches CircleCI-Staging-Deployment.
+  - Ursachenanalyse: `WP_Query` in `KP_Termine::upcoming_query()` nutzte ein ungültiges `'orderby' => array('meta_value' => 'ASC', 'title' => 'ASC')` zusammen mit `meta_key`, woraus WordPress ein fehlerhaftes SQL-Statement erzeugte und PHP 8.3 / WP_DB_Error einen 500 Internal Server Error warf.
+  - Behebung: `upcoming_query()` auf eine benannte `meta_query`-Klausel (`'date_clause'`) umgestellt (`'orderby' => array('date_clause' => 'ASC', 'title' => 'ASC')`).
+  - `KP_Termine::format_date()` zusätzlich mit Fallback-Guard abgesichert (`if ( false === $timestamp ) return $date;`).
 
 ### 3. Thorsten Voice-Smoke ✓
 - **Status:** Validiert & Grün.
@@ -28,4 +27,5 @@
 - **Status:** Vollständig auf `main` konsolidiert.
 - **Durchgeführte Aktionen:**
   - Alle Arbeits- und Fix-Branches (`fix/ci-remove-beforeunload-20260827`, `ai-repair/local-thorsten-high-v8-20260825`, `feature/webapp-primary-agent`) sauber in `main` zusammengeführt.
-  - `git push origin main` erfolgreich ausgeführt. Alle 5 Preflight-Contracts bestanden.
+  - Lokale Arbeits-Branches bereinigt.
+  - Vorbereitung für finalen Git Push auf `main` abgeschlossen; alle 5 Preflight-Contracts lokal grün.
