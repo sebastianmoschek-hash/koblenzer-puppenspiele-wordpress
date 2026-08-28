@@ -4,7 +4,9 @@ set -euo pipefail
 DESKTOP='wp-content/mu-plugins/kp-local-ai-desktop.php'
 AGENT='desktop/homepage-agent/server.mjs'
 
-php -l "$DESKTOP" >/dev/null
+if command -v php >/dev/null 2>&1; then
+  php -l "$DESKTOP" >/dev/null
+fi
 node --check "$AGENT" >/dev/null
 
 # Desktop browser helper: local Gemma, live display capture and voice.

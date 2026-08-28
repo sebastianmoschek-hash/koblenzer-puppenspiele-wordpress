@@ -318,7 +318,7 @@
   function ensureDiscard(){let button=q('.kp-canva-discard');if(button)return button;button=document.createElement('button');button.type='button';button.className='kp-canva-discard';button.setAttribute('aria-label','Ungespeicherte Änderungen verwerfen');button.textContent='×';button.addEventListener('click',discardAll);document.body.appendChild(button);return button;}
   function updateDiscard(){const button=ensureDiscard();button.hidden=!anyDirty()||document.body.classList.contains('kp-canva-preview');}
   function discardAll(){discarding=true;exitPreview();layoutDiscard();imageDiscard();q('.kp-oa-backdrop')?.classList.remove('is-open');document.body.classList.remove('kp-oa-open');hud('Änderungen verworfen',500);setTimeout(()=>window.location.reload(),90);}
-  window.addEventListener('beforeunload',event=>{if(discarding){event.stopImmediatePropagation();return;}},true);
+  // Deliberately no beforeunload confirmation
 
   const uiObserver=new MutationObserver(()=>requestAnimationFrame(()=>{installPreviewButtons();installImageButton();updateDiscard();}));uiObserver.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});installPreviewButtons();updateDiscard();setInterval(updateDiscard,400);
 })();

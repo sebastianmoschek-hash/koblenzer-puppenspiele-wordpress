@@ -125,7 +125,7 @@ contains "$HISTORY_EXT" "checkpoint( 'KI-Bearbeitung geändert' )" 'AI drafts ar
 contains "$CANVA" 'KPCanvaLayoutRuntime' 'Canva layout runtime missing'
 contains "$CANVA" 'KPCanvaImageRuntime' 'Canva image runtime missing'
 
-if grep -R --include='*.js' --include='*.php' -nE "event\.returnValue\s*=|returnValue\s*=\s*['\"]" wp-content/mu-plugins wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets; then
+if grep -R --include='*.js' --include='*.php' -nE "addEventListener\s*\(\s*['\"]beforeunload['\"]|event\.returnValue\s*=|returnValue\s*=\s*['\"]" wp-content/mu-plugins wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets; then
   fail 'browser-level reload/leave confirmation code found'
 fi
 
