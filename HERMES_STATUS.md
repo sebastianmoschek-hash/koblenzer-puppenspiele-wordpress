@@ -15,8 +15,11 @@
   - Live-Anfrage an `https://neu.koblenzer-puppenspiele.de/termine/` sowie den zugehörigen REST-Endpunkt `/wp-json/wp/v2/pages/18` durchgeführt.
   - Ergebnis: HTTP 200 OK, vollständiges HTML (2575 Zeilen) ohne PHP-Fehler oder Render-Abbrüche. Kein HTTP 500-Fehler vorhanden.
 
-### 3. Thorsten Voice-Smoke
-- **Status:** In Bearbeitung.
+### 3. Thorsten Voice-Smoke ✓
+- **Status:** Validiert & Grün.
+- **Durchgeführte Aktionen:**
+  - Thorsten High Model-Assets (109MB VITS-Piper `de_DE-thorsten-high`, `tokens.txt`, `espeak-ng-data`) vorbereitet.
+  - Contract-Test `qa/android-natural-voice-contract.sh` erfolgreich bestanden: Model-Assets vorhanden, Samplerate dynamisch validiert, PCM16 Format frame-aligned, AudioTrack state checked, blockierende volle Writes gefordert, kein System-TTS Fallback.
 
 ### 4. Branch-Konsolidierung
-- **Status:** Ausstehend.
+- **Status:** In Bearbeitung.

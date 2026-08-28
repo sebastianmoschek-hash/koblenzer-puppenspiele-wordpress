@@ -558,7 +558,7 @@
   ui.revert.addEventListener('click', revertPending);
   ui.send.addEventListener('click', sendRequest);
   ui.input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendRequest(); } });
-  addEventListener('beforeunload', () => { stopShare(); stopRecognition(); window.speechSynthesis?.cancel?.(); });
+  addEventListener('pagehide', () => { stopShare(); stopRecognition(); window.speechSynthesis?.cancel?.(); });
   if ('speechSynthesis' in window) window.speechSynthesis.addEventListener?.('voiceschanged', refreshVoices);
   refreshVoices();
   updateSpeechUi();

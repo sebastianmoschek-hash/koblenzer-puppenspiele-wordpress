@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ASSETS="$ROOT/android/homepage-technician/app/src/main/assets"
 VOICE_DIR="$ASSETS/vits-piper-de_DE-thorsten-high"
-ARCHIVE="${TMPDIR:-/tmp}/vits-piper-de_DE-thorsten-high.tar.bz2"
+ARCHIVE="$ROOT/qa-results/vits-piper-de_DE-thorsten-high.tar.bz2"
 URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-thorsten-high.tar.bz2"
 
 if [[ -s "$VOICE_DIR/de_DE-thorsten-high.onnx" && -s "$VOICE_DIR/tokens.txt" && -d "$VOICE_DIR/espeak-ng-data" ]]; then
@@ -13,10 +13,12 @@ if [[ -s "$VOICE_DIR/de_DE-thorsten-high.onnx" && -s "$VOICE_DIR/tokens.txt" && 
   exit 0
 fi
 
-mkdir -p "$ASSETS"
+mkdir -p "$ASSETS" "$ROOT/qa-results"
 rm -rf "$VOICE_DIR"
-echo "Downloading bundled natural male voice (Piper Thorsten High) ..."
-curl -fL --retry 3 --retry-delay 2 -o "$ARCHIVE" "$URL"
+if [[ ! -s "$ARCHIVE" ]]; then
+  echo "Downloading bundled natural male voice (Piper Thorsten High) ..."
+  curl -fL --retry 3 --retry-delay 2 -o "$ARCHIVE" "$URL"
+fi
 tar -xjf "$ARCHIVE" -C "$ASSETS"
 
 if [[ ! -s "$VOICE_DIR/de_DE-thorsten-high.onnx" || ! -s "$VOICE_DIR/tokens.txt" || ! -d "$VOICE_DIR/espeak-ng-data" ]]; then

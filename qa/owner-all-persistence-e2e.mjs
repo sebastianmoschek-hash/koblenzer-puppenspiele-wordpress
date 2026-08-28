@@ -62,8 +62,12 @@ async function waitReload(click) {
 }
 
 async function openDesign() {
-  await page.locator('.kp-oa-tools').click();
-  await page.locator('[data-action="design"]').click();
+  const tools = page.locator('.kp-oa-tools').first();
+  await tools.waitFor({ state:'visible', timeout:10000 });
+  await tools.click({ force:true });
+  const designAction = page.locator('[data-action="design"]').first();
+  await designAction.waitFor({ state:'visible', timeout:10000 });
+  await designAction.click({ force:true });
   await page.locator('.kp-oa-sheet.is-design [data-design="header_radius"]').waitFor({ state:'attached', timeout:10000 });
   await page.waitForTimeout(350);
 }

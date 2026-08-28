@@ -151,7 +151,7 @@ try{
   if(await menu.count()){
     const before=await menu.getAttribute('style');const box=await menu.boundingBox();if(!box)fail('Menübutton hat keine messbare Position.');
     const countsBefore=await page.evaluate(()=>window.KPWordHistory.counts());
-    await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2+18,box.y+box.height/2+10,{steps:4});await page.mouse.up();await page.waitForTimeout(180);
+    await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.waitForTimeout(380);await page.mouse.move(box.x+box.width/2+18,box.y+box.height/2+10,{steps:4});await page.mouse.up();await page.waitForTimeout(180);
     const countsAfter=await page.evaluate(()=>window.KPWordHistory.counts());if(Number(countsAfter.undo)<=Number(countsBefore.undo))fail('Drag des Menübuttons erzeugte keinen Undo-Schritt.');
     const moved=await menu.getAttribute('style');if(moved===before)fail('Menübutton wurde im Drag-Test nicht sichtbar bewegt.');
     let dialog='';const onDialog=async d=>{dialog=d.message();await d.dismiss()};page.on('dialog',onDialog);const url=page.url();
