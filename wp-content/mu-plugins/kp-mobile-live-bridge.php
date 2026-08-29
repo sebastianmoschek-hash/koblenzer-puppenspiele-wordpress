@@ -100,6 +100,7 @@ add_action( 'wp_footer', static function () {
       .kp-mobile-live-trigger{position:fixed;right:16px;bottom:146px;z-index:2147482490;border:0;border-radius:999px;padding:11px 15px;background:#25201d;color:#fff;font-weight:800;box-shadow:0 8px 28px rgba(0,0,0,.28)}
       .kp-mobile-live-note{position:fixed;left:50%;bottom:204px;transform:translateX(-50%);z-index:2147482700;max-width:min(520px,calc(100vw - 28px));padding:10px 13px;border-radius:13px;background:#17110e;color:#fff;font-size:13px;box-shadow:0 8px 34px rgba(0,0,0,.4)}
       body.kp-canva-preview .kp-mobile-live-trigger{display:none!important}
+      html.inside-technician-app .kp-mobile-live-trigger{display:none!important}
     </style>
     <script id="kp-mobile-live-bridge-runtime">
     (()=>{
@@ -151,7 +152,8 @@ add_action( 'wp_footer', static function () {
         location.href=target;
         setTimeout(()=>{if(document.visibilityState==='visible')note('Die Homepage-Hilfe-App ist auf diesem Gerät noch nicht installiert.')},1400);
       }
-      const button=document.createElement('button');button.type='button';button.className='kp-mobile-live-trigger';button.textContent='📱 KI live zeigen';button.addEventListener('click',launchLive);document.body.appendChild(button);
+      const button=document.createElement('button');button.type='button';button.className='kp-mobile-live-trigger';button.textContent='📱 KI live zeigen';button.addEventListener('click',launchLive);
+      if(!/KoblenzerPuppenspieleTechnician\//.test(navigator.userAgent)){document.body.appendChild(button);}
     })();
     </script>
     <?php

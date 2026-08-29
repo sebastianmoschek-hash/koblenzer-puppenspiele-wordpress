@@ -59,6 +59,8 @@ class MainActivity : Activity() {
     private lateinit var statusView: TextView
     private lateinit var editButton: Button
     private lateinit var aiButton: Button
+    private lateinit var logoutButton: Button
+    private lateinit var bottomBar: LinearLayout
 
     private lateinit var aiPanel: LinearLayout
     private lateinit var chatProgress: TextView
@@ -107,6 +109,7 @@ class MainActivity : Activity() {
 
         editButton.setOnClickListener { openEditor() }
         aiButton.setOnClickListener { toggleAi() }
+        logoutButton.setOnClickListener { logoutOfWordPress() }
         installButton.setOnClickListener { installLocalModel() }
         sendButton.setOnClickListener { sendLocalMessage() }
         liveVoiceButton.setOnClickListener { toggleLocalLive() }
@@ -296,12 +299,10 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT,
-            ).apply {
-                bottomMargin = dp(72)
-            }
+            )
         )
 
-        val bar = LinearLayout(this).apply {
+        bottomBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(10), dp(7), dp(10), dp(7))
             setBackgroundColor(Color.argb(248, 24, 18, 15))
@@ -321,12 +322,18 @@ class MainActivity : Activity() {
             text = "✦ KI"
             isAllCaps = false
         }
-        bar.addView(statusView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        bar.addView(editButton)
-        bar.addView(aiButton)
+        logoutButton = Button(this).apply {
+            text = "⎋ Logout"
+            isAllCaps = false
+            contentDescription = "Von der Homepage abmelden"
+        }
+        bottomBar.addView(statusView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        bottomBar.addView(editButton)
+        bottomBar.addView(aiButton)
+        bottomBar.addView(logoutButton)
 
         root.addView(
-            bar,
+            bottomBar,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -397,6 +404,10 @@ class MainActivity : Activity() {
                 currentPageTrusted = uri?.scheme == "https" && isTrustedHost(uri.host)
                 val signedIn = hasWordPressSession()
                 editButton.text = if (signedIn) "✎ Bearbeiten" else "✎ Anmelden"
+                logoutButton.visibility = if (signedIn) View.VISIBLE else View.GONE
+                val isEditing = url?.contains("kp_edit=1") == true
+                // In active edit mode, hide native bottomBar so web edit toolbars have exclusive screen space
+                bottomBar.visibility = if (signedIn && isEditing && !aiOpen) View.GONE else View.VISIBLE
                 if (!aiOpen && currentPageTrusted) {
                     showStatus(
                         if (signedIn) "Homepage bereit · Bearbeiten oder KI verwenden"
@@ -405,6 +416,17 @@ class MainActivity : Activity() {
                 }
             }
         }
+    }
+
+    private fun logoutOfWordPress() {
+        if (aiOpen) hideAi()
+        val uri = runCatching { Uri.parse(BuildConfig.HOMEPAGE_URL) }.getOrNull() ?: return
+        val origin = "${uri.scheme}://${uri.authority}/"
+        CookieManager.getInstance().removeAllCookies(null)
+        CookieManager.getInstance().flush()
+        webView.clearCache(true)
+        webView.loadUrl(origin)
+        showStatus("Abgemeldet · bei Bedarf erneut anmelden")
     }
 
     private fun loadInitialUrl(intent: Intent?) {
@@ -433,17 +455,10 @@ class MainActivity : Activity() {
             hideAi()
             return
         }
-        if (!isTrustedWebPage()) {
-            showStatus("KI ist nur auf der Koblenzer-Puppenspiele-Homepage verfügbar.")
-            return
-        }
-        if (!hasWordPressSession()) {
-            showStatus("Bitte zuerst anmelden · danach KI erneut öffnen")
-            openEditor()
-            return
-        }
         aiOpen = true
+        bottomBar.visibility = View.GONE
         aiPanel.visibility = View.VISIBLE
+        aiPanel.bringToFront()
         aiButton.text = "✕ KI"
         refreshModelState()
         showStatus("Lokale KI · Chat bereit")
@@ -455,6 +470,9 @@ class MainActivity : Activity() {
         if (liveLocal) stopLocalLive(silent = true)
         aiOpen = false
         aiPanel.visibility = View.GONE
+        val signedIn = hasWordPressSession()
+        val isEditing = webView.url?.contains("kp_edit=1") == true
+        bottomBar.visibility = if (signedIn && isEditing) View.GONE else View.VISIBLE
         aiButton.text = "✦ KI"
         val keyboard = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         keyboard.hideSoftInputFromWindow(textInput.windowToken, 0)
@@ -490,8 +508,8 @@ class MainActivity : Activity() {
 
         liveVoiceButton.text = if (liveLocal) "■ Live beenden" else "🎤 Live lokal"
         liveVoiceButton.isEnabled = liveLocal || (state.installed && !busy && voiceSupported)
-        voiceSelectButton.text = if (::voiceController.isInitialized) "🔊 ${voiceController.selectedVoiceLabel()}" else "🔊 Stimme"
-        voiceSelectButton.isEnabled = !busy && ::voiceController.isInitialized && voiceController.hasOfflineGermanVoices()
+        voiceSelectButton.text = if (::voiceController.isInitialized) "🔊 ${voiceController.naturalVoiceLabel()}" else "🔊 Stimme"
+        voiceSelectButton.isEnabled = !busy && ::voiceController.isInitialized
         emergencyButton.isEnabled = !busy
     }
 
@@ -656,34 +674,9 @@ class MainActivity : Activity() {
     }
 
     private fun showVoicePicker() {
-        val options = voiceController.voiceOptions()
-        if (options.isEmpty()) {
-            addChatBubble("System", "Auf diesem Gerät ist derzeit keine deutsche Offline-Stimme installiert. Weitere Stimmen lassen sich in den Android-TTS-Einstellungen installieren.", false)
-            showStatus("Keine deutsche Offline-Stimme gefunden")
-            return
-        }
-
-        val selectedId = voiceController.selectedVoiceId()
-        val labels = options.map { option ->
-            if (option.id == selectedId) "✓ ${option.label}" else option.label
-        }.toTypedArray()
-
-        AlertDialog.Builder(this)
-            .setTitle("Lokale Stimme auswählen")
-            .setMessage("Tippe eine Stimme an. Sie wird sofort lokal vorgespielt und gespeichert.")
-            .setItems(labels) { dialog, which ->
-                val option = options[which]
-                if (voiceController.previewVoice(option.id)) {
-                    addChatBubble("System", "${option.label} ausgewählt. Die Vorschau läuft lokal.", false)
-                    showStatus("${option.label} ausgewählt")
-                } else {
-                    showStatus("Diese lokale Stimme konnte nicht gestartet werden.")
-                }
-                dialog.dismiss()
-                refreshModelState()
-            }
-            .setNegativeButton("Schließen", null)
-            .show()
+        val label = if (::voiceController.isInitialized) voiceController.naturalVoiceLabel() else "Thorsten (lokal)"
+        addChatBubble("System", "Aktive Stimme: $label. Sie läuft vollständig lokal auf diesem Gerät (kein Internet, keine Kosten).", false)
+        showStatus("$label aktiv")
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
