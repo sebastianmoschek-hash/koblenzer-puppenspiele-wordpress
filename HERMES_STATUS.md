@@ -14,7 +14,7 @@
 
 ## Aktueller CI-Stand
 
-- HEAD main = `2d51c2b` (Android-UI-UX + `kp-mobile-live-bridge.php`: „KI live zeigen“-Button per UA-Check `KoblenzerPuppenspieleTechnician/` in der App ausgeblendet — trivial, verhaltensneutral auf Staging).
+- CI-Deploy-Kopf = `2d51c2b` (Android-UI-UX + `kp-mobile-live-bridge.php`: „KI live zeigen“-Button per UA-Check `KoblenzerPuppenspieleTechnician/` in der App ausgeblendet — trivial, verhaltensneutral auf Staging). Darüber nur Doku-Commit `721a51f [skip ci]`.
 - Labs: für 2d51c2b **pending** (automatisch gestartet); letztes publiziertes Report: 68f5092 (Lauf 27, 00:33Z) `success:false` mit bekannter Churn-Schicht (editor/persistence/session-undo/text-save rot; deploy/stagingReady/bridge/touch/visual/infra grün).
 - a5e3b5c-Status: `editor-contracts` SUCCESS, `homepage-staging-lab` SUCCESS; rote Verdicts nur die bekannten (text-save, persistence, editor, session-undo).
 - GitHub Actions weiterhin Billing-limitiert (publish/orchestrate/deploy-Check-Runs an HEAD rot/übersprungen — bekannt, CircleCI übernimmt).
