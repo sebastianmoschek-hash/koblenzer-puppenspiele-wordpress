@@ -1,0 +1,48 @@
+[
+  {
+    "route": "/termine/",
+    "status": 200,
+    "ms": 1538,
+    "h1": "Termine",
+    "title": "Termine – puppenspiele",
+    "cards": 75,
+    "overflow": 0,
+    "consoleErrors": [],
+    "pageErrors": []
+  },
+  {
+    "route": "/",
+    "status": 200,
+    "ms": 1473,
+    "h1": "Figurentheater, das Kinder begeistert und Veranstaltungen besonders macht.",
+    "title": "puppenspiele",
+    "cards": 22,
+    "overflow": 0,
+    "consoleErrors": [],
+    "pageErrors": []
+  },
+  {
+    "route": "/repertoire/",
+    "status": 200,
+    "ms": 1464,
+    "h1": "Repertoire",
+    "title": "Repertoire – puppenspiele",
+    "cards": 17,
+    "overflow": 0,
+    "consoleErrors": [],
+    "pageErrors": []
+  },
+  {
+    "route": "/kontakt/",
+    "status": 200,
+    "ms": 1399,
+    "h1": "Kontakt",
+    "title": "Kontakt – puppenspiele",
+    "cards": 1,
+    "overflow": 0,
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+]
+
+=== ERGEBNIS: 4/4 Seiten OK ===

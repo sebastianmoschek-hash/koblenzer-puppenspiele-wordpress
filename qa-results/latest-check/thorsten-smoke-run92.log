@@ -1,0 +1,9 @@
+== Thorsten Voice Smoke Test ==
+PASS android-natural-voice
+- model assets: present
+- samplerate: model-derived + validated
+- playback: PCM16, frame-aligned Android minimum buffer
+- AudioTrack: initialized + blocking/full-write checks
+- generated audio: non-empty callback samples required
+- fallback: no Android system TextToSpeech path
+PASS: Thorsten voice smoke test successful!
