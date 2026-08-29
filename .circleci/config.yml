@@ -84,6 +84,15 @@ jobs:
             printf '%s\n' "$rc" > qa-results/android/thorsten-contract.rc
             exit "$rc"
       - run:
+          name: Thorsten voice smoke test (models + Kotlin integration)
+          command: |
+            mkdir -p qa-results/android
+            set +e
+            bash qa/thorsten-voice-smoke-test.sh > >(tee qa-results/android/thorsten-smoke.log) 2>&1
+            rc=$?
+            printf '%s\n' "$rc" > qa-results/android/thorsten-smoke.rc
+            exit "$rc"
+      - run:
           name: Compile Homepage-Hilfe debug APK
           command: |
             mkdir -p qa-results/android
