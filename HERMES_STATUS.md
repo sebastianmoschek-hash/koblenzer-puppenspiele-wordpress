@@ -15,9 +15,9 @@
 
 ## Aktueller CI-Stand
 
-- HEAD main = `127864c` (Run-27-Status, [skip ci]); Funktionsstand = `3d5fbeb`.
-- GitHub-Status `3d5fbeb`: serial-start-1/2 ✅, editor-contracts ✅, mobile-live-staging-deploy ✅, serial-end-1 ✅, **homepage-staging-lab = pending** (Lab-Lauf noch nicht abgeschlossen, Stand 04:07; Report auf Staging weiterhin `3e091ef`/01:34:19Z).
-- GitHub Actions: weiterhin alle Runs sofort failure (Billing-Konto erschöpft, bekannt).
+- HEAD main = `8ca873b` (Run-28-Status, [skip ci]); Funktionsstand = `3d5fbeb`.
+- GitHub-Status `3d5fbeb` (FINAL, 04:12): serial-start-1/2, editor-contracts, mobile-live-staging-deploy, **homepage-staging-lab SUCCESS** (Report publiziert 02:07:56Z = 04:07 lokal), serial-end-1/2 ✅. Verdicts: staging-infra-, staging-touch-, staging-visual-verdict = SUCCESS; staging-editor-, staging-text-save-, staging-session-undo-, staging-persistence-verdict = FAILURE (**bekannte Churn-Schicht, unverändert**). Gesamtstatus = failure (nur Churn, wie erwartet).
+- GitHub Actions: weiterhin alle Actions-Runs sofort failure (Billing-Konto erschöpft, bekannt).
 - Android `facaa1a`: `android-homepage-technician` SUCCESS; APK-Release vorhanden (siehe oben).
 
 ## 🔬 Offen
@@ -28,7 +28,7 @@
 4. **Agent-Bar/Menü-Überlappung Tablet** (`.kp-wa-bar` intercepts Menü-Button) — unverändert offen.
 5. **🆕 APK veraltet vs. main**: Letzter APK-Build `facaa1a` enthält NICHT `3d5fbeb` (SW-Fix + MainActivity-WebView-URL) — Basis war `5bf8fe5`. Damit die App vom SW-Fix profitiert: **Android-Trigger nötig**, wenn die laufende Screen-Capture-Arbeit committed ist: `git checkout -B feature/android-build-20260828 origin/main && git commit --allow-empty -m "ci(android): trigger APK build synced to main (3d5fbeb)" && git push origin feature/android-build-20260828` (Pattern wie Run 25/`facaa1a`). Danach Release `homepage-hilfe-test-<sha>` erwarten.
 6. **🆕 Working Tree externes uncommitted Work**: `MainActivity.kt` (63 Insertions: MediaProjection/REQ_SCREEN_CAPTURE=602, LocalVisualAgent-Verdrahtung, liveScreenActive) + `AndroidManifest.xml` wurden am 29.08. um 03:54–03:58 **außerhalb dieses Laufs** verändert (lokaler Gradle-Lauf `.gradle/`-Artefakte, vermutlich User/paralleler Agent beim Screen-Capture-Feature). Datein ist stabil, **NICHT commitcheck/stashed/angefasst** worden. Nächster Run soll zuerst prüfen, ob das committed wurde; falls nicht, kurz als offen notieren, KEINE Änderungen daran.
-7. **🆕 Lab `3d5fbeb` pending**: Ergebnis nachträglich als Run-29-Eingang prüfen (`gh api ... commits/3d5fbeb/status`; Report-Zeitstempel auf Staging `wp-content/uploads/kp-homepage-lab/latest/report.json`). Erwartung: Churn-Failures wie gehabt (SW-Fix betrifft Editor nicht).
+7. **~~Lab `3d5fbeb` pending~~ → ✅ erledigt innerhalb Run 28**: Lab SUCCESS (Report 3d5fbeb/02:07:56Z, infra/touch/visual-Verdicts grün, Editor-Churn wie erwartet). Kein Handlungsbedarf; Run 29 muss nur den Status-Check wiederholen.
 
 ## Abgegrenzte Sicherheitsregeln (strikt eingehalten)
 
