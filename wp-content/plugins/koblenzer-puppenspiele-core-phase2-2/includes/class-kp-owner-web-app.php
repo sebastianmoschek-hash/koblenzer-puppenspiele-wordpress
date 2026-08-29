@@ -125,11 +125,14 @@ self.addEventListener('fetch', event => {
   }
   if (['style','script','image','font'].includes(request.destination)) {
     event.respondWith(caches.match(request).then(cached => {
-      const fresh = fetch(request).then(response => {
-        if (response && response.ok) caches.open(KP_CACHE).then(cache => cache.put(request, response.clone()));
+      if (cached) return cached;
+      return fetch(request).then(response => {
+        if (response && response.ok) {
+          const clone = response.clone();
+          caches.open(KP_CACHE).then(cache => cache.put(request, clone)).catch(() => null);
+        }
         return response;
       }).catch(() => cached);
-      return cached || fresh;
     }));
   }
 });

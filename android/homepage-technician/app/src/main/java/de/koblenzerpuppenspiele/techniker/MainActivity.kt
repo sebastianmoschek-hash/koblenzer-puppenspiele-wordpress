@@ -435,7 +435,13 @@ class MainActivity : Activity() {
             deepLink.getQueryParameter("url")
         } else null
         val uri = requested?.let { runCatching { Uri.parse(it) }.getOrNull() }
-        val url = if (uri != null && uri.scheme == "https" && isTrustedHost(uri.host)) uri.toString() else BuildConfig.HOMEPAGE_URL
+        val base = Uri.parse(BuildConfig.HOMEPAGE_URL)
+        val defaultUrl = if (hasWordPressSession()) {
+            BuildConfig.HOMEPAGE_URL
+        } else {
+            base.buildUpon().clearQuery().path("/").build().toString()
+        }
+        val url = if (uri != null && uri.scheme == "https" && isTrustedHost(uri.host)) uri.toString() else defaultUrl
         currentPageTrusted = false
         webView.loadUrl(url)
     }
