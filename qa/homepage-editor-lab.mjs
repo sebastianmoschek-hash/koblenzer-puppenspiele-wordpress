@@ -408,8 +408,23 @@ async function screenshot(page, name, fullPage = false) {
   await page.screenshot({ path: path.join(outDir, `${name}.png`), fullPage });
 }
 
+// Oeffnungs-Pfad (Lauf 26): Seit Einfuehrung der Web-Agent-Bar
+// (owner-web-agent.js install/ensureUi) ist .kp-oa-tools Legacy und wird per
+// CSS (owner-web-agent.css .kp-web-agent-active) auf left:-9999px geschoben -
+// ausserhalb des Viewports, Klick ohne force schlaegt fehl. Primaer-UI ist die
+// Agent-Bar: deren "✎ Bearbeiten" ([data-kp-wa-edit]) klickt .kp-oa-tools
+// programmatisch und oeffnet dasselbe Tool-Sheet.
+async function openOwnerTools(page) {
+  const agentEdit = page.locator('.kp-wa-bar [data-kp-wa-edit]').first();
+  if (await agentEdit.count().catch(() => 0)) {
+    await agentEdit.click();
+  } else {
+    await page.locator('.kp-oa-tools').first().click({ force: true });
+  }
+}
+
 async function openDesign(page) {
-  await page.locator('.kp-oa-tools').click();
+  await openOwnerTools(page);
   await page.locator('[data-action="design"]').click();
   await page.locator('.kp-oa-sheet.is-design .kp-oa-design-save').waitFor({ state: 'visible', timeout: 10000 });
   await page.waitForTimeout(180);

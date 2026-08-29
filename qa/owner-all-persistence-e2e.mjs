@@ -61,10 +61,23 @@ async function waitReload(click) {
   return changed;
 }
 
+// Oeffnungs-Pfad (Lauf 26): Seit der Web-Agent-Bar ist .kp-oa-tools per CSS
+// auf left:-9999px geschoben (ausserhalb Viewport, owner-web-agent.css
+// .kp-web-agent-active). Primaer-UI ist die Agent-Bar: "✎ Bearbeiten"
+// ([data-kp-wa-edit]) oeffnet dasselbe Tool-Sheet.
+async function openTools() {
+  const agentEdit = page.locator('.kp-wa-bar [data-kp-wa-edit]').first();
+  if (await agentEdit.count().catch(() => 0)) {
+    await agentEdit.click({ force: true });
+  } else {
+    const tools = page.locator('.kp-oa-tools').first();
+    await tools.waitFor({ state:'visible', timeout:10000 });
+    await tools.click({ force:true });
+  }
+}
+
 async function openDesign() {
-  const tools = page.locator('.kp-oa-tools').first();
-  await tools.waitFor({ state:'visible', timeout:10000 });
-  await tools.click({ force:true });
+  await openTools();
   const designAction = page.locator('[data-action="design"]').first();
   await designAction.waitFor({ state:'visible', timeout:10000 });
   await designAction.click({ force:true });
@@ -294,10 +307,10 @@ try {
   }
 
   await page.waitForSelector('[data-kp-word-history-new="undo"]', { state:'visible', timeout:10000 });
-  await page.waitForSelector('[data-kp-word-history-new="redo"]', { state:'visible', timeout:10000 });
-  if (await page.locator('[data-kp-history-undo]').count()) fail('Der alte Rückgängig-Textbutton ist noch sichtbar/registriert.');
-  await page.locator('.kp-oa-tools').click();
-  await page.waitForSelector('[data-kp-history-versions]', { timeout:10000 });
+    await page.waitForSelector('[data-kp-word-history-new="redo"]', { state:'visible', timeout:10000 });
+    if (await page.locator('[data-kp-history-undo]').count()) fail('Der alte Rückgängig-Textbutton ist noch sichtbar/registriert.');
+    await openTools();
+    await page.waitForSelector('[data-kp-history-versions]', { timeout:10000 });
 
   if (automaticReloads.some(value => !value)) {
     fail(`Persistenz/Undo/48h-Versionen wurden vollständig geprüft, aber ${automaticReloads.filter(value => !value).length} von ${automaticReloads.length} orangefarbenen Speichervorgängen lösten keinen automatisch erkannten Reload aus.`);

@@ -8,7 +8,7 @@ const context=await browser.newContext({viewport:{width:390,height:844},hasTouch
 const page=await context.newPage();
 const fail=m=>{throw new Error(m)};
 
-async function openTools(){const tools=page.locator('.kp-oa-tools').first();if(await tools.count())await tools.click({force:true});}
+async function openTools(){const agentEdit=page.locator('.kp-wa-bar [data-kp-wa-edit]').first();if(await agentEdit.count().catch(()=>0)){await agentEdit.click({force:true});}else{const tools=page.locator('.kp-oa-tools').first();if(await tools.count())await tools.click({force:true});}}
 async function closeOwnerSheet(){const close=page.locator('.kp-oa-close,[data-kp-nav-close]').first();if(await close.count())await close.click({force:true});}
 
 try{
