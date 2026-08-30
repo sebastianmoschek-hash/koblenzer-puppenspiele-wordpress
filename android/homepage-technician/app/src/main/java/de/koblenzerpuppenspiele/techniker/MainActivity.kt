@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONObject
 import kotlin.coroutines.resume
+import android.media.projection.MediaProjectionManager
 
 /**
  * Homepage-Hilfe has two primary paths:
@@ -51,6 +52,7 @@ import kotlin.coroutines.resume
 class MainActivity : Activity() {
     companion object {
         private const val REQ_AUDIO = 601
+        private const val REQ_SCREEN_CAPTURE = 602
     }
 
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -77,14 +79,17 @@ class MainActivity : Activity() {
     private lateinit var repairBridge: WebRepairBridge
     private lateinit var localAi: LocalAiTechnician
     private lateinit var voiceController: LocalVoiceController
+    private lateinit var visualAi: LocalVisualAgent
 
     private var aiOpen = false
     private var liveLocal = false
+    private var liveScreenActive = false
     private var busy = false
     private var lastRequest = ""
     private var queuedLiveRequest = ""
     private val emergencyHistory = mutableListOf<Pair<String, String>>()
     @Volatile private var currentPageTrusted = false
+    private var pendingScreenAfterAudio = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -101,6 +106,7 @@ class MainActivity : Activity() {
             confirm = ::confirmAction,
             status = ::showStatus,
         )
+        visualAi = LocalVisualAgent(this) { statusText -> runOnUiThread { showStatus(statusText) } }
         voiceController = LocalVoiceController(
             context = this,
             onUserText = { text -> runOnUiThread { handleVoiceText(text) } },
@@ -599,7 +605,25 @@ class MainActivity : Activity() {
 
         uiScope.launch {
             try {
-                val reply = localAi.send(clean)
+                val reply = runCatching {
+                    if (liveScreenActive && ScreenCaptureService.running) {
+                        val frame = ScreenCaptureService.latestFrame(maxAgeMs = 10_000L)
+                        if (frame != null && visualAi.modelInstalled()) {
+                            val pageContext = runCatching { webView.url ?: "" }.getOrDefault("")
+                            visualAi.analyze(clean, frame, pageContext).reply
+                        } else {
+                            localAi.send(clean)
+                        }
+                    } else {
+                        localAi.send(clean)
+                    }
+                }.getOrElse { error ->
+                    if (liveScreenActive && error.message?.contains("Modell", ignoreCase = true) == true) {
+                        localAi.send(clean)
+                    } else {
+                        throw error
+                    }
+                }
                 removeChatBubble(thinking)
                 addChatBubble("KI", reply, false)
                 showStatus("Lokale KI bereit")
@@ -651,15 +675,26 @@ class MainActivity : Activity() {
             return
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            pendingScreenAfterAudio = true
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_AUDIO)
             return
         }
+        requestScreenPermission()
+    }
 
+    private fun requestScreenPermission() {
+        val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        startActivityForResult(manager.createScreenCaptureIntent(), REQ_SCREEN_CAPTURE)
+        showStatus("Live lokal · einmalig Bildschirmfreigabe bestätigen …")
+    }
+
+    private fun afterScreenPermissionGranted() {
         liveLocal = true
+        liveScreenActive = true
         queuedLiveRequest = ""
         addChatBubble(
             "System",
-            "Live lokal gestartet. Sprich frei; deine erkannten Sätze erscheinen hier im Chat. Du kannst der KI ins Wort fallen. Audio wird nicht an Gemini/OpenAI gesendet.",
+            "Live lokal gestartet · ich sehe deinen Bildschirm und höre zu. Sprich frei, falle mir gerne ins Wort. Bild & Audio bleiben auf deinem Gerät.",
             false,
         )
         runCatching { voiceController.start() }
@@ -668,16 +703,35 @@ class MainActivity : Activity() {
                 addChatBubble("System", it.message ?: "Live lokal konnte nicht gestartet werden.", false)
             }
         refreshModelState()
+        showStatus("Live lokal · ich sehe deinen Bildschirm und höre zu")
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQ_SCREEN_CAPTURE) return
+        if (resultCode == RESULT_OK && data != null) {
+            ScreenCaptureService.start(this, resultCode, data)
+            afterScreenPermissionGranted()
+        } else {
+            liveLocal = false
+            addChatBubble("System", "Bildschirmfreigabe wurde nicht bestätigt. Live lokal bleibt aus.", false)
+            showStatus("Live lokal nicht gestartet · Chat bleibt geöffnet")
+        }
     }
 
     private fun stopLocalLive(silent: Boolean = false) {
         queuedLiveRequest = ""
-        voiceController.stop()
+        if (::voiceController.isInitialized) runCatching { voiceController.stop() }
+        if (::visualAi.isInitialized) runCatching { visualAi.release() }
+        if (ScreenCaptureService.running) ScreenCaptureService.stop(this)
         liveLocal = false
+        liveScreenActive = false
         if (!silent) addChatBubble("System", "Live lokal beendet. Der normale KI-Chat bleibt geöffnet.", false)
         refreshModelState()
         showStatus("Lokale KI · Chat bereit")
     }
+
+
 
     private fun showVoicePicker() {
         val label = if (::voiceController.isInitialized) voiceController.naturalVoiceLabel() else "Thorsten (lokal)"
@@ -689,7 +743,12 @@ class MainActivity : Activity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != REQ_AUDIO) return
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            startLocalLive()
+            if (pendingScreenAfterAudio) {
+                pendingScreenAfterAudio = false
+                requestScreenPermission()
+            } else {
+                startLocalLive()
+            }
         } else {
             addChatBubble("System", "Ohne Mikrofonberechtigung bleibt Live lokal aus. Schreiben funktioniert weiterhin.", false)
             showStatus("Mikrofonzugriff abgelehnt · Chat bleibt verfügbar")
