@@ -19,6 +19,9 @@ files=(
   'kp-mobile-local-image-tools.php'
   'kp-local-ai-desktop.php'
   'kp-local-ai-marker.php'
+  'kp-openrouter-bridge.php'
+  'kp-owner-web-agent.php'
+  'kp-ai-repair-lab.php'
 )
 
 for name in "${files[@]}"; do
@@ -43,6 +46,9 @@ put '$MU/kp-mobile-local-ai-repair.php' -o '/wp-content/mu-plugins/kp-mobile-loc
 put '$MU/kp-mobile-local-image-tools.php' -o '/wp-content/mu-plugins/kp-mobile-local-image-tools.php';
 put '$MU/kp-local-ai-desktop.php' -o '/wp-content/mu-plugins/kp-local-ai-desktop.php';
 put '$MU/kp-local-ai-marker.php' -o '/wp-content/mu-plugins/kp-local-ai-marker.php';
+put '$MU/kp-openrouter-bridge.php' -o '/wp-content/mu-plugins/kp-openrouter-bridge.php';
+put '$MU/kp-owner-web-agent.php' -o '/wp-content/mu-plugins/kp-owner-web-agent.php';
+put '$MU/kp-ai-repair-lab.php' -o '/wp-content/mu-plugins/kp-ai-repair-lab.php';
 bye
 "
 
