@@ -4,10 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
-      - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/**'
-      - 'wp-content/mu-plugins/kp-mobile-live-bridge.php'
-      - '.github/workflows/deploy-staging.yml'
+          - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
+          - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/**'
+          - 'wp-content/mu-plugins/kp-mobile-live-bridge.php'
+          - 'wp-content/mu-plugins/kp-openrouter-bridge.php'
+          - 'wp-content/mu-plugins/kp-owner-web-agent.php'
+          - 'wp-content/mu-plugins/kp-ai-repair-lab.php'
+          - '.github/workflows/deploy-staging.yml'
   workflow_dispatch:
 
 concurrency:
@@ -65,6 +68,9 @@ jobs:
                -type f -name '*.php' -print0 \
             | xargs -0 -n1 php -l
           php -l wp-content/mu-plugins/kp-mobile-live-bridge.php
+          php -l wp-content/mu-plugins/kp-openrouter-bridge.php
+          php -l wp-content/mu-plugins/kp-owner-web-agent.php
+          php -l wp-content/mu-plugins/kp-ai-repair-lab.php
 
       - name: Install secure FTP client
         shell: bash
@@ -146,17 +152,20 @@ jobs:
           fi
 
           echo 'Deploying Gemini Live bootstrap MU-plugin…'
-          lftp -c "
-            set ftp:ssl-force true;
-            set ftp:ssl-protect-data true;
-            set ssl:verify-certificate true;
-            set net:max-retries 2;
-            set net:timeout 20;
-            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
-            mkdir -p '/wp-content/mu-plugins';
-            put '$LIVE_BRIDGE' -o '/wp-content/mu-plugins/kp-mobile-live-bridge.php';
-            bye
-          "
+                    lftp -c "
+                      set ftp:ssl-force true;
+                      set ftp:ssl-protect-data true;
+                      set ssl:verify-certificate true;
+                      set net:max-retries 2;
+                      set net:timeout 20;
+                      open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
+                      mkdir -p '/wp-content/mu-plugins';
+                      put '$LIVE_BRIDGE' -o '/wp-content/mu-plugins/kp-mobile-live-bridge.php';
+                      put 'wp-content/mu-plugins/kp-openrouter-bridge.php' -o '/wp-content/mu-plugins/kp-openrouter-bridge.php';
+                      put 'wp-content/mu-plugins/kp-owner-web-agent.php' -o '/wp-content/mu-plugins/kp-owner-web-agent.php';
+                      put 'wp-content/mu-plugins/kp-ai-repair-lab.php' -o '/wp-content/mu-plugins/kp-ai-repair-lab.php';
+                      bye
+                    "
 
       - name: Verify Gemini Live bootstrap is active on staging
         shell: bash

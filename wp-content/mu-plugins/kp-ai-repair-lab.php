@@ -148,6 +148,14 @@ function kp_ai_repair_interaction_text( $body ) {
     return '';
 }
 function kp_ai_repair_gemini( $system, $input, $schema, $timeout = 55 ) {
+    // OpenRouter zuerst (funktioniert auch ohne Gemini-Prepayment).
+    if ( function_exists( 'kp_openrouter_ready' ) && kp_openrouter_ready() ) {
+        try {
+            return kp_openrouter_ask_json( $system, $input, $timeout, array( 'temperature' => 0.1 ) );
+        } catch ( Throwable $e ) {
+            // Fallback auf Gemini weiter unten.
+        }
+    }
     if ( ! function_exists( 'kp_ai_key' ) ) { throw new RuntimeException( 'Die Gemini-Basisintegration ist nicht geladen.' ); }
     $key = kp_ai_key();
     if ( ! $key ) { throw new RuntimeException( 'Gemini ist noch nicht verbunden.' ); }

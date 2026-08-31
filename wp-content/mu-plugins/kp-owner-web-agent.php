@@ -78,51 +78,72 @@ add_action( 'wp_ajax_kp_owner_web_agent_chat', static function () {
     }
 
     $system = 'Du bist die KI in der Web-App der Koblenzer Puppenspiele. Antworte auf Deutsch, freundlich und konkret. Du bekommst den sichtbaren Seitenkontext, darfst aber nicht behaupten, etwas außerhalb dieses Kontexts gesehen zu haben. Bei normalen Fragen nur antworten und nichts verändern. Für technische Programmier- oder Reparaturaufträge soll die Web-App den getrennten geschützten Prüfbranch/CI-Weg verwenden.';
-    $input = "FRAGE:\n{$request}\n\nLETZTE UNTERHALTUNG:\n{$history}\n\nSICHTBARER SEITENKONTEXT:\n{$browser}";
-    $payload = array(
-        'model'              => 'gemini-3.5-flash-lite',
-        'input'              => $input,
-        'system_instruction' => $system,
-        'store'              => false,
-        'generation_config'  => array( 'thinking_level' => 'low' ),
-    );
+        $input = "FRAGE:\n{$request}\n\nLETZTE UNTERHALTUNG:\n{$history}\n\nSICHTBARER SEITENKONTEXT:\n{$browser}";
 
-    try {
-        $started = microtime( true );
-        $response = wp_remote_post( 'https://generativelanguage.googleapis.com/v1/interactions', array(
-            'timeout'     => 20,
-            'httpversion' => '1.1',
-            'headers'     => array(
-                'Content-Type'   => 'application/json',
-                'x-goog-api-key' => $key,
-            ),
-            'body'        => wp_json_encode( $payload ),
-        ) );
-        if ( is_wp_error( $response ) ) {
-            throw new RuntimeException( $response->get_error_message() );
+        try {
+            $started = microtime( true );
+
+            // OpenRouter zuerst: funktioniert ohne Gemini-Prepayment und ist der neue Standard.
+            if ( function_exists( 'kp_openrouter_ready' ) && kp_openrouter_ready() ) {
+                try {
+                    $reply = kp_openrouter_ask( $system, $input, 30 );
+                    wp_send_json_success( array(
+                        'reply'      => $reply,
+                        'model'      => kp_openrouter_config()['model'],
+                        'elapsed_ms' => (int) round( ( microtime( true ) - $started ) * 1000 ),
+                        'transport'  => 'openrouter-v1',
+                    ) );
+                } catch ( Throwable $e ) {
+                    // Fallback auf Gemini (unten).
+                }
+            }
+
+            if ( ! function_exists( 'kp_ai_key' ) ) { throw new RuntimeException( 'Die Gemini-Basisintegration ist nicht geladen.' ); }
+            $key = kp_ai_key();
+            if ( ! $key ) { throw new RuntimeException( 'Gemini ist noch nicht verbunden.' ); }
+
+            $payload = array(
+                'model'              => 'gemini-3.5-flash-lite',
+                'input'              => $input,
+                'system_instruction' => $system,
+                'store'              => false,
+                'generation_config'  => array( 'thinking_level' => 'low' ),
+            );
+
+            $response = wp_remote_post( 'https://generativelanguage.googleapis.com/v1/interactions', array(
+                'timeout'     => 20,
+                'httpversion' => '1.1',
+                'headers'     => array(
+                    'Content-Type'   => 'application/json',
+                    'x-goog-api-key' => $key,
+                ),
+                'body'        => wp_json_encode( $payload ),
+            ) );
+            if ( is_wp_error( $response ) ) {
+                throw new RuntimeException( $response->get_error_message() );
+            }
+            $code = (int) wp_remote_retrieve_response_code( $response );
+            $body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+            if ( $code < 200 || $code >= 300 ) {
+                $message = is_array( $body ) ? ( $body['error']['message'] ?? 'Gemini hat die Anfrage abgelehnt.' ) : 'Gemini hat die Anfrage abgelehnt.';
+                throw new RuntimeException( sanitize_text_field( (string) $message ) );
+            }
+            $reply = kp_owner_web_agent_interaction_text( $body );
+            if ( '' === $reply ) { throw new RuntimeException( 'Gemini hat keine Textantwort geliefert.' ); }
+            wp_send_json_success( array(
+                'reply'      => $reply,
+                'model'      => 'gemini-3.5-flash-lite',
+                'elapsed_ms' => (int) round( ( microtime( true ) - $started ) * 1000 ),
+                'transport'  => 'interactions-v1-ipv4',
+            ) );
+        } catch ( Throwable $e ) {
+            $message = $e->getMessage();
+            if ( false !== stripos( $message, 'cURL error 28' ) || false !== stripos( $message, 'timed out' ) ) {
+                $message = 'Der Hosting-Server erreicht Gemini weiterhin nicht rechtzeitig. Die Web-App selbst funktioniert; die Google-Verbindung des Servers läuft in ein Netzwerk-Timeout.';
+            }
+            wp_send_json_error( array( 'message' => $message ), 504 );
         }
-        $code = (int) wp_remote_retrieve_response_code( $response );
-        $body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
-        if ( $code < 200 || $code >= 300 ) {
-            $message = is_array( $body ) ? ( $body['error']['message'] ?? 'Gemini hat die Anfrage abgelehnt.' ) : 'Gemini hat die Anfrage abgelehnt.';
-            throw new RuntimeException( sanitize_text_field( (string) $message ) );
-        }
-        $reply = kp_owner_web_agent_interaction_text( $body );
-        if ( '' === $reply ) { throw new RuntimeException( 'Gemini hat keine Textantwort geliefert.' ); }
-        wp_send_json_success( array(
-            'reply'      => $reply,
-            'model'      => 'gemini-3.5-flash-lite',
-            'elapsed_ms' => (int) round( ( microtime( true ) - $started ) * 1000 ),
-            'transport'  => 'interactions-v1-ipv4',
-        ) );
-    } catch ( Throwable $e ) {
-        $message = $e->getMessage();
-        if ( false !== stripos( $message, 'cURL error 28' ) || false !== stripos( $message, 'timed out' ) ) {
-            $message = 'Der Hosting-Server erreicht Gemini weiterhin nicht rechtzeitig. Die Web-App selbst funktioniert; die Google-Verbindung des Servers läuft in ein Netzwerk-Timeout.';
-        }
-        wp_send_json_error( array( 'message' => $message ), 504 );
-    }
-} );
+    } );
 
 add_filter( 'body_class', static function ( $classes ) {
     if ( kp_owner_web_agent_can_use() ) {

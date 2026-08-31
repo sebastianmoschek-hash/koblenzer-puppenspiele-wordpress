@@ -550,20 +550,19 @@ class MainActivity : Activity() {
 
     private fun sendLocalMessage() {
         if (busy) {
-            showStatus("Die lokale KI arbeitet noch · deine nächste Nachricht kann gleich danach gesendet werden")
+            showStatus("Die KI arbeitet noch · deine nächste Nachricht kann gleich danach gesendet werden")
             return
         }
         val message = textInput.text?.toString()?.trim().orEmpty()
         if (message.isBlank()) return
+
         if (!localAi.modelState().installed) {
+            // Wenn das lokale 2.6-GB-Modell noch nicht heruntergeladen ist,
+            // leiten wir die Anfrage automatisch an den schnellen Cloud-Fallback weiter,
+            // damit die KI immer sofort antwortet.
             lastRequest = message
-            addChatBubble(
-                "System",
-                "Deine Nachricht bleibt im Eingabefeld. Für eine lokale Antwort muss das Modell einmalig installiert werden; du kannst jetzt auf „Lokale KI installieren“ tippen oder den Text mit „Notfall Gemini (Cloud)“ verwenden.",
-                false,
-            )
-            showStatus("Nachricht gespeichert · lokale KI bitte einmalig installieren")
-            installButton.requestFocus()
+            textInput.text?.clear()
+            openEmergencyGemini()
             return
         }
         textInput.text?.clear()
@@ -779,7 +778,24 @@ class MainActivity : Activity() {
         uiScope.launch {
             try {
                 showStatus("Notfall Gemini · geschützter Cloud-Fallback arbeitet …")
-                val raw = repairBridge.emergencyGemini(clean, emergencyHistoryText())
+                val raw = try {
+                    repairBridge.emergencyGemini(clean, emergencyHistoryText())
+                } catch (serverError: Throwable) {
+                    // Server-Cloud-Fallback (Notfall Gemini über WordPress) fehlgeschlagen.
+                    // Automatischer nativer OpenRouter-Direktfallback, damit die KI immer antwortet.
+                    if (OpenRouterFallback.isConfigured()) {
+                        val startNano = System.nanoTime()
+                        val fallbackReply = OpenRouterFallback.chat(clean, emergencyHistoryText())
+                        val elapsedMs = (System.nanoTime() - startNano) / 1_000_000
+                        removeChatBubble(thinking)
+                        addChatBubble("KI (Cloud-Fallback)", fallbackReply, false)
+                        emergencyHistory += clean to fallbackReply
+                        while (emergencyHistory.size > 6) emergencyHistory.removeAt(0)
+                        showStatus("Cloud-Fallback (OpenRouter) · Antwort im Chat · ${elapsedMs} ms")
+                        return@launch
+                    }
+                    throw serverError
+                }
                 val result = JSONObject(raw.toString())
                 result.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
 
