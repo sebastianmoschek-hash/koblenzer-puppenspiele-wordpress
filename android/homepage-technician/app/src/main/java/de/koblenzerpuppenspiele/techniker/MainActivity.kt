@@ -778,24 +778,7 @@ class MainActivity : Activity() {
         uiScope.launch {
             try {
                 showStatus("Notfall Gemini · geschützter Cloud-Fallback arbeitet …")
-                val raw = try {
-                    repairBridge.emergencyGemini(clean, emergencyHistoryText())
-                } catch (serverError: Throwable) {
-                    // Server-Cloud-Fallback (Notfall Gemini über WordPress) fehlgeschlagen.
-                    // Automatischer nativer OpenRouter-Direktfallback, damit die KI immer antwortet.
-                    if (OpenRouterFallback.isConfigured()) {
-                        val startNano = System.nanoTime()
-                        val fallbackReply = OpenRouterFallback.chat(clean, emergencyHistoryText())
-                        val elapsedMs = (System.nanoTime() - startNano) / 1_000_000
-                        removeChatBubble(thinking)
-                        addChatBubble("KI (Cloud-Fallback)", fallbackReply, false)
-                        emergencyHistory += clean to fallbackReply
-                        while (emergencyHistory.size > 6) emergencyHistory.removeAt(0)
-                        showStatus("Cloud-Fallback (OpenRouter) · Antwort im Chat · ${elapsedMs} ms")
-                        return@launch
-                    }
-                    throw serverError
-                }
+                val raw = repairBridge.emergencyGemini(clean, emergencyHistoryText())
                 val result = JSONObject(raw.toString())
                 result.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
 

@@ -9,6 +9,15 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
+/*
+ * This legacy integration is kept only for an explicit, server-side manual
+ * opt-in. It is disabled in every normal development, staging and runtime
+ * path, so no endpoint or outbound request is registered by default.
+ */
+if ( ! defined( 'KP_OPENROUTER_MANUAL_ENABLED' ) || true !== KP_OPENROUTER_MANUAL_ENABLED ) {
+	return;
+}
+
 /**
  * Zentrale Konfiguration.
  * Optionale Konstanten in wp-config.php:

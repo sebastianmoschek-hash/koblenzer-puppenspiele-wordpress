@@ -20,7 +20,7 @@ if [[ "${KP_TEXT_SAVE_SKIP_DEPLOY:-0}" == '1' ]]; then
   echo 'Reusing the staging deployment from the main homepage lab for text-save E2E.'
 else
   echo 'Deploying exact editor/MU code for isolated staging text-save test.'
-  ftp_cmd "mirror -R --verbose --transfer-all --no-perms --parallel=2 '$PLUGIN' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'; mkdir -p /wp-content/mu-plugins; mirror -R --verbose --transfer-all --no-perms --parallel=2 '$MU' '/wp-content/mu-plugins'"
+  ftp_cmd "mirror -R --verbose --transfer-all --no-perms --parallel=2 '$PLUGIN' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'; mkdir -p /wp-content/mu-plugins; rm -f /wp-content/mu-plugins/kp-openrouter-bridge.php; mirror -R --verbose --transfer-all --no-perms --parallel=2 --exclude-glob 'kp-openrouter-bridge.php' '$MU' '/wp-content/mu-plugins'"
 fi
 
 E2E_TOKEN="$(openssl rand -hex 32)"

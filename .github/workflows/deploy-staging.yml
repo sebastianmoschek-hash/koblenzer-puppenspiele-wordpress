@@ -7,7 +7,6 @@ on:
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
       - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/**'
       - 'wp-content/mu-plugins/kp-mobile-live-bridge.php'
-      - 'wp-content/mu-plugins/kp-openrouter-bridge.php'
       - 'wp-content/mu-plugins/kp-owner-web-agent.php'
       - 'wp-content/mu-plugins/kp-ai-repair-lab.php'
       - '.github/workflows/deploy-staging.yml'
@@ -38,7 +37,6 @@ jobs:
           PLUGIN='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
           THEME='wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
           LIVE_BRIDGE='wp-content/mu-plugins/kp-mobile-live-bridge.php'
-          OPENROUTER_BRIDGE='wp-content/mu-plugins/kp-openrouter-bridge.php'
 
           found=0
           if [ -d "$PLUGIN" ];then
@@ -53,11 +51,6 @@ jobs:
             echo "Mobile Live bridge found: $LIVE_BRIDGE"
             found=1
           fi
-          if [ -f "$OPENROUTER_BRIDGE" ];then
-            echo "OpenRouter bridge found: $OPENROUTER_BRIDGE"
-            found=1
-          fi
-
           if [ "$found" -ne 1 ];then
             echo 'ERROR: No expected deployable WordPress code exists in this repository.'
             echo 'Nothing will be uploaded.'
@@ -73,7 +66,6 @@ jobs:
                -type f -name '*.php' -print0 \
             | xargs -0 -n1 php -l
           php -l wp-content/mu-plugins/kp-mobile-live-bridge.php
-          php -l wp-content/mu-plugins/kp-openrouter-bridge.php
           php -l wp-content/mu-plugins/kp-owner-web-agent.php
           php -l wp-content/mu-plugins/kp-ai-repair-lab.php
 
@@ -160,8 +152,8 @@ jobs:
             set net:timeout 20;
             open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
             mkdir -p '/wp-content/mu-plugins';
+            rm -f '/wp-content/mu-plugins/kp-openrouter-bridge.php';
             put '$LIVE_BRIDGE' -o '/wp-content/mu-plugins/kp-mobile-live-bridge.php';
-            put 'wp-content/mu-plugins/kp-openrouter-bridge.php' -o '/wp-content/mu-plugins/kp-openrouter-bridge.php';
             put 'wp-content/mu-plugins/kp-owner-web-agent.php' -o '/wp-content/mu-plugins/kp-owner-web-agent.php';
             put 'wp-content/mu-plugins/kp-ai-repair-lab.php' -o '/wp-content/mu-plugins/kp-ai-repair-lab.php';
             bye

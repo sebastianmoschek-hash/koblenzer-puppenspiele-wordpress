@@ -12,16 +12,6 @@ android {
             targetSdk = 36
             versionCode = 12
             versionName = "0.11.0-or-fallback"
-
-            val openRouterKey: String = (project.findProperty("OPENROUTER_API_KEY") as String?)
-                ?: System.getenv("OPENROUTER_API_KEY")
-                ?: "UNSET"
-            val openRouterModel: String = (project.findProperty("OPENROUTER_MODEL") as String?)
-                ?: System.getenv("OPENROUTER_MODEL")
-                ?: "google/gemma-4-31b-it:free"
-
-            buildConfigField("String", "OPENROUTER_API_KEY", "\"${openRouterKey.replace("\"", "\\\"")}\"")
-            buildConfigField("String", "OPENROUTER_MODEL", "\"${openRouterModel.replace("\"", "\\\"")}\"")
         }
 
     buildFeatures {

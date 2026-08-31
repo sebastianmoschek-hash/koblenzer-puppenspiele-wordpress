@@ -24,12 +24,13 @@ ftp_cmd(){
 sync_mu_plugins(){
   if [[ -d "$MU" ]]; then
     echo 'Syncing repository MU-plugins to staging (Live bridge files are owned by mobile-live-staging-deploy).'
-    ftp_cmd "mkdir -p /wp-content/mu-plugins; mirror -R --verbose --transfer-all --no-perms --parallel=2 \
+    ftp_cmd "mkdir -p /wp-content/mu-plugins; rm -f /wp-content/mu-plugins/kp-openrouter-bridge.php; mirror -R --verbose --transfer-all --no-perms --parallel=2 \
       --exclude-glob 'kp-mobile-live-bridge.php' \
       --exclude-glob 'kp-mobile-live-bootstrap-v2.php' \
       --exclude-glob 'kp-mobile-live-protocol-marker.php' \
       --exclude-glob 'kp-mobile-live-image-tools.php' \
       --exclude-glob 'kp-mobile-live-image-adapter.php' \
+      --exclude-glob 'kp-openrouter-bridge.php' \
       '$MU' '/wp-content/mu-plugins'" >/tmp/kp-mu-deploy.log 2>&1
   fi
 }

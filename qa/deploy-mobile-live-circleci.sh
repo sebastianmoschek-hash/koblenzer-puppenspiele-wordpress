@@ -19,7 +19,6 @@ files=(
   'kp-mobile-local-image-tools.php'
   'kp-local-ai-desktop.php'
   'kp-local-ai-marker.php'
-  'kp-openrouter-bridge.php'
   'kp-owner-web-agent.php'
   'kp-ai-repair-lab.php'
 )
@@ -37,6 +36,7 @@ set net:max-retries 2;
 set net:timeout 20;
 open --user '$STAGING_FTP_USERNAME' --env-password -p 21 '$STAGING_FTP_SERVER';
 mkdir -p /wp-content/mu-plugins;
+rm -f /wp-content/mu-plugins/kp-openrouter-bridge.php;
 put '$MU/kp-mobile-live-bridge.php' -o '/wp-content/mu-plugins/kp-mobile-live-bridge.php';
 put '$MU/kp-mobile-live-bootstrap-v2.php' -o '/wp-content/mu-plugins/kp-mobile-live-bootstrap-v2.php';
 put '$MU/kp-mobile-live-protocol-marker.php' -o '/wp-content/mu-plugins/kp-mobile-live-protocol-marker.php';
@@ -46,7 +46,6 @@ put '$MU/kp-mobile-local-ai-repair.php' -o '/wp-content/mu-plugins/kp-mobile-loc
 put '$MU/kp-mobile-local-image-tools.php' -o '/wp-content/mu-plugins/kp-mobile-local-image-tools.php';
 put '$MU/kp-local-ai-desktop.php' -o '/wp-content/mu-plugins/kp-local-ai-desktop.php';
 put '$MU/kp-local-ai-marker.php' -o '/wp-content/mu-plugins/kp-local-ai-marker.php';
-put '$MU/kp-openrouter-bridge.php' -o '/wp-content/mu-plugins/kp-openrouter-bridge.php';
 put '$MU/kp-owner-web-agent.php' -o '/wp-content/mu-plugins/kp-owner-web-agent.php';
 put '$MU/kp-ai-repair-lab.php' -o '/wp-content/mu-plugins/kp-ai-repair-lab.php';
 bye
