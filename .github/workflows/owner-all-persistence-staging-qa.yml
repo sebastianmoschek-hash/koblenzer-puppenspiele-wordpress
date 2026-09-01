@@ -13,7 +13,9 @@ permissions:
   contents: write
 
 concurrency:
-  group: koblenzer-puppenspiele-owner-all-persistence
+  # Bind the lock to the tested commit. A wedged Chromium process from an old
+  # run must not prevent the current staging verification from starting.
+  group: koblenzer-puppenspiele-owner-all-persistence-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
