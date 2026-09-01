@@ -219,7 +219,9 @@ try {
     const diag = await editorStartDiagnostic(loginResponse);
     fail(`Frontend-Editor wurde nicht initialisiert. Diagnose=${JSON.stringify(diag)}`);
   }
-  await page.waitForSelector('.kp-oa-tools', { timeout:15000 });
+  // The legacy .kp-oa-tools control is intentionally hidden once the visible
+  // owner agent bar is active. Exercise the same click path as the owner.
+  await page.locator('.kp-wa-bar [data-kp-wa-edit], .kp-oa-tools').first().waitFor({ state:'visible', timeout:15000 });
   originalState = await state();
 
   await openDesign();
