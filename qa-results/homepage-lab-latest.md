@@ -1,11 +1,12 @@
-# Autonomes Homepage-Labor – Infrastrukturstatus
+# Autonomes Homepage-Labor – letzter Staging-Stand
 
-Erzeugt: 2026-08-22T12:31:23Z
-Commit: d11654e99d8e393ddc00c53ea953049a55b6cd28
-Status: ROT
+Erzeugt: 2026-09-01T07:54:18Z
+Quell-Commit: dda6ee9d04c215c83126c047c101f1b3c93a2ccf
+Gesamtstatus: ROT
 
-Der neue autonome Homepage-Lab-Workflow hat noch keinen echten Browserbericht nach `qa-results/homepage-lab-latest.*` persistiert. Das wird ausdrücklich als Infrastrukturfehler behandelt und nicht als grüne Abnahme.
+- Deploy + 50-Ansichten Visual-QA: cancelled (Run 33484146760)
+- Echter Owner-Browser Speichern/Reload/DB/Undo/48h: not-required (Run 0)
+- Nativer Chromium-Touch-Regler + Reset/Save-Tap: not-required (Run 0)
+- Persistierte QA-Beweise geprüft: skipped
 
-- Produktion unverändert.
-- Ein neuer relevanter Push wurde ausgelöst, damit der Lab-Workflow erneut starten kann.
-- Erst ein vom Workflow selbst erzeugter Bericht mit Mobile/Tablet/Desktop, Touch, Speichern→Reload→State/DB, Standardwerte, Undo/48h, Touch-Runtime und Visual-QA darf diesen Bootstrap-Bericht ersetzen.
+Produktion wurde von diesem Labor nicht verändert.
