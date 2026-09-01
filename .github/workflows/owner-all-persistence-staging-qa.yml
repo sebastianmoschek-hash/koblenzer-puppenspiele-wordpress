@@ -158,7 +158,7 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
-          timeout --foreground --signal=TERM --kill-after=20s 10m \
+          timeout --signal=TERM --kill-after=20s 10m \
             node qa/owner-all-persistence-e2e.mjs 2>&1 | tee /tmp/owner-all-persistence.log
           exit ${PIPESTATUS[0]}
 
