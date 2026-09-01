@@ -1,22 +1,18 @@
 {
-  "generatedAt": "2026-09-01T16:56:14Z",
-  "provider": "CircleCI Free",
-  "mode": "full",
-  "commit": "7fa58669c0b0c00764228036f3594babaae6142f",
-  "staging": "https://neu.koblenzer-puppenspiele.de",
-  "success": false,
-  "checks": {
-    "deploy": "success",
-    "stagingReady": "success",
-    "temporaryBridge": "success",
-    "editorMobileTabletDesktop": "failure",
-    "saveReloadDbUndo48h": "failure",
-    "nativeTouchSliderSaveReset": "success",
-    "touchRuntime": "success",
-    "visual50Views": "success",
-    "editorBrowser": "failure",
-    "sessionUndo": "failure",
-    "persistenceBrowser": "failure",
-    "realTextSave": "failure"
+  "generatedAt":"2026-09-01T18:16:29Z",
+  "provider":"CircleCI Free",
+  "mode":"full",
+  "commit":"5b5c51e39a267981ccc4880c1dc57edd55f84ad9",
+  "staging":"https://neu.koblenzer-puppenspiele.de",
+  "success":false,
+  "checks":{
+    "deploy":"success",
+    "stagingReady":"success",
+    "temporaryBridge":"success",
+    "editorMobileTabletDesktop":"failure",
+    "saveReloadDbUndo48h":"failure",
+    "nativeTouchSliderSaveReset":"success",
+    "touchRuntime":"success",
+    "visual50Views":"success"
   }
 }
