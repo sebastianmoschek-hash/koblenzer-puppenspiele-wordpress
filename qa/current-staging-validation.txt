@@ -1,4 +1,4 @@
 This marker intentionally forces FULL staging validation for the exact current main snapshot: staging-only deploy, Mobile/Tablet/Desktop browser editor, Save→Reload→DB readback, Undo/Redo + 48h persistence, Chromium touch gates, and the 50-view visual QA. Production must never be touched.
 
-Validation request: 2026-08-28T23:55+02:00 (Run 19)
+Validation request: 2026-09-01T22:30+02:00 (Run 20)
 Reason: BISECT-Lauf 19 - v2/Owner-Stub (qa/bisect-frontend-v2-owner.txt) aktiv, Touch-Stub entfernt (6e3e05f exculpiert den Touch-Stack). Hinweis: der eigentliche Stub-Commit b98ddfb wurde als Push-Head von einem Docs-Commit ueberlagert (CircleCI baut nur den Push-Head, classify hat das Lab dann als docs-only gestoppt). Dieser Marker-ONLY-Commit (einzige Aenderung = diese Datei) loest den force_full-Pfad aus: voller Deploy des aktuellen main-Stands (inkl. mu-plugins) auf Staging, damit der Browser-Editor-Lauf mit deaktiviertem frontend-editor-v2/owner-web-app den echten Hauptstand gegen den dcl-Hang testet.
