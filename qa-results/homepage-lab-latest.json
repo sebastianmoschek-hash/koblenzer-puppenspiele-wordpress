@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-09-01T10:19:50Z",
-  "sourceCommit": "e21a91039b791b97f23f2a98ca2c303e83c4d63d",
+  "generatedAt": "2026-09-01T13:45:55Z",
+  "sourceCommit": "a7913d0faf513cc184c64812508db0dc30f40130",
   "success": false,
   "checks": {
     "workflowWait": "failure",
     "persistedEvidence": "skipped"
   },
   "required": {
-    "owner": false,
+    "owner": true,
     "touch": false
   },
   "runs": {
