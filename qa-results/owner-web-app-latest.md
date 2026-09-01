@@ -1,10 +1,10 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-22T05:13:15Z
+Erzeugt: 2026-09-01T07:59:11Z
 
-Asset-/Deployment-Prüfung: success
+Asset-/Deployment-Prüfung: failure
 Isolierter Browser-Verhaltenstest: success
-Echter Staging-Speicher-/Reload-Test: success
+Echter Staging-Speicher-/Reload-Test: failure
 
 ## Ausgelieferte Staging-Dateien
 ```text
@@ -26,17 +26,17 @@ OK: Manifest im HTML eingebunden
 OK: Owner Web App im HTML eingebunden
 INFO: Responsive Web ist absichtlich nur im eingeloggten Owner-Modus eingebunden.
 OK: Instagram-Profil kanonisch auf Staging verlinkt
-true
-OK: Manifest-Name korrekt
-true
-OK: Manifest-Kurzname korrekt
+false
+FEHLER: Manifest-Name korrekt
+false
+FEHLER: Manifest-Kurzname korrekt
 true
 OK: Manifest standalone
 true
 OK: Manifest enthält Icon
 OK: Service Worker Event-Listener vorhanden
 OK: Service Worker fetch vorhanden
-OK: Service Worker Cache vorhanden
+FEHLER: Service Worker Cache vorhanden
 OK: SVG-App-Icon gültig
 OK: owner-web-app JavaScript-Syntax
 OK: owner-responsive-web JavaScript-Syntax
@@ -59,7 +59,7 @@ OK: Live-Persistenz schützt lokale Entwürfe
 OK: Live-Persistenz hydriert Runtime
 OK: Menü-X-Regler vorhanden
 OK: Menü-X-Regler benennt Links/Rechts
-FAILURES=0
+FAILURES=3
 ```
 
 ## Touch-Verhalten im isolierten Chromium
@@ -69,5 +69,70 @@ PASS: Drag, Pinch, Undo, Menükarte, orange Speichern/Reload und Handy-/Tablet-M
 
 ## Echter Staging-Persistenztest
 ```text
-PASS: echter Staging-End-to-End-Speichertest für post-12: Entwurf lokal, orange Speichern schreibt DB, Reload behält Zustand, Undo bleibt lokal.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('.kp-fe2-save')
+    - locator resolved to <button type="button" class="kp-fe2-save is-dirty">…</button>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    35 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+    - waiting for element to be visible, enabled and stable
+
+    at /home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:113:79
+    at waitForRealReload (/home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:69:9)
+    at async file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:113:20 {
+  log: [
+    "  - waiting for locator('.kp-fe2-save')",
+    '    - locator resolved to <button type="button" class="kp-fe2-save is-dirty">…</button>',
+    '  - attempting click action',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is visible, enabled and stable',
+    '      - scrolling into view if needed',
+    '      - done scrolling',
+    '      - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events',
+    '    - retrying click action',
+    '    - waiting 20ms',
+    '    2 × waiting for element to be visible, enabled and stable',
+    '      - element is visible, enabled and stable',
+    '      - scrolling into view if needed',
+    '      - done scrolling',
+    '      - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events',
+    '    - retrying click action',
+    '      - waiting 100ms',
+    '    35 × waiting for element to be visible, enabled and stable',
+    '       - element is visible, enabled and stable',
+    '       - scrolling into view if needed',
+    '       - done scrolling',
+    '       - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events',
+    '     - retrying click action',
+    '       - waiting 500ms',
+    '    - waiting for element to be visible, enabled and stable'
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v22.23.2
 ```
