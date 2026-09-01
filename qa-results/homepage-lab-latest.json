@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-01T15:00:47Z",
-  "sourceCommit": "bc91e2ee4dc2ea64252b51e78071418bf71206b8",
+  "generatedAt": "2026-09-01T15:04:38Z",
+  "sourceCommit": "ef67dfa6d52f5aa0c28e8377041cf148185feb03",
   "success": false,
   "checks": {
-    "workflowWait": "failure",
-    "persistedEvidence": "skipped"
+    "workflowWait": "success",
+    "persistedEvidence": "failure"
   },
   "required": {
     "owner": false,
@@ -12,8 +12,8 @@
   },
   "runs": {
     "deploy": {
-      "id": "33522760599",
-      "conclusion": "failure"
+      "id": "33523168555",
+      "conclusion": "success"
     },
     "owner": {
       "id": "0",
