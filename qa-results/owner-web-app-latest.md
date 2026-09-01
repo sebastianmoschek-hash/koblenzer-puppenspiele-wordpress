@@ -1,6 +1,6 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-09-01T15:06:07Z
+Erzeugt: 2026-09-01T16:13:27Z
 
 Asset-/Deployment-Prüfung: failure
 Isolierter Browser-Verhaltenstest: success
@@ -75,60 +75,10 @@ node:internal/modules/run_main:123
 
 locator.click: Timeout 30000ms exceeded.
 Call log:
-  - waiting for locator('.kp-fe2-save')
-    - locator resolved to <button type="button" class="kp-fe2-save is-dirty">…</button>
-  - attempting click action
-    2 × waiting for element to be visible, enabled and stable
-      - element is visible, enabled and stable
-      - scrolling into view if needed
-      - done scrolling
-      - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events
-    - retrying click action
-    - waiting 20ms
-    2 × waiting for element to be visible, enabled and stable
-      - element is visible, enabled and stable
-      - scrolling into view if needed
-      - done scrolling
-      - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events
-    - retrying click action
-      - waiting 100ms
-    34 × waiting for element to be visible, enabled and stable
-       - element is visible, enabled and stable
-       - scrolling into view if needed
-       - done scrolling
-       - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events
-     - retrying click action
-       - waiting 500ms
+  - waiting for locator('.kp-fe2-undo')
 
-    at /home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:113:79
-    at waitForRealReload (/home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:69:9)
-    at async file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:113:20 {
-  log: [
-    "  - waiting for locator('.kp-fe2-save')",
-    '    - locator resolved to <button type="button" class="kp-fe2-save is-dirty">…</button>',
-    '  - attempting click action',
-    '    2 × waiting for element to be visible, enabled and stable',
-    '      - element is visible, enabled and stable',
-    '      - scrolling into view if needed',
-    '      - done scrolling',
-    '      - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events',
-    '    - retrying click action',
-    '    - waiting 20ms',
-    '    2 × waiting for element to be visible, enabled and stable',
-    '      - element is visible, enabled and stable',
-    '      - scrolling into view if needed',
-    '      - done scrolling',
-    '      - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events',
-    '    - retrying click action',
-    '      - waiting 100ms',
-    '    34 × waiting for element to be visible, enabled and stable',
-    '       - element is visible, enabled and stable',
-    '       - scrolling into view if needed',
-    '       - done scrolling',
-    '       - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events',
-    '     - retrying click action',
-    '       - waiting 500ms'
-  ],
+    at /home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:131:38 {
+  log: [ "  - waiting for locator('.kp-fe2-undo')" ],
   name: 'TimeoutError'
 }
 
