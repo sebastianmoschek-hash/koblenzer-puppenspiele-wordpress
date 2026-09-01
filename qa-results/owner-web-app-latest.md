@@ -1,6 +1,6 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-09-01T14:11:15Z
+Erzeugt: 2026-09-01T15:06:07Z
 
 Asset-/Deployment-Prüfung: failure
 Isolierter Browser-Verhaltenstest: success
@@ -92,7 +92,7 @@ Call log:
       - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events
     - retrying click action
       - waiting 100ms
-    35 × waiting for element to be visible, enabled and stable
+    34 × waiting for element to be visible, enabled and stable
        - element is visible, enabled and stable
        - scrolling into view if needed
        - done scrolling
@@ -121,7 +121,7 @@ Call log:
     '      - <button type="button" class="kp-wa-main" data-kp-wa-edit="">✎ Bearbeiten</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events',
     '    - retrying click action',
     '      - waiting 100ms',
-    '    35 × waiting for element to be visible, enabled and stable',
+    '    34 × waiting for element to be visible, enabled and stable',
     '       - element is visible, enabled and stable',
     '       - scrolling into view if needed',
     '       - done scrolling',
