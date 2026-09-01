@@ -1,6 +1,6 @@
 # Autonomes Homepage-Labor – letzter Staging-Stand
 
-Erzeugt: 2026-09-01T15:17:55Z
+Erzeugt: 2026-09-01T15:30:31Z
 Quell-Commit: 16b1a50303cb50c15b0022712e2d6d1f92c49be7
 Gesamtstatus: ROT
 
