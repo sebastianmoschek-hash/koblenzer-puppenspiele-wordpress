@@ -1,6 +1,12 @@
 (() => {
   'use strict';
 
+  // WordPress/PWA navigation can evaluate the MU-plugin more than once in the
+  // same document. A second MutationObserver would repeatedly reassign the
+  // same keys and amplify the editor's DOM observers into a class mutation
+  // storm. Keep one authoritative runtime per document.
+  if (window.KPCanvaKeys?.__initialized) return;
+
   const hashString = str => {
     let h = 5381;
     for (let i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
@@ -125,7 +131,7 @@
     images.forEach(imageKey);
   }
 
-  window.KPCanvaKeys = { hashString, pathFor, rawKey, ensureGestureKey, imageKey, assign, selectors };
+  window.KPCanvaKeys = { hashString, pathFor, rawKey, ensureGestureKey, imageKey, assign, selectors, __initialized:true };
 
   assign();
   new MutationObserver(records => {
