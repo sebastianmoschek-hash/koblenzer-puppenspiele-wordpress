@@ -7,6 +7,8 @@ if (!token) throw new Error('KP_E2E_TOKEN fehlt.');
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
 const page = await context.newPage();
+page.setDefaultTimeout(10000);
+page.setDefaultNavigationTimeout(30000);
 const watchdog = setTimeout(async () => {
   console.error('FAIL: Owner-E2E watchdog nach 9 Minuten ausgelöst.');
   await context.close().catch(() => {});
@@ -20,10 +22,13 @@ const automaticReloads = [];
 async function e2eAjax(action, extra = {}) {
   return page.evaluate(async ({ action, extra, token }) => {
     const fd = new FormData();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
     fd.append('action', action);
     fd.append('token', token);
     for (const [key, value] of Object.entries(extra || {})) fd.append(key, typeof value === 'string' ? value : JSON.stringify(value));
-    const response = await fetch('/wp-admin/admin-ajax.php', { method: 'POST', credentials: 'same-origin', cache: 'no-store', body: fd });
+    const response = await fetch('/wp-admin/admin-ajax.php', { method: 'POST', credentials: 'same-origin', cache: 'no-store', body: fd, signal: controller.signal });
+    clearTimeout(timer);
     const json = await response.json().catch(() => null);
     return { ok: response.ok, status: response.status, json };
   }, { action, extra, token });
@@ -34,10 +39,13 @@ async function ownerAjax(action, extra = {}) {
     const cfg = window.KPOwnerWebApp;
     if (!cfg?.nonce) return { ok:false, status:0, json:null, error:'owner nonce missing' };
     const fd = new FormData();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
     fd.append('action', action);
     fd.append('nonce', cfg.nonce);
     for (const [key, value] of Object.entries(extra || {})) fd.append(key, typeof value === 'string' ? value : JSON.stringify(value));
-    const response = await fetch(cfg.ajaxUrl, { method:'POST', credentials:'same-origin', cache:'no-store', body:fd });
+    const response = await fetch(cfg.ajaxUrl, { method:'POST', credentials:'same-origin', cache:'no-store', body:fd, signal:controller.signal });
+    clearTimeout(timer);
     const json = await response.json().catch(() => null);
     return { ok: response.ok, status: response.status, json };
   }, { action, extra });
