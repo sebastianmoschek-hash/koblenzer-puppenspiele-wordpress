@@ -1,6 +1,6 @@
 # Owner controls + Versionen – echter Staging-Test
 
-Erzeugt: 2026-09-01T14:31:22Z
+Erzeugt: 2026-09-01T14:36:33Z
 Staging-only Direktdeploy: success
 Staging-Deploy bereit: success
 Staging-only E2E-Zugang: success
@@ -19,7 +19,7 @@ node:internal/modules/run_main:123
     ^
 
 browserContext.close: Target page, context or browser has been closed
-    at async file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/owner-all-persistence-e2e.mjs:342:3 {
+    at async file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/owner-all-persistence-e2e.mjs:350:3 {
   log: []
 }
 
