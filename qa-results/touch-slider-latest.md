@@ -1,6 +1,6 @@
 # Touch-Regler – echter Staging-Test
 
-Erzeugt: 2026-09-01T07:58:27Z
+Erzeugt: 2026-09-01T09:58:00Z
 Force-Deploy: success
 Exakte Staging-Dateien: success
 Chromium bereit: success
