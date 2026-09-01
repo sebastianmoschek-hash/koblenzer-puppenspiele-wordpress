@@ -38,6 +38,7 @@ $header_image = get_theme_file_uri( 'assets/images/header.webp' );
     <!-- wp:navigation-link {"label":"Jetzt buchen","url":"<?php echo esc_url( home_url( '/jetzt-buchen/' ) ); ?>","kind":"custom","className":"kp-nav-booking"} /-->
     <!-- wp:navigation-link {"label":"Referenzen","url":"<?php echo esc_url( home_url( '/referenzen/' ) ); ?>","kind":"custom"} /-->
     <!-- wp:navigation-link {"label":"Kontakt","url":"<?php echo esc_url( home_url( '/kontakt/' ) ); ?>","kind":"custom"} /-->
+    <!-- wp:navigation-link {"label":"Eigentümer-Bereich","url":"<?php echo esc_url( wp_login_url( add_query_arg( 'kp_edit', '1', home_url( '/' ) ) ) ); ?>","kind":"custom","className":"kp-owner-login"} /-->
   <!-- /wp:navigation -->
 </div>
 <!-- /wp:group -->
