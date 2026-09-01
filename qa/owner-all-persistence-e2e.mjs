@@ -7,6 +7,12 @@ if (!token) throw new Error('KP_E2E_TOKEN fehlt.');
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
 const page = await context.newPage();
+const watchdog = setTimeout(async () => {
+  console.error('FAIL: Owner-E2E watchdog nach 9 Minuten ausgelöst.');
+  await context.close().catch(() => {});
+  await browser.close().catch(() => {});
+  process.exit(124);
+}, 9 * 60 * 1000);
 const fail = message => { throw new Error(message); };
 let originalState = null;
 const automaticReloads = [];
@@ -320,6 +326,7 @@ try {
 
   console.log(`PASS: ${Object.keys(expectedDesign).length} Design-Regler + ${Object.keys(expectedSizes).length} Größenregler + Menü-X über orange Speichern dauerhaft; Header-Rundung nach Reload sichtbar; ↶/↷ wirken sofort ohne Reload/Dialog; 48-Stunden-Versionen funktionieren getrennt davon.`);
 } finally {
+  clearTimeout(watchdog);
   if (originalState) {
     try {
       await restore(originalState);
