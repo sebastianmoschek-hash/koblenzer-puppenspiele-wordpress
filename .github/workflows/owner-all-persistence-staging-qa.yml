@@ -33,13 +33,6 @@ jobs:
         with:
           ref: main
 
-      - name: Install secure FTP client
-        shell: bash
-        run: |
-          set -euo pipefail
-          timeout --foreground --signal=TERM --kill-after=15s 180s sudo apt-get update -qq
-          timeout --foreground --signal=TERM --kill-after=15s 180s sudo apt-get install -y -qq lftp
-
       - name: Wait for normal staging deploy
         id: staging_deploy
         continue-on-error: true
@@ -152,7 +145,7 @@ jobs:
           });
           PHP
           php -l /tmp/kp-e2e-owner-all.php
-          timeout --foreground --signal=TERM --kill-after=15s 90s lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 1; set net:timeout 15; open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER'; mkdir -p /wp-content/mu-plugins; put /tmp/kp-e2e-owner-all.php -o /wp-content/mu-plugins/kp-e2e-owner-all.php; bye"
+          timeout --foreground --signal=TERM --kill-after=15s 90s curl --fail --silent --show-error --ftp-ssl --ssl-reqd --user "$FTP_USERNAME:$LFTP_PASSWORD" --upload-file /tmp/kp-e2e-owner-all.php "ftp://$FTP_SERVER/wp-content/mu-plugins/kp-e2e-owner-all.php"
           echo 'PASS: short-lived bridge uploaded through staging-only account.'
 
       - name: Exercise every owner design control, undo and versions
@@ -175,7 +168,7 @@ jobs:
         run: |
           set +e
           if [ -n "${FTP_SERVER:-}" ] && [ -n "${FTP_USERNAME:-}" ] && [ -n "${LFTP_PASSWORD:-}" ]; then
-            lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 1; set net:timeout 10; open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER'; rm -f /wp-content/mu-plugins/kp-e2e-owner-all.php; bye"
+            timeout --foreground --signal=TERM --kill-after=10s 60s curl --fail --silent --show-error --ftp-ssl --ssl-reqd --user "$FTP_USERNAME:$LFTP_PASSWORD" -Q 'DELE /wp-content/mu-plugins/kp-e2e-owner-all.php' "ftp://$FTP_SERVER/"
           fi
 
       - name: Write auditable result
