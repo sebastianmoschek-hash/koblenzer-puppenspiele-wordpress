@@ -86,7 +86,7 @@ jobs:
           : "${LFTP_PASSWORD:?FTP_PASSWORD secret is missing}"
           echo "Testing explicit FTPS on port 21 against ${FTP_SERVER}..."
           set +e
-          OUTPUT=$(lftp -c "
+          OUTPUT=$(timeout --foreground --signal=TERM --kill-after=15s 90s lftp -c "
             set ftp:ssl-force true;
             set ftp:ssl-protect-data true;
             set ssl:verify-certificate true;
@@ -121,7 +121,7 @@ jobs:
           deploy_dir() {
             local source_dir="$1"
             local target_dir="$2"
-            lftp -c "
+            timeout --foreground --signal=TERM --kill-after=15s 8m lftp -c "
               set ftp:ssl-force true;
               set ftp:ssl-protect-data true;
               set ssl:verify-certificate true;
