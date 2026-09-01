@@ -134,9 +134,20 @@
   window.KPCanvaKeys = { hashString, pathFor, rawKey, ensureGestureKey, imageKey, assign, selectors, __initialized:true };
 
   assign();
+  let assignScheduled = false;
+  const scheduleAssign = () => {
+    if (assignScheduled) return;
+    assignScheduled = true;
+    requestAnimationFrame(() => {
+      assignScheduled = false;
+      // A single document pass is cheaper and safer than one recursive pass
+      // for every node added while an owner sheet is being opened.
+      assign();
+    });
+  };
   new MutationObserver(records => {
-    records.forEach(record => record.addedNodes.forEach(node => {
-      if (node instanceof Element) assign(node);
-    }));
+    if (records.some(record => [...record.addedNodes].some(node => node instanceof Element))) {
+      scheduleAssign();
+    }
   }).observe(document.documentElement, { childList:true, subtree:true });
 })();
