@@ -130,7 +130,9 @@ try {
   if (!same(afterSecondDraft, serverAfterSave)) fail('Zweiter Drag wurde wieder automatisch gespeichert.');
 
   // Undo must revert the local draft without touching WordPress.
-  await page.locator('.kp-fe2-undo').click();
+  const undoButton = page.locator('[data-kp-word-history-new="undo"], .kp-fe2-undo').first();
+  await undoButton.waitFor({ state: 'visible', timeout: 10000 });
+  await undoButton.click();
   await page.waitForTimeout(120);
   const afterUndo = await state();
   if (!same(afterUndo, serverAfterSave)) fail('Rückgängig hat unerwartet WordPress beschrieben.');
