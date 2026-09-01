@@ -1,6 +1,6 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-09-01T17:55:09Z
+Erzeugt: 2026-09-01T20:07:58Z
 
 Asset-/Deployment-Prüfung: failure
 Isolierter Browser-Verhaltenstest: success
@@ -9,6 +9,7 @@ Echter Staging-Speicher-/Reload-Test: failure
 ## Ausgelieferte Staging-Dateien
 ```text
 OK: Staging-Startseite abrufbar
+curl: (22) The requested URL returned error: 500
 OK: PWA-Manifest abrufbar
 OK: Service Worker abrufbar
 OK: Owner Web App JS abrufbar
@@ -69,18 +70,13 @@ PASS: Drag, Pinch, Undo, Menükarte, orange Speichern/Reload und Handy-/Tablet-M
 
 ## Echter Staging-Persistenztest
 ```text
-node:internal/modules/run_main:123
-    triggerUncaughtException(
-    ^
+file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:10
+const fail = message => { throw new Error(message); };
+                                ^
 
-locator.click: Timeout 30000ms exceeded.
-Call log:
-  - waiting for locator('.kp-fe2-undo')
-
-    at /home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:131:38 {
-  log: [ "  - waiting for locator('.kp-fe2-undo')" ],
-  name: 'TimeoutError'
-}
+Error: Kein echter Touch-pageKey auf Staging gefunden.
+    at fail (file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:10:33)
+    at file:///home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:99:17
 
 Node.js v22.23.2
 ```
