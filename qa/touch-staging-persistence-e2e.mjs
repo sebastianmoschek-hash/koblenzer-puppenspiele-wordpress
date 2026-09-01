@@ -95,7 +95,9 @@ try {
   await page.waitForSelector(headerSelector, { timeout: 15000 });
 
   originalState = await state();
-  const pageKey = await page.evaluate(() => window.KPFreeLayout?.pageKey || window.KPTouchPersistence?.pageKey || '');
+  // Edit mode now intentionally uses the unified Canva runtime; keep legacy
+  // names as fallbacks for older staging deployments during rollout.
+  const pageKey = await page.evaluate(() => window.KPCanvaEditor?.pageKey || window.KPFreeLayout?.pageKey || window.KPTouchPersistence?.pageKey || '');
   if (!pageKey) fail('Kein echter Touch-pageKey auf Staging gefunden.');
 
   const beforeTransform = await page.locator(headerSelector).first().evaluate(el => getComputedStyle(el).transform);
