@@ -16,3 +16,7 @@ Gesamtstatus: **FAILURE**
 - Visual-QA 50 Ansichten: success
 
 Produktion wurde nicht verändert.
+
+- Echter Text-Save → Reload → DB-Readback: failure
+
+Der Gesamtstatus wurde auf **FAILURE** gesetzt, weil der echte Text-Save-Gate fehlgeschlagen ist oder kein vollständiges Ergebnis erzeugt hat.
