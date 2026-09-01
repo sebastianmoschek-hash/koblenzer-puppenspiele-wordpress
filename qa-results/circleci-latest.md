@@ -1,7 +1,7 @@
 # Kostenloses Homepage-Labor – letzter CircleCI-Staging-Stand
 
-Erzeugt: 2026-09-01T08:17:00Z  
-Commit: dda6ee9d04c215c83126c047c101f1b3c93a2ccf  
+Erzeugt: 2026-09-01T10:19:05Z  
+Commit: 44b563a3d574de4bb7df226af57089f1564791f8  
 Provider: CircleCI Free  
 Modus: **FULL**  
 Gesamtstatus: **FAILURE**
@@ -16,7 +16,3 @@ Gesamtstatus: **FAILURE**
 - Visual-QA 50 Ansichten: success
 
 Produktion wurde nicht verändert.
-
-- Echter Text-Save → Reload → DB-Readback: failure
-
-Der Gesamtstatus wurde auf **FAILURE** gesetzt, weil der echte Text-Save-Gate fehlgeschlagen ist oder kein vollständiges Ergebnis erzeugt hat.
