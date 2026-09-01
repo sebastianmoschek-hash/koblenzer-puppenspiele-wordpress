@@ -52,7 +52,7 @@ jobs:
           : "${LFTP_PASSWORD:?STAGING_FTP_PASSWORD secret is missing}"
           plugin='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
           test -d "$plugin"
-          lftp -c "
+          timeout --foreground --signal=TERM --kill-after=20s 4m lftp -c "
             set ftp:ssl-force true;
             set ftp:ssl-protect-data true;
             set ssl:verify-certificate true;
