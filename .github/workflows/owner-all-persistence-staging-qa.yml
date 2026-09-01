@@ -37,8 +37,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq lftp
+          timeout --foreground --signal=TERM --kill-after=15s 180s sudo apt-get update -qq
+          timeout --foreground --signal=TERM --kill-after=15s 180s sudo apt-get install -y -qq lftp
 
       - name: Wait for normal staging deploy
         id: staging_deploy
@@ -91,8 +91,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm install --no-save playwright
-          npx playwright install --with-deps chromium
+          timeout --foreground --signal=TERM --kill-after=20s 180s npm install --no-save playwright
+          timeout --foreground --signal=TERM --kill-after=20s 240s npx playwright install --with-deps chromium
 
       - name: Create short-lived staging-only browser bridge
         if: always() && steps.staging_ready.outcome == 'success' && steps.browser_setup.outcome == 'success'
