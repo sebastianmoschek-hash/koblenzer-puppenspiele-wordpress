@@ -80,7 +80,9 @@ add_action( 'wp_enqueue_scripts', static function () {
         'kp-canva-keys',
         $mu_url . 'kp-canva-keys.js',
         array(),
-        file_exists( $mu_dir . 'kp-canva-keys.js' ) ? (string) filemtime( $mu_dir . 'kp-canva-keys.js' ) : '1',
+        // FTP deployments can preserve the old mtime; keep a semantic cache
+        // suffix so browsers cannot retain the pre-fix observer stack.
+        ( file_exists( $mu_dir . 'kp-canva-keys.js' ) ? (string) filemtime( $mu_dir . 'kp-canva-keys.js' ) : '1' ) . '-fix2',
         true
     );
 
@@ -127,7 +129,7 @@ add_action( 'wp_enqueue_scripts', static function () {
         'kp-canva-editor',
         $mu_url . 'kp-canva-editor.js',
         array_values( array_unique( $deps ) ),
-        file_exists( $mu_dir . 'kp-canva-editor.js' ) ? (string) filemtime( $mu_dir . 'kp-canva-editor.js' ) : '1',
+        ( file_exists( $mu_dir . 'kp-canva-editor.js' ) ? (string) filemtime( $mu_dir . 'kp-canva-editor.js' ) : '1' ) . '-fix2',
         true
     );
     wp_localize_script( 'kp-canva-editor', 'KPCanvaEditor', array(
