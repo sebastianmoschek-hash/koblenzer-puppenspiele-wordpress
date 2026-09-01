@@ -1,25 +1,23 @@
 name: Owner all-controls persistence QA
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
-      - 'qa/owner-all-persistence-e2e.mjs'
-      - '.github/workflows/owner-all-persistence-staging-qa.yml'
+  workflow_run:
+    workflows: ['Deploy staging WordPress']
+    types: [completed]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  # Bind the lock to the tested commit. A wedged Chromium process from an old
-  # run must not prevent the current staging verification from starting.
-  group: koblenzer-puppenspiele-owner-all-persistence-${{ github.sha }}
+  # Staging is a single shared environment. Queue/cancel duplicate checks so
+  # two owner write-tests can never mutate the same WordPress state together.
+  group: koblenzer-puppenspiele-owner-all-persistence-staging
   cancel-in-progress: true
 
 jobs:
   real-staging-owner-persistence:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
