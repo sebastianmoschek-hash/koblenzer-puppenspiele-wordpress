@@ -10,6 +10,7 @@ on:
       - 'wp-content/mu-plugins/kp-owner-web-agent.php'
       - 'wp-content/mu-plugins/kp-ai-repair-lab.php'
       - '.github/workflows/deploy-staging.yml'
+      - '.github/workflows/owner-all-persistence-staging-qa.yml'
   workflow_dispatch:
 
 concurrency:
