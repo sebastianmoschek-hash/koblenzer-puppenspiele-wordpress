@@ -165,16 +165,24 @@ jobs:
         run: |
           set -euo pipefail
           body="$(mktemp)"
-          status="$(curl --silent --show-error --location \
-            --retry 4 --retry-all-errors --retry-delay 3 --max-time 60 \
-            -o "$body" -w '%{http_code}' \
-            -X POST \
-            --data-urlencode 'action=kp_mobile_live_bootstrap' \
-            'https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php')"
-          cat "$body"
-          test "$status" = '401'
-          php -r '$j=json_decode(file_get_contents($argv[1]), true); if (!is_array($j) || ($j["success"] ?? true) !== false || !str_contains((string)($j["data"]["message"] ?? ""), "Bitte zuerst bei WordPress anmelden")) { exit(1); }' "$body"
-          echo 'Gemini Live bootstrap is deployed and enforcing WordPress authentication.'
+          for attempt in $(seq 1 6); do
+            status="$(curl --silent --show-error --location \
+              --retry 2 --retry-all-errors --retry-delay 2 --max-time 20 \
+              -o "$body" -w '%{http_code}' \
+              -X POST \
+              --data-urlencode 'action=kp_mobile_live_bootstrap' \
+              'https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php' || true)"
+            if [ "$status" = '401' ] && php -r '$j=json_decode(file_get_contents($argv[1]), true); if (!is_array($j) || ($j["success"] ?? true) !== false || !str_contains((string)($j["data"]["message"] ?? ""), "Bitte zuerst bei WordPress anmelden")) { exit(1); }' "$body"; then
+              cat "$body"
+              echo 'Gemini Live bootstrap is deployed and enforcing WordPress authentication.'
+              exit 0
+            fi
+            echo "Staging bootstrap not settled yet (attempt $attempt/6, HTTP $status)."
+            cat "$body" || true
+            sleep 5
+          done
+          echo 'ERROR: staging bootstrap did not settle to the expected unauthenticated 401 response.' >&2
+          exit 1
 
       - name: Verify staging website, routes and expected content
         id: route_verify
