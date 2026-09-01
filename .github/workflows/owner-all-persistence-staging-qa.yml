@@ -166,7 +166,8 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
-          node qa/owner-all-persistence-e2e.mjs 2>&1 | tee /tmp/owner-all-persistence.log
+          timeout --foreground --signal=TERM --kill-after=20s 10m \
+            node qa/owner-all-persistence-e2e.mjs 2>&1 | tee /tmp/owner-all-persistence.log
           exit ${PIPESTATUS[0]}
 
       - name: Remove short-lived bridge
