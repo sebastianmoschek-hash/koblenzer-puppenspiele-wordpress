@@ -1,7 +1,7 @@
 # Kostenloses Homepage-Labor – letzter CircleCI-Staging-Stand
 
-Erzeugt: 2026-09-01T13:57:50Z  
-Commit: a7913d0faf513cc184c64812508db0dc30f40130  
+Erzeugt: 2026-09-01T14:27:21Z  
+Commit: 2517ff58b3a207d13a99d99819c4bc21a682bd7b  
 Provider: CircleCI Free  
 Modus: **FULL**  
 Gesamtstatus: **FAILURE**
