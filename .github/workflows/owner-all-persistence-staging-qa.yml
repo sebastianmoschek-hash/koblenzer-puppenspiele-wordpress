@@ -158,9 +158,22 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
-          timeout --signal=TERM --kill-after=20s 10m \
-            node qa/owner-all-persistence-e2e.mjs 2>&1 | tee /tmp/owner-all-persistence.log
-          exit ${PIPESTATUS[0]}
+          # Run Node and Chromium in one process group. A plain timeout can
+          # leave Playwright's browser child alive and keep the pipe open.
+          setsid node qa/owner-all-persistence-e2e.mjs > >(tee /tmp/owner-all-persistence.log) 2>&1 &
+          pid=$!
+          (
+            sleep 540
+            kill -TERM -- "-$pid" 2>/dev/null || true
+            sleep 20
+            kill -KILL -- "-$pid" 2>/dev/null || true
+          ) &
+          watchdog_pid=$!
+          wait "$pid"
+          rc=$?
+          kill "$watchdog_pid" 2>/dev/null || true
+          wait "$watchdog_pid" 2>/dev/null || true
+          exit "$rc"
 
       - name: Remove short-lived bridge
         if: always()
