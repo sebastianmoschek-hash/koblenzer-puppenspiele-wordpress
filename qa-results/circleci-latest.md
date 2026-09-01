@@ -1,9 +1,9 @@
 # Kostenloses Homepage-Labor – letzter CircleCI-Staging-Stand
 
-Erzeugt: 2026-09-01T14:27:21Z  
-Commit: 2517ff58b3a207d13a99d99819c4bc21a682bd7b  
+Erzeugt: 2026-09-01T14:37:46Z  
+Commit: 6fcaa713883865e4ac97c7f161c2237767d16a32  
 Provider: CircleCI Free  
-Modus: **FULL**  
+Modus: **QA**  
 Gesamtstatus: **FAILURE**
 
 - Staging-Code bereit / Deploy: success
@@ -13,7 +13,7 @@ Gesamtstatus: **FAILURE**
 - Speichern → Reload → DB + Undo/48h: failure
 - Nativer Touch-Regler + Zurücksetzen/Speichern: success
 - Drag/Pinch/Touch-Runtime: success
-- Visual-QA 50 Ansichten: failure
+- Visual-QA 50 Ansichten: success
 
 Produktion wurde nicht verändert.
 
