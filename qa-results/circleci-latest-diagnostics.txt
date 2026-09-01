@@ -130,7 +130,7 @@ Processing triggers for php8.3-cli (8.3.6-0ubuntu0.24.04.10) ...
 Playwright 1.55.0 restored from CircleCI cache.
 
 ===== pipeline.log =====
-CircleCI Homepage Lab: cbfbd6087c5578190a85edb71e7682ffac0a4d93 (mode=full)
+CircleCI Homepage Lab: ffbf12fc839c39d528a6713052e84ad15e1340fb (mode=full)
 == editor ==
 TIMEOUT editor: 12m
 FAIL editor (exit 1)
@@ -139,7 +139,7 @@ TIMEOUT session-undo: 12m
 FAIL session-undo (exit 1)
 == persistence ==
 TIMEOUT persistence: 15m
-FAIL persistence (timeout 15m, exit 137)
+FAIL persistence (timeout 15m, exit 124)
 == touch-slider ==
 TIMEOUT touch-slider: 6m
 PASS touch-slider
@@ -151,29 +151,25 @@ TIMEOUT visual: 12m
 PASS visual
 
 ===== editor.log =====
-2026-09-01T19:25:43.635Z DEVICE mobile-390 START
-2026-09-01T19:25:44.033Z PREFLIGHT kp_e2e_login -> status=302 location=https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1 cookies=3 ms=396
-2026-09-01T19:25:44.650Z AUTHRENDER kp_edit -> status=200 bytes=459014 html=true ms=617 target=https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1
-2026-09-01T19:25:44.799Z AUTHPOST kp_touch_free_layout_load -> status=200 bytes=271 ms=149
-2026-09-01T19:25:46.065Z GUEST-CTL {"status":200,"bytes":271,"ms":162,"snippet":"{\"success\":true,\"data\":{\"global\":{\"header-image-1\":{\"mobile\":{\"x\":-2.95,\"y\":-6.6"}
-2026-09-01T19:25:46.065Z LOGIN-GOTO start
-2026-09-01T19:25:48.142Z LOGIN-GOTO ok status=200 reqs=85
-2026-09-01T19:25:48.337Z XHRTRACE total=3 syncXhr=0 adminAjax=2 touchLoad=2 ohneAntwort=1
-2026-09-01T19:25:48.337Z   NO-RESPONSE fetch POST action=kp_touch_free_layout_load async=true t=1788290748146 caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:153:9) | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/asse
-2026-09-01T19:25:48.337Z   TOUCHLOAD fetch POST async=true status=200  ms=169 caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:153:9) | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:196:3 | https://neu.koblenzer-puppenspiele.de/wp-content/plug
-2026-09-01T19:25:48.337Z   TOUCHLOAD fetch POST async=true status=-  ms=? caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:153:9) | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:194:45
-2026-09-01T19:25:48.337Z NETTRACE gesamt=86 fertig=86 PENDING=0 pendingKinds={}
-2026-09-01T19:25:48.337Z NETTRACE LAST-REQS (Reihenfolge = Ausfuehrungsnaehe des Freeze): js enspiele-core-phase2-2/assets/owner-save-coordinator.js?ver=1788290553 | js ore-phase2-2/assets/owner-web-agent.js?ver=4.5.29-web-agent-20260825-2 | js -2/assets/owner-web-agent-fast-chat.js?ver=4.5.29-web-agent-20260825-2 | js ets/owner-web-agent-desktop-live.js?ver=4.5.29-desktop-live-20260825-1 | js uppenspiele.de/wp-content/mu-plugins/kp-canva-editor.js?ver=1788290553 | js iele.de/wp-content/mu-plugins/kp-canva-image-inherit.js?ver=1788290553 | js r-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js?ver=4.5.29 | js er-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js?ver=4.5.29 | js ppenspiele-core-phase2-2/assets/design-reset-reliability.js?ver=4.5.29 | jpg re-phase2-2/assets/legacy-repertoire/freunde_repertoire_helmeheine.jpg | jpg ppenspiele-core-phase2-2/assets/legacy-repertoire/nulli_repertoire.jpg | php https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php | other s://neu.koblenzer-puppenspiele.de/e69deb91-32da-454b-a072-b19a70a2a43e | php*PEND https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php
-2026-09-01T19:25:48.337Z EVENTS dialogs=0 crashes=0 consoleErrors=5 pageErrors=0
-2026-09-01T19:25:48.337Z   FIRST-CONSOLEERRORS: [KP-CLASS-STORM] 200 classList-add-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:126:79 | assign (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:119:11) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:136:3 | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:153:3
-2026-09-01T19:25:48.337Z   FIRST-CONSOLEERRORS: [KP-XHR-TRACE] fetch POST https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php async=true action=kp_touch_free_layout_load caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:153:9) | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:196:3 | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:197:3
-2026-09-01T19:25:48.337Z   FIRST-CONSOLEERRORS: [KP-CLASS-STORM] 200 classList-remove-Toggles in 1s; caller=clearGenericTransform (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js?ver=1788290553:139:18) | applySaved (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js?ver=1788290553:143:148) | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js?ver=1788290553:425:87
-2026-09-01T19:25:48.337Z   CONSOLE-ALL: 2026-09-01T19:25:46.625Z [warning] Error with Permissions-Policy header: Unrecognized feature: 'loopback-network'.
-2026-09-01T19:25:48.338Z   CONSOLE-ALL: 2026-09-01T19:25:46.630Z [info] [KP-XHR-TRACE] Instrumentierung aktiv
-2026-09-01T19:25:48.338Z   CONSOLE-ALL: 2026-09-01T19:25:47.123Z [log] JQMIGRATE: Migrate is installed, version 3.4.1
-2026-09-01T19:25:48.338Z   CONSOLE-ALL: 2026-09-01T19:25:47.536Z [error] [KP-CLASS-STORM] 200 classList-add-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:126:79 | assign (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:119:11) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:136:3 | https://neu.koblenzer-puppenspie
-2026-09-01T19:25:48.338Z   CONSOLE-ALL: 2026-09-01T19:25:47.683Z [error] [KP-XHR-TRACE] fetch POST https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php async=true action=kp_touch_free_layout_load caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touc
-2026-09-01T19:25:49.237Z DEVICE mobile-390 loginStatus=200
+2026-09-01T20:08:31.833Z DEVICE mobile-390 START
+2026-09-01T20:08:32.232Z PREFLIGHT kp_e2e_login -> status=302 location=https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1 cookies=3 ms=398
+2026-09-01T20:08:32.848Z AUTHRENDER kp_edit -> status=200 bytes=455804 html=true ms=616 target=https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1
+2026-09-01T20:08:32.992Z AUTHPOST kp_touch_free_layout_load -> status=200 bytes=271 ms=144
+2026-09-01T20:08:34.335Z GUEST-CTL {"status":200,"bytes":271,"ms":143,"snippet":"{\"success\":true,\"data\":{\"global\":{\"header-image-1\":{\"mobile\":{\"x\":-2.95,\"y\":-6.6"}
+2026-09-01T20:08:34.335Z LOGIN-GOTO start
+2026-09-01T20:08:36.066Z LOGIN-GOTO ok status=200 reqs=80
+2026-09-01T20:08:36.186Z XHRTRACE total=1 syncXhr=0 adminAjax=0 touchLoad=0 ohneAntwort=0
+2026-09-01T20:08:36.186Z NETTRACE gesamt=80 fertig=80 PENDING=0 pendingKinds={}
+2026-09-01T20:08:36.186Z NETTRACE LAST-REQS (Reihenfolge = Ausfuehrungsnaehe des Freeze): js spiele-core-phase2-2/assets/owner-web-app-extensions.js?ver=1788293122 | js enspiele-core-phase2-2/assets/owner-save-coordinator.js?ver=1788293122 | js ore-phase2-2/assets/owner-web-agent.js?ver=4.5.29-web-agent-20260825-2 | js -2/assets/owner-web-agent-fast-chat.js?ver=4.5.29-web-agent-20260825-2 | js ets/owner-web-agent-desktop-live.js?ver=4.5.29-desktop-live-20260825-1 | js -puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122 | js uppenspiele.de/wp-content/mu-plugins/kp-canva-editor.js?ver=1788293122 | js iele.de/wp-content/mu-plugins/kp-canva-image-inherit.js?ver=1788293122 | js r-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js?ver=4.5.29 | js er-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js?ver=4.5.29 | js ppenspiele-core-phase2-2/assets/design-reset-reliability.js?ver=4.5.29 | jpg re-phase2-2/assets/legacy-repertoire/freunde_repertoire_helmeheine.jpg | jpg ppenspiele-core-phase2-2/assets/legacy-repertoire/nulli_repertoire.jpg | other*PEND s://neu.koblenzer-puppenspiele.de/97330b41-1db1-4379-9318-a6fe6c8c5049
+2026-09-01T20:08:36.186Z EVENTS dialogs=0 crashes=0 consoleErrors=2 pageErrors=0
+2026-09-01T20:08:36.186Z   FIRST-CONSOLEERRORS: [KP-CLASS-STORM] 200 classList-add-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:126:79 | assign (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:119:11) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:136:3 | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:159:3
+2026-09-01T20:08:36.187Z   FIRST-CONSOLEERRORS: Failed to load resource: net::ERR_CONNECTION_REFUSED
+2026-09-01T20:08:36.187Z   CONSOLE-ALL: 2026-09-01T20:08:34.886Z [warning] Error with Permissions-Policy header: Unrecognized feature: 'loopback-network'.
+2026-09-01T20:08:36.187Z   CONSOLE-ALL: 2026-09-01T20:08:34.889Z [info] [KP-XHR-TRACE] Instrumentierung aktiv
+2026-09-01T20:08:36.187Z   CONSOLE-ALL: 2026-09-01T20:08:35.381Z [log] JQMIGRATE: Migrate is installed, version 3.4.1
+2026-09-01T20:08:36.187Z   CONSOLE-ALL: 2026-09-01T20:08:35.811Z [error] [KP-CLASS-STORM] 200 classList-add-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:126:79 | assign (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:119:11) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:136:3 | https://neu.koblenzer-puppenspie
+2026-09-01T20:08:36.187Z   CONSOLE-ALL: 2026-09-01T20:08:36.184Z [error] Failed to load resource: net::ERR_CONNECTION_REFUSED
+2026-09-01T20:08:36.707Z DEVICE mobile-390 loginStatus=200
 FAIL: mobile-390: locator.click: Timeout 30000ms exceeded.
 Call log:
 [2m  - waiting for locator('[data-action="design"]')[22m
@@ -187,76 +183,55 @@ Call log:
 
     at openDesign (/root/project/qa/homepage-editor-lab.mjs:428:48)
     at async file:///root/project/qa/homepage-editor-lab.mjs:859:5
-2026-09-01T19:27:23.478Z DEVICE tablet-820 START
-2026-09-01T19:27:23.804Z PREFLIGHT kp_e2e_login -> status=302 location=https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1 cookies=3 ms=325
-2026-09-01T19:27:24.416Z AUTHRENDER kp_edit -> status=200 bytes=459014 html=true ms=612 target=https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1
-2026-09-01T19:27:24.563Z AUTHPOST kp_touch_free_layout_load -> status=200 bytes=271 ms=147
-2026-09-01T19:27:24.564Z LOGIN-GOTO start
-2026-09-01T19:27:26.517Z LOGIN-GOTO ok status=200 reqs=87
-2026-09-01T19:27:26.674Z XHRTRACE total=3 syncXhr=0 adminAjax=2 touchLoad=2 ohneAntwort=1
-2026-09-01T19:27:26.674Z   NO-RESPONSE fetch POST action=kp_touch_free_layout_load async=true t=1788290846520 caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:153:9) | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/asse
-2026-09-01T19:27:26.674Z   TOUCHLOAD fetch POST async=true status=200  ms=176 caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:153:9) | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:196:3 | https://neu.koblenzer-puppenspiele.de/wp-content/plug
-2026-09-01T19:27:26.674Z   TOUCHLOAD fetch POST async=true status=-  ms=? caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:153:9) | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:194:45
-2026-09-01T19:27:26.674Z NETTRACE gesamt=88 fertig=88 PENDING=0 pendingKinds={}
-2026-09-01T19:27:26.675Z NETTRACE LAST-REQS (Reihenfolge = Ausfuehrungsnaehe des Freeze): js -2/assets/owner-web-agent-fast-chat.js?ver=4.5.29-web-agent-20260825-2 | js ets/owner-web-agent-desktop-live.js?ver=4.5.29-desktop-live-20260825-1 | js uppenspiele.de/wp-content/mu-plugins/kp-canva-editor.js?ver=1788290553 | js iele.de/wp-content/mu-plugins/kp-canva-image-inherit.js?ver=1788290553 | js r-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js?ver=4.5.29 | js er-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js?ver=4.5.29 | js ppenspiele-core-phase2-2/assets/design-reset-reliability.js?ver=4.5.29 | jpg re-phase2-2/assets/legacy-repertoire/freunde_repertoire_helmeheine.jpg | jpg ppenspiele-core-phase2-2/assets/legacy-repertoire/nulli_repertoire.jpg | jpg penspiele-core-phase2-2/assets/legacy-repertoire/olchis_repertoire.jpg | jpg uppenspiele-core-phase2-2/assets/legacy-repertoire/post_repertoire.jpg | php https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php | other*PEND s://neu.koblenzer-puppenspiele.de/ec3502af-d8f2-43a2-b1a4-a079f31d8a45 | php*PEND https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php
-2026-09-01T19:27:26.675Z EVENTS dialogs=0 crashes=0 consoleErrors=5 pageErrors=0
-2026-09-01T19:27:26.675Z   FIRST-CONSOLEERRORS: [KP-CLASS-STORM] 200 classList-add-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:126:79 | assign (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:119:11) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:136:3 | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:153:3
-2026-09-01T19:27:26.675Z   FIRST-CONSOLEERRORS: [KP-XHR-TRACE] fetch POST https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php async=true action=kp_touch_free_layout_load caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:153:9) | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:196:3 | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:197:3
-2026-09-01T19:27:26.675Z   FIRST-CONSOLEERRORS: [KP-CLASS-STORM] 200 classList-remove-Toggles in 1s; caller=clearGenericTransform (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js?ver=1788290553:139:18) | applySaved (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js?ver=1788290553:143:148) | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js?ver=1788290553:425:87
-2026-09-01T19:27:26.675Z   CONSOLE-ALL: 2026-09-01T19:27:25.114Z [warning] Error with Permissions-Policy header: Unrecognized feature: 'loopback-network'.
-2026-09-01T19:27:26.675Z   CONSOLE-ALL: 2026-09-01T19:27:25.118Z [info] [KP-XHR-TRACE] Instrumentierung aktiv
-2026-09-01T19:27:26.675Z   CONSOLE-ALL: 2026-09-01T19:27:25.612Z [log] JQMIGRATE: Migrate is installed, version 3.4.1
-2026-09-01T19:27:26.675Z   CONSOLE-ALL: 2026-09-01T19:27:26.087Z [error] [KP-CLASS-STORM] 200 classList-add-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:126:79 | assign (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:119:11) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:136:3 | https://neu.koblenzer-puppenspie
-2026-09-01T19:27:26.675Z   CONSOLE-ALL: 2026-09-01T19:27:26.132Z [error] [KP-XHR-TRACE] fetch POST https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php async=true action=kp_touch_free_layout_load caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touc
-2026-09-01T19:27:27.375Z DEVICE tablet-820 loginStatus=200
+2026-09-01T20:10:09.618Z DEVICE tablet-820 START
+2026-09-01T20:10:09.972Z PREFLIGHT kp_e2e_login -> status=302 location=https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1 cookies=3 ms=353
+2026-09-01T20:10:10.576Z AUTHRENDER kp_edit -> status=200 bytes=455804 html=true ms=604 target=https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1
+2026-09-01T20:10:10.722Z AUTHPOST kp_touch_free_layout_load -> status=200 bytes=271 ms=145
+2026-09-01T20:10:10.723Z LOGIN-GOTO start
+2026-09-01T20:10:12.490Z LOGIN-GOTO ok status=200 reqs=82
+2026-09-01T20:10:12.662Z XHRTRACE total=1 syncXhr=0 adminAjax=0 touchLoad=0 ohneAntwort=0
+2026-09-01T20:10:12.662Z NETTRACE gesamt=82 fertig=82 PENDING=0 pendingKinds={}
+2026-09-01T20:10:12.662Z NETTRACE LAST-REQS (Reihenfolge = Ausfuehrungsnaehe des Freeze): js ore-phase2-2/assets/owner-web-agent.js?ver=4.5.29-web-agent-20260825-2 | js -2/assets/owner-web-agent-fast-chat.js?ver=4.5.29-web-agent-20260825-2 | js ets/owner-web-agent-desktop-live.js?ver=4.5.29-desktop-live-20260825-1 | js -puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122 | js uppenspiele.de/wp-content/mu-plugins/kp-canva-editor.js?ver=1788293122 | js iele.de/wp-content/mu-plugins/kp-canva-image-inherit.js?ver=1788293122 | js r-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js?ver=4.5.29 | js er-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js?ver=4.5.29 | js ppenspiele-core-phase2-2/assets/design-reset-reliability.js?ver=4.5.29 | jpg re-phase2-2/assets/legacy-repertoire/freunde_repertoire_helmeheine.jpg | jpg ppenspiele-core-phase2-2/assets/legacy-repertoire/nulli_repertoire.jpg | jpg penspiele-core-phase2-2/assets/legacy-repertoire/olchis_repertoire.jpg | jpg uppenspiele-core-phase2-2/assets/legacy-repertoire/post_repertoire.jpg | other*PEND s://neu.koblenzer-puppenspiele.de/81b2b6a9-677b-4c95-aacc-f7a826f353c4
+2026-09-01T20:10:12.662Z EVENTS dialogs=0 crashes=0 consoleErrors=2 pageErrors=0
+2026-09-01T20:10:12.662Z   FIRST-CONSOLEERRORS: [KP-CLASS-STORM] 200 classList-add-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:126:79 | assign (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:119:11) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:136:3 | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:159:3
+2026-09-01T20:10:12.662Z   FIRST-CONSOLEERRORS: Failed to load resource: net::ERR_CONNECTION_REFUSED
+2026-09-01T20:10:12.662Z   CONSOLE-ALL: 2026-09-01T20:10:11.272Z [warning] Error with Permissions-Policy header: Unrecognized feature: 'loopback-network'.
+2026-09-01T20:10:12.662Z   CONSOLE-ALL: 2026-09-01T20:10:11.275Z [info] [KP-XHR-TRACE] Instrumentierung aktiv
+2026-09-01T20:10:12.662Z   CONSOLE-ALL: 2026-09-01T20:10:11.766Z [log] JQMIGRATE: Migrate is installed, version 3.4.1
+2026-09-01T20:10:12.663Z   CONSOLE-ALL: 2026-09-01T20:10:12.242Z [error] [KP-CLASS-STORM] 200 classList-add-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:126:79 | assign (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:119:11) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:136:3 | https://neu.koblenzer-puppenspie
+2026-09-01T20:10:12.663Z   CONSOLE-ALL: 2026-09-01T20:10:12.544Z [error] Failed to load resource: net::ERR_CONNECTION_REFUSED
+2026-09-01T20:10:13.174Z DEVICE tablet-820 loginStatus=200
 FAIL: tablet-820: locator.click: Timeout 30000ms exceeded.
 Call log:
-[2m  - waiting for locator('.wp-block-navigation__responsive-container-open').first()[22m
-[2m    - locator resolved to <button aria-haspopup="dialog" aria-label="Menü öffnen" data-kp-free-layout-key="menu-button" data-wp-on--click="actions.openMenuOnClick" data-wp-on--keydown="actions.handleMenuKeydown" class="wp-block-navigation__responsive-container-open">…</button>[22m
+[2m  - waiting for locator('[data-action="design"]')[22m
+[2m    - locator resolved to <button data-action="design">…</button>[22m
 [2m  - attempting click action[22m
-[2m    2 × waiting for element to be visible, enabled and stable[22m
-[2m      - element is visible, enabled and stable[22m
-[2m      - scrolling into view if needed[22m
-[2m      - done scrolling[22m
-[2m      - <button type="button" data-kp-wa-ai="" class="kp-wa-main">✦ KI</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events[22m
-[2m    - retrying click action[22m
-[2m    - waiting 20ms[22m
-[2m    2 × waiting for element to be visible, enabled and stable[22m
-[2m      - element is visible, enabled and stable[22m
-[2m      - scrolling into view if needed[22m
-[2m      - done scrolling[22m
-[2m      - <button type="button" data-kp-wa-ai="" class="kp-wa-main">✦ KI</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events[22m
-[2m    - retrying click action[22m
-[2m      - waiting 100ms[22m
-[2m    32 × waiting for element to be visible, enabled and stable[22m
-[2m       - element is visible, enabled and stable[22m
-[2m       - scrolling into view if needed[22m
-[2m       - done scrolling[22m
-[2m       - <button type="button" data-kp-wa-ai="" class="kp-wa-main">✦ KI</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events[22m
-[2m     - retrying click action[22m
-[2m       - waiting 500ms[22m
+[2m    - waiting for element to be visible, enabled and stable[22m
+[2m    - element is visible, enabled and stable[22m
+[2m    - scrolling into view if needed[22m
+[2m    - done scrolling[22m
+[2m    - performing click action[22m
 
-    at /root/project/qa/homepage-editor-lab.mjs:848:20
-2026-09-01T19:27:59.111Z DEVICE desktop-1440 START
-2026-09-01T19:27:59.442Z PREFLIGHT kp_e2e_login -> status=302 location=https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1 cookies=3 ms=330
-2026-09-01T19:28:00.062Z AUTHRENDER kp_edit -> status=200 bytes=459014 html=true ms=619 target=https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1
-2026-09-01T19:28:00.203Z AUTHPOST kp_touch_free_layout_load -> status=200 bytes=271 ms=141
-2026-09-01T19:28:00.203Z LOGIN-GOTO start
-2026-09-01T19:28:02.129Z LOGIN-GOTO ok status=200 reqs=89
-2026-09-01T19:28:02.311Z XHRTRACE total=2 syncXhr=0 adminAjax=1 touchLoad=1 ohneAntwort=0
-2026-09-01T19:28:02.311Z   TOUCHLOAD fetch POST async=true status=200  ms=212 caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:153:9) | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:196:3 | https://neu.koblenzer-puppenspiele.de/wp-content/plug
-2026-09-01T19:28:02.311Z NETTRACE gesamt=89 fertig=89 PENDING=0 pendingKinds={}
-2026-09-01T19:28:02.311Z NETTRACE LAST-REQS (Reihenfolge = Ausfuehrungsnaehe des Freeze): js ets/owner-web-agent-desktop-live.js?ver=4.5.29-desktop-live-20260825-1 | js uppenspiele.de/wp-content/mu-plugins/kp-canva-editor.js?ver=1788290553 | js iele.de/wp-content/mu-plugins/kp-canva-image-inherit.js?ver=1788290553 | js r-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js?ver=4.5.29 | js er-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js?ver=4.5.29 | js ppenspiele-core-phase2-2/assets/design-reset-reliability.js?ver=4.5.29 | jpg re-phase2-2/assets/legacy-repertoire/freunde_repertoire_helmeheine.jpg | jpg ppenspiele-core-phase2-2/assets/legacy-repertoire/nulli_repertoire.jpg | jpg penspiele-core-phase2-2/assets/legacy-repertoire/olchis_repertoire.jpg | jpg uppenspiele-core-phase2-2/assets/legacy-repertoire/post_repertoire.jpg | jpg penspiele-core-phase2-2/assets/legacy-repertoire/wasser_repertoire.jpg | jpg uppenspiele-core-phase2-2/assets/legacy-repertoire/hahn_repertoire.jpg | php https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php | other s://neu.koblenzer-puppenspiele.de/b49819b8-56a7-4dce-b19a-603d8c742d00
-2026-09-01T19:28:02.311Z EVENTS dialogs=0 crashes=0 consoleErrors=4 pageErrors=0
-2026-09-01T19:28:02.312Z   FIRST-CONSOLEERRORS: [KP-CLASS-STORM] 200 classList-add-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:126:79 | assign (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:119:11) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:136:3 | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:153:3
-2026-09-01T19:28:02.312Z   FIRST-CONSOLEERRORS: [KP-XHR-TRACE] fetch POST https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php async=true action=kp_touch_free_layout_load caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:153:9) | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:196:3 | https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:197:3
-2026-09-01T19:28:02.312Z   FIRST-CONSOLEERRORS: [KP-CLASS-STORM] 200 classList-remove-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-editor.js?ver=1788290553:195:164 | applySavedLayout (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-editor.js?ver=1788290553:192:33) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-editor.js?ver=1788290553:200:3 | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-editor.js?ver=1788290553:324:3
-2026-09-01T19:28:02.312Z   CONSOLE-ALL: 2026-09-01T19:28:00.752Z [warning] Error with Permissions-Policy header: Unrecognized feature: 'loopback-network'.
-2026-09-01T19:28:02.312Z   CONSOLE-ALL: 2026-09-01T19:28:00.768Z [info] [KP-XHR-TRACE] Instrumentierung aktiv
-2026-09-01T19:28:02.312Z   CONSOLE-ALL: 2026-09-01T19:28:01.247Z [log] JQMIGRATE: Migrate is installed, version 3.4.1
-2026-09-01T19:28:02.312Z   CONSOLE-ALL: 2026-09-01T19:28:01.739Z [error] [KP-CLASS-STORM] 200 classList-add-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:126:79 | assign (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:119:11) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788290553:136:3 | https://neu.koblenzer-puppenspie
-2026-09-01T19:28:02.312Z   CONSOLE-ALL: 2026-09-01T19:28:01.758Z [error] [KP-XHR-TRACE] fetch POST https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php async=true action=kp_touch_free_layout_load caller=https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-persistence.js?ver=1788290553:139:32 | loadLive (https://neu.koblenzer-puppenspiele.de/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touc
-2026-09-01T19:28:02.988Z DEVICE desktop-1440 loginStatus=200
+    at openDesign (/root/project/qa/homepage-editor-lab.mjs:428:48)
+    at async file:///root/project/qa/homepage-editor-lab.mjs:859:5
+2026-09-01T20:11:46.008Z DEVICE desktop-1440 START
+2026-09-01T20:11:46.340Z PREFLIGHT kp_e2e_login -> status=302 location=https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1 cookies=3 ms=331
+2026-09-01T20:11:46.951Z AUTHRENDER kp_edit -> status=200 bytes=455804 html=true ms=611 target=https://neu.koblenzer-puppenspiele.de/?kp_edit=1&kp_e2e=1
+2026-09-01T20:11:47.098Z AUTHPOST kp_touch_free_layout_load -> status=200 bytes=271 ms=146
+2026-09-01T20:11:47.099Z LOGIN-GOTO start
+2026-09-01T20:11:48.967Z LOGIN-GOTO ok status=200 reqs=84
+2026-09-01T20:11:49.111Z XHRTRACE total=1 syncXhr=0 adminAjax=0 touchLoad=0 ohneAntwort=0
+2026-09-01T20:11:49.111Z NETTRACE gesamt=84 fertig=84 PENDING=0 pendingKinds={}
+2026-09-01T20:11:49.111Z NETTRACE LAST-REQS (Reihenfolge = Ausfuehrungsnaehe des Freeze): js ets/owner-web-agent-desktop-live.js?ver=4.5.29-desktop-live-20260825-1 | js -puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122 | js uppenspiele.de/wp-content/mu-plugins/kp-canva-editor.js?ver=1788293122 | js iele.de/wp-content/mu-plugins/kp-canva-image-inherit.js?ver=1788293122 | js r-puppenspiele-core-phase2-2/assets/touch-gesture-safety.js?ver=4.5.29 | js er-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js?ver=4.5.29 | js ppenspiele-core-phase2-2/assets/design-reset-reliability.js?ver=4.5.29 | jpg re-phase2-2/assets/legacy-repertoire/freunde_repertoire_helmeheine.jpg | jpg ppenspiele-core-phase2-2/assets/legacy-repertoire/nulli_repertoire.jpg | jpg penspiele-core-phase2-2/assets/legacy-repertoire/olchis_repertoire.jpg | jpg uppenspiele-core-phase2-2/assets/legacy-repertoire/post_repertoire.jpg | jpg penspiele-core-phase2-2/assets/legacy-repertoire/wasser_repertoire.jpg | jpg uppenspiele-core-phase2-2/assets/legacy-repertoire/hahn_repertoire.jpg | other*PEND s://neu.koblenzer-puppenspiele.de/c8439772-9088-4615-b8ad-4be7f70d382f
+2026-09-01T20:11:49.111Z EVENTS dialogs=0 crashes=0 consoleErrors=2 pageErrors=0
+2026-09-01T20:11:49.111Z   FIRST-CONSOLEERRORS: [KP-CLASS-STORM] 200 classList-add-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:126:79 | assign (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:119:11) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:136:3 | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:159:3
+2026-09-01T20:11:49.112Z   FIRST-CONSOLEERRORS: Failed to load resource: net::ERR_CONNECTION_REFUSED
+2026-09-01T20:11:49.112Z   CONSOLE-ALL: 2026-09-01T20:11:47.655Z [warning] Error with Permissions-Policy header: Unrecognized feature: 'loopback-network'.
+2026-09-01T20:11:49.112Z   CONSOLE-ALL: 2026-09-01T20:11:47.669Z [info] [KP-XHR-TRACE] Instrumentierung aktiv
+2026-09-01T20:11:49.112Z   CONSOLE-ALL: 2026-09-01T20:11:48.153Z [log] JQMIGRATE: Migrate is installed, version 3.4.1
+2026-09-01T20:11:49.112Z   CONSOLE-ALL: 2026-09-01T20:11:48.711Z [error] [KP-CLASS-STORM] 200 classList-add-Toggles in 1s; caller=https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:126:79 | assign (https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:119:11) | https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-canva-keys.js?ver=1788293122:136:3 | https://neu.koblenzer-puppenspie
+2026-09-01T20:11:49.112Z   CONSOLE-ALL: 2026-09-01T20:11:49.042Z [error] Failed to load resource: net::ERR_CONNECTION_REFUSED
+2026-09-01T20:11:49.682Z DEVICE desktop-1440 loginStatus=200
 FAIL: desktop-1440: locator.click: Timeout 30000ms exceeded.
 Call log:
 [2m  - waiting for locator('[data-action="design"]')[22m
@@ -272,8 +247,8 @@ Call log:
     at async file:///root/project/qa/homepage-editor-lab.mjs:859:5
 # Homepage-Labor – echter Staging-Browser
 
-Erzeugt: 2026-09-01T19:25:43.474Z
-Commit: cbfbd6087c5578190a85edb71e7682ffac0a4d93
+Erzeugt: 2026-09-01T20:08:31.689Z
+Commit: ffbf12fc839c39d528a6713052e84ad15e1340fb
 Gesamtstatus: FAILURE
 
 ## mobile-390
@@ -288,7 +263,7 @@ Gesamtstatus: FAILURE
 ## tablet-820
 - Viewport: 820×1180
 - Horizontaler Overflow: 0px
-- Menü geöffnet: n/a
+- Menü geöffnet: true
 - Speichern antippbar: false
 - Standardwerte antippbar: false
 - JS Page Errors: 0
@@ -306,7 +281,7 @@ Gesamtstatus: FAILURE
 ## Fehler
 
 - mobile-390: locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('[data-action="design"]')[22m [2m - locator resolved to <button data-action="design">…</button>[22m [2m - attempting click action[22m [2m - waiting for element to be visible, enabled and stable[22m [2m - element is visible, enabled and stable[22m [2m - scrolling into view if needed[22m [2m - done scrolling[22m [2m - performing click action[22m at openDesign (/root/project/qa/homepage-editor-lab.mjs:428:48) at async file:///root/project/qa/homepage-editor-lab.mjs:859:5
-- tablet-820: locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('.wp-block-navigation__responsive-container-open').first()[22m [2m - locator resolved to <button aria-haspopup="dialog" aria-label="Menü öffnen" data-kp-free-layout-key="menu-button" data-wp-on--click="actions.openMenuOnClick" data-wp-on--keydown="actions.handleMenuKeydown" class="wp-block-navigation__responsive-container-open">…</button>[22m [2m - attempting click action[22m [2m 2 × waiting for element to be visible, enabled and stable[22m [2m - element is visible, enabled and stable[22m [2m - scrolling into view if needed[22m [2m - done scrolling[22m [2m - <button type="button" data-kp-wa-ai="" class="kp-wa-main">✦ KI</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events[22m [2m - retrying click action[22m [2m - waiting 20ms[22m [2m 2 × waiting for element to be visible, enabled and stable[22m [2m - element is visible, enabled and stable[22m [2m - scrolling into view if needed[22m [2m - done scrolling[22m [2m - <button type="button" data-kp-wa-ai="" class="kp-wa-main">✦ KI</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events[22m [2m - retrying click action[22m [2m - waiting 100ms[22m [2m 32 × waiting for element to be visible, enabled and stable[22m [2m - element is visible, enabled and stable[22m [2m - scrolling into view if needed[22m [2m - done scrolling[22m [2m - <button type="button" data-kp-wa-ai="" class="kp-wa-main">✦ KI</button> from <nav class="kp-wa-bar" aria-label="Homepage-Hilfe">…</nav> subtree intercepts pointer events[22m [2m - retrying click action[22m [2m - waiting 500ms[22m at /root/project/qa/homepage-editor-
+- tablet-820: locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('[data-action="design"]')[22m [2m - locator resolved to <button data-action="design">…</button>[22m [2m - attempting click action[22m [2m - waiting for element to be visible, enabled and stable[22m [2m - element is visible, enabled and stable[22m [2m - scrolling into view if needed[22m [2m - done scrolling[22m [2m - performing click action[22m at openDesign (/root/project/qa/homepage-editor-lab.mjs:428:48) at async file:///root/project/qa/homepage-editor-lab.mjs:859:5
 - desktop-1440: locator.click: Timeout 30000ms exceeded. Call log: [2m - waiting for locator('[data-action="design"]')[22m [2m - locator resolved to <button data-action="design">…</button>[22m [2m - attempting click action[22m [2m - waiting for element to be visible, enabled and stable[22m [2m - element is visible, enabled and stable[22m [2m - scrolling into view if needed[22m [2m - done scrolling[22m [2m - performing click action[22m at openDesign (/root/project/qa/homepage-editor-lab.mjs:428:48) at async file:///root/project/qa/homepage-editor-lab.mjs:859:5
 
 ===== session-undo.log =====
@@ -330,15 +305,26 @@ Call log:
 
 Node.js v22.18.0
 
+===== persistence.log =====
+WARNUNG: Restore des Owner-E2E-Ausgangszustands fehlgeschlagen: page.evaluate: Target page, context or browser has been closed
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+browserContext.close: Target page, context or browser has been closed
+    at async file:///root/project/qa/owner-all-persistence-e2e.mjs:349:3
+
+Node.js v22.18.0
+
 ===== text-save-staging.log =====
 Reusing the staging deployment from the main homepage lab for text-save E2E.
 file:///root/project/qa/text-save-staging-e2e.mjs:12
 const fail=message=>{throw new Error(message)};
                            ^
 
-Error: Geänderter Text fehlt nach Reload. selector=[data-kp-edit-key="b-00d579d920bbb3443b"] text=Koblenzer Puppenspiele
+Error: Text war sichtbar, aber FE2-Datenbankzustand änderte sich nicht.
     at fail (file:///root/project/qa/text-save-staging-e2e.mjs:12:28)
-    at file:///root/project/qa/text-save-staging-e2e.mjs:108:41
+    at file:///root/project/qa/text-save-staging-e2e.mjs:113:5
 
 Node.js v22.18.0
 
@@ -452,10 +438,10 @@ Removing old file `assets/frontend.css'
 Transferring file `assets/frontend.css'
 Removing old file `includes/class-kp-contact.php'
 Transferring file `includes/class-kp-contact.php'
-Removing old file `assets/image-position.js'
-Transferring file `assets/image-position.js'
 Removing old file `includes/class-kp-design-presets.php'
 Transferring file `includes/class-kp-design-presets.php'
+Removing old file `assets/image-position.js'
+Transferring file `assets/image-position.js'
 Removing old file `includes/class-kp-ensemble.php'
 Transferring file `includes/class-kp-ensemble.php'
 Removing old file `assets/kp-app-icon.svg'
@@ -464,14 +450,14 @@ Removing old file `includes/class-kp-final-polish.php'
 Transferring file `includes/class-kp-final-polish.php'
 Removing old file `assets/owner-menu-x.js'
 Transferring file `assets/owner-menu-x.js'
-Removing old file `assets/owner-responsive-web.css'
-Transferring file `assets/owner-responsive-web.css'
 Removing old file `includes/class-kp-frontend-card-controls.php'
 Transferring file `includes/class-kp-frontend-card-controls.php'
-Removing old file `assets/owner-responsive-web.js'
-Transferring file `assets/owner-responsive-web.js'
+Removing old file `assets/owner-responsive-web.css'
+Transferring file `assets/owner-responsive-web.css'
 Removing old file `includes/class-kp-frontend-editor-save-guard.php'
 Transferring file `includes/class-kp-frontend-editor-save-guard.php'
+Removing old file `assets/owner-responsive-web.js'
+Transferring file `assets/owner-responsive-web.js'
 Removing old file `assets/owner-save-coordinator.css'
 Transferring file `assets/owner-save-coordinator.css'
 Removing old file `includes/class-kp-frontend-editor-v2.php'
@@ -504,22 +490,22 @@ Removing old file `assets/owner-web-app.css'
 Transferring file `assets/owner-web-app.css'
 Removing old file `includes/class-kp-mobile-menu-float.php'
 Transferring file `includes/class-kp-mobile-menu-float.php'
-Removing old file `assets/owner-web-app.js'
-Transferring file `assets/owner-web-app.js'
 Removing old file `includes/class-kp-mobile-menu-glass.php'
 Transferring file `includes/class-kp-mobile-menu-glass.php'
-Removing old file `assets/staging-verification-android-history-20260824-1358.txt'
-Transferring file `assets/staging-verification-android-history-20260824-1358.txt'
+Removing old file `assets/owner-web-app.js'
+Transferring file `assets/owner-web-app.js'
 Removing old file `includes/class-kp-mobile-menu-links.php'
 Transferring file `includes/class-kp-mobile-menu-links.php'
-Removing old file `assets/staging-verification-autonomous-20260824-1525.txt'
-Transferring file `assets/staging-verification-autonomous-20260824-1525.txt'
+Removing old file `assets/staging-verification-android-history-20260824-1358.txt'
+Transferring file `assets/staging-verification-android-history-20260824-1358.txt'
 Removing old file `includes/class-kp-owner-direct-edit-cta.php'
 Transferring file `includes/class-kp-owner-direct-edit-cta.php'
-Removing old file `assets/staging-verification-marker-20260824-1337.txt'
-Transferring file `assets/staging-verification-marker-20260824-1337.txt'
+Removing old file `assets/staging-verification-autonomous-20260824-1525.txt'
+Transferring file `assets/staging-verification-autonomous-20260824-1525.txt'
 Removing old file `includes/class-kp-owner-edit-focus.php'
 Transferring file `includes/class-kp-owner-edit-focus.php'
+Removing old file `assets/staging-verification-marker-20260824-1337.txt'
+Transferring file `assets/staging-verification-marker-20260824-1337.txt'
 Removing old file `assets/staging-verification-marker-20260824.txt'
 Transferring file `assets/staging-verification-marker-20260824.txt'
 Removing old file `includes/class-kp-owner-edit-reliability.php'
@@ -552,14 +538,14 @@ Removing old file `assets/touch-gestures.js'
 Transferring file `assets/touch-gestures.js'
 Removing old file `includes/class-kp-owner-ui-polish.php'
 Transferring file `includes/class-kp-owner-ui-polish.php'
-Removing old file `assets/touch-manual-save-gate.js'
-Transferring file `assets/touch-manual-save-gate.js'
 Removing old file `includes/class-kp-owner-web-app-extensions.php'
 Transferring file `includes/class-kp-owner-web-app-extensions.php'
-Removing old file `assets/touch-persistence.js'
-Transferring file `assets/touch-persistence.js'
+Removing old file `assets/touch-manual-save-gate.js'
+Transferring file `assets/touch-manual-save-gate.js'
 Removing old file `includes/class-kp-owner-web-app.php'
 Transferring file `includes/class-kp-owner-web-app.php'
+Removing old file `assets/touch-persistence.js'
+Transferring file `assets/touch-persistence.js'
 Removing old file `assets/website-studio-admin.css'
 Transferring file `assets/website-studio-admin.css'
 Removing old file `includes/class-kp-referenzen.php'
@@ -572,20 +558,20 @@ Removing old file `includes/class-kp-responsive-sizes.php'
 Transferring file `includes/class-kp-responsive-sizes.php'
 Removing old file `includes/class-kp-site-finish.php'
 Transferring file `includes/class-kp-site-finish.php'
-Removing old file `assets/legacy-ensemble/bjoern_christian_kuepper.png'
-Transferring file `assets/legacy-ensemble/bjoern_christian_kuepper.png'
 Removing old file `includes/class-kp-social-menu-extensions.php'
 Transferring file `includes/class-kp-social-menu-extensions.php'
+Removing old file `assets/legacy-ensemble/bjoern_christian_kuepper.png'
+Transferring file `assets/legacy-ensemble/bjoern_christian_kuepper.png'
 Removing old file `includes/class-kp-social-studio-clarity.php'
 Transferring file `includes/class-kp-social-studio-clarity.php'
 Removing old file `assets/legacy-ensemble/gordian_schneider.png'
 Transferring file `assets/legacy-ensemble/gordian_schneider.png'
 Removing old file `includes/class-kp-staging-maintenance-bridge.php'
 Transferring file `includes/class-kp-staging-maintenance-bridge.php'
-Removing old file `assets/legacy-ensemble/helmut_schmidt.png'
-Transferring file `assets/legacy-ensemble/helmut_schmidt.png'
 Removing old file `includes/class-kp-termine.php'
 Transferring file `includes/class-kp-termine.php'
+Removing old file `assets/legacy-ensemble/helmut_schmidt.png'
+Transferring file `assets/legacy-ensemble/helmut_schmidt.png'
 Removing old file `includes/class-kp-ticket-display.php'
 Transferring file `includes/class-kp-ticket-display.php'
 Removing old file `assets/legacy-ensemble/martin_wolfram.png'
@@ -598,10 +584,10 @@ Removing old file `assets/legacy-ensemble/sarah_juengling.png'
 Transferring file `assets/legacy-ensemble/sarah_juengling.png'
 Removing old file `includes/class-kp-touch-manual-save.php'
 Transferring file `includes/class-kp-touch-manual-save.php'
-Removing old file `assets/legacy-ensemble/sebastian_moschek.png'
-Transferring file `assets/legacy-ensemble/sebastian_moschek.png'
 Removing old file `includes/class-kp-touch-persistence.php'
 Transferring file `includes/class-kp-touch-persistence.php'
+Removing old file `assets/legacy-ensemble/sebastian_moschek.png'
+Transferring file `assets/legacy-ensemble/sebastian_moschek.png'
 Removing old file `includes/class-kp-website-studio-frontend.php'
 Transferring file `includes/class-kp-website-studio-frontend.php'
 Removing old file `assets/legacy-ensemble/stefanie_czapla.png'
@@ -630,10 +616,10 @@ Removing old file `assets/legacy-repertoire/der_raeuber_hotzenplotz.jpg'
 Transferring file `assets/legacy-repertoire/der_raeuber_hotzenplotz.jpg'
 Removing old file `assets/legacy-referenzen/referenzen_felsenkeller.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_felsenkeller.jpg'
-Removing old file `assets/legacy-referenzen/referenzen_gdke.jpg'
-Transferring file `assets/legacy-referenzen/referenzen_gdke.jpg'
 Removing old file `assets/legacy-repertoire/ein_baum_fuer_den_weihnachtsmann_repertoire.jpg'
 Transferring file `assets/legacy-repertoire/ein_baum_fuer_den_weihnachtsmann_repertoire.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_gdke.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_gdke.jpg'
 Removing old file `assets/legacy-referenzen/referenzen_globus.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_globus.jpg'
 Removing old file `assets/legacy-repertoire/faust_repertoire.jpg'
@@ -654,38 +640,38 @@ Removing old file `assets/legacy-repertoire/freunde_repertoire_helmeheine.jpg'
 Transferring file `assets/legacy-repertoire/freunde_repertoire_helmeheine.jpg'
 Removing old file `assets/legacy-referenzen/referenzen_kleinkunst.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_kleinkunst.jpg'
-Removing old file `assets/legacy-referenzen/referenzen_kufa.jpg'
-Transferring file `assets/legacy-referenzen/referenzen_kufa.jpg'
 Removing old file `assets/legacy-repertoire/hahn_repertoire.jpg'
 Transferring file `assets/legacy-repertoire/hahn_repertoire.jpg'
-Removing old file `assets/legacy-referenzen/referenzen_kulturkurze.jpg'
-Transferring file `assets/legacy-referenzen/referenzen_kulturkurze.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_kufa.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_kufa.jpg'
 Removing old file `assets/legacy-repertoire/holle_repertoire.jpg'
 Transferring file `assets/legacy-repertoire/holle_repertoire.jpg'
-Removing old file `assets/legacy-referenzen/referenzen_lyz.png'
-Transferring file `assets/legacy-referenzen/referenzen_lyz.png'
+Removing old file `assets/legacy-referenzen/referenzen_kulturkurze.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_kulturkurze.jpg'
 Removing old file `assets/legacy-repertoire/hotzenplotz_repertoire.jpg'
 Transferring file `assets/legacy-repertoire/hotzenplotz_repertoire.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_lyz.png'
+Transferring file `assets/legacy-referenzen/referenzen_lyz.png'
 Removing old file `assets/legacy-referenzen/referenzen_montabaur.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_montabaur.jpg'
 Removing old file `assets/legacy-repertoire/kasper-repertoire.jpg'
 Transferring file `assets/legacy-repertoire/kasper-repertoire.jpg'
 Removing old file `assets/legacy-referenzen/referenzen_neuss.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_neuss.jpg'
-Removing old file `assets/legacy-referenzen/referenzen_niederkassel.jpg'
-Transferring file `assets/legacy-referenzen/referenzen_niederkassel.jpg'
 Removing old file `assets/legacy-repertoire/kasperspiel_goldschatz_repertoire.jpg'
 Transferring file `assets/legacy-repertoire/kasperspiel_goldschatz_repertoire.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_niederkassel.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_niederkassel.jpg'
 Removing old file `assets/legacy-referenzen/referenzen_pellenz.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_pellenz.jpg'
 Removing old file `assets/legacy-repertoire/kasperspiel_repertoire.jpg'
 Transferring file `assets/legacy-repertoire/kasperspiel_repertoire.jpg'
 Removing old file `assets/legacy-referenzen/referenzen_saarburg.png'
 Transferring file `assets/legacy-referenzen/referenzen_saarburg.png'
-Removing old file `assets/legacy-referenzen/referenzen_stadt.jpg'
-Transferring file `assets/legacy-referenzen/referenzen_stadt.jpg'
 Removing old file `assets/legacy-repertoire/kasperspiel_repertoire_pfannkuchenschlacht.jpg'
 Transferring file `assets/legacy-repertoire/kasperspiel_repertoire_pfannkuchenschlacht.jpg'
+Removing old file `assets/legacy-referenzen/referenzen_stadt.jpg'
+Transferring file `assets/legacy-referenzen/referenzen_stadt.jpg'
 Removing old file `assets/legacy-referenzen/referenzen_stadtbibliothek.jpg'
 Transferring file `assets/legacy-referenzen/referenzen_stadtbibliothek.jpg'
 Removing old file `assets/legacy-repertoire/knusperknusperknaeuschen.jpg'
