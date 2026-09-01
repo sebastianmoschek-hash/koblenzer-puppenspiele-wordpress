@@ -97,7 +97,11 @@ add_action( 'wp_enqueue_scripts', static function () {
     if ( $edit_mode ) {
         // Replace only the edit-mode interaction layer. CSS and the public data
         // format stay unchanged, and the proven safety/Save bridge is re-used.
-        foreach ( array( 'kp-touch-editor-bridge', 'kp-touch-gesture-safety', 'kp-touch-free-layout', 'kp-touch-gestures' ) as $handle ) {
+        // Persistence depends on the legacy bridge, which in turn depends on
+        // both legacy gesture runtimes. Leaving that top-level handle queued
+        // silently pulled the complete observer stack back in after these
+        // lower-level handles had been dequeued.
+        foreach ( array( 'kp-touch-persistence', 'kp-touch-editor-bridge', 'kp-touch-gesture-safety', 'kp-touch-free-layout', 'kp-touch-gestures' ) as $handle ) {
             wp_dequeue_script( $handle );
         }
     }

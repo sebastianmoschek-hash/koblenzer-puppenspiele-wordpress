@@ -146,7 +146,13 @@
     });
   };
   new MutationObserver(records => {
-    if (records.some(record => [...record.addedNodes].some(node => node instanceof Element))) {
+    // Owner sheets can add dozens of controls at once, but they are explicitly
+    // outside the editable canvas. Do not turn those UI-only insertions into a
+    // full-page key pass (and another observer cascade).
+    const hasCanvasAddition = records.some(record => [...record.addedNodes].some(node =>
+      node instanceof Element && !node.matches(uiSelector) && !node.closest(uiSelector)
+    ));
+    if (hasCanvasAddition) {
       scheduleAssign();
     }
   }).observe(document.documentElement, { childList:true, subtree:true });

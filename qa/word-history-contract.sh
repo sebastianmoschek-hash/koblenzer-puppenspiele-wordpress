@@ -8,11 +8,12 @@ CANVA_JS='wp-content/mu-plugins/kp-canva-editor.js'
 CANVA_KEYS='wp-content/mu-plugins/kp-canva-keys.js'
 CANVA_PHP='wp-content/mu-plugins/kp-canva-editor.php'
 CANVA_CSS='wp-content/mu-plugins/kp-canva-editor.css'
+TOUCH_FREE='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-free-layout.js'
 NO_UNLOAD='wp-content/mu-plugins/kp-editor-no-beforeunload.php'
 
 fail(){ echo "FAIL word-history contract: $*" >&2; exit 1; }
 
-for file in "$FRONTEND" "$IMAGE_POS" "$RUNTIME" "$CANVA_JS" "$CANVA_KEYS" "$CANVA_PHP" "$CANVA_CSS" "$NO_UNLOAD"; do
+for file in "$FRONTEND" "$IMAGE_POS" "$RUNTIME" "$CANVA_JS" "$CANVA_KEYS" "$CANVA_PHP" "$CANVA_CSS" "$TOUCH_FREE" "$NO_UNLOAD"; do
   [[ -f "$file" ]] || fail "required editor file missing: $file"
 done
 
@@ -20,6 +21,7 @@ node --check "$FRONTEND" >/dev/null || fail 'frontend editor JavaScript syntax i
 node --check "$IMAGE_POS" >/dev/null || fail 'image-position JavaScript syntax is invalid'
 node --check "$CANVA_JS" >/dev/null || fail 'Canva editor JavaScript syntax is invalid'
 node --check "$CANVA_KEYS" >/dev/null || fail 'Canva key bridge JavaScript syntax is invalid'
+node --check "$TOUCH_FREE" >/dev/null || fail 'legacy touch-free JavaScript syntax is invalid'
 if command -v php >/dev/null 2>&1; then
   php -l "$CANVA_PHP" >/dev/null || fail 'Canva editor PHP syntax is invalid'
   php -l "$RUNTIME" >/dev/null || fail 'Word history PHP syntax is invalid'
@@ -57,6 +59,13 @@ grep -Fq 'undo, redo:redoStep' "$IMAGE_POS" || fail 'image-position specialist u
 
 grep -Fq 'window.KPCanvaLayoutRuntime' "$CANVA_JS" || fail 'shared drag/pinch runtime missing'
 grep -Fq 'window.KPCanvaImageRuntime' "$CANVA_JS" || fail 'image editing runtime missing'
+grep -Fq '}, 1000 );' "$CANVA_PHP" || fail 'Canva enqueue callback must run after all legacy gesture and persistence priorities'
+for legacy_handle in kp-touch-persistence kp-touch-editor-bridge kp-touch-gesture-safety kp-touch-free-layout kp-touch-gestures; do
+  grep -Fq "'$legacy_handle'" "$CANVA_PHP" || fail "edit mode does not dequeue legacy observer runtime: $legacy_handle"
+done
+grep -Fq 'const hasCanvasAddition' "$CANVA_KEYS" || fail 'owner-sheet insertions can still trigger a full Canva key pass'
+grep -Fq "classList.contains('kp-has-gesture-transform')" "$CANVA_JS" || fail 'saved-layout replay still emits unchanged class removals'
+grep -Fq 'const hasLayoutAddition' "$TOUCH_FREE" || fail 'owner-sheet insertions can still trigger a legacy layout replay'
 grep -Fq 'kp-canva-preview' "$CANVA_JS" || fail 'preview mode missing'
 grep -Fq 'kp-canva-discard' "$CANVA_JS" || fail 'discard X missing'
 grep -Fq 'kp_touch_gesture_save' "$CANVA_JS" || fail 'generic drag persistence missing'

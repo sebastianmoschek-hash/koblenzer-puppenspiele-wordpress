@@ -136,7 +136,8 @@
     if (!el) return;
     el.style.removeProperty('translate');
     el.style.removeProperty('scale');
-    el.classList.remove('kp-has-gesture-transform', 'kp-gesture-active', 'is-dragging', 'is-pinching');
+    const transient = ['kp-has-gesture-transform', 'kp-gesture-active', 'is-dragging', 'is-pinching'];
+    if (transient.some(name => el.classList.contains(name))) el.classList.remove(...transient);
   }
 
   function applySaved(root = document) {
@@ -422,7 +423,10 @@
 
   applySaved();
   new MutationObserver(records => {
-    if (records.some(record => record.addedNodes.length)) requestAnimationFrame(() => applySaved());
+    const hasLayoutAddition = records.some(record => [...record.addedNodes].some(node =>
+      node instanceof Element && !node.matches(uiSelector) && !node.closest(uiSelector)
+    ));
+    if (hasLayoutAddition) requestAnimationFrame(() => applySaved());
   }).observe(document.documentElement, {childList:true, subtree:true});
 
   window.KPFreeLayoutRuntime = {
