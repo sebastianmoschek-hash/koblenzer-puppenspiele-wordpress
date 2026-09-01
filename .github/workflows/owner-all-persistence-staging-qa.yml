@@ -59,7 +59,7 @@ jobs:
             set net:max-retries 2;
             set net:timeout 20;
             open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
-            mirror -R --verbose --only-newer --no-perms --parallel=2 '$plugin' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2';
+            mirror -R --verbose --only-newer --no-perms --parallel=8 '$plugin' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2';
             bye
           "
           echo 'PASS: current plugin mirrored to staging-only WordPress root.'
