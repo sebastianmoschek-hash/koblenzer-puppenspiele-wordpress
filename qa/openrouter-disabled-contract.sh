@@ -40,11 +40,11 @@ fi
 # Every staging deploy path removes a stale MU-plugin and never uploads it.
 grep -Fq 'rm -f /wp-content/mu-plugins/kp-openrouter-bridge.php' "$DEPLOY_MOBILE"
 grep -Fq 'rm -f /wp-content/mu-plugins/kp-openrouter-bridge.php' "$DEPLOY_SMART"
-grep -Fq "--exclude-glob 'kp-openrouter-bridge.php'" "$DEPLOY_SMART"
+grep -Fq -- "--exclude-glob 'kp-openrouter-bridge.php'" "$DEPLOY_SMART"
 grep -Fq 'rm -f /wp-content/mu-plugins/kp-openrouter-bridge.php' "$DEPLOY_LAB"
-grep -Fq "--exclude-glob 'kp-openrouter-bridge.php'" "$DEPLOY_LAB"
+grep -Fq -- "--exclude-glob 'kp-openrouter-bridge.php'" "$DEPLOY_LAB"
 grep -Fq 'rm -f /wp-content/mu-plugins/kp-openrouter-bridge.php' "$DEPLOY_TEXT"
-grep -Fq "--exclude-glob 'kp-openrouter-bridge.php'" "$DEPLOY_TEXT"
+grep -Fq -- "--exclude-glob 'kp-openrouter-bridge.php'" "$DEPLOY_TEXT"
 grep -Fq "rm -f '/wp-content/mu-plugins/kp-openrouter-bridge.php'" "$DEPLOY_GITHUB"
 if grep -E 'put .*kp-openrouter-bridge\.php' "$DEPLOY_MOBILE" "$DEPLOY_SMART" "$DEPLOY_LAB" "$DEPLOY_TEXT" "$DEPLOY_GITHUB"; then
   echo 'FAIL: a staging deploy path still uploads the OpenRouter MU-plugin.' >&2
