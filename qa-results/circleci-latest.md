@@ -1,7 +1,7 @@
 # Kostenloses Homepage-Labor – letzter CircleCI-Staging-Stand
 
-Erzeugt: 2026-09-01T10:19:05Z  
-Commit: 44b563a3d574de4bb7df226af57089f1564791f8  
+Erzeugt: 2026-09-01T13:57:50Z  
+Commit: a7913d0faf513cc184c64812508db0dc30f40130  
 Provider: CircleCI Free  
 Modus: **FULL**  
 Gesamtstatus: **FAILURE**
@@ -13,10 +13,6 @@ Gesamtstatus: **FAILURE**
 - Speichern → Reload → DB + Undo/48h: failure
 - Nativer Touch-Regler + Zurücksetzen/Speichern: success
 - Drag/Pinch/Touch-Runtime: success
-- Visual-QA 50 Ansichten: success
+- Visual-QA 50 Ansichten: failure
 
 Produktion wurde nicht verändert.
-
-- Echter Text-Save → Reload → DB-Readback: failure
-
-Der Gesamtstatus wurde auf **FAILURE** gesetzt, weil der echte Text-Save-Gate fehlgeschlagen ist oder kein vollständiges Ergebnis erzeugt hat.
