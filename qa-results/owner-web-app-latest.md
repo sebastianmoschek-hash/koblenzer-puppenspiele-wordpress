@@ -1,10 +1,10 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-09-01T20:19:01Z
+Erzeugt: 2026-09-01T20:22:19Z
 
 Asset-/Deployment-Prüfung: failure
 Isolierter Browser-Verhaltenstest: success
-Echter Staging-Speicher-/Reload-Test: failure
+Echter Staging-Speicher-/Reload-Test: success
 
 ## Ausgelieferte Staging-Dateien
 ```text
@@ -69,18 +69,5 @@ PASS: Drag, Pinch, Undo, Menükarte, orange Speichern/Reload und Handy-/Tablet-M
 
 ## Echter Staging-Persistenztest
 ```text
-node:internal/modules/run_main:123
-    triggerUncaughtException(
-    ^
-
-locator.click: Timeout 30000ms exceeded.
-Call log:
-  - waiting for locator('.kp-fe2-undo')
-
-    at /home/runner/work/koblenzer-puppenspiele-wordpress/koblenzer-puppenspiele-wordpress/qa/touch-staging-persistence-e2e.mjs:133:38 {
-  log: [ "  - waiting for locator('.kp-fe2-undo')" ],
-  name: 'TimeoutError'
-}
-
-Node.js v22.23.2
+PASS: echter Staging-End-to-End-Speichertest für post-12: Entwurf lokal, orange Speichern schreibt DB, Reload behält Zustand, Undo bleibt lokal.
 ```
