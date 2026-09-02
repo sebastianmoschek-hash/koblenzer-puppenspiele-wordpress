@@ -1,4 +1,5 @@
 name: Offline staging browser QA
+# Public-repository runner fallback; staging-only by design.
 
 on:
   workflow_dispatch:
