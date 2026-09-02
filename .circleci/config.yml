@@ -128,6 +128,9 @@ jobs:
       - run:
           name: Deploy and verify Gemini Live bridge
           command: bash qa/deploy-mobile-live-circleci.sh
+      - store_artifacts:
+          path: qa-results/mobile-live
+          destination: mobile-live-diagnostics
 
   homepage-staging-lab:
     docker:
