@@ -1,0 +1,70 @@
+name: Offline staging browser QA
+# Public-repository runner fallback; staging-only by design.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/offline-staging-webapp
+    paths:
+      - 'wp-content/**'
+      - 'qa/**'
+      - '.github/workflows/offline-staging-browser-qa.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: koblenzer-puppenspiele-offline-staging-qa
+  cancel-in-progress: true
+
+jobs:
+  mobile-live-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      STAGING_BASE: https://neu.koblenzer-puppenspiele.de
+      STAGING_FTP_SERVER: srv26.dsbsrv.de
+      STAGING_FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      STAGING_FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+      LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+    steps:
+      - name: Check out development branch
+        uses: actions/checkout@v4
+
+      - name: Install deploy tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp jq php-cli
+
+      - name: Deploy and verify mobile live bridge on staging
+        run: bash qa/deploy-mobile-live-circleci.sh
+
+      - name: Install Chromium and Playwright
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run full staging browser lab
+        env:
+          KP_CI_MODE: full
+        run: timeout --foreground --signal=TERM --kill-after=30s 65m bash qa/circleci-homepage-lab-smart.sh
+
+      - name: Upload complete browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-staging-browser-diagnostics
+          path: |
+            qa-results/circleci
+            qa-artifacts/homepage-lab
+            visual-qa/output
+          if-no-files-found: warn
+
+      - name: Upload staging diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-staging-mobile-live-diagnostics
+          path: qa-results/mobile-live
+          if-no-files-found: warn

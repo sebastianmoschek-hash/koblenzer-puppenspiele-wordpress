@@ -1,8 +1,8 @@
 # Owner Web App – letzter Staging-Test
 
-Erzeugt: 2026-08-22T05:13:15Z
+Erzeugt: 2026-09-01T20:22:19Z
 
-Asset-/Deployment-Prüfung: success
+Asset-/Deployment-Prüfung: failure
 Isolierter Browser-Verhaltenstest: success
 Echter Staging-Speicher-/Reload-Test: success
 
@@ -26,17 +26,17 @@ OK: Manifest im HTML eingebunden
 OK: Owner Web App im HTML eingebunden
 INFO: Responsive Web ist absichtlich nur im eingeloggten Owner-Modus eingebunden.
 OK: Instagram-Profil kanonisch auf Staging verlinkt
-true
-OK: Manifest-Name korrekt
-true
-OK: Manifest-Kurzname korrekt
+false
+FEHLER: Manifest-Name korrekt
+false
+FEHLER: Manifest-Kurzname korrekt
 true
 OK: Manifest standalone
 true
 OK: Manifest enthält Icon
 OK: Service Worker Event-Listener vorhanden
 OK: Service Worker fetch vorhanden
-OK: Service Worker Cache vorhanden
+FEHLER: Service Worker Cache vorhanden
 OK: SVG-App-Icon gültig
 OK: owner-web-app JavaScript-Syntax
 OK: owner-responsive-web JavaScript-Syntax
@@ -59,7 +59,7 @@ OK: Live-Persistenz schützt lokale Entwürfe
 OK: Live-Persistenz hydriert Runtime
 OK: Menü-X-Regler vorhanden
 OK: Menü-X-Regler benennt Links/Rechts
-FAILURES=0
+FAILURES=3
 ```
 
 ## Touch-Verhalten im isolierten Chromium

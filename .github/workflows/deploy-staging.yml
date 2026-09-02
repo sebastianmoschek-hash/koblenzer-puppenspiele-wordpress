@@ -7,10 +7,10 @@ on:
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
       - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/**'
       - 'wp-content/mu-plugins/kp-mobile-live-bridge.php'
-      - 'wp-content/mu-plugins/kp-openrouter-bridge.php'
       - 'wp-content/mu-plugins/kp-owner-web-agent.php'
       - 'wp-content/mu-plugins/kp-ai-repair-lab.php'
       - '.github/workflows/deploy-staging.yml'
+      - '.github/workflows/owner-all-persistence-staging-qa.yml'
   workflow_dispatch:
 
 concurrency:
@@ -38,7 +38,6 @@ jobs:
           PLUGIN='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
           THEME='wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7'
           LIVE_BRIDGE='wp-content/mu-plugins/kp-mobile-live-bridge.php'
-          OPENROUTER_BRIDGE='wp-content/mu-plugins/kp-openrouter-bridge.php'
 
           found=0
           if [ -d "$PLUGIN" ];then
@@ -53,11 +52,6 @@ jobs:
             echo "Mobile Live bridge found: $LIVE_BRIDGE"
             found=1
           fi
-          if [ -f "$OPENROUTER_BRIDGE" ];then
-            echo "OpenRouter bridge found: $OPENROUTER_BRIDGE"
-            found=1
-          fi
-
           if [ "$found" -ne 1 ];then
             echo 'ERROR: No expected deployable WordPress code exists in this repository.'
             echo 'Nothing will be uploaded.'
@@ -73,7 +67,6 @@ jobs:
                -type f -name '*.php' -print0 \
             | xargs -0 -n1 php -l
           php -l wp-content/mu-plugins/kp-mobile-live-bridge.php
-          php -l wp-content/mu-plugins/kp-openrouter-bridge.php
           php -l wp-content/mu-plugins/kp-owner-web-agent.php
           php -l wp-content/mu-plugins/kp-ai-repair-lab.php
 
@@ -94,7 +87,7 @@ jobs:
           : "${LFTP_PASSWORD:?FTP_PASSWORD secret is missing}"
           echo "Testing explicit FTPS on port 21 against ${FTP_SERVER}..."
           set +e
-          OUTPUT=$(lftp -c "
+          OUTPUT=$(timeout --foreground --signal=TERM --kill-after=15s 90s lftp -c "
             set ftp:ssl-force true;
             set ftp:ssl-protect-data true;
             set ssl:verify-certificate true;
@@ -129,14 +122,14 @@ jobs:
           deploy_dir() {
             local source_dir="$1"
             local target_dir="$2"
-            lftp -c "
+            timeout --foreground --signal=TERM --kill-after=15s 8m lftp -c "
               set ftp:ssl-force true;
               set ftp:ssl-protect-data true;
               set ssl:verify-certificate true;
               set net:max-retries 2;
               set net:timeout 20;
               open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
-              mirror -R --verbose --only-newer --parallel=2 '$source_dir' '$target_dir';
+              mirror -R --verbose --only-newer --parallel=8 '$source_dir' '$target_dir';
               bye
             "
           }
@@ -160,8 +153,8 @@ jobs:
             set net:timeout 20;
             open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
             mkdir -p '/wp-content/mu-plugins';
+            rm -f '/wp-content/mu-plugins/kp-openrouter-bridge.php';
             put '$LIVE_BRIDGE' -o '/wp-content/mu-plugins/kp-mobile-live-bridge.php';
-            put 'wp-content/mu-plugins/kp-openrouter-bridge.php' -o '/wp-content/mu-plugins/kp-openrouter-bridge.php';
             put 'wp-content/mu-plugins/kp-owner-web-agent.php' -o '/wp-content/mu-plugins/kp-owner-web-agent.php';
             put 'wp-content/mu-plugins/kp-ai-repair-lab.php' -o '/wp-content/mu-plugins/kp-ai-repair-lab.php';
             bye
@@ -172,16 +165,24 @@ jobs:
         run: |
           set -euo pipefail
           body="$(mktemp)"
-          status="$(curl --silent --show-error --location \
-            --retry 4 --retry-all-errors --retry-delay 3 --max-time 60 \
-            -o "$body" -w '%{http_code}' \
-            -X POST \
-            --data-urlencode 'action=kp_mobile_live_bootstrap' \
-            'https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php')"
-          cat "$body"
-          test "$status" = '401'
-          php -r '$j=json_decode(file_get_contents($argv[1]), true); if (!is_array($j) || ($j["success"] ?? true) !== false || !str_contains((string)($j["data"]["message"] ?? ""), "Bitte zuerst bei WordPress anmelden")) { exit(1); }' "$body"
-          echo 'Gemini Live bootstrap is deployed and enforcing WordPress authentication.'
+          for attempt in $(seq 1 6); do
+            status="$(curl --silent --show-error --location \
+              --retry 2 --retry-all-errors --retry-delay 2 --max-time 20 \
+              -o "$body" -w '%{http_code}' \
+              -X POST \
+              --data-urlencode 'action=kp_mobile_live_bootstrap' \
+              'https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php' || true)"
+            if [ "$status" = '401' ] && php -r '$j=json_decode(file_get_contents($argv[1]), true); if (!is_array($j) || ($j["success"] ?? true) !== false || !str_contains((string)($j["data"]["message"] ?? ""), "Bitte zuerst bei WordPress anmelden")) { exit(1); }' "$body"; then
+              cat "$body"
+              echo 'Gemini Live bootstrap is deployed and enforcing WordPress authentication.'
+              exit 0
+            fi
+            echo "Staging bootstrap not settled yet (attempt $attempt/6, HTTP $status)."
+            cat "$body" || true
+            sleep 5
+          done
+          echo 'ERROR: staging bootstrap did not settle to the expected unauthenticated 401 response.' >&2
+          exit 1
 
       - name: Verify staging website, routes and expected content
         id: route_verify

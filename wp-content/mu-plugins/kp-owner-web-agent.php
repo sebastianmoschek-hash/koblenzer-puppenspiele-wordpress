@@ -83,21 +83,6 @@ add_action( 'wp_ajax_kp_owner_web_agent_chat', static function () {
         try {
             $started = microtime( true );
 
-            // OpenRouter zuerst: funktioniert ohne Gemini-Prepayment und ist der neue Standard.
-            if ( function_exists( 'kp_openrouter_ready' ) && kp_openrouter_ready() ) {
-                try {
-                    $reply = kp_openrouter_ask( $system, $input, 30 );
-                    wp_send_json_success( array(
-                        'reply'      => $reply,
-                        'model'      => kp_openrouter_config()['model'],
-                        'elapsed_ms' => (int) round( ( microtime( true ) - $started ) * 1000 ),
-                        'transport'  => 'openrouter-v1',
-                    ) );
-                } catch ( Throwable $e ) {
-                    // Fallback auf Gemini (unten).
-                }
-            }
-
             if ( ! function_exists( 'kp_ai_key' ) ) { throw new RuntimeException( 'Die Gemini-Basisintegration ist nicht geladen.' ); }
             $key = kp_ai_key();
             if ( ! $key ) { throw new RuntimeException( 'Gemini ist noch nicht verbunden.' ); }

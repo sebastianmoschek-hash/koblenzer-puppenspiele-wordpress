@@ -4,11 +4,12 @@ set -euo pipefail
 FAST='wp-content/mu-plugins/kp-fast-frontend-history.php'
 BRIDGE='wp-content/mu-plugins/kp-frontend-native-save-bridge.php'
 TOUCH='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/touch-editor-bridge.js'
+CLEAN='wp-content/mu-plugins/kp-clean-test-markers.php'
 
 fail(){ echo "FAIL text-save contract: $*" >&2; exit 1; }
 contains(){ local file="$1" pattern="$2" message="$3"; grep -q -- "$pattern" "$file" || fail "$message"; }
 
-for file in "$FAST" "$BRIDGE"; do
+for file in "$FAST" "$BRIDGE" "$CLEAN"; do
   [[ -f "$file" ]] || fail "required file missing: $file"
   if command -v php >/dev/null 2>&1; then
     php -l "$file" >/dev/null || fail "PHP syntax invalid: $file"
@@ -32,6 +33,7 @@ contains "$TOUCH" 'SAVE_TIMEOUT_MS = 13500' 'text Save watchdog is not aligned w
 contains "$TOUCH" "requestAction(init?.body) !== 'kp_fe_v2_save'" 'FE2 text request is not protected by the watchdog'
 contains "$TOUCH" 'const nativeSave = window.KPFrontendEditorNativeSave' 'text Save still relies on a synthetic DOM replay instead of the native handler'
 contains "$TOUCH" 'await withTimeout(' 'unified/text Save can still wait forever'
+contains "$CLEAN" "'1' === \$text_e2e && current_user_can( 'manage_options' )" 'staging marker cleanup still deletes the real text-save marker before reload verification'
 if grep -q 'saveButton\.click()' "$TOUCH"; then
   fail 'text Save still replays a second DOM click through the editor stack'
 fi

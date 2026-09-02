@@ -22,7 +22,9 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 /**
@@ -687,10 +689,9 @@ class LocalAiTechnician(
 private class LocalModelManager(private val context: Context) {
     companion object {
         const val REFERENCE_MODEL_BYTES = 2_588_147_712L
-        private const val MIN_VALID_MODEL_BYTES = 2_400_000_000L
-        private const val MAX_VALID_MODEL_BYTES = 3_100_000_000L
-        private const val REQUIRED_FREE_BYTES = 4_500_000_000L
+        private const val FREE_SPACE_SAFETY_BYTES = 750_000_000L
         private const val RECOMMENDED_RAM_BYTES = 6_000_000_000L
+        private const val MODEL_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
         private const val MODEL_URL = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/6e5c4f1e395deb959c494953478fa5cec4b8008f/gemma-4-E2B-it.litertlm?download=true"
     }
 
@@ -701,7 +702,13 @@ private class LocalModelManager(private val context: Context) {
 
     fun modelFile(): File = File(File(context.filesDir, "local-ai").apply { mkdirs() }, "gemma-4-E2B-it.litertlm")
 
-    fun isInstalled(): Boolean = modelFile().let { it.isFile && it.length() in MIN_VALID_MODEL_BYTES..MAX_VALID_MODEL_BYTES }
+    private fun checksumMarker(): File = File(modelFile().parentFile, modelFile().name + ".sha256")
+
+    fun isInstalled(): Boolean = modelFile().let { file ->
+        file.isFile &&
+            file.length() == REFERENCE_MODEL_BYTES &&
+            checksumMarker().runCatching { readText().trim().lowercase() }.getOrNull() == MODEL_SHA256
+    }
 
     fun state(): LocalAiTechnician.ModelState {
         val memory = (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).let { manager ->
@@ -722,29 +729,72 @@ private class LocalModelManager(private val context: Context) {
 
     suspend fun download(onProgress: (Long, Long) -> Unit) = withContext(Dispatchers.IO) {
         if (isInstalled()) return@withContext
+        val target = modelFile()
+        val marker = checksumMarker()
+        marker.delete()
+
+        // Upgrades and developer/device transfers may already contain the exact
+        // pinned model. Verify it once instead of downloading another 2.6 GB.
+        if (target.isFile && target.length() == REFERENCE_MODEL_BYTES) {
+            onProgress(0L, REFERENCE_MODEL_BYTES)
+            if (sha256(target) == MODEL_SHA256) {
+                marker.writeText(MODEL_SHA256)
+                onProgress(REFERENCE_MODEL_BYTES, REFERENCE_MODEL_BYTES)
+                return@withContext
+            }
+            target.delete()
+        } else if (target.exists()) {
+            target.delete()
+        }
+
         if (!Build.SUPPORTED_64_BIT_ABIS.any { it.equals("arm64-v8a", ignoreCase = true) }) {
             throw IllegalStateException("Die lokale KI benötigt derzeit ein 64-Bit-ARM-Handy.")
         }
-        if (context.filesDir.usableSpace < REQUIRED_FREE_BYTES) {
-            throw IllegalStateException("Für das lokale KI-Modell werden mindestens etwa 4,5 GB freier Gerätespeicher benötigt.")
+
+        val part = File(target.parentFile, target.name + ".part")
+        if (part.length() > REFERENCE_MODEL_BYTES) part.delete()
+        if (part.isFile && part.length() == REFERENCE_MODEL_BYTES) {
+            if (sha256(part) == MODEL_SHA256) {
+                activateVerifiedModel(part, target, marker)
+                onProgress(REFERENCE_MODEL_BYTES, REFERENCE_MODEL_BYTES)
+                return@withContext
+            }
+            part.delete()
         }
 
-        val target = modelFile()
-        val part = File(target.parentFile, target.name + ".part")
-        if (part.exists()) part.delete()
-        val request = Request.Builder().url(MODEL_URL).build()
+        val existingBytes = part.takeIf { it.isFile }?.length() ?: 0L
+        val requiredFree = (REFERENCE_MODEL_BYTES - existingBytes).coerceAtLeast(0L) + FREE_SPACE_SAFETY_BYTES
+        if (context.filesDir.usableSpace < requiredFree) {
+            throw IllegalStateException(
+                "Für die verbleibende Modelldatei werden noch etwa ${requiredFree / 1_000_000_000.0} GB freier Gerätespeicher benötigt.",
+            )
+        }
+
+        val request = Request.Builder()
+            .url(MODEL_URL)
+            .apply { if (existingBytes > 0L) header("Range", "bytes=$existingBytes-") }
+            .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IllegalStateException("Modell-Download fehlgeschlagen (HTTP ${response.code}).")
             val body = response.body
-            val announced = body.contentLength().takeIf { it > 0 } ?: REFERENCE_MODEL_BYTES
-            if (announced !in MIN_VALID_MODEL_BYTES..MAX_VALID_MODEL_BYTES) {
+            val append = existingBytes > 0L && response.code == 206
+            if (append) {
+                val contentRange = response.header("Content-Range").orEmpty()
+                if (!contentRange.startsWith("bytes $existingBytes-")) {
+                    throw IllegalStateException("Der Modellserver hat eine ungültige Fortsetzungsantwort geliefert.")
+                }
+            }
+            val startBytes = if (append) existingBytes else 0L
+            val announced = body.contentLength().takeIf { it > 0 }?.plus(startBytes) ?: REFERENCE_MODEL_BYTES
+            if (announced != REFERENCE_MODEL_BYTES) {
                 throw IllegalStateException("Der Modellserver hat keine gültige Modelldatei geliefert.")
             }
             body.byteStream().use { input ->
-                FileOutputStream(part).use { output ->
+                FileOutputStream(part, append).use { output ->
                     val buffer = ByteArray(1024 * 1024)
-                    var downloaded = 0L
-                    var lastReported = 0L
+                    var downloaded = startBytes
+                    var lastReported = startBytes
+                    onProgress(downloaded, announced)
                     while (true) {
                         val read = input.read(buffer)
                         if (read < 0) break
@@ -760,15 +810,36 @@ private class LocalModelManager(private val context: Context) {
                 }
             }
         }
-        if (part.length() !in MIN_VALID_MODEL_BYTES..MAX_VALID_MODEL_BYTES) {
+        if (part.length() != REFERENCE_MODEL_BYTES) {
             val got = part.length()
-            part.delete()
-            throw IllegalStateException("Modelldatei ist unvollständig (${got / 1_000_000} MB).")
+            throw IllegalStateException("Modelldatei ist noch unvollständig (${got / 1_000_000} MB). Der nächste Versuch wird an dieser Stelle fortgesetzt.")
         }
+        if (sha256(part) != MODEL_SHA256) {
+            part.delete()
+            throw IllegalStateException("Die Prüfsumme des lokalen Modells stimmt nicht. Der beschädigte Download wurde verworfen.")
+        }
+        activateVerifiedModel(part, target, marker)
+    }
+
+    private fun activateVerifiedModel(part: File, target: File, marker: File) {
         if (target.exists()) target.delete()
         if (!part.renameTo(target)) {
             part.copyTo(target, overwrite = true)
             part.delete()
         }
+        marker.writeText(MODEL_SHA256)
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        FileInputStream(file).use { input ->
+            val buffer = ByteArray(4 * 1024 * 1024)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
     }
 }

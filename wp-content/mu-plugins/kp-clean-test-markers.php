@@ -7,6 +7,13 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 add_action( 'init', static function () {
+    // The isolated staging text-save lab must observe its marker after the real
+    // Save reload before it restores the original snapshot. Outside that short,
+    // authenticated E2E route this scrubber still removes artifacts left by an
+    // interrupted test on the very next request.
+    $text_e2e = isset( $_GET['kp_e2e_text'] ) ? sanitize_text_field( wp_unslash( $_GET['kp_e2e_text'] ) ) : '';
+    if ( '1' === $text_e2e && current_user_can( 'manage_options' ) ) { return; }
+
     $options = array( 'kp_frontend_editor_global_v1', 'kp_frontend_editor_pages_v1' );
     foreach ( $options as $opt ) {
         $val = get_option( $opt, null );

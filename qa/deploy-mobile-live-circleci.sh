@@ -3,7 +3,7 @@ set -euo pipefail
 
 STAGING_BASE="${STAGING_BASE:-https://neu.koblenzer-puppenspiele.de}"
 MU='wp-content/mu-plugins'
-export LFTP_PASSWORD="${STAGING_FTP_PASSWORD:-${LFTP_PASSWORD:-}}"
+export LFTP_PASSWORD="${LFTP_PASSWORD:-${STAGING_FTP_PASSWORD:-}}"
 
 : "${STAGING_FTP_SERVER:?STAGING_FTP_SERVER fehlt}"
 : "${STAGING_FTP_USERNAME:?STAGING_FTP_USERNAME fehlt}"
@@ -19,7 +19,6 @@ files=(
   'kp-mobile-local-image-tools.php'
   'kp-local-ai-desktop.php'
   'kp-local-ai-marker.php'
-  'kp-openrouter-bridge.php'
   'kp-owner-web-agent.php'
   'kp-ai-repair-lab.php'
 )
@@ -37,6 +36,7 @@ set net:max-retries 2;
 set net:timeout 20;
 open --user '$STAGING_FTP_USERNAME' --env-password -p 21 '$STAGING_FTP_SERVER';
 mkdir -p /wp-content/mu-plugins;
+rm -f /wp-content/mu-plugins/kp-openrouter-bridge.php;
 put '$MU/kp-mobile-live-bridge.php' -o '/wp-content/mu-plugins/kp-mobile-live-bridge.php';
 put '$MU/kp-mobile-live-bootstrap-v2.php' -o '/wp-content/mu-plugins/kp-mobile-live-bootstrap-v2.php';
 put '$MU/kp-mobile-live-protocol-marker.php' -o '/wp-content/mu-plugins/kp-mobile-live-protocol-marker.php';
@@ -46,13 +46,15 @@ put '$MU/kp-mobile-local-ai-repair.php' -o '/wp-content/mu-plugins/kp-mobile-loc
 put '$MU/kp-mobile-local-image-tools.php' -o '/wp-content/mu-plugins/kp-mobile-local-image-tools.php';
 put '$MU/kp-local-ai-desktop.php' -o '/wp-content/mu-plugins/kp-local-ai-desktop.php';
 put '$MU/kp-local-ai-marker.php' -o '/wp-content/mu-plugins/kp-local-ai-marker.php';
-put '$MU/kp-openrouter-bridge.php' -o '/wp-content/mu-plugins/kp-openrouter-bridge.php';
 put '$MU/kp-owner-web-agent.php' -o '/wp-content/mu-plugins/kp-owner-web-agent.php';
 put '$MU/kp-ai-repair-lab.php' -o '/wp-content/mu-plugins/kp-ai-repair-lab.php';
 bye
 "
 
 marker="$(mktemp)"
+diagnostics_dir="qa-results/mobile-live"
+mkdir -p "$diagnostics_dir"
+: > "$diagnostics_dir/marker-attempts.log"
 for attempt in $(seq 1 12); do
   if curl --fail --silent --show-error --location \
       -H 'Cache-Control: no-cache, no-store' \
@@ -65,8 +67,13 @@ for attempt in $(seq 1 12); do
   if [[ "$attempt" -eq 12 ]]; then
     echo 'FAIL mobile-live staging marker did not reach expected generation.' >&2
     cat "$marker" >&2 || true
+    cp "$diagnostics_dir/marker-attempts.log" "$diagnostics_dir/marker-last.log" || true
     exit 1
   fi
+  {
+    printf "\n=== mobile-live marker attempt %s ===\n" "$attempt"
+    sed -n "1,120p" "$marker"
+  } >> "$diagnostics_dir/marker-attempts.log"
   sleep 2
 done
 

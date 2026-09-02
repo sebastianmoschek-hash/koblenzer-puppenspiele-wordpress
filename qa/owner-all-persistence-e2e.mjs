@@ -7,6 +7,14 @@ if (!token) throw new Error('KP_E2E_TOKEN fehlt.');
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
 const page = await context.newPage();
+page.setDefaultTimeout(10000);
+page.setDefaultNavigationTimeout(30000);
+const watchdog = setTimeout(async () => {
+  console.error('FAIL: Owner-E2E watchdog nach 9 Minuten ausgelöst.');
+  await context.close().catch(() => {});
+  await browser.close().catch(() => {});
+  process.exit(124);
+}, 9 * 60 * 1000);
 const fail = message => { throw new Error(message); };
 let originalState = null;
 const automaticReloads = [];
@@ -14,10 +22,13 @@ const automaticReloads = [];
 async function e2eAjax(action, extra = {}) {
   return page.evaluate(async ({ action, extra, token }) => {
     const fd = new FormData();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
     fd.append('action', action);
     fd.append('token', token);
     for (const [key, value] of Object.entries(extra || {})) fd.append(key, typeof value === 'string' ? value : JSON.stringify(value));
-    const response = await fetch('/wp-admin/admin-ajax.php', { method: 'POST', credentials: 'same-origin', cache: 'no-store', body: fd });
+    const response = await fetch('/wp-admin/admin-ajax.php', { method: 'POST', credentials: 'same-origin', cache: 'no-store', body: fd, signal: controller.signal });
+    clearTimeout(timer);
     const json = await response.json().catch(() => null);
     return { ok: response.ok, status: response.status, json };
   }, { action, extra, token });
@@ -28,10 +39,13 @@ async function ownerAjax(action, extra = {}) {
     const cfg = window.KPOwnerWebApp;
     if (!cfg?.nonce) return { ok:false, status:0, json:null, error:'owner nonce missing' };
     const fd = new FormData();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
     fd.append('action', action);
     fd.append('nonce', cfg.nonce);
     for (const [key, value] of Object.entries(extra || {})) fd.append(key, typeof value === 'string' ? value : JSON.stringify(value));
-    const response = await fetch(cfg.ajaxUrl, { method:'POST', credentials:'same-origin', cache:'no-store', body:fd });
+    const response = await fetch(cfg.ajaxUrl, { method:'POST', credentials:'same-origin', cache:'no-store', body:fd, signal:controller.signal });
+    clearTimeout(timer);
     const json = await response.json().catch(() => null);
     return { ok: response.ok, status: response.status, json };
   }, { action, extra });
@@ -219,7 +233,9 @@ try {
     const diag = await editorStartDiagnostic(loginResponse);
     fail(`Frontend-Editor wurde nicht initialisiert. Diagnose=${JSON.stringify(diag)}`);
   }
-  await page.waitForSelector('.kp-oa-tools', { timeout:15000 });
+  // The legacy .kp-oa-tools control is intentionally hidden once the visible
+  // owner agent bar is active. Exercise the same click path as the owner.
+  await page.locator('.kp-wa-bar [data-kp-wa-edit], .kp-oa-tools').first().waitFor({ state:'visible', timeout:15000 });
   originalState = await state();
 
   await openDesign();
@@ -318,6 +334,7 @@ try {
 
   console.log(`PASS: ${Object.keys(expectedDesign).length} Design-Regler + ${Object.keys(expectedSizes).length} Größenregler + Menü-X über orange Speichern dauerhaft; Header-Rundung nach Reload sichtbar; ↶/↷ wirken sofort ohne Reload/Dialog; 48-Stunden-Versionen funktionieren getrennt davon.`);
 } finally {
+  clearTimeout(watchdog);
   if (originalState) {
     try {
       await restore(originalState);

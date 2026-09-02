@@ -95,6 +95,7 @@ grep -q "KPOwnerWebDiagnostics" "$WEB_FAST_JS"
 grep -Fq ".kp-wa-local-live" "$WEB_CSS"
 grep -Fq ".kp-wa-local-live.is-live" "$WEB_CSS"
 grep -q "kp-web-agent-active .kp-ai-trigger" "$WEB_CSS"
+grep -Fq '@media(min-width:760px) and (max-width:1023px){.kp-wa-bar{left:18px;right:auto}}' "$WEB_CSS"
 
 # Visible edits keep the existing draft/Undo/Save runtime but transparently replace its slow planner.
 grep -Fq "wp_ajax_kp_owner_web_edit_plan" "$FAST_EDIT"

@@ -1,6 +1,12 @@
 (() => {
   'use strict';
 
+  // WordPress/PWA navigation can evaluate the MU-plugin more than once in the
+  // same document. A second MutationObserver would repeatedly reassign the
+  // same keys and amplify the editor's DOM observers into a class mutation
+  // storm. Keep one authoritative runtime per document.
+  if (window.KPCanvaKeys?.__initialized) return;
+
   const hashString = str => {
     let h = 5381;
     for (let i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
@@ -125,12 +131,29 @@
     images.forEach(imageKey);
   }
 
-  window.KPCanvaKeys = { hashString, pathFor, rawKey, ensureGestureKey, imageKey, assign, selectors };
+  window.KPCanvaKeys = { hashString, pathFor, rawKey, ensureGestureKey, imageKey, assign, selectors, __initialized:true };
 
   assign();
+  let assignScheduled = false;
+  const scheduleAssign = () => {
+    if (assignScheduled) return;
+    assignScheduled = true;
+    requestAnimationFrame(() => {
+      assignScheduled = false;
+      // A single document pass is cheaper and safer than one recursive pass
+      // for every node added while an owner sheet is being opened.
+      assign();
+    });
+  };
   new MutationObserver(records => {
-    records.forEach(record => record.addedNodes.forEach(node => {
-      if (node instanceof Element) assign(node);
-    }));
+    // Owner sheets can add dozens of controls at once, but they are explicitly
+    // outside the editable canvas. Do not turn those UI-only insertions into a
+    // full-page key pass (and another observer cascade).
+    const hasCanvasAddition = records.some(record => [...record.addedNodes].some(node =>
+      node instanceof Element && !node.matches(uiSelector) && !node.closest(uiSelector)
+    ));
+    if (hasCanvasAddition) {
+      scheduleAssign();
+    }
   }).observe(document.documentElement, { childList:true, subtree:true });
 })();

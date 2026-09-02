@@ -1,23 +1,23 @@
 name: Owner all-controls persistence QA
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
-      - 'qa/owner-all-persistence-e2e.mjs'
-      - '.github/workflows/owner-all-persistence-staging-qa.yml'
+  workflow_run:
+    workflows: ['Deploy staging WordPress']
+    types: [completed]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: koblenzer-puppenspiele-owner-all-persistence
+  # Staging is a single shared environment. Queue/cancel duplicate checks so
+  # two owner write-tests can never mutate the same WordPress state together.
+  group: koblenzer-puppenspiele-owner-all-persistence-staging
   cancel-in-progress: true
 
 jobs:
   real-staging-owner-persistence:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
@@ -31,36 +31,26 @@ jobs:
         with:
           ref: main
 
-      - name: Install secure FTP client
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq lftp
-
-      - name: Deploy current plugin through staging-only FTP
+      - name: Wait for normal staging deploy
         id: staging_deploy
         continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
-          exec > >(tee /tmp/owner-all-deploy.log) 2>&1
-          : "${FTP_SERVER:?STAGING_FTP_SERVER secret is missing}"
-          : "${FTP_USERNAME:?STAGING_FTP_USERNAME secret is missing}"
-          : "${LFTP_PASSWORD:?STAGING_FTP_PASSWORD secret is missing}"
-          plugin='wp-content/plugins/koblenzer-puppenspiele-core-phase2-2'
-          test -d "$plugin"
-          lftp -c "
-            set ftp:ssl-force true;
-            set ftp:ssl-protect-data true;
-            set ssl:verify-certificate true;
-            set net:max-retries 2;
-            set net:timeout 20;
-            open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER';
-            mirror -R --verbose --only-newer --no-perms --parallel=2 '$plugin' '/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2';
-            bye
-          "
-          echo 'PASS: current plugin mirrored to staging-only WordPress root.'
+          expected=$(sed -n 's/^ \* Version: //p' wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/koblenzer-puppenspiele-core.php | head -1)
+          test -n "$expected"
+          for attempt in $(seq 1 48); do
+            if curl --fail --silent --show-error --location -H 'Cache-Control: no-cache' \
+              "$STAGING_BASE/?kp_staging_bridge_health=1&kp_owner_wait=${GITHUB_RUN_ID}-${attempt}" -o /tmp/owner-all-deploy-health.json \
+              && jq -e --arg version "$expected" '.success == true and .data.active == true and .data.version == $version' /tmp/owner-all-deploy-health.json >/dev/null 2>&1; then
+              echo "PASS: normal staging deploy exposes plugin $expected"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "ERROR: normal staging deploy did not expose plugin $expected" >&2
+          cat /tmp/owner-all-deploy-health.json >&2 2>/dev/null || true
+          exit 1
 
       - name: Verify staging plugin is current
         if: always() && steps.staging_deploy.outcome == 'success'
@@ -92,8 +82,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm install --no-save playwright
-          npx playwright install --with-deps chromium
+          timeout --foreground --signal=TERM --kill-after=20s 180s npm install --no-save playwright
+          timeout --foreground --signal=TERM --kill-after=20s 240s npx playwright install --with-deps chromium
 
       - name: Create short-lived staging-only browser bridge
         if: always() && steps.staging_ready.outcome == 'success' && steps.browser_setup.outcome == 'success'
@@ -153,7 +143,7 @@ jobs:
           });
           PHP
           php -l /tmp/kp-e2e-owner-all.php
-          lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 1; set net:timeout 15; open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER'; mkdir -p /wp-content/mu-plugins; put /tmp/kp-e2e-owner-all.php -o /wp-content/mu-plugins/kp-e2e-owner-all.php; bye"
+          timeout --foreground --signal=TERM --kill-after=15s 90s curl --fail --silent --show-error --ftp-ssl --ssl-reqd --user "$FTP_USERNAME:$LFTP_PASSWORD" --upload-file /tmp/kp-e2e-owner-all.php "ftp://$FTP_SERVER/wp-content/mu-plugins/kp-e2e-owner-all.php"
           echo 'PASS: short-lived bridge uploaded through staging-only account.'
 
       - name: Exercise every owner design control, undo and versions
@@ -166,8 +156,22 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
-          node qa/owner-all-persistence-e2e.mjs 2>&1 | tee /tmp/owner-all-persistence.log
-          exit ${PIPESTATUS[0]}
+          # Run Node and Chromium in one process group. A plain timeout can
+          # leave Playwright's browser child alive and keep the pipe open.
+          setsid node qa/owner-all-persistence-e2e.mjs > >(tee /tmp/owner-all-persistence.log) 2>&1 &
+          pid=$!
+          (
+            sleep 540
+            kill -TERM -- "-$pid" 2>/dev/null || true
+            sleep 20
+            kill -KILL -- "-$pid" 2>/dev/null || true
+          ) &
+          watchdog_pid=$!
+          wait "$pid"
+          rc=$?
+          kill "$watchdog_pid" 2>/dev/null || true
+          wait "$watchdog_pid" 2>/dev/null || true
+          exit "$rc"
 
       - name: Remove short-lived bridge
         if: always()
@@ -175,7 +179,7 @@ jobs:
         run: |
           set +e
           if [ -n "${FTP_SERVER:-}" ] && [ -n "${FTP_USERNAME:-}" ] && [ -n "${LFTP_PASSWORD:-}" ]; then
-            lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; set net:max-retries 1; set net:timeout 10; open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER'; rm -f /wp-content/mu-plugins/kp-e2e-owner-all.php; bye"
+            timeout --foreground --signal=TERM --kill-after=10s 60s curl --fail --silent --show-error --ftp-ssl --ssl-reqd --user "$FTP_USERNAME:$LFTP_PASSWORD" -Q 'DELE /wp-content/mu-plugins/kp-e2e-owner-all.php' "ftp://$FTP_SERVER/"
           fi
 
       - name: Write auditable result

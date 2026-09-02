@@ -5,8 +5,14 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - 'qa-results/**'
+    paths:
+      - 'wp-content/plugins/**'
+      - 'wp-content/themes/**'
+      - 'wp-content/mu-plugins/**'
+      - 'qa/**'
+      - 'visual-qa/**'
+      - '.circleci/**'
+      - '.github/workflows/**'
 
 permissions:
   contents: write

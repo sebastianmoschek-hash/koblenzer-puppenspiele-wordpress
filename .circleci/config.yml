@@ -128,6 +128,9 @@ jobs:
       - run:
           name: Deploy and verify Gemini Live bridge
           command: bash qa/deploy-mobile-live-circleci.sh
+      - store_artifacts:
+          path: qa-results/mobile-live
+          destination: mobile-live-diagnostics
 
   homepage-staging-lab:
     docker:
@@ -228,18 +231,25 @@ jobs:
             else
               echo 'PWA-fast mode: no editor text-save browser round needed.'
             fi
+            # Record the isolated text-save result for the downstream verdict jobs.
+            if [[ -s qa-results/circleci/report.json ]]; then
+              text_state=failure
+              [[ "$text_rc" -eq 0 ]] && text_state=success
+              tmp_report="$(mktemp)"
+              jq --arg state "$text_state" '.checks.realTextSave=$state' qa-results/circleci/report.json > "$tmp_report" && mv "$tmp_report" qa-results/circleci/report.json
+            fi
             printf 'lab_rc=%s\ntext_rc=%s\n' "$lab_rc" "$text_rc" > qa-results/circleci/runner-exit.txt
             set -e
             exit 0
           no_output_timeout: 10m
-      - run:
-          name: Publish latest safe lab report back to GitHub
-          when: always
-          command: bash qa/publish-circleci-report-to-github.sh
       - persist_to_workspace:
           root: .
           paths:
             - qa-results/circleci
+      - run:
+          name: Publish latest safe lab report back to GitHub
+          when: always
+          command: bash qa/publish-circleci-report-to-github.sh
       - store_artifacts:
           path: qa-results/circleci
           destination: circleci-lab-report
@@ -328,6 +338,7 @@ workflows:
             branches:
               only:
                 - main
+                - codex/offline-staging-webapp
                 - /ai-repair\/.*/
       - android-homepage-technician:
           filters:
@@ -338,53 +349,53 @@ workflows:
           serial-group: << pipeline.project.slug >>/mobile-live-staging-deploy-v1
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - homepage-staging-lab:
           requires:
             - editor-contracts
           serial-group: << pipeline.project.slug >>/homepage-staging-lab-v2
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-infra-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-editor-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-session-undo-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-persistence-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-text-save-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-touch-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-visual-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/

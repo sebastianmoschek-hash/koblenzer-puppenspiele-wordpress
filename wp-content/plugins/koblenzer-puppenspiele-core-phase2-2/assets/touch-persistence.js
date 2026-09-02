@@ -12,6 +12,7 @@
   const menuPanelSelector = '.kp-site-nav .wp-block-navigation__responsive-close';
   let authoritative = null;
   let mutationFrame = 0;
+  let liveLoad = null;
 
   function device() {
     const width = window.innerWidth;
@@ -120,6 +121,8 @@
   }
 
   async function loadLive() {
+      if (liveLoad) return liveLoad;
+      liveLoad = (async () => {
       if (editorHasLocalTouchState()) return;
       const fd = new FormData();
       fd.append('action', 'kp_touch_free_layout_load');
@@ -147,6 +150,8 @@
       } finally {
         clearTimeout(timer);
       }
+      })().finally(() => { liveLoad = null; });
+      return liveLoad;
     }
 
   const upstreamFetch = window.fetch.bind(window);

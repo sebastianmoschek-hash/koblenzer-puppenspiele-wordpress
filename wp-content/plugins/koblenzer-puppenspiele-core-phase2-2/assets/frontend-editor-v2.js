@@ -573,6 +573,9 @@
       setTimeout(()=>location.reload(),500);
     }catch(e){toast(e.message||'Speichern fehlgeschlagen','error');btn.disabled=false;btn.classList.remove('is-saving');btn.innerHTML='<span class="dashicons dashicons-saved"></span><span>Speichern</span>';}
   }
+  // The unified save bridge must invoke the real FE2 save after specialist runtimes flush.
+  // Expose the existing saveAll function without adding a second click listener.
+  window.KPFrontendEditorNativeSave=saveAll;
   document.querySelector('.kp-fe2-save')?.addEventListener('click',saveAll);
 
   document.addEventListener('submit',e=>{

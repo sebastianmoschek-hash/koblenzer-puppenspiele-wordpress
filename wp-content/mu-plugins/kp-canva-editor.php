@@ -80,7 +80,9 @@ add_action( 'wp_enqueue_scripts', static function () {
         'kp-canva-keys',
         $mu_url . 'kp-canva-keys.js',
         array(),
-        file_exists( $mu_dir . 'kp-canva-keys.js' ) ? (string) filemtime( $mu_dir . 'kp-canva-keys.js' ) : '1',
+        // FTP deployments can preserve the old mtime; keep a semantic cache
+        // suffix so browsers cannot retain the pre-fix observer stack.
+        ( file_exists( $mu_dir . 'kp-canva-keys.js' ) ? (string) filemtime( $mu_dir . 'kp-canva-keys.js' ) : '1' ) . '-fix2',
         true
     );
 
@@ -97,7 +99,11 @@ add_action( 'wp_enqueue_scripts', static function () {
     if ( $edit_mode ) {
         // Replace only the edit-mode interaction layer. CSS and the public data
         // format stay unchanged, and the proven safety/Save bridge is re-used.
-        foreach ( array( 'kp-touch-editor-bridge', 'kp-touch-gesture-safety', 'kp-touch-free-layout', 'kp-touch-gestures' ) as $handle ) {
+        // Persistence depends on the legacy bridge, which in turn depends on
+        // both legacy gesture runtimes. Leaving that top-level handle queued
+        // silently pulled the complete observer stack back in after these
+        // lower-level handles had been dequeued.
+        foreach ( array( 'kp-touch-persistence', 'kp-touch-editor-bridge', 'kp-touch-gesture-safety', 'kp-touch-free-layout', 'kp-touch-gestures' ) as $handle ) {
             wp_dequeue_script( $handle );
         }
     }
@@ -123,7 +129,7 @@ add_action( 'wp_enqueue_scripts', static function () {
         'kp-canva-editor',
         $mu_url . 'kp-canva-editor.js',
         array_values( array_unique( $deps ) ),
-        file_exists( $mu_dir . 'kp-canva-editor.js' ) ? (string) filemtime( $mu_dir . 'kp-canva-editor.js' ) : '1',
+        ( file_exists( $mu_dir . 'kp-canva-editor.js' ) ? (string) filemtime( $mu_dir . 'kp-canva-editor.js' ) : '1' ) . '-fix2',
         true
     );
     wp_localize_script( 'kp-canva-editor', 'KPCanvaEditor', array(

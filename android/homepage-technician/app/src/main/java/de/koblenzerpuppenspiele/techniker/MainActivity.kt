@@ -100,6 +100,11 @@ class MainActivity : Activity() {
         repairBridge = WebRepairBridge(webView)
         webView.addJavascriptInterface(repairBridge, "KPRepairResult")
         webView.addJavascriptInterface(NativeAiBridge(), "KPAndroidTechnician")
+        // The homepage live-chat expects the richer KPLocalLive contract. Keep
+        // the legacy bridge above for older pages, but expose the same native
+        // capabilities under the current contract so model installation and
+        // on-device replies do not fall back to the cloud path.
+        webView.addJavascriptInterface(NativeAiBridge(), "KPLocalLive")
         localAi = LocalAiTechnician(
             context = this,
             bridge = repairBridge,
@@ -386,6 +391,7 @@ class MainActivity : Activity() {
     }
 
     private fun configureWebView() {
+        if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
         webView.settings.apply {
@@ -420,6 +426,13 @@ class MainActivity : Activity() {
                         else "Bitte anmelden · danach stehen Bearbeiten und KI bereit"
                     )
                 }
+                dispatchLocalLive(
+                    "bridge-ready",
+                    JSONObject()
+                        .put("available", currentPageTrusted)
+                        .put("modelInstalled", ::localAi.isInitialized && localAi.modelState().installed)
+                        .put("live", liveLocal),
+                )
             }
         }
     }
@@ -526,7 +539,15 @@ class MainActivity : Activity() {
     }
 
     private fun installLocalModel() {
-        if (busy) return
+        if (busy) {
+            dispatchLocalLive("error", JSONObject().put("message", "Die lokale KI verarbeitet gerade noch einen anderen Auftrag."))
+            return
+        }
+        if (localAi.modelState().installed) {
+            dispatchLocalLive("model", JSONObject().put("installed", true))
+            refreshModelState()
+            return
+        }
         busy = true
         refreshModelState()
         addChatBubble("System", "Das lokale Modell wird einmalig heruntergeladen. Danach läuft der normale Chat ohne KI-API-Kosten.", false)
@@ -535,12 +556,22 @@ class MainActivity : Activity() {
                 localAi.downloadModel { downloaded, total ->
                     val pct = if (total > 0) ((downloaded * 100) / total).coerceIn(0, 100) else 0
                     showStatus("Lokale KI wird geladen · $pct %")
+                    dispatchLocalLive(
+                        "model-progress",
+                        JSONObject().put("percent", pct).put("downloaded", downloaded).put("total", total),
+                    )
                 }
                 addChatBubble("System", "Lokale KI ist installiert und bereit.", false)
                 showStatus("Lokale KI bereit · kostenlos auf dem Gerät")
+                dispatchLocalLive(
+                    "model",
+                    JSONObject().put("installed", true).put("message", "Lokales Gemma-Modell ist installiert."),
+                )
             } catch (error: Throwable) {
-                addChatBubble("System", error.message ?: "Modell konnte nicht installiert werden.", false)
-                showStatus("Lokale KI: ${error.message ?: error.javaClass.simpleName}")
+                val errorText = error.message ?: "Modell konnte nicht installiert werden."
+                addChatBubble("System", errorText, false)
+                showStatus("Lokale KI: $errorText")
+                dispatchLocalLive("error", JSONObject().put("message", errorText))
             } finally {
                 busy = false
                 refreshModelState()
@@ -557,12 +588,12 @@ class MainActivity : Activity() {
         if (message.isBlank()) return
 
         if (!localAi.modelState().installed) {
-            // Wenn das lokale 2.6-GB-Modell noch nicht heruntergeladen ist,
-            // leiten wir die Anfrage automatisch an den schnellen Cloud-Fallback weiter,
-            // damit die KI immer sofort antwortet.
-            lastRequest = message
-            textInput.text?.clear()
-            openEmergencyGemini()
+            // Keine automatische Cloud-Nutzung: Der normale Chat bleibt vollständig
+            // lokal und kostenlos. Die Nachricht bleibt als Entwurf erhalten, bis
+            // der Benutzer den einmaligen Modell-Download ausdrücklich startet.
+            addChatBubble("System", "Für den KI-Chat muss zuerst das kostenlose lokale Gemma-Modell installiert werden. Tippe auf ‚Lokale KI installieren‘; danach wird deine Nachricht erneut gesendet.", false)
+            showStatus("Lokales Modell fehlt · bitte einmalig installieren")
+            installButton.requestFocus()
             return
         }
         textInput.text?.clear()
@@ -581,10 +612,25 @@ class MainActivity : Activity() {
         processLocalRequest(message, "Du (Live)", speakReply = true)
     }
 
-    private fun processLocalRequest(message: String, who: String, speakReply: Boolean) {
-        if (busy) return
+    private fun processLocalRequest(message: String, who: String, speakReply: Boolean, requestId: String? = null) {
+        val cleanRequestId = requestId?.take(80)?.takeIf { it.isNotBlank() }
+        if (busy) {
+            if (cleanRequestId != null) {
+                dispatchLocalLive(
+                    "error",
+                    JSONObject().put("id", cleanRequestId).put("message", "Die lokale KI verarbeitet gerade noch die vorherige Nachricht."),
+                )
+            }
+            return
+        }
         if (!localAi.modelState().installed) {
             showStatus("Bitte zuerst die lokale KI installieren.")
+            dispatchLocalLive(
+                "needs-model",
+                JSONObject()
+                    .put("id", cleanRequestId)
+                    .put("message", "Das lokale Gemma-Modell muss einmalig installiert werden (~2,6 GB)."),
+            )
             return
         }
 
@@ -600,6 +646,12 @@ class MainActivity : Activity() {
         busy = true
         refreshModelState()
         showStatus("Lokale KI denkt und prüft die Seite …")
+        if (cleanRequestId != null) {
+            dispatchLocalLive(
+                "working",
+                JSONObject().put("id", cleanRequestId).put("message", "Gemma betrachtet den aktuellen Bildschirm …"),
+            )
+        }
         if (liveLocal) voiceController.continueListening(160L)
 
         uiScope.launch {
@@ -626,6 +678,12 @@ class MainActivity : Activity() {
                 removeChatBubble(thinking)
                 addChatBubble("KI", reply, false)
                 showStatus("Lokale KI bereit")
+                if (cleanRequestId != null) {
+                    dispatchLocalLive(
+                        "reply",
+                        JSONObject().put("id", cleanRequestId).put("text", reply).put("local", true),
+                    )
+                }
                 if (speakReply && liveLocal && queuedLiveRequest.isBlank()) {
                     voiceController.speak(reply)
                 } else if (liveLocal && queuedLiveRequest.isNotBlank()) {
@@ -640,6 +698,12 @@ class MainActivity : Activity() {
                     false,
                 )
                 showStatus("Lokale KI: $errorText")
+                if (cleanRequestId != null) {
+                    dispatchLocalLive(
+                        "error",
+                        JSONObject().put("id", cleanRequestId).put("message", errorText),
+                    )
+                }
                 if (liveLocal && queuedLiveRequest.isBlank()) {
                     voiceController.speak("Der lokale Modellaufruf ist fehlgeschlagen. Die genaue Meldung steht im Chat.")
                 }
@@ -666,14 +730,18 @@ class MainActivity : Activity() {
     private fun startLocalLive() {
         if (!localAi.modelState().installed) {
             showStatus("Bitte zuerst die lokale KI installieren.")
+            dispatchLocalLive(
+                "needs-model",
+                JSONObject().put("message", "Das lokale Gemma-Modell muss einmalig installiert werden (~2,6 GB)."),
+            )
             return
         }
-        if (!voiceController.isSupported()) {
+        val voiceSupported = voiceController.isSupported()
+        if (!voiceSupported) {
             addChatBubble("System", "Dieses Android-Gerät bietet keine lokale On-Device-Spracherkennung. Der Textchat bleibt vollständig nutzbar.", false)
-            showStatus("Live lokal nicht verfügbar · Chat funktioniert weiterhin")
-            return
+            showStatus("Live lokal · Bildschirm + Textchat verfügbar · Sprache auf diesem Gerät nicht verfügbar")
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (voiceSupported && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             pendingScreenAfterAudio = true
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_AUDIO)
             return
@@ -703,6 +771,14 @@ class MainActivity : Activity() {
             }
         refreshModelState()
         showStatus("Live lokal · ich sehe deinen Bildschirm und höre zu")
+        dispatchLocalLive(
+            "state",
+            JSONObject()
+                .put("live", true)
+                .put("screen", true)
+                .put("voice", voiceController.isSupported())
+                .put("message", "Live lokal aktiv · Bildschirm und Sprache bleiben auf dem Gerät."),
+        )
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -715,6 +791,8 @@ class MainActivity : Activity() {
             liveLocal = false
             addChatBubble("System", "Bildschirmfreigabe wurde nicht bestätigt. Live lokal bleibt aus.", false)
             showStatus("Live lokal nicht gestartet · Chat bleibt geöffnet")
+            dispatchLocalLive("error", JSONObject().put("message", "Bildschirmfreigabe wurde nicht bestätigt. Live lokal bleibt aus."))
+            dispatchLocalLive("state", JSONObject().put("live", false))
         }
     }
 
@@ -728,6 +806,7 @@ class MainActivity : Activity() {
         if (!silent) addChatBubble("System", "Live lokal beendet. Der normale KI-Chat bleibt geöffnet.", false)
         refreshModelState()
         showStatus("Lokale KI · Chat bereit")
+        dispatchLocalLive("state", JSONObject().put("live", false).put("message", "Live lokal beendet."))
     }
 
 
@@ -749,8 +828,10 @@ class MainActivity : Activity() {
                 startLocalLive()
             }
         } else {
-            addChatBubble("System", "Ohne Mikrofonberechtigung bleibt Live lokal aus. Schreiben funktioniert weiterhin.", false)
-            showStatus("Mikrofonzugriff abgelehnt · Chat bleibt verfügbar")
+            addChatBubble("System", "Mikrofonzugriff wurde nicht erlaubt. Live lokal startet trotzdem mit Bildschirm und Textchat.", false)
+            showStatus("Mikrofonzugriff abgelehnt · Bildschirm + Textchat bleiben verfügbar")
+            pendingScreenAfterAudio = false
+            requestScreenPermission()
         }
     }
 
@@ -778,24 +859,7 @@ class MainActivity : Activity() {
         uiScope.launch {
             try {
                 showStatus("Notfall Gemini · geschützter Cloud-Fallback arbeitet …")
-                val raw = try {
-                    repairBridge.emergencyGemini(clean, emergencyHistoryText())
-                } catch (serverError: Throwable) {
-                    // Server-Cloud-Fallback (Notfall Gemini über WordPress) fehlgeschlagen.
-                    // Automatischer nativer OpenRouter-Direktfallback, damit die KI immer antwortet.
-                    if (OpenRouterFallback.isConfigured()) {
-                        val startNano = System.nanoTime()
-                        val fallbackReply = OpenRouterFallback.chat(clean, emergencyHistoryText())
-                        val elapsedMs = (System.nanoTime() - startNano) / 1_000_000
-                        removeChatBubble(thinking)
-                        addChatBubble("KI (Cloud-Fallback)", fallbackReply, false)
-                        emergencyHistory += clean to fallbackReply
-                        while (emergencyHistory.size > 6) emergencyHistory.removeAt(0)
-                        showStatus("Cloud-Fallback (OpenRouter) · Antwort im Chat · ${elapsedMs} ms")
-                        return@launch
-                    }
-                    throw serverError
-                }
+                val raw = repairBridge.emergencyGemini(clean, emergencyHistoryText())
                 val result = JSONObject(raw.toString())
                 result.optString("error").takeIf { it.isNotBlank() }?.let { throw IllegalStateException(it) }
 
@@ -967,6 +1031,18 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun dispatchLocalLive(type: String, data: JSONObject) {
+        if (!::webView.isInitialized) return
+        data.put("type", type)
+        runOnUiThread {
+            if (!currentPageTrusted) return@runOnUiThread
+            webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('kp:local-live',{detail:${data}}));",
+                null,
+            )
+        }
+    }
+
     private fun isTrustedWebPage(): Boolean {
         val uri = runCatching { Uri.parse(webView.url ?: return false) }.getOrNull() ?: return false
         return uri.scheme == "https" && isTrustedHost(uri.host)
@@ -992,6 +1068,45 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun isAvailable(): Boolean = currentPageTrusted
+
+        @JavascriptInterface
+        fun isModelInstalled(): Boolean = ::localAi.isInitialized && localAi.modelState().installed
+
+        @JavascriptInterface
+        fun isLive(): Boolean = liveLocal
+
+        @JavascriptInterface
+        fun start() {
+            if (!currentPageTrusted) return
+            runOnUiThread { if (!liveLocal) startLocalLive() }
+        }
+
+        @JavascriptInterface
+        fun stop() {
+            if (!currentPageTrusted) return
+            runOnUiThread { if (liveLocal) stopLocalLive() }
+        }
+
+        @JavascriptInterface
+        fun ask(requestId: String, text: String) {
+            if (!currentPageTrusted) return
+            val cleanId = requestId.take(80)
+            val clean = text.trim().take(2200)
+            if (clean.isBlank()) return
+            runOnUiThread { processLocalRequest(clean, "Du", speakReply = false, requestId = cleanId) }
+        }
+
+        @JavascriptInterface
+        fun speechRateLabel(): String = if (::voiceController.isInitialized) voiceController.speechRateLabel() else "1,0×"
+
+        @JavascriptInterface
+        fun cycleSpeechRate(): String = if (::voiceController.isInitialized) voiceController.cycleSpeechRateLabel() else "1,0×"
+
+        @JavascriptInterface
+        fun installModel() {
+            if (!currentPageTrusted) return
+            runOnUiThread { installLocalModel() }
+        }
     }
 
     @Deprecated("Legacy back handling keeps minSdk implementation compact")
@@ -1007,6 +1122,7 @@ class MainActivity : Activity() {
         if (::webView.isInitialized) {
             webView.removeJavascriptInterface("KPRepairResult")
             webView.removeJavascriptInterface("KPAndroidTechnician")
+            webView.removeJavascriptInterface("KPLocalLive")
             webView.destroy()
         }
         uiScope.cancel()

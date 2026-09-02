@@ -1,12 +1,27 @@
 {
+  "generatedAt": "2026-09-01T20:32:04Z",
+  "sourceCommit": "fa493386cb77498b759594c4b05744daa3288169",
   "success": false,
-  "generatedAt": "2026-08-22T12:31:23Z",
-  "commit": "d11654e99d8e393ddc00c53ea953049a55b6cd28",
-  "failures": [
-    "Autonomous homepage lab has not yet persisted a real browser report. Missing report is an infrastructure failure, not a green QA result."
-  ],
-  "infrastructure": {
-    "reportPersistedByWorkflow": false,
-    "productionChanged": false
+  "checks": {
+    "workflowWait": "failure",
+    "persistedEvidence": "skipped"
+  },
+  "required": {
+    "owner": false,
+    "touch": false
+  },
+  "runs": {
+    "deploy": {
+      "id": "",
+      "conclusion": ""
+    },
+    "owner": {
+      "id": "",
+      "conclusion": ""
+    },
+    "touch": {
+      "id": "",
+      "conclusion": ""
+    }
   }
 }

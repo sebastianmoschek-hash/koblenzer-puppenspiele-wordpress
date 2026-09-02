@@ -298,6 +298,7 @@
 
   lockAllRanges();
   const rangeObserver = new MutationObserver(records => {
+    if (records.length && records.every(record => window.KPOwnerUI?.isOwnerElement?.(record.target))) return;
     let reposition = false;
     records.forEach(record => {
       if (record.type === 'childList') {
@@ -318,6 +319,7 @@
      owner handler can reopen the sheet and replace the preview with old data. */
   document.addEventListener('click', event => {
     const target = event.target instanceof Element ? event.target : null;
+    if (window.KPOwnerUI?.isOwnerElement?.(target)) return;
     const button = target?.closest('.kp-oa-design-reset');
     if (!button) return;
     const owner = window.KPOwnerWebApp;
@@ -345,6 +347,7 @@
   }, true);
 
   document.addEventListener('click', event => {
+    if (window.KPOwnerUI?.isOwnerElement?.(event.target)) return;
     if (event.target instanceof Element && event.target.closest('.kp-oa-tabs [data-tab]')) scheduleRangePositions();
   }, true);
   window.addEventListener('resize', scheduleRangePositions, {passive:true});

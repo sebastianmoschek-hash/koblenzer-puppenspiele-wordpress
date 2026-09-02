@@ -95,7 +95,9 @@ try {
   await page.waitForSelector(headerSelector, { timeout: 15000 });
 
   originalState = await state();
-  const pageKey = await page.evaluate(() => window.KPFreeLayout?.pageKey || window.KPTouchPersistence?.pageKey || '');
+  // Edit mode now intentionally uses the unified Canva runtime; keep legacy
+  // names as fallbacks for older staging deployments during rollout.
+  const pageKey = await page.evaluate(() => window.KPCanvaEditor?.pageKey || window.KPFreeLayout?.pageKey || window.KPTouchPersistence?.pageKey || '');
   if (!pageKey) fail('Kein echter Touch-pageKey auf Staging gefunden.');
 
   const beforeTransform = await page.locator(headerSelector).first().evaluate(el => getComputedStyle(el).transform);
@@ -128,7 +130,9 @@ try {
   if (!same(afterSecondDraft, serverAfterSave)) fail('Zweiter Drag wurde wieder automatisch gespeichert.');
 
   // Undo must revert the local draft without touching WordPress.
-  await page.locator('.kp-fe2-undo').click();
+  const undoButton = page.locator('[data-kp-word-history-new="undo"], .kp-fe2-undo').first();
+  await undoButton.waitFor({ state: 'visible', timeout: 10000 });
+  await undoButton.click();
   await page.waitForTimeout(120);
   const afterUndo = await state();
   if (!same(afterUndo, serverAfterSave)) fail('Rückgängig hat unerwartet WordPress beschrieben.');

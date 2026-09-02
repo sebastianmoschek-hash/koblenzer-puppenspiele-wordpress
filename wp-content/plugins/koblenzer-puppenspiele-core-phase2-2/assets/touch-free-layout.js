@@ -136,7 +136,8 @@
     if (!el) return;
     el.style.removeProperty('translate');
     el.style.removeProperty('scale');
-    el.classList.remove('kp-has-gesture-transform', 'kp-gesture-active', 'is-dragging', 'is-pinching');
+    const transient = ['kp-has-gesture-transform', 'kp-gesture-active', 'is-dragging', 'is-pinching'];
+    if (transient.some(name => el.classList.contains(name))) el.classList.remove(...transient);
   }
 
   function applySaved(root = document) {
@@ -422,7 +423,11 @@
 
   applySaved();
   new MutationObserver(records => {
-    if (records.some(record => record.addedNodes.length)) requestAnimationFrame(() => applySaved());
+    if (records.length && records.every(record => window.KPOwnerUI?.isOwnerElement?.(record.target))) return;
+    const hasLayoutAddition = records.some(record => [...record.addedNodes].some(node =>
+      node instanceof Element && !node.matches(uiSelector) && !node.closest(uiSelector)
+    ));
+    if (hasLayoutAddition) requestAnimationFrame(() => applySaved());
   }).observe(document.documentElement, {childList:true, subtree:true});
 
   window.KPFreeLayoutRuntime = {
@@ -455,6 +460,7 @@
 
   window.addEventListener('click', event => {
     const target = event.target instanceof Element ? event.target : null;
+    if (window.KPOwnerUI?.isOwnerElement?.(target)) return;
     if (target?.closest('.kp-fe2-undo') && history.length) {
       event.preventDefault();
       event.stopImmediatePropagation();

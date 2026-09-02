@@ -192,7 +192,7 @@
     qa('[data-kp-gesture-key]').forEach(el=>{
       if(el.closest('.kp-site-nav')||el.matches(headerImageSelector))return;
       const target=targetFromElement(el);if(!target)return;const ref=layoutRef(target,false);
-      if(ref.store[target.key]?.[ref.device])applyLayout(target,ref.value);else{el.style.removeProperty('translate');el.style.removeProperty('scale');el.classList.remove('kp-has-gesture-transform');}
+      if(ref.store[target.key]?.[ref.device])applyLayout(target,ref.value);else{el.style.removeProperty('translate');el.style.removeProperty('scale');if(el.classList.contains('kp-has-gesture-transform'))el.classList.remove('kp-has-gesture-transform');}
     });
     const fixed=[q(menuButtonSelector),q(menuPanelSelector),...qa(headerImageSelector)];
     fixed.filter(Boolean).forEach(el=>{const target=targetFromElement(el);if(target)applyLayout(target,layoutRef(target,false).value);});
