@@ -228,7 +228,7 @@ jobs:
             else
               echo 'PWA-fast mode: no editor text-save browser round needed.'
             fi
-            printf 'lab_rc=%s\ntext_rc=%s\n' "$lab_rc" "$text_rc" > qa-results/circleci/runner-exit.txt
+            # Record the isolated text-save result for the downstream verdict jobs.\n            if [[ -s qa-results/circleci/report.json ]]; then\n              text_state=failure\n              [[ "$text_rc" -eq 0 ]] && text_state=success\n              tmp_report="$(mktemp)"\n              jq --arg state "$text_state" '.checks.realTextSave=$state' qa-results/circleci/report.json > "$tmp_report" && mv "$tmp_report" qa-results/circleci/report.json\n            fi\n            printf 'lab_rc=%s\ntext_rc=%s\n' "$lab_rc" "$text_rc" > qa-results/circleci/runner-exit.txt
             set -e
             exit 0
           no_output_timeout: 10m
