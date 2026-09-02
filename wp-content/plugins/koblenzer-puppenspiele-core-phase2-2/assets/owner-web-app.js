@@ -208,7 +208,14 @@
         <button data-action="install" data-kp-oa-install="1"><span>▣</span><strong>${esc(installButtonLabel())}</strong><small>Als Web-App auf Handy/Tablet</small></button>
       </div>`);
     const box = sheet();
-    q('[data-action="design"]',box)?.addEventListener('click',openDesign);
+    q('[data-action="design"]',box)?.addEventListener('click',event=>{
+      // Keep the hub action isolated from page-level editor click delegation.
+      // Those listeners may inspect/rewrite the live DOM while the design sheet
+      // is being built, which made the Playwright click intermittently stall.
+      event.preventDefault();
+      event.stopPropagation();
+      openDesign();
+    });
     q('[data-action="nav"]',box)?.addEventListener('click',openNavigation);
     q('[data-action="termin"]',box)?.addEventListener('click',openNewTermin);
     q('[data-action="piece"]',box)?.addEventListener('click',openNewPiece);
