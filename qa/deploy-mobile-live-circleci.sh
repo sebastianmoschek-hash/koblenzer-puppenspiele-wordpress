@@ -52,6 +52,9 @@ bye
 "
 
 marker="$(mktemp)"
+diagnostics_dir="qa-results/mobile-live"
+mkdir -p "$diagnostics_dir"
+: > "$diagnostics_dir/marker-attempts.log"
 for attempt in $(seq 1 12); do
   if curl --fail --silent --show-error --location \
       -H 'Cache-Control: no-cache, no-store' \
@@ -64,8 +67,13 @@ for attempt in $(seq 1 12); do
   if [[ "$attempt" -eq 12 ]]; then
     echo 'FAIL mobile-live staging marker did not reach expected generation.' >&2
     cat "$marker" >&2 || true
+    cp "$diagnostics_dir/marker-attempts.log" "$diagnostics_dir/marker-last.log" || true
     exit 1
   fi
+  {
+    printf "\n=== mobile-live marker attempt %s ===\n" "$attempt"
+    sed -n "1,120p" "$marker"
+  } >> "$diagnostics_dir/marker-attempts.log"
   sleep 2
 done
 
