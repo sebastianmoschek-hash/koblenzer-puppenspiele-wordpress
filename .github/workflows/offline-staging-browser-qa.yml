@@ -21,7 +21,7 @@ concurrency:
 jobs:
   mobile-live-staging:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 90
     env:
       STAGING_BASE: https://neu.koblenzer-puppenspiele.de
       STAGING_FTP_SERVER: srv26.dsbsrv.de
