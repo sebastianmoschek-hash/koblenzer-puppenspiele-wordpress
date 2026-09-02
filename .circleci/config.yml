@@ -339,53 +339,53 @@ workflows:
           serial-group: << pipeline.project.slug >>/mobile-live-staging-deploy-v1
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - homepage-staging-lab:
           requires:
             - editor-contracts
           serial-group: << pipeline.project.slug >>/homepage-staging-lab-v2
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-infra-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-editor-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-session-undo-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-persistence-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-text-save-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-touch-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
       - staging-visual-verdict:
           requires:
             - homepage-staging-lab
           filters:
             branches:
-              only: main
+              only: /^(main|codex\/offline-staging-webapp)$/
