@@ -3,7 +3,7 @@ set -euo pipefail
 
 STAGING_BASE="${STAGING_BASE:-https://neu.koblenzer-puppenspiele.de}"
 MU='wp-content/mu-plugins'
-export LFTP_PASSWORD="${STAGING_FTP_PASSWORD:-${LFTP_PASSWORD:-}}"
+export LFTP_PASSWORD="${LFTP_PASSWORD:-${STAGING_FTP_PASSWORD:-}}"
 
 : "${STAGING_FTP_SERVER:?STAGING_FTP_SERVER fehlt}"
 : "${STAGING_FTP_USERNAME:?STAGING_FTP_USERNAME fehlt}"
