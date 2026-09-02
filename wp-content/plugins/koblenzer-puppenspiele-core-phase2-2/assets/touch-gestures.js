@@ -234,6 +234,7 @@
   assignGestureKeys();
   applySaved();
   new MutationObserver(records => {
+    if (records.length && records.every(record => window.KPOwnerUI?.isOwnerElement?.(record.target))) return;
     records.forEach(record => record.addedNodes.forEach(node => {
       if (!(node instanceof Element)) return;
       assignGestureKeys(node);
@@ -338,6 +339,7 @@
 
   window.addEventListener('click',event=>{
     const target=event.target instanceof Element?event.target:null;
+    if(window.KPOwnerUI?.isOwnerElement?.(target))return;
     if(target?.closest('.kp-fe2-undo')&&gestureHistory.length){
       event.preventDefault();event.stopImmediatePropagation();undo();return;
     }
@@ -345,6 +347,7 @@
   },true);
 
   document.addEventListener('click', event => {
+    if(window.KPOwnerUI?.isOwnerElement?.(event.target))return;
     const reset=event.target.closest?.('.kp-fe2-reset'); if(!reset)return;
     const el=document.querySelector('.kp-fe2-selected'); if(!el)return;
     const ref=valueFor(el,false); if(!ref||!ref.data[ref.key]?.[ref.device])return;

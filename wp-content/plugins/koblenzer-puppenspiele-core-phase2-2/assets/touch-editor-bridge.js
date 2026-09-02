@@ -71,6 +71,7 @@
   function syncInlineHeaderRadius(event) {
     const input = event.target instanceof HTMLInputElement ? event.target : null;
     if (!input || input.dataset.style !== 'radius' || !input.closest('.kp-fe2-inspector')) return;
+    if (window.KPOwnerUI?.isOwnerElement?.(input)) return;
     const stage = selectedHeaderStage();
     if (!stage) return;
     const radius = Math.max(0, Math.min(80, Number(input.value) || 0));
@@ -82,6 +83,7 @@
   function markFrontendDirty(event) {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
+    if (window.KPOwnerUI?.isOwnerElement?.(target)) return;
     if (target.closest('.kp-fe2-inspector,[contenteditable="true"]') || target.closest('.kp-fe2-image-pick,.kp-fe2-up,.kp-fe2-down,.kp-fe2-reset')) {
       frontendDirty = true;
     }
@@ -267,6 +269,7 @@
   }
 
   window.addEventListener('click', async event => {
+    if (window.KPOwnerUI?.isOwnerElement?.(event.target)) return;
     if (interceptMenuTap(event)) return;
 
     const target = event.target instanceof Element ? event.target : null;

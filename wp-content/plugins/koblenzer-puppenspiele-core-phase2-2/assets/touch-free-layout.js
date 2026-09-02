@@ -423,6 +423,7 @@
 
   applySaved();
   new MutationObserver(records => {
+    if (records.length && records.every(record => window.KPOwnerUI?.isOwnerElement?.(record.target))) return;
     const hasLayoutAddition = records.some(record => [...record.addedNodes].some(node =>
       node instanceof Element && !node.matches(uiSelector) && !node.closest(uiSelector)
     ));
@@ -459,6 +460,7 @@
 
   window.addEventListener('click', event => {
     const target = event.target instanceof Element ? event.target : null;
+    if (window.KPOwnerUI?.isOwnerElement?.(target)) return;
     if (target?.closest('.kp-fe2-undo') && history.length) {
       event.preventDefault();
       event.stopImmediatePropagation();

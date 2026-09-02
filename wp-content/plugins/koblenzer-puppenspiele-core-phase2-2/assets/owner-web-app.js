@@ -3,6 +3,15 @@
   const cfg = window.KPOwnerWebApp;
   if (!cfg) return;
 
+  // Shared early escape hatch for global editor/gesture listeners. The owner
+  // sheets are transient UI and must never enter the website interaction
+  // pipeline while they are being rebuilt.
+  window.KPOwnerUI = window.KPOwnerUI || {};
+  window.KPOwnerUI.isOwnerElement = window.KPOwnerUI.isOwnerElement || (node => {
+    const el = node instanceof Element ? node : node?.parentElement;
+    return !!el?.closest?.('.kp-oa-backdrop,.kp-oa-sheet,.kp-wa-bar,.kp-wa-panel');
+  });
+
   let installPrompt = null;
   let navDraft = Array.isArray(cfg.navigation) ? cfg.navigation.map(x => ({...x})) : [];
   let designDraft = cfg.design ? {...cfg.design} : {};
