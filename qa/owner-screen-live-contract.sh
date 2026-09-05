@@ -18,6 +18,7 @@ grep -Fq "fd.append('screen'" "$JS" || fail 'screen frame is not attached to pro
 grep -Fq "const visual = screen ? await apiRequest('kp_owner_web_agent_chat'" "$JS" || fail 'repair path does not obtain a visual diagnosis first'
 grep -Fq 'SICHTANALYSE AUS GETEILTEM BILDSCHIRM' "$JS" || fail 'repair request does not receive the visual diagnosis'
 grep -Fq "addEventListener('ended'" "$JS" || fail 'browser stop-sharing event is not handled'
+grep -Fq "q('.kp-wa-close')?.addEventListener('click',()=>stopScreenShare(false))" "$JS" || fail 'closing the assistant does not stop screen sharing'
 grep -Fq 'track.stop()' "$JS" || fail 'explicit stop-sharing cleanup missing'
 grep -Fq 'Bildschirm teilen' "$JS" || fail 'plain-language share control missing'
 grep -Fq 'Bildschirmfreigabe beenden' "$JS" || fail 'plain-language stop control missing'

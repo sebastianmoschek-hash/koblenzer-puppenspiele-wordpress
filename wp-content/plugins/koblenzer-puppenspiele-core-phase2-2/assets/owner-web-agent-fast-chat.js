@@ -200,6 +200,7 @@
     q('.kp-wa-live-toggle', row)?.addEventListener('click', toggleLocalLive);
     q('.kp-wa-screen-share', row)?.addEventListener('click', toggleScreenShare);
     q('.kp-wa-live-see', row)?.addEventListener('click', () => askWhatYouSee());
+    q('.kp-wa-close')?.addEventListener('click',()=>stopScreenShare(false));
     refreshLocalState();
   }
 
