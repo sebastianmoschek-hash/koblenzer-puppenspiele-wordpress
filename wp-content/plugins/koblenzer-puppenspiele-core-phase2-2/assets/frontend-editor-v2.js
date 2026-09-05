@@ -390,6 +390,16 @@
     return '#' + [m[1],m[2],m[3]].map(n=>Math.max(0,Math.min(255,+n)).toString(16).padStart(2,'0')).join('');
   }
 
+  function safeEditorUrl(value) {
+    const raw=String(value??'').trim();
+    if(!raw)return '';
+    if((raw.startsWith('/')&&!raw.startsWith('//'))||raw.startsWith('#')||raw.startsWith('?'))return raw;
+    try {
+      const parsed=/^[a-z][a-z0-9+.-]*:/i.test(raw)?new URL(raw):new URL(raw,location.href);
+      return ['http:','https:','mailto:','tel:'].includes(parsed.protocol)?raw:null;
+    } catch (_) { return null; }
+  }
+
   function mutateItem(el, fn, makeSnapshot=true) {
     if (makeSnapshot) snapshot();
     const ref = itemFor(el,true);
@@ -512,10 +522,13 @@
     if(label&&url){
       let pushed=false;
       const update=()=>{
+        const href=safeEditorUrl(url.value);
+        if(href===null){url.setCustomValidity('Bitte eine sichere Internetadresse eingeben.');return;}
+        url.setCustomValidity('');
         if(!pushed){snapshot();pushed=true;}
         const target=contentTarget(el);
-        mutateItem(el,item=>{item.content={type:'link',label:label.value,href:url.value};},false);
-        if(target){target.textContent=label.value;if(target.tagName==='A')target.setAttribute('href',url.value||'#');}
+        mutateItem(el,item=>{item.content={type:'link',label:label.value,href};},false);
+        if(target){target.textContent=label.value;if(target.tagName==='A')target.setAttribute('href',href||'#');}
       };
       label.addEventListener('input',update);url.addEventListener('input',update);
     }
