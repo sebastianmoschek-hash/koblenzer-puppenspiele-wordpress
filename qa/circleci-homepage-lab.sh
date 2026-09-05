@@ -24,6 +24,7 @@ status_deploy=skipped
 status_ready=skipped
 status_bridge=skipped
 status_editor=skipped
+status_ai_chat=skipped
 status_persistence=skipped
 status_slider=skipped
 status_touch=skipped
@@ -166,10 +167,11 @@ cp "$ASSETS/owner-menu-x.js" /tmp/owner-menu-x.js
 if [[ "$status_bridge" == success ]]; then
   export KP_E2E_BASE="$STAGING_BASE" KP_E2E_TOKEN="$E2E_TOKEN" KP_LAB_OUT="$EDITOR_DIR"
   if run_capture editor node qa/homepage-editor-lab.mjs; then status_editor=success; else status_editor=failure; fi
+  if run_capture ai-chat node qa/owner-ai-chat-staging-e2e.mjs; then status_ai_chat=success; else status_ai_chat=failure; fi
   if ! run_capture session-undo node qa/editor-session-undo-e2e.mjs; then status_editor=failure; fi
   if run_capture persistence node qa/owner-all-persistence-e2e.mjs; then status_persistence=success; else status_persistence=failure; fi
 else
-  status_editor=failure; status_persistence=failure
+  status_editor=failure; status_ai_chat=failure; status_persistence=failure
 fi
 
 export KP_TOUCH_SAFETY=/tmp/touch-gesture-safety.js KP_TOUCH_SAFETY_CSS=/tmp/touch-gesture-safety.css
@@ -191,7 +193,7 @@ cleanup_bridge
 trap - EXIT
 
 overall=success
-for s in "$status_deploy" "$status_ready" "$status_bridge" "$status_editor" "$status_persistence" "$status_slider" "$status_touch" "$status_visual"; do
+for s in "$status_deploy" "$status_ready" "$status_bridge" "$status_editor" "$status_ai_chat" "$status_persistence" "$status_slider" "$status_touch" "$status_visual"; do
   [[ "$s" == success ]] || overall=failure
 done
 
@@ -209,6 +211,7 @@ cat > "$REPORT_DIR/report.json" <<JSON
     "stagingReady":"$status_ready",
     "temporaryBridge":"$status_bridge",
     "editorMobileTabletDesktop":"$status_editor",
+    "ownerAiChat":"$status_ai_chat",
     "saveReloadDbUndo48h":"$status_persistence",
     "nativeTouchSliderSaveReset":"$status_slider",
     "touchRuntime":"$status_touch",
@@ -230,6 +233,7 @@ Gesamtstatus: **${overall^^}**
 - Aktive Staging-Version: $status_ready
 - Temporärer E2E-Zugang: $status_bridge
 - Echter Editor Mobile/Tablet/Desktop + Session-Undo: $status_editor
+- Geschützter Eigentümer-KI-Chat mit echter Antwort: $status_ai_chat
 - Speichern → Reload → DB + Undo/48h: $status_persistence
 - Nativer Touch-Regler + Zurücksetzen/Speichern: $status_slider
 - Drag/Pinch/Touch-Runtime: $status_touch
