@@ -7,6 +7,7 @@ on:
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/**'
       - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/**'
       - 'wp-content/mu-plugins/kp-mobile-live-bridge.php'
+      - 'wp-content/mu-plugins/kp-ai-direct-editor.php'
       - 'wp-content/mu-plugins/kp-owner-web-agent.php'
       - 'wp-content/mu-plugins/kp-ai-repair-lab.php'
       - '.github/workflows/deploy-staging.yml'
@@ -67,6 +68,7 @@ jobs:
                -type f -name '*.php' -print0 \
             | xargs -0 -n1 php -l
           php -l wp-content/mu-plugins/kp-mobile-live-bridge.php
+          php -l wp-content/mu-plugins/kp-ai-direct-editor.php
           php -l wp-content/mu-plugins/kp-owner-web-agent.php
           php -l wp-content/mu-plugins/kp-ai-repair-lab.php
 
@@ -155,10 +157,21 @@ jobs:
             mkdir -p '/wp-content/mu-plugins';
             rm -f '/wp-content/mu-plugins/kp-openrouter-bridge.php';
             put '$LIVE_BRIDGE' -o '/wp-content/mu-plugins/kp-mobile-live-bridge.php';
+            put 'wp-content/mu-plugins/kp-ai-direct-editor.php' -o '/wp-content/mu-plugins/kp-ai-direct-editor.php';
             put 'wp-content/mu-plugins/kp-owner-web-agent.php' -o '/wp-content/mu-plugins/kp-owner-web-agent.php';
             put 'wp-content/mu-plugins/kp-ai-repair-lab.php' -o '/wp-content/mu-plugins/kp-ai-repair-lab.php';
             bye
           "
+
+          # Verify the kp_ai_key provider that the owner chat requires.
+          direct_status="$(curl --silent --show-error --location --max-time 20 \
+            -o /dev/null -w '%{http_code}' \
+            'https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-ai-direct-editor.php?kp_ci=${{ github.sha }}' || true)"
+          if [ "$direct_status" != '200' ]; then
+            echo "ERROR: kp_ai_key provider missing after deploy (HTTP $direct_status)." >&2
+            exit 1
+          fi
+          echo 'kp_ai_key provider deployed with owner web agent.'
 
       - name: Verify Gemini Live bootstrap is active on staging
         shell: bash

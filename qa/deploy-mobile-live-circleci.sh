@@ -19,6 +19,7 @@ files=(
   'kp-mobile-local-image-tools.php'
   'kp-local-ai-desktop.php'
   'kp-local-ai-marker.php'
+  'kp-ai-direct-editor.php'
   'kp-owner-web-agent.php'
   'kp-ai-repair-lab.php'
 )
@@ -46,10 +47,22 @@ put '$MU/kp-mobile-local-ai-repair.php' -o '/wp-content/mu-plugins/kp-mobile-loc
 put '$MU/kp-mobile-local-image-tools.php' -o '/wp-content/mu-plugins/kp-mobile-local-image-tools.php';
 put '$MU/kp-local-ai-desktop.php' -o '/wp-content/mu-plugins/kp-local-ai-desktop.php';
 put '$MU/kp-local-ai-marker.php' -o '/wp-content/mu-plugins/kp-local-ai-marker.php';
+put '$MU/kp-ai-direct-editor.php' -o '/wp-content/mu-plugins/kp-ai-direct-editor.php';
 put '$MU/kp-owner-web-agent.php' -o '/wp-content/mu-plugins/kp-owner-web-agent.php';
 put '$MU/kp-ai-repair-lab.php' -o '/wp-content/mu-plugins/kp-ai-repair-lab.php';
 bye
 "
+
+# The owner agent cannot load Gemini without the kp_ai_key provider. A direct
+# request executes the guarded MU-plugin and must therefore settle to HTTP 200.
+direct_status="$(curl --silent --show-error --location --max-time 20 \
+  -o /dev/null -w '%{http_code}' \
+  "$STAGING_BASE/wp-content/mu-plugins/kp-ai-direct-editor.php?kp_ci=${CIRCLE_SHA1:-manual}" || true)"
+if [[ "$direct_status" != '200' ]]; then
+  echo "FAIL kp_ai_key provider was not deployed (HTTP $direct_status)." >&2
+  exit 1
+fi
+echo 'PASS kp_ai_key provider deployed with owner web agent'
 
 marker="$(mktemp)"
 diagnostics_dir="qa-results/mobile-live"
