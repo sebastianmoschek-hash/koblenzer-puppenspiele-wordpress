@@ -248,11 +248,12 @@ final class KP_Frontend_Editor_V2 {
 
     public static function enqueue_assets() {
         if ( is_admin() ) { return; }
-        wp_enqueue_script( 'kp-frontend-editor-v2', KP_CORE_URL . 'assets/frontend-editor-v2.js', array(), KP_CORE_VERSION, true );
+        $asset_version = KP_CORE_VERSION . '-fe2-20260905-1';
+        wp_enqueue_script( 'kp-frontend-editor-v2', KP_CORE_URL . 'assets/frontend-editor-v2.js', array(), $asset_version, true );
         if ( self::edit_mode() ) {
             wp_enqueue_media();
             wp_enqueue_style( 'dashicons' );
-            wp_enqueue_style( 'kp-frontend-editor-v2', KP_CORE_URL . 'assets/frontend-editor-v2.css', array(), KP_CORE_VERSION );
+            wp_enqueue_style( 'kp-frontend-editor-v2', KP_CORE_URL . 'assets/frontend-editor-v2.css', array(), $asset_version );
         }
         $payload = array(
             'editMode'       => self::edit_mode(),
@@ -340,7 +341,7 @@ final class KP_Frontend_Editor_V2 {
     }
 
     private static function sanitize_scope_data( $data ) {
-        $out = array( 'blocks' => array(), 'dom' => array(), 'order' => array() );
+        $out = array( 'blocks' => array(), 'dom' => array(), 'order' => array(), 'section_actions' => array() );
         if ( ! is_array( $data ) ) { return $out; }
         foreach ( array( 'blocks', 'dom' ) as $collection ) {
             if ( empty( $data[ $collection ] ) || ! is_array( $data[ $collection ] ) ) { continue; }
@@ -363,7 +364,74 @@ final class KP_Frontend_Editor_V2 {
                 if ( $key ) { $out['order'][] = $key; }
             }
         }
+        if ( ! empty( $data['section_actions'] ) && is_array( $data['section_actions'] ) ) {
+            foreach ( array_slice( $data['section_actions'], 0, 10 ) as $action ) {
+                if ( ! is_array( $action ) || 'duplicate' !== ( $action['type'] ?? '' ) ) { continue; }
+                $key = preg_replace( '/[^a-z0-9\-]/', '', strtolower( (string) ( $action['key'] ?? '' ) ) );
+                $token = preg_replace( '/[^a-z0-9\-]/', '', strtolower( (string) ( $action['token'] ?? '' ) ) );
+                if ( $key && $token && strlen( $token ) <= 64 ) {
+                    $out['section_actions'][] = array( 'type' => 'duplicate', 'key' => $key, 'token' => $token );
+                }
+            }
+        }
         return $out;
+    }
+
+    private static function apply_section_actions( &$page, $page_key ) {
+        $actions = isset( $page['section_actions'] ) && is_array( $page['section_actions'] ) ? $page['section_actions'] : array();
+        $stored = self::page_data( $page_key );
+        $applied = isset( $stored['applied_section_tokens'] ) && is_array( $stored['applied_section_tokens'] )
+            ? array_values( array_filter( array_map( 'sanitize_key', $stored['applied_section_tokens'] ) ) )
+            : array();
+        $page['section_actions'] = array();
+        if ( ! $actions ) {
+            if ( $applied ) { $page['applied_section_tokens'] = array_slice( $applied, -40 ); }
+            return 0;
+        }
+        if ( ! preg_match( '/^post-([0-9]+)$/', (string) $page_key, $match ) ) {
+            throw new RuntimeException( 'Bereiche können nur auf einer gespeicherten WordPress-Seite dupliziert werden.' );
+        }
+        $post_id = (int) $match[1];
+        if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+            throw new RuntimeException( 'Keine Berechtigung zum Duplizieren dieses Bereichs.' );
+        }
+        $post = get_post( $post_id );
+        if ( ! $post ) { throw new RuntimeException( 'Die WordPress-Seite wurde nicht gefunden.' ); }
+        $blocks = parse_blocks( (string) $post->post_content );
+        $allowed = array( 'core/group', 'core/cover', 'core/columns', 'core/media-text' );
+        $created = 0;
+        foreach ( $actions as $action ) {
+            $token = sanitize_key( (string) $action['token'] );
+            if ( ! $token || in_array( $token, $applied, true ) ) { continue; }
+            $matches = array();
+            foreach ( $blocks as $index => $block ) {
+                if ( self::block_key( $block ) === $action['key'] ) { $matches[] = $index; }
+            }
+            if ( 1 !== count( $matches ) ) {
+                throw new RuntimeException( 'Der ausgewählte Bereich ist nicht mehr eindeutig. Bitte die Seite neu laden.' );
+            }
+            $index = $matches[0];
+            if ( ! in_array( (string) ( $blocks[ $index ]['blockName'] ?? '' ), $allowed, true ) ) {
+                throw new RuntimeException( 'Dieser Blocktyp kann aus Sicherheitsgründen nicht direkt dupliziert werden.' );
+            }
+            $copy = $blocks[ $index ];
+            if ( ! isset( $copy['attrs'] ) || ! is_array( $copy['attrs'] ) ) { $copy['attrs'] = array(); }
+            $copy['attrs']['anchor'] = 'kp-' . substr( $token, 0, 55 );
+            $new_key = self::block_key( $copy );
+            array_splice( $blocks, $index + 1, 0, array( $copy ) );
+            if ( ! empty( $page['order'] ) && is_array( $page['order'] ) ) {
+                $position = array_search( $action['key'], $page['order'], true );
+                if ( false !== $position ) { array_splice( $page['order'], $position + 1, 0, array( $new_key ) ); }
+            }
+            $applied[] = $token;
+            $created++;
+        }
+        if ( $created ) {
+            $result = wp_update_post( wp_slash( array( 'ID' => $post_id, 'post_content' => serialize_blocks( $blocks ) ) ), true );
+            if ( is_wp_error( $result ) ) { throw new RuntimeException( $result->get_error_message() ); }
+        }
+        $page['applied_section_tokens'] = array_slice( array_values( array_unique( $applied ) ), -40 );
+        return $created;
     }
 
     public static function ajax_save() {
@@ -376,13 +444,19 @@ final class KP_Frontend_Editor_V2 {
         if ( ! is_array( $payload ) ) { wp_send_json_error( array( 'message' => 'Ungültige Daten.' ), 400 ); }
         $global = self::sanitize_scope_data( isset( $payload['global'] ) ? $payload['global'] : array() );
         $page   = self::sanitize_scope_data( isset( $payload['page'] ) ? $payload['page'] : array() );
+        try {
+            $duplicated = self::apply_section_actions( $page, $page_key );
+        } catch ( Throwable $error ) {
+            wp_send_json_error( array( 'message' => $error->getMessage() ), 400 );
+        }
         update_option( self::GLOBAL_OPTION, $global, false );
         $all = get_option( self::PAGES_OPTION, array() );
         if ( ! is_array( $all ) ) { $all = array(); }
         $all[ $page_key ] = $page;
         if ( count( $all ) > 160 ) { $all = array_slice( $all, -160, null, true ); }
         update_option( self::PAGES_OPTION, $all, false );
-        wp_send_json_success( array( 'message' => 'Gespeichert.', 'page_key' => $page_key ) );
+        $message = $duplicated ? sprintf( _n( 'Gespeichert und ein Bereich dupliziert.', 'Gespeichert und %d Bereiche dupliziert.', $duplicated ), $duplicated ) : 'Gespeichert.';
+        wp_send_json_success( array( 'message' => $message, 'page_key' => $page_key, 'duplicated' => $duplicated ) );
     }
 
     private static function normalize( $text ) {

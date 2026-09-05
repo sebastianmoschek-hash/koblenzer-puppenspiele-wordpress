@@ -25,6 +25,7 @@ run_contract(){
 set -e
 run_contract 'word-history' 'qa/word-history-contract.sh' 'word-history-contract.log'
 run_contract 'unified-editor' 'qa/unified-editor-contract.sh' 'unified-contract.log'
+run_contract 'frontend-section-actions' 'qa/frontend-section-actions-contract.sh' 'frontend-section-actions-contract.log'
 run_contract 'create-undo-redo' 'qa/create-undo-contract.sh' 'create-undo-contract.log'
 run_contract 'calendar-undo-redo' 'qa/calendar-undo-contract.sh' 'calendar-undo-contract.log'
 run_contract 'ai-repair-safety' 'qa/ai-repair-contract.sh' 'ai-repair-contract.log'

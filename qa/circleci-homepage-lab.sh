@@ -167,6 +167,7 @@ cp "$ASSETS/owner-menu-x.js" /tmp/owner-menu-x.js
 if [[ "$status_bridge" == success ]]; then
   export KP_E2E_BASE="$STAGING_BASE" KP_E2E_TOKEN="$E2E_TOKEN" KP_LAB_OUT="$EDITOR_DIR"
   if run_capture editor node qa/homepage-editor-lab.mjs; then status_editor=success; else status_editor=failure; fi
+  if ! run_capture section-actions node qa/frontend-section-actions-browser-test.mjs; then status_editor=failure; fi
   if run_capture ai-chat node qa/owner-ai-chat-staging-e2e.mjs; then status_ai_chat=success; else status_ai_chat=failure; fi
   if ! run_capture session-undo node qa/editor-session-undo-e2e.mjs; then status_editor=failure; fi
   if run_capture persistence node qa/owner-all-persistence-e2e.mjs; then status_persistence=success; else status_persistence=failure; fi

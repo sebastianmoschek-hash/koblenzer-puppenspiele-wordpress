@@ -31,7 +31,7 @@ publish_remote_diagnostics(){
   [[ -n "${STAGING_FTP_SERVER:-}" && -n "${STAGING_FTP_USERNAME:-}" && -n "${LFTP_PASSWORD:-}" ]] || return 0
   local diag="$REPORT_DIR/diagnostics.txt"
   : > "$diag"
-  for logfile in pipeline.log editor.log ai-chat.log session-undo.log persistence.log touch-slider.log touch-runtime.log visual.log php-syntax.log deploy.log; do
+  for logfile in pipeline.log editor.log section-actions.log ai-chat.log session-undo.log persistence.log touch-slider.log touch-runtime.log visual.log php-syntax.log deploy.log; do
     local src="$REPORT_DIR/$logfile"
     if [[ -s "$src" ]]; then
       {

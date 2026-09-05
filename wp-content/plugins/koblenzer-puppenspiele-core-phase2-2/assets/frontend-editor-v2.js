@@ -9,6 +9,7 @@
     if (!x.blocks || typeof x.blocks !== 'object') x.blocks = {};
     if (!x.dom || typeof x.dom !== 'object') x.dom = {};
     if (!Array.isArray(x.order)) x.order = [];
+    if (!Array.isArray(x.section_actions)) x.section_actions = [];
     return x;
   };
 
@@ -143,7 +144,13 @@
     if (style.background) el.style.setProperty('background-color', style.background, 'important');
     if (style.radius !== undefined) el.style.setProperty('border-radius', style.radius + 'px', 'important');
     if (style.align) target.style.setProperty('text-align', style.align, 'important');
-    if (style.hidden) el.style.setProperty('display', 'none', 'important');
+    if (style.hidden) {
+      if (cfg.editMode) el.classList.add('kp-fe2-hidden-preview');
+      else el.style.setProperty('display', 'none', 'important');
+    } else {
+      el.classList.remove('kp-fe2-hidden-preview');
+      if (cfg.editMode) el.style.removeProperty('display');
+    }
   }
 
   function actualStyle(item) {
@@ -173,7 +180,7 @@
     for (const selector of selectors) {
       const root = document.querySelector(selector);
       if (!root) continue;
-      const items = [...root.children].filter(el => el.dataset?.kpEditKey && !['HEADER','FOOTER'].includes(el.tagName));
+      const items = [...root.children].filter(el => el.dataset?.kpEditKey && !el.dataset?.kpSectionCopy && !['HEADER','FOOTER'].includes(el.tagName));
       if (items.length >= 2) return {root,items};
     }
     return {root:null,items:[]};
@@ -187,13 +194,69 @@
     order.forEach(key => { if (map.has(key)) root.appendChild(map.get(key)); });
   }
 
+  function renderSectionCopies() {
+    document.querySelectorAll('[data-kp-section-copy]').forEach(el => el.remove());
+    const {root,items}=sectionRootAndItems();
+    if(!root)return;
+    for(const action of draftPage.section_actions||[]) {
+      if(action?.type!=='duplicate'||!action.key||!action.token)continue;
+      const source=items.find(el=>el.dataset.kpEditKey===action.key);
+      if(!source)continue;
+      const copy=source.cloneNode(true);
+      copy.dataset.kpSectionCopy=action.token;
+      copy.classList.remove('kp-fe2-selected');
+      copy.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+      copy.removeAttribute('id');
+      copy.querySelectorAll('[contenteditable]').forEach(el=>el.removeAttribute('contenteditable'));
+      copy.setAttribute('aria-label','Kopie – noch nicht gespeichert');
+      source.insertAdjacentElement('afterend',copy);
+    }
+  }
+
   assignFallbackKeys();
   applyScope(draftGlobal,'global');
   applyScope(draftPage,'page');
   applyOrder(draftPage.order);
+  renderSectionCopies();
   if (!cfg.editMode) return;
 
   document.body.classList.add('kp-fe2-editing');
+
+  function saveSectionOrder() {
+    draftPage.order=[...sectionRootAndItems().items].map(x=>x.dataset.kpEditKey).filter(Boolean);
+    setDirty(true);
+  }
+
+  function setupSectionDrag() {
+    const {root,items}=sectionRootAndItems();
+    if(!root)return;
+    items.forEach(el=>{
+      if(el.dataset.kpFe2ReorderReady)return;
+      el.dataset.kpFe2ReorderReady='1';
+      el.draggable=true;
+      el.addEventListener('dragstart',event=>{
+        snapshot();
+        root._kpDraggedSection=el;
+        el.classList.add('kp-fe2-dragging');
+        event.dataTransfer?.setData('text/plain',el.dataset.kpEditKey||'');
+      });
+      el.addEventListener('dragover',event=>event.preventDefault());
+      el.addEventListener('drop',event=>{
+        event.preventDefault();
+        const source=root._kpDraggedSection;
+        if(!source||source===el)return;
+        const current=[...sectionRootAndItems().items];
+        if(current.indexOf(source)<current.indexOf(el))el.insertAdjacentElement('afterend',source);
+        else root.insertBefore(source,el);
+        saveSectionOrder();
+      });
+      el.addEventListener('dragend',()=>{
+        el.classList.remove('kp-fe2-dragging');
+        root._kpDraggedSection=null;
+      });
+    });
+  }
+  setupSectionDrag();
 
   function captureHistoryDom() {
     const nodes = [...document.querySelectorAll('[data-kp-dom-key],[data-kp-edit-key]')].map(el => {
@@ -246,6 +309,7 @@
     if (section.root && Array.isArray(dom.order)) {
       dom.order.forEach(el => { if (el?.isConnected) section.root.appendChild(el); });
     }
+    renderSectionCopies();
     clearSelection();
   }
 
@@ -386,8 +450,10 @@
       body=`<div class="kp-fe2-compact-copy"><strong>Bild ausgewählt</strong><small>Bild austauschen oder die Darstellung anpassen.</small></div>
         <div class="kp-fe2-actions"><button class="kp-fe2-image-pick is-primary">Bild austauschen</button><button class="kp-fe2-expand">${expanded?'Weniger':'Gestaltung'}</button>${nearestSection(el)?'<button class="kp-fe2-parent">Bereich</button>':''}</div>`;
     } else {
+      const hidden=!!styleFor(el).hidden;
       body=`<div class="kp-fe2-compact-copy"><strong>Bereich ausgewählt</strong><small>Verschieben oder Gestaltung für ${deviceLabels[editorDevice]} ändern.</small></div>
-        <div class="kp-fe2-actions"><button class="kp-fe2-up">↑ Hoch</button><button class="kp-fe2-down">↓ Runter</button><button class="kp-fe2-expand is-primary">${expanded?'Weniger':'Gestaltung'}</button></div>`;
+        <label class="kp-fe2-hidden-control"><input class="kp-fe2-hidden-toggle" type="checkbox" ${hidden?'checked':''}> Auf ${deviceLabels[editorDevice]} ausblenden</label>
+        <div class="kp-fe2-actions"><button class="kp-fe2-up">↑ Hoch</button><button class="kp-fe2-down">↓ Runter</button><button class="kp-fe2-drag">↕ Ziehen</button><button class="kp-fe2-duplicate">⧉ Duplizieren</button><button class="kp-fe2-expand is-primary">${expanded?'Weniger':'Gestaltung'}</button></div>`;
     }
     inspector.innerHTML=`<div class="kp-fe2-inspector-head"><span>${deviceLabels[editorDevice]}</span><button class="kp-fe2-close" aria-label="Schließen">×</button></div>${body}${expanded?styleControls(el,kind):''}<div class="kp-fe2-reset-row"><button class="kp-fe2-reset">Element zurücksetzen</button>${cfg.pageEditorUrl?`<a href="${esc(cfg.pageEditorUrl)}" target="_blank" rel="noopener">Profiansicht ↗</a>`:''}</div>`;
     inspector.classList.add('is-open');
@@ -431,6 +497,14 @@
     inspector.querySelector('.kp-fe2-image-pick')?.addEventListener('click',()=>pickImage(el));
     inspector.querySelector('.kp-fe2-up')?.addEventListener('click',()=>moveSection(el,-1));
     inspector.querySelector('.kp-fe2-down')?.addEventListener('click',()=>moveSection(el,1));
+    bindSectionDragHandle(el,inspector.querySelector('.kp-fe2-drag'));
+    inspector.querySelector('.kp-fe2-duplicate')?.addEventListener('click',()=>duplicateSection(el));
+    inspector.querySelector('.kp-fe2-hidden-toggle')?.addEventListener('change',e=>{
+      snapshot();
+      mutateItem(el,item=>{item.styles=item.styles||{};item.styles[editorDevice]=item.styles[editorDevice]||{};item.styles[editorDevice].hidden=e.target.checked?1:0;},false);
+      applyStyle(el,styleFor(el));
+      toast(e.target.checked?'Bereich wird nach dem Speichern ausgeblendet.':'Bereich wird wieder angezeigt.');
+    });
     inspector.querySelector('.kp-fe2-reset')?.addEventListener('click',()=>resetElement(el));
 
     const label=inspector.querySelector('.kp-fe2-link-label');
@@ -497,6 +571,54 @@
     if(dir<0)root.insertBefore(el,items[next]);else root.insertBefore(items[next],el);
     draftPage.order=[...sectionRootAndItems().items].map(x=>x.dataset.kpEditKey).filter(Boolean);
     setDirty(true);toast('Bereich verschoben – noch speichern.');
+  }
+
+  function duplicateSection(el) {
+    const {root,items}=sectionRootAndItems();
+    const info=keyInfo(el);
+    if(!root||!items.includes(el)||scopeFor(el)!=='page'||info?.collection!=='blocks') {
+      toast('Nur ein vollständiger Seitenbereich kann dupliziert werden.','error');
+      return;
+    }
+    snapshot();
+    const token='copy-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
+    draftPage.section_actions.push({type:'duplicate',key:info.key,token});
+    renderSectionCopies();
+    setDirty(true);
+    clearSelection();
+    toast('Kopie als Vorschau eingefügt – zum Veröffentlichen speichern.');
+  }
+
+  function bindSectionDragHandle(el,handle) {
+    if(!handle)return;
+    let moved=false;
+    handle.addEventListener('pointerdown',event=>{
+      if(event.button!==undefined&&event.button!==0)return;
+      moved=false;
+      snapshot();
+      handle.setPointerCapture?.(event.pointerId);
+      document.body.classList.add('kp-fe2-touch-reorder');
+      event.preventDefault();
+    });
+    handle.addEventListener('pointermove',event=>{
+      if(!document.body.classList.contains('kp-fe2-touch-reorder'))return;
+      const target=document.elementFromPoint(event.clientX,event.clientY)?.closest?.('[data-kp-edit-key]');
+      const {root,items}=sectionRootAndItems();
+      if(!root||!items.includes(el)||!items.includes(target)||target===el)return;
+      const rect=target.getBoundingClientRect();
+      if(event.clientY<rect.top+rect.height/2)root.insertBefore(el,target);
+      else target.insertAdjacentElement('afterend',el);
+      moved=true;
+      event.preventDefault();
+    });
+    const finish=event=>{
+      if(!document.body.classList.contains('kp-fe2-touch-reorder'))return;
+      document.body.classList.remove('kp-fe2-touch-reorder');
+      handle.releasePointerCapture?.(event.pointerId);
+      if(moved){saveSectionOrder();toast('Bereich verschoben – noch speichern.');}
+    };
+    handle.addEventListener('pointerup',finish);
+    handle.addEventListener('pointercancel',finish);
   }
 
   function resetElement(el) {

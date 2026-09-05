@@ -10,6 +10,13 @@ body.kp-fe2-editing *{box-sizing:border-box}
 body.kp-fe2-editing [data-kp-edit-key],body.kp-fe2-editing [data-kp-dom-key]{position:relative}
 body.kp-fe2-editing [data-kp-edit-key]:hover,body.kp-fe2-editing [data-kp-dom-key]:hover{outline:2px dashed rgba(240,122,34,.72)!important;outline-offset:3px;cursor:pointer}
 body.kp-fe2-editing .kp-fe2-selected{outline:3px solid #f07a22!important;outline-offset:4px;box-shadow:0 0 0 5px rgba(240,122,34,.11)!important}
+body.kp-fe2-editing .kp-fe2-hidden-preview{display:block!important;opacity:.42!important;filter:saturate(.35);outline:3px dashed #f07a22!important;outline-offset:4px}
+body.kp-fe2-editing .kp-fe2-hidden-preview::before{content:"Auf dieser Geräteansicht ausgeblendet";position:absolute;z-index:10;top:8px;left:8px;padding:5px 8px;border-radius:999px;background:#f07a22;color:#fff;font:800 10px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;pointer-events:none}
+body.kp-fe2-editing [data-kp-section-copy]{outline:3px dashed #6ec6ff!important;outline-offset:4px}
+body.kp-fe2-editing [data-kp-section-copy]::before{content:"Kopie – noch nicht gespeichert";position:absolute;z-index:10;top:8px;right:8px;padding:5px 8px;border-radius:999px;background:#176a96;color:#fff;font:800 10px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;pointer-events:none}
+body.kp-fe2-editing [draggable="true"].kp-fe2-dragging{opacity:.55;outline:3px solid #6ec6ff!important}
+body.kp-fe2-touch-reorder{touch-action:none!important;user-select:none!important}
+body.kp-fe2-touch-reorder [data-kp-edit-key]{cursor:grabbing!important}
 body.kp-fe2-editing .kp-fe2-inline-text{cursor:text!important;outline:3px solid #ffd0aa!important;outline-offset:4px;background-image:linear-gradient(rgba(240,122,34,.05),rgba(240,122,34,.05))!important;-webkit-user-select:text!important;user-select:text!important}
 body.kp-fe2-editing .kp-termin-card,body.kp-fe2-editing .kp-repertoire-card{position:relative;cursor:pointer}
 body.kp-fe2-editing .kp-termin-card::after,body.kp-fe2-editing .kp-repertoire-card::after{position:absolute;top:6px;right:6px;z-index:4;padding:4px 7px;border-radius:999px;background:#f07a22;color:#fff;font:800 9px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.22);pointer-events:none}
