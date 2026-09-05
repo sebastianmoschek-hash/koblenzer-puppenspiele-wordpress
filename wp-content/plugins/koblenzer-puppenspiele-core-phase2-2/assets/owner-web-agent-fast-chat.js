@@ -16,6 +16,8 @@
   let localRequestSeq = 0;
   let localStartAfterInstall = false;
   let pendingQuickQuestion = '';
+  let screenStream = null;
+  let screenVideo = null;
   const seenVoiceIds = new Set();
 
   function looksLikeCodeTask(text) {
@@ -130,7 +132,7 @@
     };
   }
 
-  async function apiRequest(action, text, history) {
+  async function apiRequest(action, text, history, screen = '') {
     if (!cfg.repairNonce) throw new Error('Die geschützte Web-App-Sitzung ist nicht bereit. Bitte Seite neu laden.');
     const fd = new FormData();
     fd.append('action', action);
@@ -138,6 +140,7 @@
     fd.append('request', text);
     fd.append('history', history);
     fd.append('browser', JSON.stringify(pageContext()));
+    if (screen) fd.append('screen', screen);
     const response = await fetch(cfg.ajaxUrl, {
       method: 'POST', credentials: 'same-origin', cache: 'no-store', body: fd
     });
@@ -190,12 +193,81 @@
     row.className = 'kp-wa-local-live';
     row.innerHTML = `
       <button type="button" class="kp-wa-live-toggle">◎ Live lokal</button>
+      <button type="button" class="kp-wa-screen-share">▣ Bildschirm teilen</button>
       <button type="button" class="kp-wa-live-see">👁 Was siehst du?</button>
       <span class="kp-wa-live-note"></span>`;
     status.insertAdjacentElement('afterend', row);
     q('.kp-wa-live-toggle', row)?.addEventListener('click', toggleLocalLive);
+    q('.kp-wa-screen-share', row)?.addEventListener('click', toggleScreenShare);
     q('.kp-wa-live-see', row)?.addEventListener('click', () => askWhatYouSee());
     refreshLocalState();
+  }
+
+  function updateScreenShareUi() {
+    const button = q('.kp-wa-screen-share');
+    if (!button) return;
+    button.classList.toggle('is-active', !!screenStream);
+    button.textContent = screenStream ? '■ Bildschirmfreigabe beenden' : '▣ Bildschirm teilen';
+    document.body.classList.toggle('kp-wa-screen-live', !!screenStream);
+  }
+
+  function stopScreenShare(showStatus = true) {
+    const stream = screenStream;
+    screenStream = null;
+    screenVideo = null;
+    for (const track of stream?.getTracks?.() || []) track.stop();
+    updateScreenShareUi();
+    if (showStatus) setStatus('Bildschirmfreigabe beendet');
+  }
+
+  async function toggleScreenShare() {
+    if (screenStream) {
+      stopScreenShare();
+      return;
+    }
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setStatus('Dieser Browser unterstützt keine Bildschirmfreigabe. Bitte Chrome oder Edge verwenden.');
+      return;
+    }
+    try {
+      setStatus('Bitte den Bildschirm oder den Browser-Tab auswählen …', true);
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 1, max: 2 } }, audio: false });
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.srcObject = stream;
+      await video.play();
+      screenStream = stream;
+      screenVideo = video;
+      const track = stream.getVideoTracks()[0];
+      track?.addEventListener('ended', () => {
+        screenStream = null;
+        screenVideo = null;
+        updateScreenShareUi();
+        setStatus('Bildschirmfreigabe wurde beendet');
+      }, { once: true });
+      updateScreenShareUi();
+      setStatus('Bildschirm wird geteilt · ein aktuelles Bild wird nur beim Senden übertragen');
+    } catch (error) {
+      if (error?.name === 'NotAllowedError') setStatus('Bildschirmfreigabe wurde nicht erlaubt. Es wurde nichts übertragen.');
+      else setStatus(`Bildschirmfreigabe konnte nicht gestartet werden: ${error?.message || error}`);
+    }
+  }
+
+  async function captureScreenFrame() {
+    const video = screenVideo;
+    if (!screenStream || !video || video.readyState < 2) return '';
+    const sourceWidth = Number(video.videoWidth) || 0;
+    const sourceHeight = Number(video.videoHeight) || 0;
+    if (!sourceWidth || !sourceHeight) return '';
+    const width = Math.min(1280, sourceWidth);
+    const height = Math.max(1, Math.round(sourceHeight * width / sourceWidth));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext('2d', { alpha: false })?.drawImage(video, 0, 0, width, height);
+    const encoded = canvas.toDataURL('image/jpeg', 0.7);
+    return encoded.startsWith('data:image/jpeg;base64,') ? encoded.slice('data:image/jpeg;base64,'.length) : '';
   }
 
   function updateLocalUi() {
@@ -384,9 +456,10 @@
     const priorHistory = historyText();
     if (input) input.value = '';
     appendAndSave('user', text);
-    setStatus('Cloud-Fallback antwortet …', true);
+    const screen = await captureScreenFrame();
+    setStatus(screen ? 'KI betrachtet den geteilten Bildschirm …' : 'Cloud-Fallback antwortet …', true);
     try {
-      const data = await apiRequest('kp_owner_web_agent_chat', text, priorHistory);
+      const data = await apiRequest('kp_owner_web_agent_chat', text, priorHistory, screen);
       const reply = String(data.reply || 'Ich bin verbunden.').trim();
       appendAndSave('assistant', reply);
       const elapsed = Number(data.elapsed_ms || 0);
@@ -408,9 +481,14 @@
     const priorHistory = historyText();
     if (input) input.value = '';
     appendAndSave('user', text);
-    setStatus('KI untersucht den Fehler und repariert die Staging-Web-App …', true);
+    setStatus('KI bereitet die Staging-Diagnose vor …', true);
     try {
-      const data = await apiRequest('kp_owner_web_self_heal', `reparieren: ${text}`, priorHistory);
+      const screen = await captureScreenFrame();
+      const visual = screen ? await apiRequest('kp_owner_web_agent_chat', 'Analysiere das geteilte Bildschirmbild für den folgenden ausdrücklichen Reparaturauftrag. Nenne nur sichtbare Elemente, Positionen und Fehler; ändere nichts: ' + text, priorHistory, screen) : null;
+      const visualText = String(visual?.reply || '').trim();
+      const repairRequest = `reparieren: ${text}${visualText ? `\n\nSICHTANALYSE AUS GETEILTEM BILDSCHIRM:\n${visualText}` : ''}`;
+      setStatus('KI untersucht den Fehler und repariert die Staging-Web-App …', true);
+      const data = await apiRequest('kp_owner_web_self_heal', repairRequest, priorHistory);
       const summary = String(data.summary || 'Staging-Selbstheilung').trim();
       const diagnosis = String(data.diagnosis || '').trim();
       if (data.applied) {

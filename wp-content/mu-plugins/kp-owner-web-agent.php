@@ -46,6 +46,30 @@ function kp_owner_web_agent_interaction_text( $body ) {
     return trim( (string) ( $body['output_text'] ?? '' ) );
 }
 
+function kp_owner_web_agent_screen_frame( $raw ) {
+    $encoded = trim( (string) $raw );
+    if ( '' === $encoded ) { return ''; }
+    if ( strlen( $encoded ) > 2100000 || ! preg_match( '/^[A-Za-z0-9+\/=]+$/', $encoded ) ) {
+        throw new RuntimeException( 'Das Bildschirmbild ist zu groß oder ungültig.' );
+    }
+    $decoded = base64_decode( $encoded, true );
+    if ( false === $decoded || strlen( $decoded ) > 1500000 ) {
+        throw new RuntimeException( 'Das Bildschirmbild ist zu groß oder ungültig.' );
+    }
+    if ( 0 !== strpos( $decoded, "\xFF\xD8\xFF" ) ) {
+        throw new RuntimeException( 'Das Bildschirmbild ist kein gültiges JPEG.' );
+    }
+    return $encoded;
+}
+
+function kp_owner_web_agent_screen_text( $body ) {
+    if ( ! is_array( $body ) ) { return ''; }
+    foreach ( (array) ( $body['candidates'][0]['content']['parts'] ?? array() ) as $part ) {
+        if ( is_array( $part ) && isset( $part['text'] ) ) { return trim( (string) $part['text'] ); }
+    }
+    return '';
+}
+
 /**
  * Fast conversational path for the web app. Normal questions should not enter
  * the heavier repair router/file-selection pipeline. Credentials stay on the
@@ -64,6 +88,7 @@ add_action( 'wp_ajax_kp_owner_web_agent_chat', static function () {
     $request = isset( $_POST['request'] ) ? trim( sanitize_textarea_field( wp_unslash( $_POST['request'] ) ) ) : '';
     $history = isset( $_POST['history'] ) ? sanitize_textarea_field( wp_unslash( $_POST['history'] ) ) : '';
     $browser = isset( $_POST['browser'] ) ? sanitize_textarea_field( wp_unslash( $_POST['browser'] ) ) : '';
+    $screen_raw = isset( $_POST['screen'] ) ? wp_unslash( $_POST['screen'] ) : '';
     if ( strlen( $request ) < 2 ) {
         wp_send_json_error( array( 'message' => 'Bitte schreibe zuerst eine Frage.' ), 400 );
     }
@@ -82,10 +107,52 @@ add_action( 'wp_ajax_kp_owner_web_agent_chat', static function () {
 
         try {
             $started = microtime( true );
+            $screen = kp_owner_web_agent_screen_frame( $screen_raw );
 
             if ( ! function_exists( 'kp_ai_key' ) ) { throw new RuntimeException( 'Die Gemini-Basisintegration ist nicht geladen.' ); }
             $key = kp_ai_key();
             if ( ! $key ) { throw new RuntimeException( 'Gemini ist noch nicht verbunden.' ); }
+
+            if ( '' !== $screen ) {
+                $screen_payload = array(
+                    'systemInstruction' => array( 'parts' => array( array( 'text' => $system . ' Wenn ein Bildschirmbild vorliegt, beschreibe nur tatsächlich erkennbare Elemente. Beachte, dass das Bild ein einzelner aktueller Ausschnitt und kein dauerhaftes Video ist.' ) ) ),
+                    'contents' => array(
+                        array(
+                            'role'  => 'user',
+                            'parts' => array(
+                                array( 'text' => $input ),
+                                array( 'inline_data' => array( 'mime_type' => 'image/jpeg', 'data' => $screen ) ),
+                            ),
+                        ),
+                    ),
+                    'generationConfig' => array( 'temperature' => 0.2, 'maxOutputTokens' => 1200 ),
+                );
+                $screen_response = wp_remote_post( 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent', array(
+                    'timeout'     => 30,
+                    'httpversion' => '1.1',
+                    'headers'     => array(
+                        'Content-Type'   => 'application/json',
+                        'x-goog-api-key' => $key,
+                    ),
+                    'body'        => wp_json_encode( $screen_payload ),
+                ) );
+                if ( is_wp_error( $screen_response ) ) { throw new RuntimeException( $screen_response->get_error_message() ); }
+                $screen_code = (int) wp_remote_retrieve_response_code( $screen_response );
+                $screen_body = json_decode( (string) wp_remote_retrieve_body( $screen_response ), true );
+                if ( $screen_code < 200 || $screen_code >= 300 ) {
+                    $screen_message = is_array( $screen_body ) ? ( $screen_body['error']['message'] ?? 'Gemini hat das Bildschirmbild abgelehnt.' ) : 'Gemini hat das Bildschirmbild abgelehnt.';
+                    throw new RuntimeException( sanitize_text_field( (string) $screen_message ) );
+                }
+                $screen_reply = kp_owner_web_agent_screen_text( $screen_body );
+                if ( '' === $screen_reply ) { throw new RuntimeException( 'Gemini hat zum Bildschirmbild keine Textantwort geliefert.' ); }
+                wp_send_json_success( array(
+                    'reply'      => $screen_reply,
+                    'model'      => 'gemini-3.5-flash-lite',
+                    'elapsed_ms' => (int) round( ( microtime( true ) - $started ) * 1000 ),
+                    'transport'  => 'generate-content-screen',
+                    'screen'     => true,
+                ) );
+            }
 
             $payload = array(
                 'model'              => 'gemini-3.5-flash-lite',
@@ -140,12 +207,18 @@ add_filter( 'body_class', static function ( $classes ) {
 add_action( 'wp_enqueue_scripts', static function () {
     if ( is_admin() || ! kp_owner_web_agent_can_use() || ! defined( 'KP_CORE_URL' ) ) { return; }
 
-    $version = ( defined( 'KP_CORE_VERSION' ) ? KP_CORE_VERSION : '1' ) . '-web-agent-20260825-2';
+    $version = ( defined( 'KP_CORE_VERSION' ) ? KP_CORE_VERSION : '1' ) . '-web-agent-20260905-1';
 
     wp_enqueue_style(
         'kp-owner-web-agent',
         KP_CORE_URL . 'assets/owner-web-agent.css',
         array( 'kp-owner-web-app' ),
+        $version
+    );
+    wp_enqueue_style(
+        'kp-owner-screen-live',
+        KP_CORE_URL . 'assets/owner-screen-live.css',
+        array( 'kp-owner-web-agent' ),
         $version
     );
     wp_enqueue_script(

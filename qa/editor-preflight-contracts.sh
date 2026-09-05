@@ -28,6 +28,7 @@ run_contract 'unified-editor' 'qa/unified-editor-contract.sh' 'unified-contract.
 run_contract 'create-undo-redo' 'qa/create-undo-contract.sh' 'create-undo-contract.log'
 run_contract 'calendar-undo-redo' 'qa/calendar-undo-contract.sh' 'calendar-undo-contract.log'
 run_contract 'ai-repair-safety' 'qa/ai-repair-contract.sh' 'ai-repair-contract.log'
+run_contract 'owner-screen-live' 'qa/owner-screen-live-contract.sh' 'owner-screen-live-contract.log'
 run_contract 'openrouter-disabled' 'qa/openrouter-disabled-contract.sh' 'openrouter-disabled-contract.log'
 
 if [[ $failed -ne 0 ]]; then
