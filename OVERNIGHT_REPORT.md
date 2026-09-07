@@ -223,6 +223,8 @@
 - 2026-09-07T00:00Z curl checks for /wp-login.php and /?kp_edit=1 also timed out, indicating a staging reachability issue rather than a local JS syntax regression.
 - 2026-09-07T00:00Z Added exclusive overlay manager plus event-isolated inspector/record actions to prevent stacked popups.
 - 2026-09-07T00:00Z Re-ran Playwright editor-visual; setup still failed at wp-login.php timeout in this environment.
+- 2026-09-07T00:00Z Local Playwright fallback spec passed against a mock FE2 page: overlay exclusivity, undo/redo API, and keyboard interception all verified.
+- 2026-09-07T00:00Z Local fallback uses page.setContent + addScriptTag and mocked admin-ajax responses so editor asset logic can be tested without staging.
 
 ---
 

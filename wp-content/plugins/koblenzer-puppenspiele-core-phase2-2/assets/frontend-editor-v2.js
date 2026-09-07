@@ -423,6 +423,8 @@
       activeText.contentEditable = 'false';
       activeText.classList.remove('kp-fe2-inline-text');
       if (activeTextHandler) activeText.removeEventListener('input', activeTextHandler);
+      if (activeText._kpBeforeInput) activeText.removeEventListener('beforeinput', activeText._kpBeforeInput);
+      delete activeText._kpBeforeInput;
     }
     activeText = null;
     activeTextHandler = null;
@@ -558,11 +560,19 @@
     target.contentEditable='true';
     target.spellcheck=true;
     target.classList.add('kp-fe2-inline-text');
+    const beforeHandler = (event) => {
+      if (pushed) return;
+      if (event.inputType && event.inputType === 'historyUndo') return;
+      snapshot();
+      pushed=true;
+    };
     activeTextHandler=()=>{
       if(!pushed){snapshot();pushed=true;}
       mutateItem(el,item=>{item.content={type:'html',value:target.innerHTML};},false);
     };
+    target.addEventListener('beforeinput', beforeHandler);
     target.addEventListener('input',activeTextHandler);
+    activeText._kpBeforeInput = beforeHandler;
     setTimeout(()=>{try{target.focus({preventScroll:true});}catch(e){target.focus();}},10);
   }
 
@@ -848,7 +858,7 @@
     e.stopPropagation();selectElement(el);
   },true);
 
-  function closeRecord(){recordBackdrop.classList.remove('is-open');recordBox.innerHTML='';}
+  function closeRecord(){overlayState.closeCurrent();recordBox.innerHTML='';}
   recordBackdrop.addEventListener('click',e=>{if(e.target===recordBackdrop)closeRecord();});
 
   function loadingRecord(){recordBox.innerHTML='<div class="kp-fe2-loading"><span></span><p>Lade Daten…</p></div>';recordBackdrop.classList.add('is-open');}
