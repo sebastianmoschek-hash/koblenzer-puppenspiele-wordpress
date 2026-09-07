@@ -103,6 +103,14 @@ if ( ! class_exists( 'KP_AI_Proxy' ) ) {
 			);
 		}
 
+		private static function live_snapshot_config() {
+			return array(
+				'url'   => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+				'key'   => defined( 'KP_GEMINI_API_KEY' ) ? trim( (string) KP_GEMINI_API_KEY ) : trim( (string) get_option( self::CLOUD_KEY_OPTION, '' ) ),
+				'model' => 'gemini-2.0-flash',
+			);
+		}
+
 		private static function config() {
 			return 'local_ollama' === self::mode() ? self::local_config() : self::cloud_config();
 		}
@@ -262,6 +270,76 @@ if ( ! class_exists( 'KP_AI_Proxy' ) ) {
 					$context_raw = isset( $_POST['context'] ) ? json_decode( wp_unslash( $_POST['context'] ), true ) : array();
 					$plan = self::plan_request( $request, is_array( $context_raw ) ? $context_raw : array() );
 					wp_send_json_success( array( 'plan' => $plan ) );
+				}
+				if ( 'live_snapshot' === $task ) {
+					$snapshot = isset( $_POST['snapshot'] ) ? json_decode( wp_unslash( $_POST['snapshot'] ), true ) : array();
+					if ( ! is_array( $snapshot ) ) { $snapshot = array(); }
+					$requested_mode = isset( $snapshot['mode'] ) ? sanitize_key( (string) $snapshot['mode'] ) : 'cloud';
+					$config = 'local_ollama' === $requested_mode ? self::local_config() : self::live_snapshot_config();
+					$mode = 'local_ollama' === $requested_mode ? 'local_ollama' : 'cloud';
+					if ( 'cloud' === $mode && '' === $config['key'] ) {
+						wp_send_json_error( array( 'message' => 'Gemini ist noch nicht verbunden.', 'needs_key' => true ), 409 );
+					}
+					$image = isset( $snapshot['image'] ) ? trim( (string) $snapshot['image'] ) : '';
+					if ( '' === $image ) {
+						wp_send_json_error( array( 'message' => 'Der Snapshot fehlt.' ), 400 );
+					}
+					$mode = 'cloud';
+					$context = isset( $snapshot['context'] ) && is_array( $snapshot['context'] ) ? $snapshot['context'] : array();
+					$prompt = isset( $snapshot['prompt'] ) ? sanitize_textarea_field( wp_unslash( $snapshot['prompt'] ) ) : 'Beschreibe kurz den sichtbaren Editorzustand und schlage nur eine knappe Aktion vor.';
+					$payload = array(
+						'systemInstruction' => array( 'parts' => array( array( 'text' => 'Du bist die kostenlose Browser-Sprache und Snapshot-KI für den KP Frontend Editor V2. Antworte knapp auf Deutsch. Wenn der sichtbare Zustand auf ein Problem hindeutet, nenne den nächsten kleinen Schritt. Wenn ein Rate-Limit droht, sage das klar.' ) ) ),
+						'contents' => array(
+							array(
+								'role'  => 'user',
+								'parts' => array(
+									array( 'text' => $prompt . "\n\nEditor-Kontext:\n" . wp_json_encode( $context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) ),
+									array( 'inline_data' => array( 'mime_type' => 'image/jpeg', 'data' => $image ) ),
+								),
+							),
+						),
+						'generationConfig' => array( 'temperature' => 0.2, 'maxOutputTokens' => 256 ),
+					);
+					$response = wp_remote_post( $config['url'], array(
+						'timeout'     => 25,
+						'httpversion' => '1.1',
+						'headers'     => array( 'Content-Type' => 'application/json', 'x-goog-api-key' => $config['key'] ),
+						'body'        => wp_json_encode( $payload ),
+					) );
+					if ( is_wp_error( $response ) ) {
+						throw new RuntimeException( self::normalize_error( $response->get_error_message(), $mode ) );
+					}
+					$code = (int) wp_remote_retrieve_response_code( $response );
+					$body = self::safe_decode( wp_remote_retrieve_body( $response ), $mode );
+					if ( 429 === $code || ( is_array( $body ) && preg_match( '/quota|rate limit|RESOURCE_EXHAUSTED/i', wp_json_encode( $body ) ) ) ) {
+						wp_send_json_error( array(
+							'message' => 'Quota oder Rate-Limit erreicht.',
+							'rate_limited' => true,
+							'fallback_mode' => 'local_ollama',
+							'suggested_interval_ms' => 10000,
+						), 429 );
+					}
+					if ( $code < 200 || $code >= 300 ) {
+						$message = '';
+						if ( is_array( $body ) ) {
+							if ( isset( $body['error']['message'] ) ) { $message = (string) $body['error']['message']; }
+							elseif ( isset( $body['message'] ) ) { $message = (string) $body['message']; }
+						}
+						throw new RuntimeException( self::normalize_error( $message ?: sprintf( 'HTTP %d', $code ), $mode ) );
+					}
+					$text = '';
+					if ( isset( $body['candidates'][0]['content']['parts'] ) && is_array( $body['candidates'][0]['content']['parts'] ) ) {
+						foreach ( $body['candidates'][0]['content']['parts'] as $part ) {
+							if ( is_array( $part ) && isset( $part['text'] ) ) { $text .= (string) $part['text']; }
+						}
+					}
+					$text = trim( $text );
+					if ( '' === $text ) { throw new RuntimeException( self::normalize_error( 'Die KI hat keinen Text zurückgegeben.', $mode ) ); }
+					wp_send_json_success( array(
+						'reply' => $text,
+						'model' => $config['model'],
+						'rate_limited' => false,
+					) );
 				}
 				wp_send_json_error( array( 'message' => 'Unbekannte KI-Anfrage.' ), 400 );
 			} catch ( Throwable $e ) {

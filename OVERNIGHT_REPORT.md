@@ -433,3 +433,13 @@ Gaps that needed custom skills during this project:
 - Verification:
   - `npx playwright test tests/e2e/local-ai-toggle.spec.js --project=editor-visual --no-deps` → passed
   - `npm run test:e2e:audit` → staging login timed out, local fallback suite passed with 2/2 tests green
+
+
+## 2026-09-07 Live Snapshot & Sprache
+- Implemented a new FE2 live overlay for snapshot + speech control.
+- Default snapshot transport now targets Gemini `gemini-2.0-flash` via `kp_ai_proxy` with a `live_snapshot` task.
+- 429 / quota responses now advertise `rate_limited`, `fallback_mode`, and a longer suggested interval.
+- The browser can fall back to `local_ollama` for future snapshot requests.
+- The FE2 launcher, interval control, microphone toggle, and speech output are now exposed directly in the editor UI.
+- Regression test: `npx playwright test tests/e2e/live-snapshot-speech.spec.js --project=editor-visual --no-deps` ✅
+- Syntax checks: `node --check tests/e2e/live-snapshot-speech.spec.js`, `node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js`, `php -l wp-content/mu-plugins/inc/class-kp-ai-proxy.php` ✅
