@@ -428,13 +428,34 @@
     activeTextHandler = null;
   }
 
+  const overlayState = {
+    active: null,
+    closeCurrent() {
+      if (this.active === 'inspector') {
+        deactivateText();
+        document.querySelectorAll('.kp-fe2-selected').forEach(el=>el.classList.remove('kp-fe2-selected'));
+        selected = null;
+        inspectorExpanded = false;
+        inspector.classList.remove('is-open','is-expanded');
+        inspector.setAttribute('aria-hidden','true');
+      }
+      if (this.active === 'record') {
+        recordBackdrop.classList.remove('is-open');
+        recordBox.innerHTML='';
+      }
+      this.active = null;
+    },
+    open(kind) {
+      if (this.active && this.active !== kind) this.closeCurrent();
+      this.active = kind;
+    },
+    is(kind) {
+      return this.active === kind;
+    }
+  };
+
   function clearSelection() {
-    deactivateText();
-    document.querySelectorAll('.kp-fe2-selected').forEach(el=>el.classList.remove('kp-fe2-selected'));
-    selected = null;
-    inspectorExpanded = false;
-    inspector.classList.remove('is-open','is-expanded');
-    inspector.setAttribute('aria-hidden','true');
+    overlayState.closeCurrent();
   }
 
   function rgbToHex(value, fallback='#ffffff') {
@@ -500,6 +521,7 @@
   }
 
   function renderInspector(el, expanded=false) {
+    overlayState.open('inspector');
     const kind=kindFor(el);
     inspectorExpanded=expanded;
     const target=contentTarget(el);
@@ -555,15 +577,16 @@
   }
 
   function bindInspector(el,kind) {
-    inspector.querySelector('.kp-fe2-close')?.addEventListener('click',clearSelection);
-    inspector.querySelector('.kp-fe2-done')?.addEventListener('click',()=>{deactivateText();clearSelection();toast('Änderung bereit zum Speichern.');});
-    inspector.querySelector('.kp-fe2-expand')?.addEventListener('click',()=>renderInspector(el,!inspectorExpanded));
-    inspector.querySelector('.kp-fe2-parent')?.addEventListener('click',()=>{const p=nearestSection(el);if(p)selectElement(p);});
-    inspector.querySelector('.kp-fe2-image-pick')?.addEventListener('click',()=>pickImage(el));
-    inspector.querySelector('.kp-fe2-up')?.addEventListener('click',()=>moveSection(el,-1));
-    inspector.querySelector('.kp-fe2-down')?.addEventListener('click',()=>moveSection(el,1));
+    const consume = (handler) => (event, ...args) => { event?.preventDefault?.(); event?.stopPropagation?.(); return handler(event, ...args); };
+    inspector.querySelector('.kp-fe2-close')?.addEventListener('click',consume(clearSelection));
+    inspector.querySelector('.kp-fe2-done')?.addEventListener('click',consume(()=>{deactivateText();clearSelection();toast('Änderung bereit zum Speichern.');}));
+    inspector.querySelector('.kp-fe2-expand')?.addEventListener('click',consume(()=>renderInspector(el,!inspectorExpanded)));
+    inspector.querySelector('.kp-fe2-parent')?.addEventListener('click',consume(()=>{const p=nearestSection(el);if(p)selectElement(p);}));
+    inspector.querySelector('.kp-fe2-image-pick')?.addEventListener('click',consume(()=>pickImage(el)));
+    inspector.querySelector('.kp-fe2-up')?.addEventListener('click',consume(()=>moveSection(el,-1)));
+    inspector.querySelector('.kp-fe2-down')?.addEventListener('click',consume(()=>moveSection(el,1)));
     bindSectionDragHandle(el,inspector.querySelector('.kp-fe2-drag'));
-    inspector.querySelector('.kp-fe2-duplicate')?.addEventListener('click',()=>duplicateSection(el));
+    inspector.querySelector('.kp-fe2-duplicate')?.addEventListener('click',consume(()=>duplicateSection(el)));
     inspector.querySelector('.kp-fe2-hidden-toggle')?.addEventListener('change',e=>{
       snapshot();
       mutateItem(el,item=>{item.styles=item.styles||{};item.styles[editorDevice]=item.styles[editorDevice]||{};item.styles[editorDevice].hidden=e.target.checked?1:0;},false);
@@ -813,7 +836,7 @@
   },true);
 
   document.addEventListener('click',e=>{
-    if(e.target.closest('.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,#wpadminbar'))return;
+    if(e.target.closest('.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,#wpadminbar')){e.stopPropagation();return;}
     if(activeText&&activeText.contains(e.target))return;
     const term=e.target.closest('.kp-termin-card');
     if(term){e.preventDefault();e.stopPropagation();openRecord('termin',term);return;}
@@ -840,6 +863,7 @@
   }
 
   async function openRecord(type,card){
+    overlayState.open('record');
     loadingRecord();
     try{const d=await api('kp_fe_v2_record',{type,signature:recordSignature(type,card)});type==='termin'?renderTermin(d):renderRepertoire(d);}
     catch(e){recordBox.innerHTML=`<div class="kp-fe2-record-head"><div><h2>Nicht eindeutig gefunden</h2><p>${esc(e.message)}</p></div><button class="kp-fe2-record-close">×</button></div><a class="kp-fe2-wide-link" target="_blank" rel="noopener" href="${type==='termin'?esc(cfg.termineUrl):esc(cfg.repertoireUrl)}">In WordPress öffnen ↗</a>`;recordBox.querySelector('.kp-fe2-record-close').onclick=closeRecord;}
