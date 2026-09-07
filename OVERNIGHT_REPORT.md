@@ -311,3 +311,44 @@
 - The local fallback proves the editor logic now behaves correctly in isolation.
 - Staging remains the only unresolved verification gate in the recorded run set.
 
+## Skill-discovery & optimization assessment
+
+### Project patterns observed
+- **Editor architecture:** FE2 uses content-editable text, per-element metadata, a history stack, overlay-based inspector/record sheets, and keyboard shortcuts.
+- **AI transport:** AI operations are routed through a server-side PHP proxy with mode switching between cloud and local Ollama.
+- **QA shape:** The project relies on throttled serial Playwright runs, with staging sometimes blocked by network/fail2ban-like behavior and requiring local fallback coverage.
+- **Vision hooks:** Stable `data-*` attributes plus a compact JSON snapshot export are needed for external copilots and layout inspection.
+- **Reporting discipline:** `OVERNIGHT_REPORT.md` is the running log and final closeout artifact for iterative QA work.
+
+### Skill audit summary
+Existing skills that already covered adjacent work:
+- `wordpress-visual-editor-engineering`
+- `staging-ci-browser-lab`
+- `systematic-debugging`
+- `test-driven-development`
+- `dogfood`
+- `plan`
+- `requesting-code-review`
+- `hermes-agent`
+
+Gaps that needed custom skills during this project:
+- FE2-specific event isolation and overlay exclusivity
+- Throttled Playwright fallback procedure when staging auth/network timed out
+- Hybrid AI proxy hardening with `KP_AI_MODE` routing and snapshot export guidance
+
+### New skills created under ~/.hermes/skills/
+- `kp-editor-architecture`
+  - Auto-greets FE2 overlay, undo/redo, and shortcut work.
+  - Trigger: when changing editor JS, overlay behavior, or keyboard handling.
+- `throttled-playwright-qa`
+  - Auto-greets staging/browser work with serial throttling and local fallback.
+  - Trigger: when Playwright staging hangs, login times out, or fail2ban/rate-limit symptoms appear.
+- `hybrid-ai-proxy-hardening`
+  - Auto-greets AI proxy, mode switching, timeout normalization, and DOM snapshot export work.
+  - Trigger: when changing `class-kp-ai-proxy.php` or the editable-region snapshot pipeline.
+
+### How these skills should speed future work
+- Start with `kp-editor-architecture` for any FE2 UI change to avoid rebuilding the same overlay/history logic.
+- Start with `throttled-playwright-qa` for staged browser tests so the fallback server / local mock path is chosen immediately when network timeouts recur.
+- Start with `hybrid-ai-proxy-hardening` for any AI-related transport or snapshot-export change so config checks and timeout handling are consistent from the first patch.
+
