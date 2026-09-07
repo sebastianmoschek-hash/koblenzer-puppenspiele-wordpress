@@ -245,3 +245,69 @@
 - Screenshots written: 0
 - Console errors captured: 0
 - Failed requests captured: 0
+
+## Consolidated final report
+
+### Created commits
+- `432a2d9` — `feat: initial batch implementation for crawler, ai-proxy and vision hooks`
+- `8664aa1` — `fix: harden ai proxy error handling`
+- `1d26624` — `docs: record latest overnight verification`
+- `a155f29` — `fix(editor): bind undo redo shortcuts to history stack`
+- `99582f3` — `docs: record undo redo verification status`
+- `7c5c615` — `fix(editor): isolate overlays and stop bubbling`
+- `ec7ba40` — `docs: record overlay isolation and retried editor test`
+- `b06c8b8` — `test(editor): add local fallback verification for fe2`
+
+### Verified editor / runtime features
+- **Undo / Redo stack**
+  - History stack reduced to 30 entries.
+  - Toolbar buttons for Undo and Redo are wired to the editor history API.
+  - Keyboard interception is in place for `Strg/Cmd+Z`, `Strg+Y`, and `Strg/Cmd+Shift+Z`.
+  - Local Playwright fallback verified the history API and shortcut interception in a mock FE2 page.
+
+- **Event isolation and overlay exclusivity**
+  - Added a single-active overlay manager in the editor JS.
+  - Inspector and record overlays now close each other before opening.
+  - Relevant overlay action handlers now stop propagation and prevent default, reducing stacked popup collisions.
+  - Local fallback Playwright verification passed after isolating overlays in a mock editor context.
+
+- **AI proxy**
+  - Central proxy is present in `wp-content/mu-plugins/inc/class-kp-ai-proxy.php` with `KP_AI_MODE` dispatch.
+  - Hardened with upfront config checks, timeout bounds, and JSON decoding safeguards.
+  - Error handling now normalizes local Ollama offline/timeout cases with clearer messages.
+
+- **DOM hooks / snapshot export**
+  - Stable editable metadata hooks are present:
+    - `data-kp-element-id`
+    - `data-kp-editable-type`
+  - Compact editable-region snapshot export is available through:
+    - `window.KPCanvaSnapshot`
+    - `window.KPCanvaKeys.exportEditableRegionSnapshot`
+    - `window.KPCanvaEditor.exportEditableRegionSnapshot`
+  - The DOM hook path was verified in earlier browser / fixture checks and remains wired in the current codebase.
+
+- **Crawler / reporting**
+  - Throttled overnight crawler/report tooling exists in `qa/overnight-crawler.mjs` and its helper library.
+  - It runs serially with `workers=1`, `slowMo=3000`, and staged pauses after every 5 pages.
+  - Report updates are appended continuously to this file.
+
+### Verification results
+- **Local verification passed**
+  - `node --check` on the editor JS and the local fallback spec: clean.
+  - `npx playwright test tests/e2e/editor-local-fallback.spec.js --project=editor-visual --no-deps`: passed.
+
+- **Staging verification partially blocked**
+  - `npx playwright test tests/e2e/editor-visual.spec.js --project=editor-visual` retried after VPN renewal, but the setup step still timed out on `https://neu.koblenzer-puppenspiele.de/wp-login.php` in this run.
+  - `curl -I` against `wp-login.php` and `/?kp_edit=1` also timed out in the same environment.
+  - This indicates a staging reachability issue during the last run, not a syntax or local-editor regression.
+
+### Remaining staging points
+1. Re-run the authenticated staging Playwright suite once login reachability is stable.
+2. Confirm the editor-view E2E suite still passes on live staging after the latest local overlay isolation changes.
+3. Optionally re-check the live editor for any remaining UI overflows or overlap regressions using the existing crawler/report tooling.
+
+### Final status
+- The editor hardening work is committed.
+- The local fallback proves the editor logic now behaves correctly in isolation.
+- Staging remains the only unresolved verification gate in the recorded run set.
+
