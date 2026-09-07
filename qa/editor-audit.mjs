@@ -2,7 +2,10 @@ import { spawn } from 'node:child_process';
 
 function run(command, args, label) {
   return new Promise((resolve) => {
-    const child = spawn(command, args, { cwd: process.cwd(), stdio: 'inherit', shell: process.platform === 'win32' });
+    const invocation = process.platform === 'win32'
+      ? { cmd: 'cmd.exe', args: ['/c', command, ...args] }
+      : { cmd: command, args };
+    const child = spawn(invocation.cmd, invocation.args, { cwd: process.cwd(), stdio: 'inherit' });
     child.on('close', (code) => resolve({ label, code }));
   });
 }

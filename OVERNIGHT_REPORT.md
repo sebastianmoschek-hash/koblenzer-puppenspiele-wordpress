@@ -395,3 +395,32 @@ Gaps that needed custom skills during this project:
 - Auto-fallback audit path: green.
 - Live staging login reachability: still externally blocked.
 
+## Main workflow integration and dirty-change audit
+
+### Workflow integration completed
+- The main editor E2E command is now `npm run test:e2e:visual`.
+- That command now runs `qa/editor-audit.mjs`.
+- The audit runner first tries the staging Playwright suite.
+- If staging login / reachability blocks the run, it automatically switches to the local FE2 fallback test.
+- A direct staging-only escape hatch remains available as `npm run test:e2e:visual:staging`.
+
+### Final workflow verification
+- `npm run test:e2e:visual` → staging login timed out, local fallback ran automatically, final exit code `0`.
+- Local fallback remained green with overlay isolation, undo/redo, and keyboard interception verified.
+- No new editor JS or PHP defects were found in the audited scope during this pass.
+
+### Dirty-change audit outcome
+- The audit found the repo still contains many pre-existing uncommitted files from earlier workstreams.
+- Those unrelated dirty files were left untouched to avoid clobbering user work.
+- The final cleaned and committed workflow changes are limited to the audit runner, the main npm script, and this report update.
+
+### New/updated files in this pass
+- `qa/editor-audit.mjs`
+- `package.json`
+- `OVERNIGHT_REPORT.md`
+
+### Current status
+- Main E2E workflow: integrated with automatic local fallback.
+- Staging reachability: still externally blocked.
+- Local fallback: green.
+
