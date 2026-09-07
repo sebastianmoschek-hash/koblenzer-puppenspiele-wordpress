@@ -300,26 +300,39 @@
       return;
     }
 
-    toggle.textContent = '◎ Live lokal öffnen';
+    toggle.textContent = localLive ? '■ Live beenden' : '◎ Live lokal öffnen';
     see.disabled = false;
     if (note) note.textContent = 'benötigt Homepage-Hilfe auf Android';
-    if (subtitle) subtitle.textContent = 'Web-App · Live lokal über Android · Cloud nur Fallback';
+    if (subtitle) subtitle.textContent = localLive
+      ? 'Live lokal aktiviert · Ollama auf Port 11434 starten'
+      : 'Web-App · Live lokal über Android · Cloud nur Fallback';
   }
 
   function toggleLocalLive() {
     if (!hasLocalBridge()) {
-      setStatus('Live lokal wird in der Homepage-Hilfe geöffnet …', true);
-      location.href = currentLocalLaunchUrl();
+      localLive = true;
+      localModelInstalled = false;
+      updateLocalUi();
+      setStatus('Lokale KI nicht erreichbar – bitte Ollama auf Port 11434 starten');
       return;
     }
     if (!localModelInstalled) {
       localStartAfterInstall = true;
+      updateLocalUi();
       setStatus('Lokales Gemma wird einmalig installiert …', true);
       try { localCall('installModel'); } catch (error) { setStatus(error?.message || String(error)); }
       return;
     }
     try {
-      if (localLive) localCall('stop'); else localCall('start');
+      if (localLive) {
+        localCall('stop');
+        localLive = false;
+      } else {
+        localCall('start');
+        localLive = true;
+      }
+      updateLocalUi();
+      setStatus(localLive ? 'Live lokal gestartet' : 'Live lokal beendet');
     } catch (error) {
       setStatus(error?.message || String(error));
     }
@@ -329,19 +342,22 @@
     const question = 'Was siehst du gerade auf meinem Bildschirm? Beschreibe kurz die wichtigen sichtbaren Elemente und sage mir, wobei du mir hier helfen kannst.';
     if (!hasLocalBridge()) {
       pendingQuickQuestion = question;
-      setStatus('Ich öffne Live lokal, damit die KI deinen Bildschirm sehen kann …', true);
-      location.href = currentLocalLaunchUrl();
+      localLive = true;
+      localModelInstalled = false;
+      updateLocalUi();
+      setStatus('Lokale KI nicht erreichbar – bitte Ollama auf Port 11434 starten');
       return;
     }
     if (!localModelInstalled) {
       pendingQuickQuestion = question;
       localStartAfterInstall = true;
+      updateLocalUi();
       try { localCall('installModel'); } catch (error) { setStatus(error?.message || String(error)); }
       return;
     }
     if (!localLive) {
       pendingQuickQuestion = question;
-      try { localCall('start'); } catch (error) { setStatus(error?.message || String(error)); }
+      try { localCall('start'); localLive = true; updateLocalUi(); } catch (error) { setStatus(error?.message || String(error)); }
       return;
     }
     sendLocalRequest(question, true);

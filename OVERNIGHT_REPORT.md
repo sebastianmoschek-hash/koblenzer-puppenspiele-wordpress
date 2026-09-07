@@ -424,3 +424,12 @@ Gaps that needed custom skills during this project:
 - Staging reachability: still externally blocked.
 - Local fallback: green.
 
+
+
+## Local AI button fix and regression coverage
+- Repaired the owner overlay toggle so clicking `Lokale KI` / `Live lokal öffnen` now updates the UI immediately instead of silently navigating away.
+- Added a visible fallback hint when the local bridge/Ollama is unavailable: `Lokale KI nicht erreichbar – bitte Ollama auf Port 11434 starten`.
+- Extended the audit runner to execute both the existing FE2 fallback regression and the new local-AI toggle regression.
+- Verification:
+  - `npx playwright test tests/e2e/local-ai-toggle.spec.js --project=editor-visual --no-deps` → passed
+  - `npm run test:e2e:audit` → staging login timed out, local fallback suite passed with 2/2 tests green

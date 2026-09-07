@@ -16,7 +16,7 @@ async function main() {
     process.exit(0);
   }
   console.log('\n[editor-audit] staging failed; running local fallback...\n');
-  const fallback = await run('npx', ['playwright', 'test', 'tests/e2e/editor-local-fallback.spec.js', '--project=editor-visual', '--no-deps'], 'fallback');
+  const fallback = await run('npx', ['playwright', 'test', 'tests/e2e/editor-local-fallback.spec.js', 'tests/e2e/local-ai-toggle.spec.js', '--project=editor-visual', '--no-deps'], 'fallback');
   process.exit(fallback.code);
 }
 
