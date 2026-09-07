@@ -218,6 +218,9 @@
 - Latest live run: editor verification passed after toolbar width fix.
 - 2026-09-07T00:00:00Z AI proxy hardened with upfront config checks and safe JSON decoding.
 - 2026-09-07T00:19:17Z latest live smoke passed with editor view active and no layout issues.
+- 2026-09-07T00:00Z Undo/Redo history stack reduced to 30 entries, added redo button, and bound Ctrl/Cmd shortcuts to editor history.
+- 2026-09-07T00:00Z Focused Playwright editor run failed in auth setup because staging wp-login.php timed out before login.
+- 2026-09-07T00:00Z curl checks for /wp-login.php and /?kp_edit=1 also timed out, indicating a staging reachability issue rather than a local JS syntax regression.
 
 ---
 
