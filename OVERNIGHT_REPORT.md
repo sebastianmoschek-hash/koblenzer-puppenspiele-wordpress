@@ -216,3 +216,4 @@
 - Console errors captured: 0
 - Failed requests captured: 0
 - Latest live run: editor verification passed after toolbar width fix.
+- 2026-09-07T00:00:00Z AI proxy hardened with upfront config checks and safe JSON decoding.

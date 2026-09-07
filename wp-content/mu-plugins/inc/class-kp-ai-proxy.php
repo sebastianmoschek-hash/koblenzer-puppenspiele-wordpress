@@ -107,9 +107,23 @@ if ( ! class_exists( 'KP_AI_Proxy' ) ) {
 			return 'local_ollama' === self::mode() ? self::local_config() : self::cloud_config();
 		}
 
+		private static function safe_decode( $raw, $mode ) {
+			$body = json_decode( (string) $raw, true );
+			if ( JSON_ERROR_NONE !== json_last_error() || ! is_array( $body ) ) {
+				throw new RuntimeException( self::normalize_error( 'Die KI-Antwort war kein gültiges JSON.', $mode ) );
+			}
+			return $body;
+		}
+
 		private static function remote_chat( array $messages, array $options = array() ) {
 			$mode = self::mode();
 			$config = self::config();
+			if ( 'cloud' === $mode && '' === $config['key'] ) {
+				throw new RuntimeException( 'Cloud-KI ist nicht konfiguriert. Bitte KP_AI_MODE auf local_ollama stellen oder einen Cloud-API-Key hinterlegen.' );
+			}
+			if ( '' === trim( (string) $config['url'] ) ) {
+				throw new RuntimeException( self::normalize_error( 'Es fehlt eine Ziel-URL für die KI-Anfrage.', $mode ) );
+			}
 			$timeout = isset( $options['timeout'] ) ? max( 8, min( 90, (int) $options['timeout'] ) ) : ( 'local_ollama' === $mode ? 30 : 45 );
 			$payload = array(
 				'model'       => isset( $options['model'] ) && is_string( $options['model'] ) && '' !== trim( $options['model'] ) ? trim( $options['model'] ) : $config['model'],
@@ -141,7 +155,7 @@ if ( ! class_exists( 'KP_AI_Proxy' ) ) {
 			}
 
 			$code = (int) wp_remote_retrieve_response_code( $response );
-			$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+			$body = self::safe_decode( wp_remote_retrieve_body( $response ), $mode );
 			if ( $code < 200 || $code >= 300 ) {
 				$message = '';
 				if ( is_array( $body ) ) {
