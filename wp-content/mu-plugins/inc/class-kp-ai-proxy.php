@@ -16,13 +16,25 @@ if ( ! class_exists( 'KP_AI_Proxy' ) ) {
 		const CLOUD_KEY_OPTION   = 'kp_ai_cloud_key_v1';
 		const CLOUD_MODEL_OPTION = 'kp_ai_cloud_model_v1';
 		const LOCAL_MODEL_OPTION = 'kp_ai_local_model_v1';
+		const ROUTE_OPTION       = 'kp_ai_route_v1';
 
 		public static function init() {
 			add_action( 'wp_ajax_kp_ai_proxy', array( __CLASS__, 'ajax_proxy' ) );
+			add_action( 'wp_ajax_kp_ai_route_save', array( __CLASS__, 'route_save' ) );
+		}
+
+		public static function route_save() {
+			self::guard();
+			if ( ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error( array( 'message' => 'Nur Administratoren können den KI-Modus ändern.' ), 403 );
+			}
+			$route = isset( $_POST['route'] ) ? sanitize_key( wp_unslash( $_POST['route'] ) ) : 'cloud';
+			$route = self::set_route_preference( in_array( $route, array( 'cloud', 'local_ollama' ), true ) ? $route : 'cloud' );
+			wp_send_json_success( array( 'route' => $route, 'message' => 'KI-Modus gespeichert ✓' ) );
 		}
 
 		public static function mode() {
-			$mode = defined( 'KP_AI_MODE' ) ? (string) KP_AI_MODE : (string) get_option( self::MODE_OPTION, 'cloud' );
+			$mode = defined( 'KP_AI_MODE' ) ? (string) KP_AI_MODE : (string) get_option( self::MODE_OPTION, get_option( self::ROUTE_OPTION, 'cloud' ) );
 			$mode = strtolower( trim( $mode ) );
 			return in_array( $mode, array( 'cloud', 'local_ollama' ), true ) ? $mode : 'cloud';
 		}
@@ -111,6 +123,86 @@ if ( ! class_exists( 'KP_AI_Proxy' ) ) {
 			);
 		}
 
+		private static function route_preference() {
+			$route = defined( 'KP_AI_ROUTE' ) ? (string) KP_AI_ROUTE : (string) get_option( self::ROUTE_OPTION, 'cloud' );
+			$route = strtolower( trim( $route ) );
+			return in_array( $route, array( 'cloud', 'local_ollama' ), true ) ? $route : 'cloud';
+		}
+
+		private static function set_route_preference( $route ) {
+			$route = strtolower( trim( (string) $route ) );
+			if ( ! in_array( $route, array( 'cloud', 'local_ollama' ), true ) ) {
+				$route = 'cloud';
+			}
+			update_option( self::ROUTE_OPTION, $route, false );
+			update_option( self::MODE_OPTION, $route, false );
+			return $route;
+		}
+
+		private static function request_model( array $config, array $messages, array $options = array() ) {
+			$payload = array(
+				'model'       => isset( $options['model'] ) && is_string( $options['model'] ) && '' !== trim( $options['model'] ) ? trim( $options['model'] ) : $config['model'],
+				'messages'    => array_values( $messages ),
+				'stream'      => false,
+				'temperature' => isset( $options['temperature'] ) ? (float) $options['temperature'] : 0.2,
+			);
+			if ( ! empty( $options['max_tokens'] ) ) {
+				$payload['max_tokens'] = (int) $options['max_tokens'];
+			}
+			if ( ! empty( $options['response_format'] ) && is_array( $options['response_format'] ) ) {
+				$payload['response_format'] = $options['response_format'];
+			}
+			$headers = array( 'Content-Type' => 'application/json' );
+			if ( '' !== $config['key'] ) {
+				$headers['Authorization'] = 'Bearer ' . $config['key'];
+			}
+			$response = wp_remote_post( $config['url'], array(
+				'timeout'     => isset( $options['timeout'] ) ? max( 8, min( 90, (int) $options['timeout'] ) ) : 30,
+				'httpversion' => '1.1',
+				'headers'     => $headers,
+				'body'        => wp_json_encode( $payload ),
+			) );
+			if ( is_wp_error( $response ) ) {
+				throw new RuntimeException( self::normalize_error( $response->get_error_message(), 'cloud' ) );
+			}
+			$code = (int) wp_remote_retrieve_response_code( $response );
+			$body = self::safe_decode( wp_remote_retrieve_body( $response ), 'cloud' );
+			if ( $code < 200 || $code >= 300 ) {
+				$message = '';
+				if ( is_array( $body ) ) {
+					if ( isset( $body['error']['message'] ) ) { $message = (string) $body['error']['message']; }
+					elseif ( isset( $body['message'] ) ) { $message = (string) $body['message']; }
+				}
+				throw new RuntimeException( self::normalize_error( $message ?: sprintf( 'HTTP %d', $code ), 'cloud' ) );
+			}
+			return $body;
+		}
+
+		private static function request_with_fallback( array $messages, array $options = array() ) {
+			$preferred = self::route_preference();
+			$tries = $preferred === 'local_ollama' ? array( 'local_ollama', 'cloud' ) : array( 'cloud', 'local_ollama' );
+			$errors = array();
+			foreach ( $tries as $mode ) {
+				$config = 'local_ollama' === $mode ? self::local_config() : self::live_snapshot_config();
+				if ( 'cloud' === $mode && '' === $config['key'] ) {
+					$errors[] = 'cloud: missing key';
+					continue;
+				}
+				try {
+					$body = self::request_model( $config, $messages, $options );
+					self::set_route_preference( $mode );
+					return array( $body, $mode, null );
+				} catch ( Throwable $e ) {
+					$errors[] = $mode . ': ' . $e->getMessage();
+					if ( 'cloud' === $mode ) {
+						self::set_route_preference( 'local_ollama' );
+						continue;
+					}
+				}
+			}
+			throw new RuntimeException( self::normalize_error( implode( ' | ', $errors ) ?: 'Die KI-Anfrage ist fehlgeschlagen.', 'cloud' ) );
+		}
+
 		private static function config() {
 			return 'local_ollama' === self::mode() ? self::local_config() : self::cloud_config();
 		}
@@ -124,60 +216,7 @@ if ( ! class_exists( 'KP_AI_Proxy' ) ) {
 		}
 
 		private static function remote_chat( array $messages, array $options = array() ) {
-			$mode = self::mode();
-			$config = self::config();
-			if ( 'cloud' === $mode && '' === $config['key'] ) {
-				throw new RuntimeException( 'Cloud-KI ist nicht konfiguriert. Bitte KP_AI_MODE auf local_ollama stellen oder einen Cloud-API-Key hinterlegen.' );
-			}
-			if ( '' === trim( (string) $config['url'] ) ) {
-				throw new RuntimeException( self::normalize_error( 'Es fehlt eine Ziel-URL für die KI-Anfrage.', $mode ) );
-			}
-			$timeout = isset( $options['timeout'] ) ? max( 8, min( 90, (int) $options['timeout'] ) ) : ( 'local_ollama' === $mode ? 30 : 45 );
-			$payload = array(
-				'model'       => isset( $options['model'] ) && is_string( $options['model'] ) && '' !== trim( $options['model'] ) ? trim( $options['model'] ) : $config['model'],
-				'messages'    => array_values( $messages ),
-				'stream'      => false,
-				'temperature' => isset( $options['temperature'] ) ? (float) $options['temperature'] : 0.2,
-			);
-			if ( ! empty( $options['max_tokens'] ) ) {
-				$payload['max_tokens'] = (int) $options['max_tokens'];
-			}
-			if ( ! empty( $options['response_format'] ) && is_array( $options['response_format'] ) ) {
-				$payload['response_format'] = $options['response_format'];
-			}
-
-			$headers = array( 'Content-Type' => 'application/json' );
-			if ( 'cloud' === $mode && '' !== $config['key'] ) {
-				$headers['Authorization'] = 'Bearer ' . $config['key'];
-			}
-
-			$response = wp_remote_post( $config['url'], array(
-				'timeout'     => $timeout,
-				'httpversion' => '1.1',
-				'headers'     => $headers,
-				'body'        => wp_json_encode( $payload ),
-			) );
-
-			if ( is_wp_error( $response ) ) {
-				throw new RuntimeException( self::normalize_error( $response->get_error_message(), $mode ) );
-			}
-
-			$code = (int) wp_remote_retrieve_response_code( $response );
-			$body = self::safe_decode( wp_remote_retrieve_body( $response ), $mode );
-			if ( $code < 200 || $code >= 300 ) {
-				$message = '';
-				if ( is_array( $body ) ) {
-					if ( isset( $body['error']['message'] ) ) {
-						$message = (string) $body['error']['message'];
-					} elseif ( isset( $body['message'] ) ) {
-						$message = (string) $body['message'];
-					}
-				}
-				throw new RuntimeException( self::normalize_error( $message ?: sprintf( 'HTTP %d', $code ), $mode ) );
-			}
-			if ( ! is_array( $body ) ) {
-				throw new RuntimeException( self::normalize_error( 'Die KI hat keine gültige JSON-Antwort geliefert.', $mode ) );
-			}
+			list( $body, $mode, $fallback ) = self::request_with_fallback( $messages, $options );
 			return $body;
 		}
 

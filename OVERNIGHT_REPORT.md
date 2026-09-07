@@ -443,3 +443,13 @@ Gaps that needed custom skills during this project:
 - The FE2 launcher, interval control, microphone toggle, and speech output are now exposed directly in the editor UI.
 - Regression test: `npx playwright test tests/e2e/live-snapshot-speech.spec.js --project=editor-visual --no-deps` ✅
 - Syntax checks: `node --check tests/e2e/live-snapshot-speech.spec.js`, `node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js`, `php -l wp-content/mu-plugins/inc/class-kp-ai-proxy.php` ✅
+
+
+## 2026-09-07 Free-tier routing finalization
+- Added the WP-mu-plugin wrapper `kp-editor-proxy.php` and guarded it with `KP_AI_PROXY_BOOTSTRAPPED` to avoid double init.
+- The central proxy now stores a persistent route preference and falls back from Gemini to local Ollama on cloud failure / rate-limit conditions.
+- The FE2 overlay now exposes a routing selector for `Gemini 2.0 Flash` vs `100% Lokal (Ollama)` and keeps the existing one-time Gemini key field.
+- Added `ANLEITUNG_HOMEPAGE_PFLEGE.md` for non-technical homepage maintainers.
+- Syntax checks passed for the changed PHP files.
+- `npx playwright test tests/e2e/live-snapshot-speech.spec.js --project=editor-visual --no-deps` passed.
+- Staging uploads were byte-verified for all changed files.
