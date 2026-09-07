@@ -23,7 +23,7 @@
   let dirty = false;
   const history = [];
   const redoHistory = [];
-  const HISTORY_LIMIT = 50;
+  const HISTORY_LIMIT = 30;
 
   function currentDevice() {
     const w = window.innerWidth;
@@ -359,7 +359,15 @@
     clearSelection();
   }
 
+  function syncHistoryButtons() {
+    const undoBtn = document.querySelector('.kp-fe2-undo');
+    const redoBtn = document.querySelector('.kp-fe2-redo');
+    if (undoBtn) undoBtn.disabled = history.length === 0;
+    if (redoBtn) redoBtn.disabled = redoHistory.length === 0;
+  }
+
   function emitHistoryChange() {
+    syncHistoryButtons();
     window.dispatchEvent(new CustomEvent('kp:frontend-history-change', {
       detail: {undo: history.length, redo: redoHistory.length}
     }));
@@ -397,6 +405,7 @@
       <div class="kp-fe2-toolbar">
         <a class="kp-fe2-exit" href="${esc(cfg.exitUrl)}"><span class="dashicons dashicons-no-alt"></span><span>Beenden</span></a>
         <button type="button" class="kp-fe2-undo"><span class="dashicons dashicons-undo"></span><span>Zurück</span></button>
+        <button type="button" class="kp-fe2-redo"><span class="dashicons dashicons-redo"></span><span>Wiederholen</span></button>
         <label class="kp-fe2-device-wrap"><span class="dashicons dashicons-smartphone"></span><select class="kp-fe2-device" aria-label="Geräteansicht">
           ${Object.entries(deviceLabels).map(([k,v])=>`<option value="${k}" ${k===editorDevice?'selected':''}>${v}</option>`).join('')}
         </select></label>
@@ -735,9 +744,38 @@
   }
 
   document.querySelector('.kp-fe2-undo')?.addEventListener('click',()=>{
-    if(window.KPWordHistory?.undo)window.KPWordHistory.undo();
-    else undoHistory();
+    undoHistory();
   });
+
+  document.querySelector('.kp-fe2-redo')?.addEventListener('click',()=>{
+    redoHistoryStep();
+  });
+
+  document.addEventListener('keydown', event => {
+    if (!document.body.classList.contains('kp-fe2-editing')) return;
+    if (event.repeat) return;
+    const key = String(event.key || '').toLowerCase();
+    const target = event.target;
+    const editable = target instanceof Element && (target.matches('input,textarea,[contenteditable="true"],[contenteditable="plaintext-only"]') || target.closest('[contenteditable="true"],[contenteditable="plaintext-only"]'));
+    if (event.metaKey || event.ctrlKey) {
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        undoHistory();
+        return;
+      }
+      if ((key === 'z' && event.shiftKey) || key === 'y') {
+        event.preventDefault();
+        event.stopPropagation();
+        redoHistoryStep();
+        return;
+      }
+    }
+    if (editable && (key === 'z' || key === 'y')) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
 
   window.KPFrontendEditorHistory={
     undo:undoHistory,
