@@ -126,10 +126,156 @@ add_action( 'wp_footer', static function () {
         }
       }
 
-      @media(max-width:782px){
+      @media(min-width:901px){
+        /* The takeover button is the active local-AI launcher. Keep it and
+           hide the duplicate legacy launcher, including in preview mode. */
+        html.kp-local-ai-takeover .kp-local-ai-launch,
+        body:has(.kp-lat-launch) .kp-local-ai-launch,
+        body.kp-canva-preview .kp-local-ai-launch{
+          display:none!important;
+        }
+        /* The editor toolbar owns the bottom row. Legacy/live AI controls
+           occupy a separate right-hand rail above it and must never cover
+           Preview, Undo, Redo or the device selector. */
+        body.kp-fe2-editing .kp-fe2-toolbar{
+          left:14px!important;
+          right:auto!important;
+          bottom:14px!important;
+          width:min(560px, calc(100vw - 28px))!important;
+          max-width:min(560px, calc(100vw - 28px))!important;
+          transform:none!important;
+          display:flex!important;
+          flex-wrap:nowrap!important;
+          justify-content:flex-start!important;
+          gap:10px!important;
+          overflow-x:auto!important;
+          overflow-y:hidden!important;
+          z-index:2147483001!important;
+        }
+        body.kp-fe2-editing .kp-fe2-toolbar::-webkit-scrollbar{display:none}
+        body.kp-fe2-editing .kp-fe2-toolbar button,
+        body.kp-fe2-editing .kp-fe2-toolbar a,
+        body.kp-fe2-editing .kp-fe2-device-wrap{
+          flex:0 0 auto!important;
+          min-width:48px!important;
+          min-height:44px!important;
+        }
+        body.kp-fe2-editing .kp-fe2-device-wrap{
+          width:132px!important;
+          padding:7px 10px!important;
+          gap:7px!important;
+        }
+        body.kp-fe2-editing .kp-fe2-device{
+          width:100%!important;
+          max-width:none!important;
+          min-width:0!important;
+        }
+        body.kp-fe2-editing .kp-lat-launch,
+        body.kp-fe2-editing .kp-local-ai-launch{
+          right:18px!important;
+          bottom:calc(108px + env(safe-area-inset-bottom))!important;
+        }
         body.kp-fe2-editing .kp-ai-trigger{
+          right:18px!important;
+          bottom:calc(164px + env(safe-area-inset-bottom))!important;
+        }
+        body.kp-fe2-editing .kp-oa-tools{
+          right:18px!important;
+          bottom:calc(220px + env(safe-area-inset-bottom))!important;
+        }
+        /* Preview can remove kp-fe2-editing before the controls disappear.
+           Keep the rail separated for that transition frame as well. */
+        body:has(.kp-fe2-toolbar) .kp-lat-launch,
+        body:has(.kp-fe2-toolbar) .kp-local-ai-launch{
+          right:18px!important;
+          bottom:calc(108px + env(safe-area-inset-bottom))!important;
+        }
+        body:has(.kp-fe2-toolbar) .kp-ai-trigger{
+          right:18px!important;
+          bottom:calc(164px + env(safe-area-inset-bottom))!important;
+        }
+        body:has(.kp-fe2-toolbar) .kp-oa-tools{
+          right:18px!important;
+          bottom:calc(220px + env(safe-area-inset-bottom))!important;
+        }
+      }
+
+      @media(min-width:901px) and (max-width:1180px){
+        body.kp-fe2-editing .kp-fe2-toolbar{right:300px!important}
+        body.kp-fe2-editing .kp-fe2-device-wrap{width:112px!important}
+      }
+
+      /* Keep the responsive site navigation above the editor bar. The menu
+         trigger is a separate control; an opened navigation overlay may cover
+         the editor intentionally, but the closed trigger must remain clickable. */
+      @media(max-width:900px){
+        body.kp-fe2-editing{padding-bottom:148px!important}
+        body.kp-fe2-editing .kp-site-nav .wp-block-navigation__responsive-container-open{
+          bottom:max(88px,calc(env(safe-area-inset-bottom) + 80px))!important;
+          z-index:2147483002!important;
+        }
+        body.kp-fe2-editing .kp-site-nav .wp-block-navigation__responsive-container.is-menu-open,
+        body.kp-fe2-editing .kp-site-nav .wp-block-navigation__responsive-container.has-modal-open{
+          z-index:2147483100!important;
+        }
+        body.kp-fe2-editing .kp-lat-launch,
+        body.kp-fe2-editing .kp-local-ai-launch,
+        body.kp-fe2-editing .kp-ai-trigger{
+          max-width:150px!important;
+          min-height:44px!important;
+          padding:9px 12px!important;
+          font-size:13px!important;
+          line-height:1.1!important;
+        }
+      }
+
+      @media(max-width:782px){
+        /* Keep the editor bar readable and keep independent floating controls
+           above it instead of covering Preview/Undo/Redo. */
+        body.kp-fe2-editing .kp-fe2-toolbar{
+          display:flex!important;
+          flex-wrap:nowrap!important;
+          justify-content:flex-start!important;
+          gap:8px!important;
+          overflow-x:auto!important;
+          overflow-y:hidden!important;
+          z-index:2147483001!important;
+          scrollbar-width:none!important;
+        }
+        body.kp-fe2-editing .kp-fe2-toolbar::-webkit-scrollbar{display:none}
+        body.kp-fe2-editing .kp-fe2-toolbar button,
+        body.kp-fe2-editing .kp-fe2-toolbar a,
+        body.kp-fe2-editing .kp-fe2-device-wrap{
+          flex:0 0 auto!important;
+          min-width:44px!important;
+          min-height:44px!important;
+        }
+        body.kp-fe2-editing .kp-fe2-toolbar .kp-fe2-exit,
+        body.kp-fe2-editing .kp-fe2-toolbar .kp-fe2-undo,
+        body.kp-fe2-editing .kp-fe2-toolbar .kp-fe2-redo,
+        body.kp-fe2-editing .kp-fe2-toolbar .kp-fe2-device-wrap,
+        body.kp-fe2-editing .kp-fe2-toolbar .kp-fe2-save{
+          width:auto!important;
+        }
+        /* Keep the three owner actions in a touch-safe vertical rail. */
+        body.kp-fe2-editing .kp-mobile-live-trigger,
+        body.kp-fe2-editing .kp-ai-trigger,
+        body.kp-fe2-editing .kp-oa-tools{
           right:12px!important;
+          left:auto!important;
+          transform:none!important;
+        }
+        body.kp-fe2-editing .kp-mobile-live-trigger{
+          bottom:max(198px,calc(env(safe-area-inset-bottom) + 188px))!important;
+          min-height:44px!important;
+        }
+        body.kp-fe2-editing .kp-ai-trigger{
           bottom:max(138px,calc(env(safe-area-inset-bottom) + 128px))!important;
+          min-height:44px!important;
+        }
+        body.kp-fe2-editing .kp-oa-tools{
+          bottom:max(72px,calc(env(safe-area-inset-bottom) + 62px))!important;
+          min-height:44px!important;
         }
         body.kp-fe2-editing .kp-oa-sticky-actions{
           column-gap:3px!important;

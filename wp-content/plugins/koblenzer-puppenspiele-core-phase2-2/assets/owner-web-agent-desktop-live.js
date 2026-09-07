@@ -7,8 +7,10 @@
   const q = (selector, root = document) => root.querySelector(selector);
   const STORE_KEY = 'kp-owner-web-agent-chat-v1';
   const MAX_MESSAGES = 24;
-  const HELPER = 'http://127.0.0.1:17381';
-  const isDesktopCandidate = !window.KPLocalLive && !!navigator.mediaDevices?.getDisplayMedia;
+  const HELPER = typeof cfg.desktopLiveUrl === 'string'
+    ? cfg.desktopLiveUrl.replace(/\/+$/, '')
+    : '';
+  const isDesktopCandidate = !!HELPER && !window.KPLocalLive && !!navigator.mediaDevices?.getDisplayMedia;
   if (!isDesktopCandidate) return;
 
   let desktopLive = false;
@@ -95,6 +97,7 @@
   }
 
   async function health() {
+    if (!HELPER) return {};
     try {
       const response = await loopbackFetch('/health', { method: 'GET' });
       const data = await response.json().catch(() => null);

@@ -24,7 +24,9 @@ add_action( 'wp_footer', static function () {
     $asset_url  = WPMU_PLUGIN_URL . '/' . $asset_rel;
     $version    = is_file( $asset_path ) ? (string) filemtime( $asset_path ) : '8';
     $config     = array(
-        'agentUrl' => 'http://127.0.0.1:8765',
+        'agentUrl' => defined( 'KP_LOCAL_AI_DESKTOP_AGENT_URL' )
+            ? esc_url_raw( KP_LOCAL_AI_DESKTOP_AGENT_URL )
+            : '',
         'model'    => 'gemma3:4b',
         'version'  => 'desktop-ai-complete-v8',
     );
@@ -37,7 +39,7 @@ add_action( 'wp_footer', static function () {
       html.kp-local-ai-takeover .kp-mobile-live-trigger,
       html.kp-local-ai-takeover .kp-local-ai-launch,
       html.kp-local-ai-takeover .kp-local-ai-panel{display:none!important}
-      .kp-lat-launch{position:fixed;right:18px;bottom:18px;z-index:2147483600;min-width:132px;border:0;border-radius:999px;padding:14px 22px;background:#f47b20;color:#fff;font:850 16px/1.15 system-ui,-apple-system,"Segoe UI",sans-serif;box-shadow:0 12px 34px rgba(0,0,0,.34);cursor:pointer}
+      .kp-lat-launch{position:fixed;right:18px;bottom:calc(110px + env(safe-area-inset-bottom));z-index:2147483600;min-width:132px;border:0;border-radius:999px;padding:14px 22px;background:#f47b20;color:#fff;font:850 16px/1.15 system-ui,-apple-system,"Segoe UI",sans-serif;box-shadow:0 12px 34px rgba(0,0,0,.34);cursor:pointer}
       .kp-lat-panel{position:fixed;right:14px;top:14px;bottom:76px;z-index:2147483599;width:min(600px,calc(100vw - 28px));display:none;grid-template-rows:auto auto minmax(150px,1fr) auto auto;border:1px solid rgba(255,255,255,.14);border-radius:22px;background:#17110e;color:#f8f2ed;box-shadow:0 26px 80px rgba(0,0,0,.55);overflow:hidden;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
       .kp-lat-panel.is-open{display:grid}.kp-lat-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 17px 13px;border-bottom:1px solid rgba(255,255,255,.12)}.kp-lat-head strong{display:block;font-size:20px}.kp-lat-sub{margin-top:3px;color:#cdbfb5;font-size:12px}.kp-lat-close{border:0;border-radius:12px;background:rgba(255,255,255,.08);color:#fff;font-size:24px;line-height:1;padding:8px 11px;cursor:pointer}
       .kp-lat-tools{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px 0}.kp-lat-tools button,.kp-lat-actions button{min-height:42px;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:#2b231f;color:#fff;font-weight:800;cursor:pointer}.kp-lat-connect{background:#f1e5da!important;color:#211914!important}.kp-lat-tools button.is-on,.kp-lat-actions button.is-on{background:#315d37!important}.kp-lat-tools button.is-warn{background:#6d5325!important}

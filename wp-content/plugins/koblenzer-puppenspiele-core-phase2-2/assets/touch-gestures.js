@@ -8,7 +8,7 @@
   const globalData = clone(cfg.global);
   const pageData = clone(cfg.page);
   const holdMs = Math.max(320, Math.min(800, Number(cfg.holdMs) || 460));
-  const uiSelector = '.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,.kp-oa-backdrop,#wpadminbar';
+  const uiSelector = '.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,.kp-oa-backdrop,.kp-oa-sheet,.kp-wa-bar,#wpadminbar';
   const gestureHistory = [];
   let suppressUntil = 0;
   let touchState = null;
@@ -109,7 +109,10 @@
     el.style.setProperty('translate', `${x}px ${y}px`, 'important');
     el.style.setProperty('scale', String(scale), 'important');
     el.style.setProperty('transform-origin', 'center center', 'important');
-    el.classList.toggle('kp-has-gesture-transform', Math.abs(x) > .01 || Math.abs(y) > .01 || Math.abs(scale - 1) > .001);
+    const transformed = Math.abs(x) > .01 || Math.abs(y) > .01 || Math.abs(scale - 1) > .001;
+    if (el.classList.contains('kp-has-gesture-transform') !== transformed) {
+      el.classList.toggle('kp-has-gesture-transform', transformed);
+    }
   }
 
   function applySaved(root = document) {
@@ -236,7 +239,7 @@
   new MutationObserver(records => {
     if (records.length && records.every(record => window.KPOwnerUI?.isOwnerElement?.(record.target))) return;
     records.forEach(record => record.addedNodes.forEach(node => {
-      if (!(node instanceof Element)) return;
+      if (!(node instanceof Element) || node.closest(uiSelector)) return;
       assignGestureKeys(node);
       applySaved(node);
     }));

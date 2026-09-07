@@ -17,7 +17,9 @@ add_action( 'wp_footer', static function () {
     if ( str_contains( $ua, 'KoblenzerPuppenspieleTechnician/' ) ) { return; }
 
     $config = array(
-        'agentUrl' => 'http://127.0.0.1:8765',
+        'agentUrl' => defined( 'KP_LOCAL_AI_DESKTOP_AGENT_URL' )
+            ? esc_url_raw( KP_LOCAL_AI_DESKTOP_AGENT_URL )
+            : '',
         'model'    => 'gemma3:4b',
     );
     ?>
@@ -27,7 +29,7 @@ add_action( 'wp_footer', static function () {
       html.kp-local-desktop-ai .kp-ai-repair-sheet,
       html.kp-local-desktop-ai .kp-ai-repair-open,
       html.kp-local-desktop-ai .kp-mobile-live-trigger{display:none!important}
-      .kp-local-ai-launch{position:fixed;right:18px;bottom:18px;z-index:2147482800;border:0;border-radius:999px;padding:12px 18px;background:#241d19;color:#fff;font:800 15px/1.2 system-ui,sans-serif;box-shadow:0 10px 32px rgba(0,0,0,.28);cursor:pointer}
+      .kp-local-ai-launch{position:fixed;right:18px;bottom:calc(110px + env(safe-area-inset-bottom));z-index:2147482800;border:0;border-radius:999px;padding:12px 18px;background:#241d19;color:#fff;font:800 15px/1.2 system-ui,sans-serif;box-shadow:0 10px 32px rgba(0,0,0,.28);cursor:pointer}
       .kp-local-ai-panel{position:fixed;right:18px;bottom:72px;z-index:2147482799;width:min(470px,calc(100vw - 24px));max-height:min(760px,calc(100vh - 96px));display:none;flex-direction:column;border:1px solid rgba(255,255,255,.15);border-radius:18px;background:#1d1714;color:#fff;box-shadow:0 18px 50px rgba(0,0,0,.4);overflow:hidden;font:14px/1.4 system-ui,sans-serif}
       .kp-local-ai-panel.is-open{display:flex}.kp-local-ai-head{padding:13px 14px 10px;border-bottom:1px solid rgba(255,255,255,.12)}
       .kp-local-ai-head strong{display:block;font-size:16px}.kp-local-ai-state{margin-top:4px;color:#d8ccc5;font-size:12px}.kp-local-ai-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.kp-local-ai-badge{padding:3px 7px;border-radius:999px;background:rgba(255,255,255,.09);font-size:11px}.kp-local-ai-badge.is-on{background:#315d37}.kp-local-ai-badge.is-warn{background:#6d5325}
@@ -36,7 +38,7 @@ add_action( 'wp_footer', static function () {
       .kp-local-ai-log{min-height:150px;max-height:300px;margin:10px 14px 0;padding:10px;border-radius:12px;background:rgba(255,255,255,.06);overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
       .kp-local-ai-compose{display:flex;gap:7px;padding:10px 14px 0}.kp-local-ai-input{min-width:0;flex:1;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;background:#2d2521;color:#fff;font:inherit}.kp-local-ai-send{border:0;border-radius:10px;padding:9px 12px;font-weight:800;cursor:pointer}
       .kp-local-ai-actions{display:flex;gap:7px;padding:8px 14px 14px}.kp-local-ai-actions button{flex:1}.kp-local-ai-panel button:disabled,.kp-local-ai-panel input:disabled{opacity:.5;cursor:not-allowed}
-      @media(max-width:700px){.kp-local-ai-launch{right:12px;bottom:12px}.kp-local-ai-panel{right:12px;bottom:66px}}
+      @media(max-width:700px){.kp-local-ai-launch{right:12px;bottom:calc(84px + env(safe-area-inset-bottom));min-height:44px}.kp-local-ai-panel{right:12px;bottom:66px}}
     </style>
     <button type="button" class="kp-local-ai-launch" aria-expanded="false">✦ KI</button>
     <section class="kp-local-ai-panel" aria-label="Lokale Homepage-KI">
@@ -71,7 +73,7 @@ add_action( 'wp_footer', static function () {
       const setBusy=value=>{busy=!!value;connect.disabled=busy;share.disabled=busy;mic.disabled=busy;input.disabled=busy||!agentReady;send.disabled=busy||!agentReady};
       const explicitSave=text=>/\b(speicher(?:n|e|t)?|übernehm(?:en|e|t)?|dauerhaft|veröffentlich(?:en|e|t)?)\b/i.test(String(text||''));
       const parseJson=text=>{const clean=String(text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/```$/,'').trim(),a=clean.indexOf('{'),b=clean.lastIndexOf('}');if(a<0||b<=a)throw new Error('Gemma hat keinen strukturierten JSON-Plan geliefert.');return JSON.parse(clean.slice(a,b+1))};
-      async function agent(pathname,options={}){const response=await fetch(cfg.agentUrl+pathname,{method:options.method||'GET',mode:'cors',cache:'no-store',headers:{'Content-Type':'application/json','X-KP-Desktop-Agent':'1'},body:options.body===undefined?undefined:JSON.stringify(options.body)});const data=await response.json().catch(()=>null);if(!response.ok||!data?.ok)throw new Error(data?.error||`Laptop-Agent HTTP ${response.status}`);return data}
+      async function agent(pathname,options={}){if(!cfg.agentUrl)throw new Error('Der lokale Laptop-Agent ist nicht konfiguriert.');const response=await fetch(cfg.agentUrl+pathname,{method:options.method||'GET',mode:'cors',cache:'no-store',headers:{'Content-Type':'application/json','X-KP-Desktop-Agent':'1'},body:options.body===undefined?undefined:JSON.stringify(options.body)});const data=await response.json().catch(()=>null);if(!response.ok||!data?.ok)throw new Error(data?.error||`Laptop-Agent HTTP ${response.status}`);return data}
       async function gemma(system,prompt,image=''){const messages=[{role:'system',content:system},{role:'user',content:prompt,...(image?{images:[image]}:{})}];return parseJson((await agent('/v1/chat',{method:'POST',body:{messages}})).content)}
       async function ensureBridge(){for(let i=0;i<30;i++){if(bridge())return bridge();await wait(100)}throw new Error('Homepage-Editor ist noch nicht bereit. Seite bitte einmal neu laden.')}
       function say(text){if(!speakReplies||!('speechSynthesis' in window))return;window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(String(text||'').replace(/\n+/g,' ').slice(0,900));utterance.lang='de-DE';window.speechSynthesis.speak(utterance)}

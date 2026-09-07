@@ -4,12 +4,19 @@
   const cfg = window.KPCanvaEditor;
   if (!cfg) return;
   const keys = window.KPCanvaKeys;
+  if (window.KPCanvaEditor && typeof window.KPCanvaEditor === 'object') {
+    const snapshotHelper = keys?.exportEditableRegionSnapshot || keys?.snapshotEditableRegion || window.KPCanvaSnapshot;
+    if (typeof snapshotHelper === 'function') {
+      window.KPCanvaEditor.exportEditableRegionSnapshot = snapshotHelper;
+      window.KPCanvaEditor.snapshotEditableRegion = snapshotHelper;
+    }
+  }
   const clone = value => JSON.parse(JSON.stringify(value || {}));
   const clamp = (n,min,max) => Math.max(min,Math.min(max,n));
   const q = (s,r=document) => r.querySelector(s);
   const qa = (s,r=document) => [...r.querySelectorAll(s)];
   const MAX = 50;
-  const uiSelector = '.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,.kp-oa-backdrop,.kp-canva-image-panel,.kp-canva-preview-return,.kp-canva-discard,#wpadminbar';
+  const uiSelector = '.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,.kp-oa-backdrop,.kp-oa-sheet,.kp-wa-bar,.kp-canva-image-panel,.kp-canva-preview-return,.kp-canva-discard,#wpadminbar';
   const menuButtonSelector = '.kp-site-nav .wp-block-navigation__responsive-container-open';
   const menuPanelSelector = '.kp-site-nav .wp-block-navigation__responsive-close';
   const headerImageSelector = '.kp-header-stage img,.kp-header-photo img';
@@ -170,7 +177,6 @@
       el.style.setProperty('translate',`${v.x}px ${v.y}px`,'important');
       el.style.setProperty('scale',String(v.scale),'important');
       el.style.setProperty('transform-origin','center center','important');
-      el.classList.toggle('kp-has-gesture-transform',Math.abs(v.x)>.01||Math.abs(v.y)>.01||Math.abs(v.scale-1)>.001);
     }else{
       el.style.removeProperty('translate');el.style.removeProperty('scale');
       const transform=target.kind==='menu-panel'?`translate3d(${v.x}px,calc(-50% + ${v.y}px),0) scale(${v.scale})`:`translate3d(${v.x}px,${v.y}px,0) scale(${v.scale})`;
@@ -192,7 +198,7 @@
     qa('[data-kp-gesture-key]').forEach(el=>{
       if(el.closest('.kp-site-nav')||el.matches(headerImageSelector))return;
       const target=targetFromElement(el);if(!target)return;const ref=layoutRef(target,false);
-      if(ref.store[target.key]?.[ref.device])applyLayout(target,ref.value);else{el.style.removeProperty('translate');el.style.removeProperty('scale');if(el.classList.contains('kp-has-gesture-transform'))el.classList.remove('kp-has-gesture-transform');}
+      if(ref.store[target.key]?.[ref.device])applyLayout(target,ref.value);else{el.style.removeProperty('translate');el.style.removeProperty('scale');}
     });
     const fixed=[q(menuButtonSelector),q(menuPanelSelector),...qa(headerImageSelector)];
     fixed.filter(Boolean).forEach(el=>{const target=targetFromElement(el);if(target)applyLayout(target,layoutRef(target,false).value);});
@@ -300,7 +306,7 @@
   function installImageButton(){const img=selectedImage(),inspector=q('.kp-fe2-inspector');if(!img||!inspector?.classList.contains('is-open')){return;}let actions=q('.kp-fe2-actions',inspector);if(!actions)return;if(q('.kp-canva-image-edit',actions))return;const button=document.createElement('button');button.type='button';button.className='kp-fe2-expand kp-canva-image-edit';button.innerHTML='<span aria-hidden="true">✦</span> Bild bearbeiten';button.addEventListener('click',()=>openImagePanel(img));actions.appendChild(button);}
   let imageButtonFrame=0;
   const scheduleImageButton=()=>{if(imageButtonFrame)return;imageButtonFrame=requestAnimationFrame(()=>{imageButtonFrame=0;installImageButton();});};
-  const imageButtonObserver=new MutationObserver(scheduleImageButton);imageButtonObserver.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});setInterval(scheduleImageButton,1000);
+   const imageButtonObserver=new MutationObserver(scheduleImageButton);imageButtonObserver.observe(document.documentElement,{subtree:true,childList:true});setInterval(scheduleImageButton,1000);
 
   async function imageFlush(){if(!imageDirty)return{draft:false};if(imageSaving)return imageSaving;imageSaving=(async()=>{const fd=new FormData();fd.append('action','kp_canva_image_save');fd.append('nonce',cfg.imageNonce||'');fd.append('page_key',cfg.pageKey||'');fd.append('global',JSON.stringify(imageGlobal));fd.append('page',JSON.stringify(imagePage));const response=await fetch(cfg.ajaxUrl,{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});const json=await response.json().catch(()=>null);if(!response.ok||!json?.success)throw new Error(json?.data?.message||'Bildbearbeitung konnte nicht gespeichert werden.');imageGlobal=clone(json.data?.global||imageGlobal);imagePage=clone(json.data?.page||imagePage);savedImageGlobal=clone(imageGlobal);savedImagePage=clone(imagePage);imageDirty=false;imageHistory.length=0;imageRedo.length=0;window.dispatchEvent(new CustomEvent('kp:canva-image-history-change',{detail:{undo:0,redo:0}}));return json.data||{};})().finally(()=>{imageSaving=null;});return imageSaving;}
   function imageDiscard(){imageGlobal=clone(savedImageGlobal);imagePage=clone(savedImagePage);imageDirty=false;imageHistory.length=0;imageRedo.length=0;applyAllImages();closeImagePanel();window.dispatchEvent(new CustomEvent('kp:canva-image-history-change',{detail:{undo:0,redo:0}}));}
@@ -324,5 +330,5 @@
 
   let uiFrame=0;
   const scheduleUi=()=>{if(uiFrame)return;uiFrame=requestAnimationFrame(()=>{uiFrame=0;installPreviewButtons();installImageButton();updateDiscard();});};
-  const uiObserver=new MutationObserver(scheduleUi);uiObserver.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});installPreviewButtons();updateDiscard();setInterval(scheduleUi,1000);
+   const uiObserver=new MutationObserver(scheduleUi);uiObserver.observe(document.documentElement,{childList:true,subtree:true});installPreviewButtons();updateDiscard();setInterval(scheduleUi,1000);
 })();

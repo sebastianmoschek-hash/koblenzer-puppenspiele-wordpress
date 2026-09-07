@@ -9,7 +9,7 @@
   let globalData = clone(cfg.global);
   let pageData = clone(cfg.page);
   const holdMs = Math.max(320, Math.min(800, Number(cfg.holdMs) || 460));
-  const uiSelector = '.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,.kp-oa-backdrop,#wpadminbar';
+  const uiSelector = '.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,.kp-oa-backdrop,.kp-oa-sheet,.kp-wa-bar,#wpadminbar';
   const headerSelector = '.kp-header-stage img,.kp-header-photo img';
   const menuButtonSelector = '.kp-site-nav .wp-block-navigation__responsive-container-open';
   const menuPanelSelector = '.kp-site-nav .wp-block-navigation__responsive-close';
@@ -136,8 +136,6 @@
     if (!el) return;
     el.style.removeProperty('translate');
     el.style.removeProperty('scale');
-    const transient = ['kp-has-gesture-transform', 'kp-gesture-active', 'is-dragging', 'is-pinching'];
-    if (transient.some(name => el.classList.contains(name))) el.classList.remove(...transient);
   }
 
   function applySaved(root = document) {
@@ -425,7 +423,10 @@
   new MutationObserver(records => {
     if (records.length && records.every(record => window.KPOwnerUI?.isOwnerElement?.(record.target))) return;
     const hasLayoutAddition = records.some(record => [...record.addedNodes].some(node =>
-      node instanceof Element && !node.matches(uiSelector) && !node.closest(uiSelector)
+      node instanceof Element &&
+      !node.matches(uiSelector) &&
+      !node.closest(uiSelector) &&
+      !window.KPOwnerUI?.isOwnerElement?.(node)
     ));
     if (hasLayoutAddition) requestAnimationFrame(() => applySaved());
   }).observe(document.documentElement, {childList:true, subtree:true});

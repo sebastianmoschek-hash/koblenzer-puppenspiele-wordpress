@@ -180,7 +180,7 @@
     for (const selector of selectors) {
       const root = document.querySelector(selector);
       if (!root) continue;
-      const items = [...root.children].filter(el => el.dataset?.kpEditKey && !el.dataset?.kpSectionCopy && !['HEADER','FOOTER'].includes(el.tagName));
+      const items = [...root.children].filter(el => el.dataset?.kpEditKey && !el.dataset?.kpSectionPreviewCopy && !['HEADER','FOOTER'].includes(el.tagName));
       if (items.length >= 2) return {root,items};
     }
     return {root:null,items:[]};
@@ -194,21 +194,65 @@
     order.forEach(key => { if (map.has(key)) root.appendChild(map.get(key)); });
   }
 
+  function copyKey(token,key) { return `dup-${token}-${key}`; }
+
+  function createSectionCopy(source,token,copyOverrides=false) {
+    const copy=source.cloneNode(true);
+    const sourceToken=source.dataset.kpSectionCopy||'';
+    const originalRootId=copy.id||'';
+    const idMap=new Map();
+    if(originalRootId)idMap.set(originalRootId,token);
+    copy.querySelectorAll('[id]').forEach(node=>{
+      if(node===copy)return;
+      const baseId=sourceToken&&node.id.startsWith(`${sourceToken}-`)?node.id.slice(sourceToken.length+1):node.id;
+      idMap.set(node.id,`${token}-${baseId}`);
+    });
+    copy.id=token;
+    copy.querySelectorAll('[id]').forEach(node=>{
+      if(node!==copy&&idMap.has(node.id))node.id=idMap.get(node.id);
+    });
+    copy.dataset.kpSectionCopy=token;
+    copy.dataset.kpSectionPreviewCopy='1';
+    for(const node of [copy,...copy.querySelectorAll('*')]) {
+      for(const attribute of ['for','list','aria-labelledby','aria-describedby','aria-controls','aria-owns','headers']) {
+        const value=node.getAttribute(attribute);
+        if(value)node.setAttribute(attribute,value.split(/\s+/).filter(Boolean).map(id=>idMap.get(id)||id).join(' '));
+      }
+      const href=node.getAttribute('href');
+      if(href?.startsWith('#')&&href.length>1) {
+        const target=href.slice(1);
+        if(idMap.has(target))node.setAttribute('href','#'+idMap.get(target));
+      }
+    }
+    for(const node of [copy,...copy.querySelectorAll('[data-kp-edit-key],[data-kp-dom-key]')]) {
+      for(const [attribute,collection] of [['data-kp-edit-key','blocks'],['data-kp-dom-key','dom']]) {
+        const oldKey=node.getAttribute(attribute);
+        if(!oldKey)continue;
+        const sourcePrefix=`dup-${sourceToken}-`;
+        const baseKey=sourceToken&&oldKey.startsWith(sourcePrefix)?oldKey.slice(sourcePrefix.length):oldKey;
+        const newKey=node===copy&&attribute==='data-kp-edit-key'?`a-${token}`:copyKey(token,baseKey);
+        node.setAttribute(attribute,newKey);
+        if(copyOverrides) {
+          const item=draftPage[collection]?.[oldKey]||draftGlobal[collection]?.[oldKey];
+          if(item)draftPage[collection][newKey]=clone(item);
+        }
+      }
+    }
+    copy.classList.remove('kp-fe2-selected');
+    copy.querySelectorAll('[contenteditable]').forEach(el=>el.removeAttribute('contenteditable'));
+    copy.setAttribute('aria-label','Kopie – noch nicht gespeichert');
+    return copy;
+  }
+
   function renderSectionCopies() {
-    document.querySelectorAll('[data-kp-section-copy]').forEach(el => el.remove());
+    document.querySelectorAll('[data-kp-section-preview-copy]').forEach(el => el.remove());
     const {root,items}=sectionRootAndItems();
     if(!root)return;
     for(const action of draftPage.section_actions||[]) {
       if(action?.type!=='duplicate'||!action.key||!action.token)continue;
       const source=items.find(el=>el.dataset.kpEditKey===action.key);
       if(!source)continue;
-      const copy=source.cloneNode(true);
-      copy.dataset.kpSectionCopy=action.token;
-      copy.classList.remove('kp-fe2-selected');
-      copy.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
-      copy.removeAttribute('id');
-      copy.querySelectorAll('[contenteditable]').forEach(el=>el.removeAttribute('contenteditable'));
-      copy.setAttribute('aria-label','Kopie – noch nicht gespeichert');
+      const copy=createSectionCopy(source,action.token,false);
       source.insertAdjacentElement('afterend',copy);
     }
   }
@@ -310,6 +354,8 @@
       dom.order.forEach(el => { if (el?.isConnected) section.root.appendChild(el); });
     }
     renderSectionCopies();
+    applyScope(draftGlobal,'global');
+    applyScope(draftPage,'page');
     clearSelection();
   }
 
@@ -594,9 +640,14 @@
       return;
     }
     snapshot();
-    const token='copy-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
+    const token='kp-copy-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
+    const copy=createSectionCopy(el,token,true);
     draftPage.section_actions.push({type:'duplicate',key:info.key,token});
-    renderSectionCopies();
+    const position=draftPage.order.indexOf(info.key);
+    const newKey=`a-${token}`;
+    if(position>=0)draftPage.order.splice(position+1,0,newKey);
+    else draftPage.order.push(info.key,newKey);
+    el.insertAdjacentElement('afterend',copy);
     setDirty(true);
     clearSelection();
     toast('Kopie als Vorschau eingefügt – zum Veröffentlichen speichern.');
@@ -605,6 +656,12 @@
   function bindSectionDragHandle(el,handle) {
     if(!handle)return;
     let moved=false;
+    // Chromium can turn a fast release into a fling even with touch-action:none,
+    // then consume the next toolbar tap to stop it. Cancel native touch movement
+    // only on this handle while reordering; pointer events still drive the move.
+    handle.addEventListener('touchmove',event=>{
+      if(document.body.classList.contains('kp-fe2-touch-reorder')&&event.cancelable)event.preventDefault();
+    },{passive:false});
     handle.addEventListener('pointerdown',event=>{
       if(event.button!==undefined&&event.button!==0)return;
       moved=false;

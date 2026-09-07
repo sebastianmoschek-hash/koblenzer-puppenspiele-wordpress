@@ -1,7 +1,9 @@
 (() => {
   'use strict';
+  if (window.__KPOwnerWebAppLoaded) return;
+  window.__KPOwnerWebAppLoaded = true;
   const cfg = window.KPOwnerWebApp;
-  if (!cfg) return;
+  if (!cfg) { window.__KPOwnerWebAppLoaded = false; return; }
 
   // Shared early escape hatch for global editor/gesture listeners. The owner
   // sheets are transient UI and must never enter the website interaction
@@ -218,13 +220,12 @@
       </div>`);
     const box = sheet();
     q('[data-action="design"]',box)?.addEventListener('click',event=>{
-      // Keep the hub action isolated from page-level editor click delegation.
-      // Those listeners may inspect/rewrite the live DOM while the design sheet
-      // is being built, which made the Playwright click intermittently stall.
+      // Das Design-Sheet baut viele Controls und triggert dabei mehrere
+      // Editor-Observer. Asynchrones Rendern hält den echten Pointer-Klick frei.
       event.preventDefault();
-      event.stopPropagation();
-      openDesign();
-    });
+      event.stopImmediatePropagation();
+      window.setTimeout(openDesign, 0);
+    }, true);
     q('[data-action="nav"]',box)?.addEventListener('click',openNavigation);
     q('[data-action="termin"]',box)?.addEventListener('click',openNewTermin);
     q('[data-action="piece"]',box)?.addEventListener('click',openNewPiece);
@@ -264,7 +265,7 @@
       </div>
       <div class="kp-oa-sticky-actions"><button class="kp-oa-secondary kp-oa-design-reset">Standardwerte</button><button class="kp-oa-primary kp-oa-design-save">Design speichern</button></div>`,'is-design');
 
-    bindDesign();
+    window.setTimeout(bindDesign, 0);
   }
 
   function hexRgb(hex) {

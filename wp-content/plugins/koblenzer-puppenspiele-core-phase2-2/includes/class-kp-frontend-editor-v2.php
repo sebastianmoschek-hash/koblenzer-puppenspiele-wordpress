@@ -1,6 +1,9 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
+require_once __DIR__ . '/class-kp-section-action-applier.php';
+require_once __DIR__ . '/class-kp-save-transaction.php';
+
 /**
  * Koblenzer Puppenspiele – direct visual editor v2.
  *
@@ -18,6 +21,7 @@ final class KP_Frontend_Editor_V2 {
 
     public static function init() {
         add_filter( 'render_block', array( __CLASS__, 'render_block' ), 120, 2 );
+        add_filter( 'render_block_data', array( __CLASS__, 'render_copy_context' ), 120, 3 );
         add_action( 'wp_head', array( __CLASS__, 'frontend_styles' ), 280 );
         add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ), 60 );
         add_action( 'admin_bar_menu', array( __CLASS__, 'admin_bar' ), 70 );
@@ -72,6 +76,8 @@ final class KP_Frontend_Editor_V2 {
     private static function block_key( $block ) {
         $name  = isset( $block['blockName'] ) ? (string) $block['blockName'] : '';
         $attrs = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : array();
+        $anchor = preg_replace( '/[^a-z0-9\-]/', '', strtolower( (string) ( $attrs['anchor'] ?? '' ) ) );
+        if ( $anchor ) { return 'a-' . $anchor; }
         $inner = isset( $block['innerHTML'] ) ? trim( (string) $block['innerHTML'] ) : '';
         return 'b-' . substr( hash( 'sha256', $name . '|' . wp_json_encode( $attrs ) . '|' . $inner ), 0, 18 );
     }
@@ -85,6 +91,56 @@ final class KP_Frontend_Editor_V2 {
             }
         }
         return preg_replace( '/^(\s*<[a-zA-Z0-9:-]+)(\s|>)/', '$1 ' . $name . '="' . esc_attr( $value ) . '"$2', $html, 1 );
+    }
+
+    private static function set_first_tag_attribute( $html, $name, $value ) {
+        if ( class_exists( 'WP_HTML_Tag_Processor' ) ) {
+            $processor = new WP_HTML_Tag_Processor( $html );
+            if ( $processor->next_tag() ) {
+                $processor->set_attribute( $name, $value );
+                return $processor->get_updated_html();
+            }
+        }
+        $pattern = '/^(\s*<[a-zA-Z0-9:-]+\b[^>]*?)\s+' . preg_quote( $name, '/' ) . '="[^"]*"/i';
+        if ( preg_match( $pattern, $html ) ) { return preg_replace( $pattern, '$1 ' . $name . '="' . esc_attr( $value ) . '"', $html, 1 ); }
+        return self::first_tag_attribute( $html, $name, $value );
+    }
+
+    private static function first_tag_attribute_value( $html, $name ) {
+        if ( class_exists( 'WP_HTML_Tag_Processor' ) ) {
+            $processor = new WP_HTML_Tag_Processor( $html );
+            if ( $processor->next_tag() ) {
+                $value = $processor->get_attribute( $name );
+                return is_string( $value ) ? $value : '';
+            }
+        }
+        return preg_match( '/^\s*<[a-zA-Z0-9:-]+\b[^>]*\s' . preg_quote( $name, '/' ) . '="([^"]*)"/i', $html, $match ) ? $match[1] : '';
+    }
+
+    private static function replace_id_reference_target( $html, $old_id, $new_id ) {
+        if ( ! $old_id || $old_id === $new_id ) { return $html; }
+        if ( class_exists( 'WP_HTML_Tag_Processor' ) ) {
+            $processor = new WP_HTML_Tag_Processor( $html );
+            while ( $processor->next_tag() ) {
+                foreach ( array( 'for', 'list', 'aria-labelledby', 'aria-describedby', 'aria-controls', 'aria-owns', 'headers' ) as $reference ) {
+                    $value = $processor->get_attribute( $reference );
+                    if ( ! is_string( $value ) ) { continue; }
+                    $values = preg_split( '/\s+/', trim( $value ) );
+                    $processor->set_attribute( $reference, implode( ' ', array_map( static function ( $item ) use ( $old_id, $new_id ) { return $item === $old_id ? $new_id : $item; }, $values ) ) );
+                }
+                if ( '#' . $old_id === $processor->get_attribute( 'href' ) ) { $processor->set_attribute( 'href', '#' . $new_id ); }
+            }
+            return $processor->get_updated_html();
+        }
+        $html = preg_replace_callback(
+            '/\b(for|list|aria-labelledby|aria-describedby|aria-controls|aria-owns|headers)="([^"]+)"/i',
+            static function ( $match ) use ( $old_id, $new_id ) {
+                $values = preg_split( '/\s+/', trim( $match[2] ) );
+                return $match[1] . '="' . esc_attr( implode( ' ', array_map( static function ( $item ) use ( $old_id, $new_id ) { return $item === $old_id ? $new_id : $item; }, $values ) ) ) . '"';
+            },
+            $html
+        );
+        return preg_replace( '/\bhref="#' . preg_quote( $old_id, '/' ) . '"/i', 'href="#' . esc_attr( $new_id ) . '"', $html );
     }
 
     private static function replace_simple_inner( $html, $replacement ) {
@@ -143,6 +199,127 @@ final class KP_Frontend_Editor_V2 {
         );
     }
 
+    private static function rewrite_copy_markup( $html, $token ) {
+        $token = sanitize_key( $token );
+        $prefix = $token . '-';
+        if ( class_exists( 'WP_HTML_Tag_Processor' ) ) {
+            $ids = array();
+            $collector = new WP_HTML_Tag_Processor( $html );
+            $first = true;
+            while ( $collector->next_tag() ) {
+                $id = $collector->get_attribute( 'id' );
+                if ( ! $first && is_string( $id ) && '' !== $id ) { $ids[ $id ] = $prefix . $id; }
+                $first = false;
+            }
+            $processor = new WP_HTML_Tag_Processor( $html );
+            $first = true;
+            while ( $processor->next_tag() ) {
+                $id = $processor->get_attribute( 'id' );
+                if ( ! $first && is_string( $id ) && isset( $ids[ $id ] ) ) { $processor->set_attribute( 'id', $ids[ $id ] ); }
+                foreach ( array( 'for', 'list', 'aria-labelledby', 'aria-describedby', 'aria-controls', 'aria-owns', 'headers' ) as $reference ) {
+                    $value = $processor->get_attribute( $reference );
+                    if ( ! is_string( $value ) || '' === trim( $value ) ) { continue; }
+                    $values = preg_split( '/\s+/', trim( $value ) );
+                    $processor->set_attribute( $reference, implode( ' ', array_map( static function ( $item ) use ( $ids ) { return $ids[ $item ] ?? $item; }, $values ) ) );
+                }
+                $href = $processor->get_attribute( 'href' );
+                if ( is_string( $href ) && strlen( $href ) > 1 && '#' === $href[0] ) {
+                    $target = substr( $href, 1 );
+                    if ( isset( $ids[ $target ] ) ) { $processor->set_attribute( 'href', '#' . $ids[ $target ] ); }
+                }
+                if ( $first ) {
+                    $processor->set_attribute( 'data-kp-section-copy', $token );
+                    $first = false;
+                    continue;
+                }
+                foreach ( array( 'data-kp-edit-key', 'data-kp-dom-key' ) as $attribute ) {
+                    $value = $processor->get_attribute( $attribute );
+                    if ( is_string( $value ) && '' !== $value && 0 !== strpos( $value, 'dup-' . $token . '-' ) ) { $processor->set_attribute( $attribute, 'dup-' . $token . '-' . $value ); }
+                }
+            }
+            return $processor->get_updated_html();
+        }
+        preg_match_all( '/\bid="([^"]+)"/i', $html, $id_matches );
+        $all_ids = $id_matches[1] ?? array();
+        if ( $all_ids ) { array_shift( $all_ids ); }
+        $ids = array();
+        foreach ( $all_ids as $id ) { $ids[ $id ] = $prefix . $id; }
+        $html = preg_replace_callback(
+                    '/\b(data-kp-(?:edit|dom)-key)="([^"]+)"/i',
+                    static function ( $match ) use ( $token ) {
+                        return 0 === strpos( $match[2], 'dup-' . $token . '-' ) ? $match[0] : $match[1] . '="' . esc_attr( 'dup-' . $token . '-' . $match[2] ) . '"';
+                    },
+                    $html
+                );
+        $html = preg_replace_callback(
+            '/\b(id|for|list|aria-labelledby|aria-describedby|aria-controls|aria-owns|headers)="([^"]+)"/i',
+            static function ( $match ) use ( $ids ) {
+                $values = preg_split( '/\s+/', trim( $match[2] ) );
+                return $match[1] . '="' . esc_attr( implode( ' ', array_map( static function ( $item ) use ( $ids ) { return $ids[ $item ] ?? $item; }, $values ) ) ) . '"';
+            },
+            $html
+        );
+        $html = preg_replace_callback(
+            '/\bhref="#([^"]+)"/i',
+            static function ( $match ) use ( $ids ) { return isset( $ids[ $match[1] ] ) ? 'href="#' . esc_attr( $ids[ $match[1] ] ) . '"' : $match[0]; },
+            $html
+        );
+        return self::first_tag_attribute( $html, 'data-kp-section-copy', $token );
+    }
+
+    private static function rewrite_block_references( $block, $old_id, $new_id ) {
+        $block['innerHTML'] = self::replace_id_reference_target( (string) ( $block['innerHTML'] ?? '' ), $old_id, $new_id );
+        foreach ( $block['innerContent'] ?? array() as $index => $fragment ) {
+            if ( is_string( $fragment ) ) { $block['innerContent'][ $index ] = self::replace_id_reference_target( $fragment, $old_id, $new_id ); }
+        }
+        foreach ( $block['attrs'] ?? array() as $name => $value ) {
+            if ( ! is_string( $value ) ) { continue; }
+            if ( in_array( $name, array( 'url', 'href' ), true ) && '#' . $old_id === $value ) { $block['attrs'][ $name ] = '#' . $new_id; }
+            elseif ( in_array( $name, array( 'content', 'text' ), true ) ) { $block['attrs'][ $name ] = self::replace_id_reference_target( $value, $old_id, $new_id ); }
+        }
+        foreach ( $block['innerBlocks'] ?? array() as $index => $child ) { $block['innerBlocks'][ $index ] = self::rewrite_block_references( $child, $old_id, $new_id ); }
+        return $block;
+    }
+
+    private static function migrate_copy_child_keys( $source, $copy, &$page, $token ) {
+        foreach ( $source['innerBlocks'] ?? array() as $index => $child ) {
+            $new_child = $copy['innerBlocks'][ $index ];
+            $old = 'dup-' . $token . '-' . self::block_key( $child );
+            $new = 'dup-' . $token . '-' . self::block_key( $new_child );
+            if ( $old !== $new ) {
+                $page['section_key_map'][ $old ] = array( $new );
+                foreach ( array( 'blocks', 'dom' ) as $collection ) {
+                    if ( isset( $page[ $collection ][ $old ] ) ) {
+                        if ( ! isset( $page[ $collection ][ $new ] ) ) { $page[ $collection ][ $new ] = $page[ $collection ][ $old ]; }
+                        unset( $page[ $collection ][ $old ] );
+                    }
+                }
+            }
+            self::migrate_copy_child_keys( $child, $new_child, $page, $token );
+        }
+    }
+
+    private static function prepare_copied_block( $block, $anchor ) {
+        if ( ! isset( $block['attrs'] ) || ! is_array( $block['attrs'] ) ) { $block['attrs'] = array(); }
+        $old_id = self::first_tag_attribute_value( (string) ( $block['innerHTML'] ?? '' ), 'id' );
+        if ( $old_id && $old_id !== $anchor ) { $block = self::rewrite_block_references( $block, $old_id, $anchor ); }
+        $block['attrs']['anchor'] = $anchor;
+        $block['innerHTML'] = self::replace_id_reference_target( (string) ( $block['innerHTML'] ?? '' ), $old_id, $anchor );
+        $block['innerHTML'] = self::set_first_tag_attribute( $block['innerHTML'], 'id', $anchor );
+        if ( ! empty( $block['innerContent'] ) && is_array( $block['innerContent'] ) ) {
+            foreach ( $block['innerContent'] as $index => $fragment ) {
+                if ( ! is_string( $fragment ) ) { continue; }
+                $block['innerContent'][ $index ] = self::replace_id_reference_target( $fragment, $old_id, $anchor );
+            }
+            foreach ( $block['innerContent'] as $index => $fragment ) {
+                if ( ! is_string( $fragment ) || false === strpos( $fragment, '<' ) ) { continue; }
+                $block['innerContent'][ $index ] = self::set_first_tag_attribute( $fragment, 'id', $anchor );
+                break;
+            }
+        }
+        return $block;
+    }
+
     private static function merged_block_override( $key ) {
         $global = self::global_data();
         $page   = self::page_data();
@@ -156,11 +333,23 @@ final class KP_Frontend_Editor_V2 {
         return $result;
     }
 
+    public static function render_copy_context( $block, $source, $parent ) {
+        // Render-only metadata, outside attrs: it must not affect Gutenberg serialization or hashes.
+        unset( $block['_kp_copy_context'] );
+        if ( $parent instanceof WP_Block ) {
+            $anchor = sanitize_key( (string) ( $parent->parsed_block['attrs']['anchor'] ?? '' ) );
+            $token = 0 === strpos( $anchor, 'kp-copy-' ) ? $anchor : ( $parent->parsed_block['_kp_copy_context'] ?? '' );
+            if ( $token ) { $block['_kp_copy_context'] = $token; }
+        }
+        return $block;
+    }
+
     public static function render_block( $block_content, $block ) {
         if ( is_admin() || empty( $block['blockName'] ) || ! in_array( $block['blockName'], self::editable_block_names(), true ) ) {
             return $block_content;
         }
         $key = self::block_key( $block );
+        if ( ! empty( $block['_kp_copy_context'] ) ) { $key = 'dup-' . $block['_kp_copy_context'] . '-' . $key; }
         $ov  = self::merged_block_override( $key );
         if ( ! empty( $ov['content'] ) && is_array( $ov['content'] ) ) {
             $content = $ov['content'];
@@ -183,6 +372,8 @@ final class KP_Frontend_Editor_V2 {
         }
         $block_content = self::first_tag_attribute( $block_content, 'data-kp-edit-key', $key );
         $block_content = self::first_tag_attribute( $block_content, 'data-kp-block-name', $block['blockName'] );
+        $anchor = sanitize_key( (string) ( $block['attrs']['anchor'] ?? '' ) );
+        if ( 0 === strpos( $anchor, 'kp-copy-' ) ) { $block_content = self::rewrite_copy_markup( $block_content, $anchor ); }
         return $block_content;
     }
 
@@ -248,7 +439,7 @@ final class KP_Frontend_Editor_V2 {
 
     public static function enqueue_assets() {
         if ( is_admin() ) { return; }
-        $asset_version = KP_CORE_VERSION . '-fe2-20260905-1';
+        $asset_version = KP_CORE_VERSION . '-fe2-20260905-3';
         wp_enqueue_script( 'kp-frontend-editor-v2', KP_CORE_URL . 'assets/frontend-editor-v2.js', array(), $asset_version, true );
         if ( self::edit_mode() ) {
             wp_enqueue_media();
@@ -377,35 +568,139 @@ final class KP_Frontend_Editor_V2 {
         return $out;
     }
 
-    private static function apply_section_actions( &$page, $page_key ) {
-        $actions = isset( $page['section_actions'] ) && is_array( $page['section_actions'] ) ? $page['section_actions'] : array();
-        $stored = self::page_data( $page_key );
-        $applied = isset( $stored['applied_section_tokens'] ) && is_array( $stored['applied_section_tokens'] )
-            ? array_values( array_filter( array_map( 'sanitize_key', $stored['applied_section_tokens'] ) ) )
-            : array();
-        $page['section_actions'] = array();
-        if ( ! $actions ) {
-            if ( $applied ) { $page['applied_section_tokens'] = array_slice( $applied, -40 ); }
-            return 0;
+    private static function collect_anchor_aliases( $blocks, &$existing, &$key_map, $copy = '' ) {
+        foreach ( $blocks as $block ) {
+            $anchor = (string) ( $block['attrs']['anchor'] ?? '' );
+            if ( ! $anchor ) { $anchor = self::first_tag_attribute_value( (string) ( $block['innerHTML'] ?? '' ), 'id' ); }
+            if ( $anchor ) {
+                $identity = $copy . preg_replace( '/[^a-z0-9\-]/', '', strtolower( $anchor ) );
+                if ( ! $identity || isset( $existing[ $identity ] ) ) { throw new RuntimeException( 'Vorhandene HTML-Anker sind nicht eindeutig. Speichern wurde ohne Inhaltsänderung abgebrochen.' ); }
+                $existing[ $identity ] = true;
+            }
+            // Also migrate legacy key for blocks with a public HTML id (not just explicit anchor attr).
+                        $public_id = self::first_tag_attribute_value( (string) ( $block['innerHTML'] ?? '' ), 'id' );
+                        if ( ! empty( $block['attrs']['anchor'] ) || $public_id ) {
+                            $legacy = 'b-' . substr( hash( 'sha256', (string) $block['blockName'] . '|' . wp_json_encode( $block['attrs'] ) . '|' . trim( (string) ( $block['innerHTML'] ?? '' ) ) ), 0, 18 );
+                            $key_map[ $copy . $legacy ] = array( $copy . self::block_key( $block ) );
+                        }
+            $child_copy = 0 === strpos( $anchor, 'kp-copy-' ) ? 'dup-' . $anchor . '-' : $copy;
+            self::collect_anchor_aliases( $block['innerBlocks'] ?? array(), $existing, $key_map, $child_copy );
         }
+    }
+
+    private static function stabilize_section_blocks( &$blocks, &$page, $allowed ) {
+        $existing = array();
+        $key_map = array();
+        self::collect_anchor_aliases( $blocks, $existing, $key_map );
+        $changed = 0;
+        foreach ( $blocks as $index => $block ) {
+            if ( ! in_array( (string) ( $block['blockName'] ?? '' ), $allowed, true ) ) { continue; }
+            if ( sanitize_key( (string) ( $block['attrs']['anchor'] ?? '' ) ) ) {
+                continue;
+            }
+            $old_key = self::block_key( $block );
+            // A public HTML ID is already an identity: never orphan incoming links.
+            $anchor = self::first_tag_attribute_value( (string) ( $block['innerHTML'] ?? '' ), 'id' );
+            if ( ! $anchor ) {
+                do {
+                    $anchor = 'kp-section-' . sanitize_key( wp_generate_uuid4() );
+                } while ( isset( $existing[ $anchor ] ) );
+            }
+            $existing[ $anchor ] = true;
+            $blocks[ $index ] = self::prepare_copied_block( $block, $anchor );
+            $key_map[ $old_key ][] = self::block_key( $blocks[ $index ] );
+            $changed++;
+        }
+        // Server-owned aliases survive a lost AJAX response and identical payload retry.
+        $key_map = array_replace( isset( $page['section_key_map'] ) && is_array( $page['section_key_map'] ) ? $page['section_key_map'] : array(), $key_map );
+        $page['section_key_map'] = $key_map;
+        if ( ! $key_map ) { return 0; }
+        foreach ( array( 'blocks', 'dom' ) as $collection ) {
+            foreach ( $key_map as $old_key => $new_keys ) {
+                if ( ! isset( $page[ $collection ][ $old_key ] ) ) { continue; }
+                foreach ( $new_keys as $new_key ) {
+                    if ( ! isset( $page[ $collection ][ $new_key ] ) ) { $page[ $collection ][ $new_key ] = $page[ $collection ][ $old_key ]; }
+                }
+                unset( $page[ $collection ][ $old_key ] );
+            }
+        }
+        if ( ! empty( $page['order'] ) && is_array( $page['order'] ) ) {
+            $positions = array();
+            foreach ( $page['order'] as &$order_key ) {
+                $old_order_key = $order_key;
+                if ( empty( $key_map[ $old_order_key ] ) ) { continue; }
+                $position = $positions[ $old_order_key ] ?? 0;
+                $mapped = $key_map[ $old_order_key ][ min( $position, count( $key_map[ $old_order_key ] ) - 1 ) ];
+                $order_key = $mapped;
+                $positions[ $old_order_key ] = $position + 1;
+            }
+            unset( $order_key );
+        }
+        foreach ( $page['section_actions'] as &$action ) {
+            $old_key = (string) ( $action['key'] ?? '' );
+            if ( empty( $key_map[ $old_key ] ) ) { continue; }
+            if ( 1 !== count( $key_map[ $old_key ] ) ) { throw new RuntimeException( 'Identische Bereiche müssen vor dem Duplizieren einmal gespeichert und neu geladen werden.' ); }
+            $action['key'] = $key_map[ $old_key ][0];
+        }
+        unset( $action );
+        return $changed;
+    }
+
+    public static function section_action_block_key( $block ) {
+        return self::block_key( $block );
+    }
+
+    public static function section_action_prepare_copy( $block, $anchor ) {
+        return self::prepare_copied_block( $block, $anchor );
+    }
+
+    public static function section_action_migrate_child_keys( $source, $copy, &$page, $token ) {
+        self::migrate_copy_child_keys( $source, $copy, $page, $token );
+    }
+
+    public static function section_action_stabilize_blocks( &$blocks, &$page, $allowed ) {
+        return self::stabilize_section_blocks( $blocks, $page, $allowed );
+    }
+
+    public static function section_action_ensure_revision( $post_id, $content ) {
+        self::ensure_revision( $post_id, $content );
+    }
+
+    private static function apply_section_actions( &$page, $page_key, &$expected_post = null ) {
+        return KP_Section_Action_Applier::apply( $page, $page_key, $expected_post );
+        /*
+        if ( ! empty( $page['duplicates'] ) ) { throw new RuntimeException( 'Vorhandene Metadatenkopien müssen vor dem Speichern geprüft und verlustfrei migriert werden.' ); }
+        $actions = isset( $page['section_actions'] ) && is_array( $page['section_actions'] ) ? $page['section_actions'] : array();
+        $page['section_actions'] = array();
         if ( ! preg_match( '/^post-([0-9]+)$/', (string) $page_key, $match ) ) {
+            if ( ! $actions ) { return 0; }
             throw new RuntimeException( 'Bereiche können nur auf einer gespeicherten WordPress-Seite dupliziert werden.' );
         }
         $post_id = (int) $match[1];
         if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
             throw new RuntimeException( 'Keine Berechtigung zum Duplizieren dieses Bereichs.' );
         }
+        // The AJAX caller owns the shared options/post transaction and connection lock.
         $post = get_post( $post_id );
         if ( ! $post ) { throw new RuntimeException( 'Die WordPress-Seite wurde nicht gefunden.' ); }
         $blocks = parse_blocks( (string) $post->post_content );
         $allowed = array( 'core/group', 'core/cover', 'core/columns', 'core/media-text' );
+        $page['section_actions'] = $actions;
+        $stabilized = self::stabilize_section_blocks( $blocks, $page, $allowed );
+        $actions = $page['section_actions'];
+        $page['section_actions'] = array();
         $created = 0;
         foreach ( $actions as $action ) {
-            $token = sanitize_key( (string) $action['token'] );
-            if ( ! $token || in_array( $token, $applied, true ) ) { continue; }
+            $token = sanitize_key( (string) ( $action['token'] ?? '' ) );
+            if ( 0 !== strpos( $token, 'kp-copy-' ) || strlen( $token ) > 64 ) { throw new RuntimeException( 'Ungültige Kennung für die Abschnittskopie.' ); }
+            $already_exists = false;
+            foreach ( $blocks as $block ) {
+                if ( $token === sanitize_key( (string) ( $block['attrs']['anchor'] ?? '' ) ) ) { $already_exists = true; break; }
+            }
+            if ( $already_exists ) { continue; }
             $matches = array();
             foreach ( $blocks as $index => $block ) {
-                if ( self::block_key( $block ) === $action['key'] ) { $matches[] = $index; }
+                if ( self::block_key( $block ) === ( $action['key'] ?? '' ) ) { $matches[] = $index; }
             }
             if ( 1 !== count( $matches ) ) {
                 throw new RuntimeException( 'Der ausgewählte Bereich ist nicht mehr eindeutig. Bitte die Seite neu laden.' );
@@ -414,47 +709,167 @@ final class KP_Frontend_Editor_V2 {
             if ( ! in_array( (string) ( $blocks[ $index ]['blockName'] ?? '' ), $allowed, true ) ) {
                 throw new RuntimeException( 'Dieser Blocktyp kann aus Sicherheitsgründen nicht direkt dupliziert werden.' );
             }
-            $copy = $blocks[ $index ];
-            if ( ! isset( $copy['attrs'] ) || ! is_array( $copy['attrs'] ) ) { $copy['attrs'] = array(); }
-            $copy['attrs']['anchor'] = 'kp-' . substr( $token, 0, 55 );
-            $new_key = self::block_key( $copy );
+            $copy = self::prepare_copied_block( $blocks[ $index ], $token );
+            self::migrate_copy_child_keys( $blocks[ $index ], $copy, $page, $token );
             array_splice( $blocks, $index + 1, 0, array( $copy ) );
+            $new_key = 'a-' . $token;
             if ( ! empty( $page['order'] ) && is_array( $page['order'] ) ) {
-                $position = array_search( $action['key'], $page['order'], true );
-                if ( false !== $position ) { array_splice( $page['order'], $position + 1, 0, array( $new_key ) ); }
+                $position = array_search( (string) $action['key'], $page['order'], true );
+                if ( false !== $position && ! in_array( $new_key, $page['order'], true ) ) { array_splice( $page['order'], $position + 1, 0, array( $new_key ) ); }
             }
-            $applied[] = $token;
             $created++;
         }
-        if ( $created ) {
-            $result = wp_update_post( wp_slash( array( 'ID' => $post_id, 'post_content' => serialize_blocks( $blocks ) ) ), true );
+        if ( ! empty( $page['order'] ) && is_array( $page['order'] ) ) { $page['order'] = array_values( array_unique( $page['order'] ) ); }
+        if ( $created || $stabilized ) {
+            $expected_post = array( 'ID' => $post_id, 'post_content' => serialize_blocks( $blocks ) );
+            if ( ! wp_revisions_enabled( $post ) ) { throw new RuntimeException( 'Sicheres Speichern erfordert aktivierte WordPress-Revisionen.' ); }
+            self::ensure_revision( $post_id, (string) $post->post_content );
+            $result = wp_update_post( wp_slash( $expected_post ), true );
             if ( is_wp_error( $result ) ) { throw new RuntimeException( $result->get_error_message() ); }
+            if ( (int) $result !== $post_id ) { throw new RuntimeException( 'Die WordPress-Seite konnte nicht gespeichert werden.' ); }
+            self::ensure_revision( $post_id, $expected_post['post_content'] );
         }
-        $page['applied_section_tokens'] = array_slice( array_values( array_unique( $applied ) ), -40 );
         return $created;
+        */
+    }
+
+    private static function ensure_revision( $post_id, $content ) {
+        global $wpdb;
+        $result = wp_save_post_revision( $post_id );
+        if ( is_wp_error( $result ) ) { throw new RuntimeException( 'Die WordPress-Revision konnte nicht gespeichert werden.' ); }
+        $revision = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_parent = %d AND post_type = 'revision' AND BINARY post_content = BINARY %s ORDER BY ID DESC LIMIT 1", $post_id, $content ) );
+        if ( $wpdb->last_error || ! $revision ) { throw new RuntimeException( 'Die gespeicherte WordPress-Revision konnte nicht nachgewiesen werden.' ); }
+    }
+
+    private static function clear_save_cache( $post_id ) {
+        foreach ( array( self::GLOBAL_OPTION, self::PAGES_OPTION, 'alloptions', 'notoptions' ) as $key ) { wp_cache_delete( $key, 'options' ); }
+        if ( $post_id ) { clean_post_cache( $post_id ); }
+    }
+
+    private static function checked_option_read( $key ) {
+        global $wpdb;
+        $raw = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s FOR UPDATE", $key ) );
+        if ( $wpdb->last_error ) { throw new RuntimeException( 'Editoroptionen konnten nicht sicher gelesen werden. Es wurde nichts gespeichert.' ); }
+        if ( null === $raw ) { return array(); }
+        $value = maybe_unserialize( $raw );
+        if ( ! is_array( $value ) ) { throw new RuntimeException( 'Vorhandene Editoroptionen sind beschädigt. Speichern wurde abgebrochen.' ); }
+        return $value;
+    }
+
+    private static function checked_option_write( $key, $value ) {
+        // update_option(false) also means unchanged: only a DB readback decides success.
+        update_option( $key, $value, false );
+        self::verify_option_value( $key, $value );
+    }
+
+    private static function verify_option_value( $key, $value ) {
+        global $wpdb;
+        $actual = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", $key ) );
+        if ( $wpdb->last_error || (string) maybe_serialize( $value ) !== $actual ) {
+            throw new RuntimeException( 'Editoroptionen konnten nicht vollständig gespeichert werden. Bitte erneut versuchen.' );
+        }
+    }
+
+    private static function text_patches() {
+        $raw = isset( $_POST['kp_text_patches'] ) ? wp_unslash( $_POST['kp_text_patches'] ) : '';
+        $items = $raw ? json_decode( $raw, true ) : array();
+        if ( ! is_array( $items ) ) { return array(); }
+        $out = array();
+        foreach ( array_slice( $items, 0, 80 ) as $item ) {
+            if ( ! is_array( $item ) ) { continue; }
+            $scope = isset( $item['scope'] ) && 'global' === $item['scope'] ? 'global' : 'page';
+            $collection = isset( $item['collection'] ) && 'dom' === $item['collection'] ? 'dom' : 'blocks';
+            $key = isset( $item['key'] ) ? preg_replace( '/[^a-z0-9\\-]/', '', strtolower( (string) $item['key'] ) ) : '';
+            if ( ! $key ) { continue; }
+            $out[] = array(
+                'scope'      => $scope,
+                'collection' => $collection,
+                'key'        => $key,
+                'html'       => isset( $item['html'] ) ? wp_kses_post( $item['html'] ) : '',
+            );
+        }
+        return $out;
+    }
+
+    private static function apply_text_patches( &$global, &$page, $patches ) {
+        foreach ( $patches as $patch ) {
+            $target =& $page;
+            if ( 'global' === $patch['scope'] ) { $target =& $global; }
+            $collection = $patch['collection'];
+            $key = $patch['key'];
+            if ( ! isset( $target[ $collection ] ) || ! is_array( $target[ $collection ] ) ) { $target[ $collection ] = array(); }
+            if ( ! isset( $target[ $collection ][ $key ] ) || ! is_array( $target[ $collection ][ $key ] ) ) { $target[ $collection ][ $key ] = array(); }
+            $target[ $collection ][ $key ]['content'] = array(
+                'type'  => 'html',
+                'value' => $patch['html'],
+            );
+            unset( $target );
+        }
     }
 
     public static function ajax_save() {
-        if ( ! self::can_edit() ) { wp_send_json_error( array( 'message' => 'Keine Berechtigung.' ), 403 ); }
-        check_ajax_referer( self::NONCE_ACTION, 'nonce' );
-        $page_key = isset( $_POST['page_key'] ) ? self::valid_page_key( sanitize_text_field( wp_unslash( $_POST['page_key'] ) ) ) : '';
-        if ( ! $page_key ) { wp_send_json_error( array( 'message' => 'Seite konnte beim Speichern nicht eindeutig erkannt werden.' ), 400 ); }
-        $raw = isset( $_POST['payload'] ) ? wp_unslash( $_POST['payload'] ) : '';
-        $payload = json_decode( $raw, true );
-        if ( ! is_array( $payload ) ) { wp_send_json_error( array( 'message' => 'Ungültige Daten.' ), 400 ); }
-        $global = self::sanitize_scope_data( isset( $payload['global'] ) ? $payload['global'] : array() );
-        $page   = self::sanitize_scope_data( isset( $payload['page'] ) ? $payload['page'] : array() );
-        try {
-            $duplicated = self::apply_section_actions( $page, $page_key );
-        } catch ( Throwable $error ) {
-            wp_send_json_error( array( 'message' => $error->getMessage() ), 400 );
-        }
-        update_option( self::GLOBAL_OPTION, $global, false );
-        $all = get_option( self::PAGES_OPTION, array() );
-        if ( ! is_array( $all ) ) { $all = array(); }
-        $all[ $page_key ] = $page;
-        if ( count( $all ) > 160 ) { $all = array_slice( $all, -160, null, true ); }
-        update_option( self::PAGES_OPTION, $all, false );
+            if ( ! self::can_edit() ) { wp_send_json_error( array( 'message' => 'Keine Berechtigung.' ), 403 ); }
+            check_ajax_referer( self::NONCE_ACTION, 'nonce' );
+            $page_key = isset( $_POST['page_key'] ) ? self::valid_page_key( sanitize_text_field( wp_unslash( $_POST['page_key'] ) ) ) : '';
+            if ( ! $page_key ) { wp_send_json_error( array( 'message' => 'Seite konnte beim Speichern nicht eindeutig erkannt werden.' ), 400 ); }
+            $post_id = preg_match( '/^post-([0-9]+)$/', $page_key, $post_match ) ? (int) ( $post_match[1] ?? 0 ) : 0;
+            if ( $post_id ? ! current_user_can( 'edit_post', $post_id ) : ! current_user_can( 'edit_pages' ) ) {
+                wp_send_json_error( array( 'message' => 'Keine Berechtigung zum Speichern dieser Seite.' ), 403 );
+            }
+            $raw = isset( $_POST['payload'] ) ? wp_unslash( $_POST['payload'] ) : '';
+            $payload = json_decode( $raw, true );
+            if ( ! is_array( $payload ) ) { wp_send_json_error( array( 'message' => 'Ungültige Daten.' ), 400 ); }
+
+            // Merge text patches from Android/IME composition (sent by Reliability JS guard).
+                    $patches = KP_Text_Patcher::parse_request();
+                    if ( $patches ) {
+                        if ( ! isset( $payload['global'] ) || ! is_array( $payload['global'] ) ) { $payload['global'] = array(); }
+                        if ( ! isset( $payload['page'] ) || ! is_array( $payload['page'] ) ) { $payload['page'] = array(); }
+                        KP_Text_Patcher::apply( $payload['global'], $payload['page'], $patches );
+                    }
+
+            $transaction_result = null;
+            try {
+                $transaction_result = KP_Save_Transaction::run(
+                    $page_key,
+                    static function ( $save_db, $post_id ) use ( $payload, $page_key ) {
+                        self::clear_save_cache( $post_id );
+                        $all = self::checked_option_read( self::PAGES_OPTION );
+                        $stored_global = self::checked_option_read( self::GLOBAL_OPTION );
+                        $stored_page = $all[ $page_key ] ?? array();
+                        if ( ! is_array( $stored_page ) ) { throw new RuntimeException( 'Vorhandene Seiteneinstellungen sind beschädigt.' ); }
+                        if ( ! empty( $payload['page']['duplicates'] ) || ! empty( $payload['global']['duplicates'] ) || ! empty( $stored_page['duplicates'] ) || ! empty( $stored_global['duplicates'] ) ) {
+                            throw new RuntimeException( 'Vorhandene Metadatenkopien müssen vor dem Speichern geprüft und verlustfrei migriert werden.' );
+                        }
+                        $global = self::sanitize_scope_data( isset( $payload['global'] ) ? $payload['global'] : array() );
+                        $page = self::sanitize_scope_data( isset( $payload['page'] ) ? $payload['page'] : array() );
+                        if ( isset( $stored_page['section_key_map'] ) && is_array( $stored_page['section_key_map'] ) ) { $page['section_key_map'] = $stored_page['section_key_map']; }
+                        $expected_post = null;
+                        $duplicated = self::apply_section_actions( $page, $page_key, $expected_post );
+                        self::checked_option_write( self::GLOBAL_OPTION, $global );
+                        $all[ $page_key ] = $page;
+                        self::checked_option_write( self::PAGES_OPTION, $all );
+                        if ( $expected_post ) {
+                            $actual = $save_db->get_var( $save_db->prepare( "SELECT post_content FROM {$save_db->posts} WHERE ID = %d", $post_id ) );
+                            if ( $save_db->last_error || $actual !== $expected_post['post_content'] ) { throw new RuntimeException( 'Die gespeicherte WordPress-Seite stimmt nicht mit der Änderung überein.' ); }
+                        }
+                        return array( 'duplicated' => $duplicated, 'global' => $global, 'all' => $all, 'expected_post' => $expected_post );
+                    },
+                    static function ( $save_db, $post_id, $result ) {
+                        self::verify_option_value( self::GLOBAL_OPTION, $result['global'] );
+                        self::verify_option_value( self::PAGES_OPTION, $result['all'] );
+                        if ( ! empty( $result['expected_post'] ) ) {
+                            $actual = $save_db->get_var( $save_db->prepare( "SELECT post_content FROM {$save_db->posts} WHERE ID = %d", $post_id ) );
+                            if ( $save_db->last_error || $actual !== $result['expected_post']['post_content'] ) { throw new RuntimeException( 'Die Speicherung konnte nicht bestätigt werden. Bitte neu laden und prüfen.' ); }
+                        }
+                    }
+                );
+            } catch ( Throwable $error ) {
+                wp_send_json_error( array( 'message' => $error->getMessage() ), 409 );
+            } finally {
+                self::clear_save_cache( $post_id );
+            }
+            $duplicated = (int) ( $transaction_result['duplicated'] ?? 0 );
         $message = $duplicated ? sprintf( _n( 'Gespeichert und ein Bereich dupliziert.', 'Gespeichert und %d Bereiche dupliziert.', $duplicated ), $duplicated ) : 'Gespeichert.';
         wp_send_json_success( array( 'message' => $message, 'page_key' => $page_key, 'duplicated' => $duplicated ) );
     }

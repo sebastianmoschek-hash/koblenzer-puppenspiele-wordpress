@@ -53,16 +53,19 @@ put '$MU/kp-ai-repair-lab.php' -o '/wp-content/mu-plugins/kp-ai-repair-lab.php';
 bye
 "
 
-# The owner agent cannot load Gemini without the kp_ai_key provider. A direct
-# request executes the guarded MU-plugin and must therefore settle to HTTP 200.
-direct_status="$(curl --silent --show-error --location --max-time 20 \
-  -o /dev/null -w '%{http_code}' \
-  "$STAGING_BASE/wp-content/mu-plugins/kp-ai-direct-editor.php?kp_ci=${CIRCLE_SHA1:-manual}" || true)"
-if [[ "$direct_status" != '200' ]]; then
-  echo "FAIL kp_ai_key provider was not deployed (HTTP $direct_status)." >&2
+# Verify through WordPress itself; direct MU-plugin URLs exit before loading WP.
+health_body="$(mktemp)"
+health_status="$(curl --silent --show-error --location --max-time 20 \
+  -o "$health_body" -w '%{http_code}' -X POST \
+  --data-urlencode 'action=kp_owner_web_agent_health' \
+  "$STAGING_BASE/wp-admin/admin-ajax.php" || true)"
+if [[ "$health_status" != '200' ]] || ! grep -Eq '"ready"[[:space:]]*:[[:space:]]*true' "$health_body"; then
+  echo "FAIL owner AI WordPress runtime is not ready (HTTP $health_status)." >&2
+  rm -f "$health_body"
   exit 1
 fi
-echo 'PASS kp_ai_key provider deployed with owner web agent'
+rm -f "$health_body"
+echo 'PASS owner AI dependency loaded in WordPress runtime'
 
 marker="$(mktemp)"
 diagnostics_dir="qa-results/mobile-live"

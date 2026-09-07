@@ -7,12 +7,12 @@ android {
     compileSdk = 36
 
     defaultConfig {
-            applicationId = "de.koblenzerpuppenspiele.techniker"
-            minSdk = 24
-            targetSdk = 36
-            versionCode = 12
-            versionName = "0.11.0-or-fallback"
-        }
+        applicationId = "de.koblenzerpuppenspiele.techniker"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = 12
+        versionName = "0.11.0-or-fallback"
+    }
 
     buildFeatures {
         buildConfig = true

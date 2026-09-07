@@ -1,5 +1,7 @@
 /* Koblenzer Puppenspiele – direct editor v2 */
 body.kp-fe2-editing{padding-bottom:84px!important}
+body.kp-fe2-editing .wp-site-blocks{padding-bottom:160px!important}
+body.kp-fe2-editing .wp-block-cover{padding-bottom:140px!important}
 body.kp-fe2-editing *{box-sizing:border-box}
 .kp-fe2-toolbar{position:fixed;left:50%;bottom:14px;z-index:100100;display:flex;align-items:center;gap:7px;max-width:calc(100vw - 20px);padding:8px;border:1px solid rgba(255,255,255,.16);border-radius:16px;background:rgba(20,14,11,.95);box-shadow:0 18px 55px rgba(0,0,0,.48);backdrop-filter:blur(18px);transform:translateX(-50%);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#fff}
 .kp-fe2-toolbar button,.kp-fe2-toolbar a,.kp-fe2-device-wrap{display:inline-flex;min-height:40px;align-items:center;justify-content:center;gap:5px;padding:7px 10px;border:1px solid rgba(255,255,255,.13);border-radius:10px;background:rgba(255,255,255,.05);color:#fff!important;font:700 12px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-decoration:none!important;white-space:nowrap}
@@ -12,8 +14,8 @@ body.kp-fe2-editing [data-kp-edit-key]:hover,body.kp-fe2-editing [data-kp-dom-ke
 body.kp-fe2-editing .kp-fe2-selected{outline:3px solid #f07a22!important;outline-offset:4px;box-shadow:0 0 0 5px rgba(240,122,34,.11)!important}
 body.kp-fe2-editing .kp-fe2-hidden-preview{display:block!important;opacity:.42!important;filter:saturate(.35);outline:3px dashed #f07a22!important;outline-offset:4px}
 body.kp-fe2-editing .kp-fe2-hidden-preview::before{content:"Auf dieser Geräteansicht ausgeblendet";position:absolute;z-index:10;top:8px;left:8px;padding:5px 8px;border-radius:999px;background:#f07a22;color:#fff;font:800 10px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;pointer-events:none}
-body.kp-fe2-editing [data-kp-section-copy]{outline:3px dashed #6ec6ff!important;outline-offset:4px}
-body.kp-fe2-editing [data-kp-section-copy]::before{content:"Kopie – noch nicht gespeichert";position:absolute;z-index:10;top:8px;right:8px;padding:5px 8px;border-radius:999px;background:#176a96;color:#fff;font:800 10px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;pointer-events:none}
+body.kp-fe2-editing [data-kp-section-preview-copy]{outline:3px dashed #6ec6ff!important;outline-offset:4px}
+body.kp-fe2-editing [data-kp-section-preview-copy]::before{content:"Kopie – noch nicht gespeichert";position:absolute;z-index:10;top:8px;right:8px;padding:5px 8px;border-radius:999px;background:#176a96;color:#fff;font:800 10px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;pointer-events:none}
 body.kp-fe2-editing [draggable="true"].kp-fe2-dragging{opacity:.55;outline:3px solid #6ec6ff!important}
 body.kp-fe2-touch-reorder{touch-action:none!important;user-select:none!important}
 body.kp-fe2-touch-reorder [data-kp-edit-key]{cursor:grabbing!important}
@@ -25,6 +27,8 @@ body.kp-fe2-editing .kp-termin-card::after{content:"Termin"}body.kp-fe2-editing 
 .kp-fe2-inspector-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;color:#ffb47c;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}.kp-fe2-close{width:30px;height:30px;padding:0;border:1px solid rgba(255,255,255,.12);border-radius:50%;background:rgba(255,255,255,.05);color:#fff;font-size:18px;line-height:1;cursor:pointer}
 .kp-fe2-compact-copy{display:flex;flex-direction:column;gap:2px}.kp-fe2-compact-copy strong{font-size:14px}.kp-fe2-compact-copy small{color:#cbbdb3;font-size:11px;line-height:1.35}
 .kp-fe2-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.kp-fe2-actions button,.kp-fe2-reset-row button,.kp-fe2-reset-row a{display:inline-flex;min-height:34px;align-items:center;justify-content:center;padding:6px 9px;border:1px solid rgba(255,255,255,.14);border-radius:9px;background:rgba(255,255,255,.05);color:#fff!important;font:800 10px/1.15 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-decoration:none!important;cursor:pointer}.kp-fe2-actions .is-primary{border-color:#f07a22;background:#f07a22}
+/* Declare before pointerdown: changing touch-action mid-gesture cannot prevent native scrolling. */
+.kp-fe2-actions .kp-fe2-drag{min-width:44px;min-height:44px;touch-action:none}
 .kp-fe2-field{display:flex;flex-direction:column;gap:4px;margin:7px 0}.kp-fe2-field label,.kp-fe2-style-grid label{font-size:10px;font-weight:800;color:#f3e7de}.kp-fe2-field input{width:100%;min-height:35px;padding:7px 8px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:#0e0a08;color:#fff;font-size:12px}
 .kp-fe2-style-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.09)}.kp-fe2-style-grid label{display:flex;flex-direction:column;gap:4px}.kp-fe2-style-grid label>span{color:#ffb47c;font-size:9px}.kp-fe2-style-grid input[type=range]{width:100%;accent-color:#f07a22}.kp-fe2-style-grid .kp-fe2-color input{width:100%;height:32px;padding:2px;border:1px solid rgba(255,255,255,.14);border-radius:7px;background:#0e0a08}
 .kp-fe2-reset-row{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}.kp-fe2-reset-row button{color:#ffb1b1!important;border-color:rgba(240,90,90,.28)}

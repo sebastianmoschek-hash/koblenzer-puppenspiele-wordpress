@@ -12,6 +12,15 @@ function kp_owner_web_agent_can_use() {
     return is_user_logged_in() && current_user_can( 'edit_pages' );
 }
 
+function kp_owner_web_agent_health() {
+    $ready = function_exists( 'kp_ai_key' ) && defined( 'KP_AI_NONCE' ) && function_exists( 'kp_ai_repair_guard' );
+    $payload = array( 'ready' => $ready );
+    if ( $ready ) { wp_send_json_success( $payload ); }
+    wp_send_json_error( $payload, 503 );
+}
+add_action( 'wp_ajax_kp_owner_web_agent_health', 'kp_owner_web_agent_health' );
+add_action( 'wp_ajax_nopriv_kp_owner_web_agent_health', 'kp_owner_web_agent_health' );
+
 /**
  * Shared-hosting hardening for Gemini calls. Some hosts prefer an unusable IPv6
  * route and then surface cURL 28 with zero response bytes. Keep the override
@@ -243,6 +252,11 @@ add_action( 'wp_enqueue_scripts', static function () {
         'editMode'      => $edit_mode,
         'openAi'        => isset( $_GET['kp_ai'] ) && '1' === sanitize_text_field( wp_unslash( $_GET['kp_ai'] ) ),
         'homeUrl'       => home_url( '/' ),
+        // Desktop loopback is opt-in. Never emit a localhost URL by default:
+        // an unavailable helper must not create browser connection-refused logs.
+        'desktopLiveUrl' => defined( 'KP_OWNER_DESKTOP_LIVE_HELPER_URL' )
+            ? esc_url_raw( KP_OWNER_DESKTOP_LIVE_HELPER_URL )
+            : '',
         'aiNonce'       => defined( 'KP_AI_NONCE' ) ? wp_create_nonce( KP_AI_NONCE ) : '',
         'repairNonce'   => defined( 'KP_AI_REPAIR_NONCE' ) ? wp_create_nonce( KP_AI_REPAIR_NONCE ) : '',
         'aiConnected'   => function_exists( 'kp_ai_key' ) && (bool) kp_ai_key(),

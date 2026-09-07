@@ -97,7 +97,7 @@ add_action( 'wp_footer', static function () {
     );
     ?>
     <style id="kp-mobile-live-bridge-style">
-      .kp-mobile-live-trigger{position:fixed;right:16px;bottom:146px;z-index:2147482490;border:0;border-radius:999px;padding:11px 15px;background:#25201d;color:#fff;font-weight:800;box-shadow:0 8px 28px rgba(0,0,0,.28)}
+      .kp-mobile-live-trigger{position:fixed;right:16px;bottom:max(198px,calc(env(safe-area-inset-bottom) + 188px));z-index:2147482490;min-height:44px;border:0;border-radius:999px;padding:11px 15px;background:#25201d;color:#fff;font-weight:800;box-shadow:0 8px 28px rgba(0,0,0,.28)}
       .kp-mobile-live-note{position:fixed;left:50%;bottom:204px;transform:translateX(-50%);z-index:2147482700;max-width:min(520px,calc(100vw - 28px));padding:10px 13px;border-radius:13px;background:#17110e;color:#fff;font-size:13px;box-shadow:0 8px 34px rgba(0,0,0,.4)}
       body.kp-canva-preview .kp-mobile-live-trigger{display:none!important}
       html.inside-technician-app .kp-mobile-live-trigger{display:none!important}

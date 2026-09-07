@@ -163,15 +163,19 @@ jobs:
             bye
           "
 
-          # Verify the kp_ai_key provider that the owner chat requires.
-          direct_status="$(curl --silent --show-error --location --max-time 20 \
-            -o /dev/null -w '%{http_code}' \
-            'https://neu.koblenzer-puppenspiele.de/wp-content/mu-plugins/kp-ai-direct-editor.php?kp_ci=${{ github.sha }}' || true)"
-          if [ "$direct_status" != '200' ]; then
-            echo "ERROR: kp_ai_key provider missing after deploy (HTTP $direct_status)." >&2
+          # Verify the dependency inside the real WordPress runtime.
+          health_body="$(mktemp)"
+          health_status="$(curl --silent --show-error --location --max-time 20 \
+            -o "$health_body" -w '%{http_code}' -X POST \
+            --data-urlencode 'action=kp_owner_web_agent_health' \
+            'https://neu.koblenzer-puppenspiele.de/wp-admin/admin-ajax.php' || true)"
+          if [ "$health_status" != '200' ] || ! grep -Eq '"ready"[[:space:]]*:[[:space:]]*true' "$health_body"; then
+            echo "ERROR: owner AI WordPress runtime not ready (HTTP $health_status)." >&2
+            rm -f "$health_body"
             exit 1
           fi
-          echo 'kp_ai_key provider deployed with owner web agent.'
+          rm -f "$health_body"
+          echo 'Owner AI dependency loaded in WordPress runtime.'
 
       - name: Verify Gemini Live bootstrap is active on staging
         shell: bash

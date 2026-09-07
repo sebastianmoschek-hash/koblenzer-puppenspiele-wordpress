@@ -1,5 +1,5 @@
 /* KP Canvas-style owner editor enhancements. */
-body.kp-canva-edit-mode [data-kp-gesture-key].kp-canva-movable{
+body.kp-canva-edit-mode [data-kp-gesture-key]{
   -webkit-user-select:none;
   user-select:none;
 }

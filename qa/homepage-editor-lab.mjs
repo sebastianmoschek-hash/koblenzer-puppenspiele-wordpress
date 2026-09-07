@@ -425,7 +425,11 @@ async function openOwnerTools(page) {
 
 async function openDesign(page) {
   await openOwnerTools(page);
-  await page.locator('[data-action="design"]').click();
+  const design = page.locator('[data-action="design"]').first();
+  await design.waitFor({ state: 'visible', timeout: 10000 });
+  // Ein normaler Chromium-Klick ist Teil der Abnahme: keine erzwungene
+  // Aktion, die Hit-Testing oder verdeckende UI umgehen würde.
+  await design.click({timeout: 10000});
   await page.locator('.kp-oa-sheet.is-design .kp-oa-design-save').waitFor({ state: 'visible', timeout: 10000 });
   await page.waitForTimeout(180);
 }

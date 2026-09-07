@@ -56,7 +56,7 @@ final class KP_Image_Position {
 
         $src = KP_CORE_URL . 'assets/image-position.js';
         $path = KP_CORE_DIR . 'assets/image-position.js';
-        wp_enqueue_script( 'kp-image-position', $src, array( 'kp-frontend-editor' ), file_exists( $path ) ? (string) filemtime( $path ) : KP_CORE_VERSION, true );
+        wp_enqueue_script( 'kp-image-position', $src, array( 'kp-frontend-editor-v2' ), file_exists( $path ) ? (string) filemtime( $path ) : KP_CORE_VERSION, true );
         wp_localize_script( 'kp-image-position', 'KPImagePosition', array(
             'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
             'nonce'     => self::can_edit() ? wp_create_nonce( self::NONCE_ACTION ) : '',

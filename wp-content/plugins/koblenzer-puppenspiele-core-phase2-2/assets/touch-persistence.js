@@ -3,6 +3,11 @@
 
   const cfg = window.KPTouchPersistence;
   if (!cfg?.ajaxUrl || !cfg?.pageKey) return;
+  // Das Asset kann durch den Owner-Editor und den Frontend-Boot parallel
+  // eingebunden werden. Nur eine Instanz darf fetch/Observer registrieren.
+  if (window.__KPTouchPersistenceLoaded) return;
+  window.__KPTouchPersistenceLoaded = true;
+  const uiSelector = '.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,.kp-oa-backdrop,.kp-oa-sheet,.kp-wa-bar,#wpadminbar';
 
   const clone = value => JSON.parse(JSON.stringify(value || {}));
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
@@ -13,6 +18,7 @@
   let authoritative = null;
   let mutationFrame = 0;
   let liveLoad = null;
+  let lastLiveLoadAt = 0;
 
   function device() {
     const width = window.innerWidth;
@@ -121,9 +127,11 @@
   }
 
   async function loadLive() {
-      if (liveLoad) return liveLoad;
-      liveLoad = (async () => {
-      if (editorHasLocalTouchState()) return;
+    if (liveLoad) return liveLoad;
+    if (editorHasLocalTouchState()) return;
+    if (Date.now() - lastLiveLoadAt < 1500) return;
+    lastLiveLoadAt = Date.now();
+    liveLoad = (async () => {
       const fd = new FormData();
       fd.append('action', 'kp_touch_free_layout_load');
       fd.append('page_key', cfg.pageKey);
@@ -150,9 +158,9 @@
       } finally {
         clearTimeout(timer);
       }
-      })().finally(() => { liveLoad = null; });
-      return liveLoad;
-    }
+    })().finally(() => { liveLoad = null; });
+    return liveLoad;
+  }
 
   const upstreamFetch = window.fetch.bind(window);
   window.fetch = function(input, init = {}) {
@@ -190,7 +198,11 @@
     }
   } catch (_) {}
 
-  new MutationObserver(scheduleApply).observe(document.documentElement, {childList:true, subtree:true});
+  new MutationObserver(records => {
+    if (records.some(record => [...record.addedNodes].some(node => node instanceof Element && !node.closest(uiSelector)))) {
+      scheduleApply();
+    }
+  }).observe(document.documentElement, {childList:true, subtree:true});
   window.addEventListener('pageshow', () => loadLive().catch(() => null));
   window.addEventListener('focus', () => loadLive().catch(() => null), {passive:true});
   loadLive().catch(() => null);

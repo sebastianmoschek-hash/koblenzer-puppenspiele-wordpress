@@ -50,7 +50,7 @@
     return 'site:' + root.tagName.toLowerCase() + ':' + pathFor(el, root);
   };
 
-  const uiSelector = '.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,.kp-oa-backdrop,.kp-canva-image-panel,.kp-canva-preview-return,.kp-canva-discard,#wpadminbar';
+  const uiSelector = '.kp-fe2-toolbar,.kp-fe2-inspector,.kp-fe2-record-backdrop,.kp-fe-card-sheet-backdrop,.kp-oa-backdrop,.kp-oa-sheet,.kp-wa-bar,.kp-canva-image-panel,.kp-canva-preview-return,.kp-canva-discard,#wpadminbar';
 
   const selectors = [
     '[data-kp-edit-key]',
@@ -81,8 +81,78 @@
     '.kp-repertoire-meta > *',
     '.kp-termin-card',
     '.kp-termine-button',
-    '.kp-repertoire-cta > a'
+    '.kp-repertoire-cta > a',
+    '.kp-site-nav .wp-block-navigation__responsive-container-open',
+    '.kp-site-nav .wp-block-navigation__responsive-close',
+    '.kp-header-stage img',
+    '.kp-header-photo img'
   ].join(',');
+
+  const compactText = (el, limit = 96) => (el?.textContent || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, limit);
+
+  function editableTypeFor(el) {
+    if (!(el instanceof Element)) return 'node';
+    if (el.matches('.kp-site-nav .wp-block-navigation__responsive-container-open')) return 'menu-button';
+    if (el.matches('.kp-site-nav .wp-block-navigation__responsive-close')) return 'menu-panel';
+    if (el.matches('img,figure.wp-block-image,.wp-block-image img,.kp-header-stage img,.kp-header-photo img')) return 'image';
+    if (el.matches('.wp-block-button,.wp-block-button__link,.wp-element-button,.kp-repertoire-cta > a,.kp-termine-button')) return 'button';
+    if (el.matches('.kp-header-stage,.kp-header-photo,.wp-block-cover,.wp-block-media-text,.wp-block-columns,.wp-block-column,.wp-site-blocks > main > *')) return 'section';
+    if (el.matches('.kp-repertoire-card,.kp-termin-card')) return 'card';
+    if (el.matches('header .wp-block-group')) return 'header-group';
+    if (el.matches('main .wp-block-group > *,.kp-repertoire-card-body > *,.kp-repertoire-card-actions a,.kp-repertoire-facts > *,.kp-repertoire-meta > *')) return 'content';
+    if (el.matches('[data-kp-edit-key]')) return 'block';
+    if (el.matches('[data-kp-dom-key]')) return 'dom';
+    return 'content';
+  }
+
+  function setEditableMetadata(el, type, id) {
+    if (!(el instanceof Element)) return;
+    if (id) el.dataset.kpElementId = id;
+    if (type) el.dataset.kpEditableType = type;
+  }
+
+  function visibleRect(el) {
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth;
+  }
+
+  function editableSnapshot(root = document) {
+    const base = root && typeof root.querySelectorAll === 'function' ? root : document;
+    const elements = [];
+    if (base instanceof Element && base.hasAttribute('data-kp-element-id')) elements.push(base);
+    base.querySelectorAll?.('[data-kp-element-id]').forEach(el => elements.push(el));
+    const seen = new Set();
+    const items = [];
+    elements.forEach(el => {
+      if (!(el instanceof Element) || seen.has(el)) return;
+      seen.add(el);
+      if (el.closest(uiSelector)) return;
+      if (!visibleRect(el)) return;
+      const rect = el.getBoundingClientRect();
+      const id = el.dataset.kpElementId || '';
+      if (!id) return;
+      items.push({
+        id,
+        type: el.dataset.kpEditableType || editableTypeFor(el),
+        tag: el.tagName.toLowerCase(),
+        text: compactText(el),
+        x: Math.round(rect.left),
+        y: Math.round(rect.top),
+        w: Math.round(rect.width),
+        h: Math.round(rect.height),
+      });
+    });
+    return {
+      v: 1,
+      url: location.href,
+      body: document.body?.className || '',
+      vp: { w: innerWidth, h: innerHeight },
+      els: items.slice(0, 48),
+    };
+  }
 
   function eligible(el) {
     if (!(el instanceof Element)) return false;
@@ -109,51 +179,83 @@
     const own = img.dataset.kpEditKey || img.dataset.kpDomKey || ensureGestureKey(img) || rawKey(img);
     const key = 'img-' + hashString(String(own || img.currentSrc || img.src || 'image'));
     img.dataset.kpCanvaImageKey = key;
+    setEditableMetadata(img, 'image', key);
     return key;
   }
 
   function assign(root = document) {
-    const nodes = [];
-    if (root instanceof Element && root.matches(selectors)) nodes.push(root);
-    root.querySelectorAll?.(selectors).forEach(el => nodes.push(el));
-    nodes.forEach(el => {
-          const key = ensureGestureKey(el);
-          // Idempotenz (Root-Cause-Fix, CI-Lauf 25): classList.add nur wenn die
-          // Klasse fehlt. Vorher wurde bei JEDER childList-Mutation der gesamte
-          // Selektoren-Bestand neu markiert; zusammen mit den Observer-Kaskaden
-          // (canva-editor uiObserver/imageButtonObserver) erzeugte das einen
-          // selbstverstaerkenden Klassen-Mutations-Sturm auf dem Hauptthread.
-          if (key && !el.classList.contains('kp-canva-movable')) el.classList.add('kp-canva-movable');
-        });
-    const images = [];
-    if (root instanceof HTMLImageElement) images.push(root);
-    root.querySelectorAll?.('img').forEach(img => images.push(img));
-    images.forEach(imageKey);
+    const roots = Array.isArray(root) ? root : [root];
+    roots.forEach(current => {
+      if (!current) return;
+      const nodes = [];
+      if (current instanceof Element && current.matches(selectors)) nodes.push(current);
+      current.querySelectorAll?.(selectors).forEach(el => nodes.push(el));
+      nodes.forEach(el => {
+        if (el.dataset.kpCanvaKeysAssigned === '1') return;
+        // Die frühere Hilfsklasse wurde bei jedem Durchlauf erneut gesetzt und
+        // verstärkte sich mit anderen Observern zu einem Klassen-Mutations-Sturm.
+        // Das stabile data-Attribut ist zugleich Selektor und Einmal-Markierung.
+        const key = ensureGestureKey(el);
+        if (key) {
+          setEditableMetadata(el, editableTypeFor(el), key);
+          el.dataset.kpCanvaKeysAssigned = '1';
+        }
+      });
+      const images = [];
+      if (current instanceof HTMLImageElement) images.push(current);
+      current.querySelectorAll?.('img').forEach(img => images.push(img));
+      images.forEach(imageKey);
+    });
   }
 
-  window.KPCanvaKeys = { hashString, pathFor, rawKey, ensureGestureKey, imageKey, assign, selectors, __initialized:true };
+  window.KPCanvaKeys = {
+    hashString,
+    pathFor,
+    rawKey,
+    ensureGestureKey,
+    imageKey,
+    assign,
+    selectors,
+    exportEditableRegionSnapshot: editableSnapshot,
+    snapshotEditableRegion: editableSnapshot,
+    __initialized:true
+  };
+  if (window.KPCanvaEditor && typeof window.KPCanvaEditor === 'object') {
+    window.KPCanvaEditor.exportEditableRegionSnapshot = editableSnapshot;
+    window.KPCanvaEditor.snapshotEditableRegion = editableSnapshot;
+  }
+  window.KPCanvaSnapshot = editableSnapshot;
 
   assign();
   let assignScheduled = false;
-  const scheduleAssign = () => {
-    if (assignScheduled) return;
+  const pendingRoots = new Set();
+  const flushAssign = () => {
+    if (assignScheduled || !pendingRoots.size) return;
     assignScheduled = true;
     requestAnimationFrame(() => {
       assignScheduled = false;
-      // A single document pass is cheaper and safer than one recursive pass
-      // for every node added while an owner sheet is being opened.
-      assign();
+      const roots = [...pendingRoots];
+      pendingRoots.clear();
+      // Nur die neu hinzugekommenen Canvas-Aeste anfassen; Owner-UI bleibt
+      // ausserhalb des Passes und wird nicht erneut durchlaufen.
+      assign(roots);
     });
   };
   new MutationObserver(records => {
     // Owner sheets can add dozens of controls at once, but they are explicitly
     // outside the editable canvas. Do not turn those UI-only insertions into a
     // full-page key pass (and another observer cascade).
-    const hasCanvasAddition = records.some(record => [...record.addedNodes].some(node =>
-      node instanceof Element && !node.matches(uiSelector) && !node.closest(uiSelector)
-    ));
-    if (hasCanvasAddition) {
-      scheduleAssign();
+    let sawCanvasAddition = false;
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (!(node instanceof Element)) continue;
+        if (node.matches(uiSelector) || node.closest(uiSelector)) continue;
+        pendingRoots.add(node);
+        sawCanvasAddition = true;
+      }
+    }
+    if (sawCanvasAddition) {
+      flushAssign();
     }
   }).observe(document.documentElement, { childList:true, subtree:true });
 })();
