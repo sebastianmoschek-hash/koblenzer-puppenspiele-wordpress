@@ -352,3 +352,46 @@ Gaps that needed custom skills during this project:
 - Start with `throttled-playwright-qa` for staged browser tests so the fallback server / local mock path is chosen immediately when network timeouts recur.
 - Start with `hybrid-ai-proxy-hardening` for any AI-related transport or snapshot-export change so config checks and timeout handling are consistent from the first patch.
 
+
+---
+
+## Overnight crawler run 2026-09-07T13:28:58.261Z
+- Target: https://neu.koblenzer-puppenspiele.de
+- Mode: dry-run | workers=1 | slowMo=3000 | waits=3000ms | pause after every 5 pages for 30s
+- Auth state: tests/e2e/.auth/admin.json
+- Seed pages: 1
+- Initial queue: 2
+[2026-09-07T13:28:58.265Z] 1/2 https://neu.koblenzer-puppenspiele.de/ [public]
+[2026-09-07T13:28:58.265Z] 2/2 https://neu.koblenzer-puppenspiele.de/?kp_edit=1 [editor]
+- Dry-run completed without browser execution.
+
+## 2026-09-07 Skill-guided audit run
+
+### What was audited
+- Frontend editor JS: `wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js`
+- AI proxy: `wp-content/mu-plugins/inc/class-kp-ai-proxy.php`
+- Playwright editor tests: `tests/e2e/editor-visual.spec.js`, `tests/e2e/editor-local-fallback.spec.js`, `tests/e2e/auth.setup.js`
+- Overnight crawler: `qa/overnight-crawler.mjs`
+
+### What was verified
+- `php -l wp-content/mu-plugins/inc/class-kp-ai-proxy.php` — passed
+- `node --check wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/frontend-editor-v2.js` — passed
+- `node --check tests/e2e/editor-local-fallback.spec.js` — passed
+- `node --check tests/e2e/editor-visual.spec.js` — passed
+- `npx playwright test tests/e2e/editor-local-fallback.spec.js --project=editor-visual --no-deps` — passed
+- `npm run test:e2e:overnight:dry-run` — passed
+- `npm run test:e2e:audit` — passed overall via automatic fallback
+
+### Remaining staging blocker
+- The staging setup step still times out on `https://neu.koblenzer-puppenspiele.de/wp-login.php` in this environment.
+- The new `qa/editor-audit.mjs` runner now treats that as a trigger to run the local fallback automatically, so the audit no longer dies on the staging gate.
+
+### New audit runner
+- `qa/editor-audit.mjs`
+- `package.json` script: `test:e2e:audit`
+
+### Current verdict
+- Local editor logic: green.
+- Auto-fallback audit path: green.
+- Live staging login reachability: still externally blocked.
+
