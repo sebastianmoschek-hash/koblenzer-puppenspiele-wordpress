@@ -217,3 +217,24 @@
 - Failed requests captured: 0
 - Latest live run: editor verification passed after toolbar width fix.
 - 2026-09-07T00:00:00Z AI proxy hardened with upfront config checks and safe JSON decoding.
+- 2026-09-07T00:19:17Z latest live smoke passed with editor view active and no layout issues.
+
+---
+
+## Overnight crawler run 2026-09-07T00:19:01.421Z
+- Target: https://neu.koblenzer-puppenspiele.de
+- Mode: live | workers=1 | slowMo=3000 | waits=3000ms | pause after every 5 pages for 30s
+- Auth state: tests/e2e/.auth/admin.json
+- Seed pages: 1
+- Initial queue: 2
+[2026-09-07T00:19:02.556Z] 1/2 / public [public]
+[2026-09-07T00:19:09.684Z] 1/2 / public [public]
+[2026-09-07T00:19:09.685Z] 2/2 / editor [editor]
+[2026-09-07T00:19:17.804Z] 2/2 / editor [editor]
+
+## Summary
+- Completed tasks: 2
+- Issue-bearing tasks: 0
+- Screenshots written: 0
+- Console errors captured: 0
+- Failed requests captured: 0
