@@ -439,12 +439,16 @@ final class KP_Frontend_Editor_V2 {
 
     public static function enqueue_assets() {
         if ( is_admin() ) { return; }
-        $asset_version = KP_CORE_VERSION . '-fe2-20260905-3';
+        $js_path = KP_CORE_DIR . 'assets/frontend-editor-v2.js';
+        $css_path = KP_CORE_DIR . 'assets/frontend-editor-v2.css';
+        $js_version = file_exists( $js_path ) ? substr( hash_file( 'sha256', $js_path ), 0, 12 ) : KP_CORE_VERSION;
+        $css_version = file_exists( $css_path ) ? substr( hash_file( 'sha256', $css_path ), 0, 12 ) : KP_CORE_VERSION;
+        $asset_version = KP_CORE_VERSION . '-fe2-20260905-3-' . $js_version;
         wp_enqueue_script( 'kp-frontend-editor-v2', KP_CORE_URL . 'assets/frontend-editor-v2.js', array(), $asset_version, true );
         if ( self::edit_mode() ) {
             wp_enqueue_media();
             wp_enqueue_style( 'dashicons' );
-            wp_enqueue_style( 'kp-frontend-editor-v2', KP_CORE_URL . 'assets/frontend-editor-v2.css', array(), $asset_version );
+            wp_enqueue_style( 'kp-frontend-editor-v2', KP_CORE_URL . 'assets/frontend-editor-v2.css', array(), $css_version );
         }
         $payload = array(
             'editMode'       => self::edit_mode(),

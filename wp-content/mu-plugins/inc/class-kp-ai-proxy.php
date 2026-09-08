@@ -116,10 +116,28 @@ if ( ! class_exists( 'KP_AI_Proxy' ) ) {
 		}
 
 		private static function live_snapshot_config() {
+			// OpenRouter bevorzugen (kostenlose Modelle :free)
+			$or_key = '';
+			if ( defined( 'KP_OPENROUTER_API_KEY' ) && KP_OPENROUTER_API_KEY ) {
+				$or_key = trim( (string) KP_OPENROUTER_API_KEY );
+			}
+			if ( '' === $or_key ) {
+				$or_key = trim( (string) get_option( 'kp_openrouter_api_key', '' ) );
+			}
+			if ( '' !== $or_key ) {
+				return array(
+					'url'      => 'https://openrouter.ai/api/v1/chat/completions',
+					'key'      => $or_key,
+					'model'    => defined( 'KP_OR_MODEL' ) ? (string) KP_OR_MODEL : 'meta-llama/llama-3.2-11b-vision-instruct:free',
+					'provider' => 'openrouter',
+				);
+			}
+			// Fallback: Gemini (falls Key vorhanden)
 			return array(
-				'url'   => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-				'key'   => defined( 'KP_GEMINI_API_KEY' ) ? trim( (string) KP_GEMINI_API_KEY ) : trim( (string) get_option( self::CLOUD_KEY_OPTION, '' ) ),
-				'model' => 'gemini-2.0-flash',
+				'url'      => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+				'key'      => defined( 'KP_GEMINI_API_KEY' ) ? trim( (string) KP_GEMINI_API_KEY ) : trim( (string) get_option( self::CLOUD_KEY_OPTION, '' ) ),
+				'model'    => 'gemini-2.0-flash',
+				'provider' => 'gemini',
 			);
 		}
 
@@ -183,7 +201,7 @@ if ( ! class_exists( 'KP_AI_Proxy' ) ) {
 			$tries = $preferred === 'local_ollama' ? array( 'local_ollama', 'cloud' ) : array( 'cloud', 'local_ollama' );
 			$errors = array();
 			foreach ( $tries as $mode ) {
-				$config = 'local_ollama' === $mode ? self::local_config() : self::live_snapshot_config();
+				$config = 'local_ollama' === $mode ? self::local_config() : self::cloud_config();
 				if ( 'cloud' === $mode && '' === $config['key'] ) {
 					$errors[] = 'cloud: missing key';
 					continue;
@@ -317,68 +335,109 @@ if ( ! class_exists( 'KP_AI_Proxy' ) ) {
 					$config = 'local_ollama' === $requested_mode ? self::local_config() : self::live_snapshot_config();
 					$mode = 'local_ollama' === $requested_mode ? 'local_ollama' : 'cloud';
 					if ( 'cloud' === $mode && '' === $config['key'] ) {
-						wp_send_json_error( array( 'message' => 'Gemini ist noch nicht verbunden.', 'needs_key' => true ), 409 );
+						wp_send_json_error( array( 'message' => 'KI-Key nicht konfiguriert. Bitte OpenRouter API-Key einrichten.', 'needs_key' => true ), 409 );
 					}
 					$image = isset( $snapshot['image'] ) ? trim( (string) $snapshot['image'] ) : '';
 					if ( '' === $image ) {
 						wp_send_json_error( array( 'message' => 'Der Snapshot fehlt.' ), 400 );
 					}
-					$mode = 'cloud';
 					$context = isset( $snapshot['context'] ) && is_array( $snapshot['context'] ) ? $snapshot['context'] : array();
-					$prompt = isset( $snapshot['prompt'] ) ? sanitize_textarea_field( wp_unslash( $snapshot['prompt'] ) ) : 'Beschreibe kurz den sichtbaren Editorzustand und schlage nur eine knappe Aktion vor.';
-					$payload = array(
-						'systemInstruction' => array( 'parts' => array( array( 'text' => 'Du bist die kostenlose Browser-Sprache und Snapshot-KI für den KP Frontend Editor V2. Antworte knapp auf Deutsch. Wenn der sichtbare Zustand auf ein Problem hindeutet, nenne den nächsten kleinen Schritt. Wenn ein Rate-Limit droht, sage das klar.' ) ) ),
-						'contents' => array(
-							array(
-								'role'  => 'user',
-								'parts' => array(
-									array( 'text' => $prompt . "\n\nEditor-Kontext:\n" . wp_json_encode( $context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) ),
-									array( 'inline_data' => array( 'mime_type' => 'image/jpeg', 'data' => $image ) ),
+					$prompt  = isset( $snapshot['prompt'] ) ? sanitize_textarea_field( wp_unslash( $snapshot['prompt'] ) ) : 'Beschreibe kurz den sichtbaren Editorzustand und schlage nur eine knappe Aktion vor.';
+					$system  = 'Du bist die KI-Assistentin fuer den KP Frontend Editor V2. Antworte immer auf Deutsch, knapp (max 3 Saetze). Nenne bei Problemen den naechsten konkreten Schritt.';
+					$provider = isset( $config['provider'] ) ? $config['provider'] : 'gemini';
+
+					if ( 'openrouter' === $provider ) {
+						// OpenRouter / OpenAI-kompatibles Format mit Vision
+						$mime = isset( $snapshot['mime'] ) ? sanitize_key( (string) $snapshot['mime'] ) : 'image/jpeg';
+						$safe_mime = in_array( $mime, array( 'image/jpeg', 'image/png', 'image/webp', 'image/gif' ), true ) ? $mime : 'image/jpeg';
+						$user_content = array(
+							array( 'type' => 'image_url', 'image_url' => array( 'url' => 'data:' . $safe_mime . ';base64,' . $image ) ),
+							array( 'type' => 'text', 'text' => $prompt . "
+
+Editor-Kontext:
+" . wp_json_encode( $context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) ),
+						);
+						$payload = wp_json_encode( array(
+							'model'       => $config['model'],
+							'messages'    => array(
+								array( 'role' => 'system', 'content' => $system ),
+								array( 'role' => 'user',   'content' => $user_content ),
+							),
+							'max_tokens'  => 300,
+							'temperature' => 0.2,
+						) );
+						$response = wp_remote_post( $config['url'], array(
+							'timeout'     => 30,
+							'httpversion' => '1.1',
+							'headers'     => array(
+								'Content-Type'  => 'application/json',
+								'Authorization' => 'Bearer ' . $config['key'],
+								'HTTP-Referer'  => home_url(),
+								'X-Title'       => 'KP Editor',
+							),
+							'body' => $payload,
+						) );
+						if ( is_wp_error( $response ) ) {
+							throw new RuntimeException( 'OpenRouter: ' . $response->get_error_message() );
+						}
+						$code = (int) wp_remote_retrieve_response_code( $response );
+						$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+						if ( 429 === $code ) {
+							wp_send_json_error( array( 'message' => 'Rate-Limit erreicht.', 'rate_limited' => true, 'fallback_mode' => 'local_ollama', 'suggested_interval_ms' => 10000 ), 429 );
+						}
+						if ( $code < 200 || $code >= 300 ) {
+							$msg = isset( $body['error']['message'] ) ? sanitize_text_field( (string) $body['error']['message'] ) : 'OpenRouter Fehler HTTP ' . $code;
+							throw new RuntimeException( $msg );
+						}
+						$text = trim( (string) ( $body['choices'][0]['message']['content'] ?? '' ) );
+					} else {
+						// Gemini-Format (Fallback)
+						$payload = array(
+							'systemInstruction' => array( 'parts' => array( array( 'text' => $system ) ) ),
+							'contents' => array(
+								array(
+									'role'  => 'user',
+									'parts' => array(
+										array( 'text' => $prompt . "
+
+Editor-Kontext:
+" . wp_json_encode( $context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) ),
+										array( 'inline_data' => array( 'mime_type' => 'image/jpeg', 'data' => $image ) ),
+									),
 								),
 							),
-						),
-						'generationConfig' => array( 'temperature' => 0.2, 'maxOutputTokens' => 256 ),
-					);
-					$response = wp_remote_post( $config['url'], array(
-						'timeout'     => 25,
-						'httpversion' => '1.1',
-						'headers'     => array( 'Content-Type' => 'application/json', 'x-goog-api-key' => $config['key'] ),
-						'body'        => wp_json_encode( $payload ),
-					) );
-					if ( is_wp_error( $response ) ) {
-						throw new RuntimeException( self::normalize_error( $response->get_error_message(), $mode ) );
-					}
-					$code = (int) wp_remote_retrieve_response_code( $response );
-					$body = self::safe_decode( wp_remote_retrieve_body( $response ), $mode );
-					if ( 429 === $code || ( is_array( $body ) && preg_match( '/quota|rate limit|RESOURCE_EXHAUSTED/i', wp_json_encode( $body ) ) ) ) {
-						wp_send_json_error( array(
-							'message' => 'Quota oder Rate-Limit erreicht.',
-							'rate_limited' => true,
-							'fallback_mode' => 'local_ollama',
-							'suggested_interval_ms' => 10000,
-						), 429 );
-					}
-					if ( $code < 200 || $code >= 300 ) {
-						$message = '';
-						if ( is_array( $body ) ) {
-							if ( isset( $body['error']['message'] ) ) { $message = (string) $body['error']['message']; }
-							elseif ( isset( $body['message'] ) ) { $message = (string) $body['message']; }
+							'generationConfig' => array( 'temperature' => 0.2, 'maxOutputTokens' => 256 ),
+						);
+						$response = wp_remote_post( $config['url'], array(
+							'timeout'     => 25,
+							'httpversion' => '1.1',
+							'headers'     => array( 'Content-Type' => 'application/json', 'x-goog-api-key' => $config['key'] ),
+							'body'        => wp_json_encode( $payload ),
+						) );
+						if ( is_wp_error( $response ) ) {
+							throw new RuntimeException( self::normalize_error( $response->get_error_message(), $mode ) );
 						}
-						throw new RuntimeException( self::normalize_error( $message ?: sprintf( 'HTTP %d', $code ), $mode ) );
-					}
-					$text = '';
-					if ( isset( $body['candidates'][0]['content']['parts'] ) && is_array( $body['candidates'][0]['content']['parts'] ) ) {
-						foreach ( $body['candidates'][0]['content']['parts'] as $part ) {
-							if ( is_array( $part ) && isset( $part['text'] ) ) { $text .= (string) $part['text']; }
+						$code = (int) wp_remote_retrieve_response_code( $response );
+						$body = self::safe_decode( wp_remote_retrieve_body( $response ), $mode );
+						if ( 429 === $code ) {
+							wp_send_json_error( array( 'message' => 'Quota oder Rate-Limit erreicht.', 'rate_limited' => true, 'fallback_mode' => 'local_ollama', 'suggested_interval_ms' => 10000 ), 429 );
 						}
+						if ( $code < 200 || $code >= 300 ) {
+							$msg = isset( $body['error']['message'] ) ? (string) $body['error']['message'] : 'Fehler HTTP ' . $code;
+							throw new RuntimeException( self::normalize_error( $msg, $mode ) );
+						}
+						$text = '';
+						if ( isset( $body['candidates'][0]['content']['parts'] ) && is_array( $body['candidates'][0]['content']['parts'] ) ) {
+							foreach ( $body['candidates'][0]['content']['parts'] as $part ) {
+								if ( is_array( $part ) && isset( $part['text'] ) ) { $text .= (string) $part['text']; }
+							}
+						}
+						$text = trim( $text );
 					}
-					$text = trim( $text );
-					if ( '' === $text ) { throw new RuntimeException( self::normalize_error( 'Die KI hat keinen Text zurückgegeben.', $mode ) ); }
-					wp_send_json_success( array(
-						'reply' => $text,
-						'model' => $config['model'],
-						'rate_limited' => false,
-					) );
+
+					if ( '' === $text ) { throw new RuntimeException( self::normalize_error( 'Die KI hat keinen Text zurueckgegeben.', $mode ) ); }
+					$text = wp_strip_all_tags( $text );
+					wp_send_json_success( array( 'reply' => $text, 'model' => $config['model'], 'rate_limited' => false ) );
 				}
 				wp_send_json_error( array( 'message' => 'Unbekannte KI-Anfrage.' ), 400 );
 			} catch ( Throwable $e ) {
