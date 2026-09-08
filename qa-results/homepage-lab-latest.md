@@ -1,7 +1,7 @@
 # Autonomes Homepage-Labor – letzter Staging-Stand
 
-Erzeugt: 2026-09-01T20:32:04Z
-Quell-Commit: fa493386cb77498b759594c4b05744daa3288169
+Erzeugt: 2026-09-08T12:45:25Z
+Quell-Commit: 24dcde1aeb4b653d6509d5db5c7747f0f6931e02
 Gesamtstatus: ROT
 
 - Deploy + 50-Ansichten Visual-QA: nicht abgeschlossen (Run ?)
