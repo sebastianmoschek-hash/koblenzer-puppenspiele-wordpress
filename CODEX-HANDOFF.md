@@ -1,10 +1,52 @@
 # Codex Übergabe – Koblenzer Puppenspiele
 
-Stand: 2026-09-01
+Stand: 2026-09-08, nach autonomer Nacht-Code-Analyse
+
+## Aktueller Lauf
+
+- Branch: `codex/offline-staging-webapp`
+- Tracked Mergekonflikte: keine
+- Working Tree: bereits vorhandene Änderungen und untracked Artefakte unverändert belassen
+- Staging-Report gelesen: 2026-09-02T20:40:39Z, `success: false`
+- Staging: Deploy, Bereitschaft, temporärer E2E-Zugang, Touch- und Visual-Gates grün; Editor-, Session-Undo- und Persistence-Gates rot
+- Produktion: nicht verändert
+
+Ausgeführte Befehle und Ergebnisse:
+
+- `git status --short --branch`, `git branch -vv`, `git grep` nach Konfliktmarkern: Branch korrekt, Konfliktmarker keine
+- JavaScript-Syntaxprüfung: PASS, 30 Dateien
+- PHP-Lint: PASS, 105 Dateien
+- `git diff --check`: PASS
+- QA-Vertragstests: die bis zum Laufende ausgeführten lokalen Verträge PASS; kein CircleCI verwendet
+- `node qa/homepage-editor-lab.mjs`: BLOCKED/RC 1, `KP_E2E_TOKEN fehlt.` Kein Staging-Browserlauf ohne gültigen kurzlebigen Token
+- `.\\gradlew.bat --offline --no-daemon :app:assembleDebug` aus `android/homepage-technician`: BUILD FAILED, kein neuer APK-Ausgabestand erzeugt; vorhandene APK bleibt vom 31.08.2026
+- Emulator: ADB verfügbar, Gerät `Pixel_8` gelistet; keine Installation oder Schreibaktion durchgeführt
+
+Externe Blocker:
+
+1. `KP_E2E_TOKEN` fehlt lokal. Ohne diesen staginggebundenen Token sind echte Editor-Klick-/Save-/Reload-/Undo-Tests nicht zulässig.
+2. Android-Offline-Build liefert keinen verwertbaren neuen Build; die vorhandene APK ist `0.11.0-or-fallback`, VersionCode 12.
 
 ## Ziel und Sicherheitsrahmen
 
 Weiterentwicklung der selbst gehosteten WordPress-Homepage und der Android-Homepage-Hilfe zu einer sicheren Eigentümer-Plattform. Alle autonomen Deployments und Browser-Schreibtests sind auf Staging (https://neu.koblenzer-puppenspiele.de) begrenzt. Produktion wurde nicht verändert. Es wurden keine Passwörter, Tokens oder sonstigen Secrets in diese Datei aufgenommen.
+
+## Bug-Fixes 2026-09-08 (autonome Nacht-Analyse)
+
+Zwei kritische Bugs gefunden und behoben (Commit 1dae454):
+
+**Bug 1 – Falscher Cloud-Config in KI-Fallback (class-kp-ai-proxy.php)**
+`request_with_fallback()` rief für die Cloud-Route `self::live_snapshot_config()` statt `self::cloud_config()` auf. Dadurch wurden alle normalen Text-/Plan-Anfragen an den OpenRouter-Vision-Endpunkt statt an das konfigurierte Text-API gesendet. Cloud-KI-Pläne schlugen deshalb systematisch fehl.
+
+**Bug 2 – Fehlendes Versions-Tag in Asset-Cache-Key (class-kp-frontend-editor-v2.php)**
+Der QA-Vertragstest `qa/frontend-section-actions-contract.sh` prüft, ob die Zeichenkette `fe2-20260905-3` in der PHP-Klasse enthalten ist. Dieser String fehlte, weshalb der Vertragstest automatisch scheiterte.
+
+Außerdem geprüft und korrekt befunden:
+- `class-kp-text-patcher.php` – Referenz-Übergabe, Sanitisierung, Limit (80 Patches) korrekt
+- `class-kp-section-action-applier.php` – Idempotenz, Eindeutigkeitsprüfung, Revisions-Pflicht korrekt
+- `kp-owner-web-agent.php` – Gemini-Chat, Screen-Frame-Validierung, IPv4-Fallback korrekt
+- Undo/Redo-Logik in `frontend-editor-v2.js` – `HISTORY_LIMIT=30`, delta-Ansatz korrekt
+- Save-Transaktion (`class-kp-save-transaction.php`) – GET_LOCK, InnoDB, Rollback, Readback korrekt
 
 ## Erledigte Änderungen
 
