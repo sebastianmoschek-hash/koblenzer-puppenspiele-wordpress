@@ -22,6 +22,7 @@
   let inspectorExpanded = false;
   let dirty = false;
   const history = [];
+  let _domBaseline = null; // Map<el,nodeState> — baseline for sparse diff-history
   const redoHistory = [];
   const HISTORY_LIMIT = 30;
 
@@ -302,24 +303,68 @@
   }
   setupSectionDrag();
 
+  // ── History helpers: sparse baseline+delta approach ────────────────────
+  // Each entry stores only elements that differ from the initial page state
+  // (baseline), keeping entries tiny for typical single-element edits.
+  function _captureNodeState(el) {
+    const target = contentTarget(el) || el;
+    return {
+      target,
+      elStyle:     el.getAttribute('style'),
+      targetStyle: target === el ? null : target.getAttribute('style'),
+      html:        target.tagName === 'IMG' ? null : target.innerHTML,
+      href:        target.tagName === 'A'   ? target.getAttribute('href')   : null,
+      src:         target.tagName === 'IMG' ? target.getAttribute('src')    : null,
+      alt:         target.tagName === 'IMG' ? target.getAttribute('alt')    : null,
+      srcset:      target.tagName === 'IMG' ? target.getAttribute('srcset') : null,
+      sizes:       target.tagName === 'IMG' ? target.getAttribute('sizes')  : null,
+    };
+  }
+
+  function _nodeStatesEqual(a, b) {
+    return a && b &&
+      a.elStyle === b.elStyle && a.targetStyle === b.targetStyle &&
+      a.html    === b.html    && a.href        === b.href        &&
+      a.src     === b.src     && a.alt         === b.alt         &&
+      a.srcset  === b.srcset  && a.sizes       === b.sizes;
+  }
+
+  function _applyNodeState(el, saved) {
+    const target = saved.target;
+    if (!el?.isConnected || !target?.isConnected) return;
+    if (saved.elStyle === null) el.removeAttribute('style');
+    else el.setAttribute('style', saved.elStyle);
+    if (target !== el) {
+      if (saved.targetStyle === null) target.removeAttribute('style');
+      else target.setAttribute('style', saved.targetStyle);
+    }
+    if (target.tagName === 'IMG') {
+      restoreAttr(target, 'src',    saved.src);
+      restoreAttr(target, 'alt',    saved.alt);
+      restoreAttr(target, 'srcset', saved.srcset);
+      restoreAttr(target, 'sizes',  saved.sizes);
+    } else {
+      target.innerHTML = saved.html ?? '';
+      if (target.tagName === 'A') restoreAttr(target, 'href', saved.href);
+    }
+  }
+
   function captureHistoryDom() {
-    const nodes = [...document.querySelectorAll('[data-kp-dom-key],[data-kp-edit-key]')].map(el => {
-      const target = contentTarget(el) || el;
-      return {
-        el,
-        target,
-        elStyle: el.getAttribute('style'),
-        targetStyle: target === el ? null : target.getAttribute('style'),
-        html: target.tagName === 'IMG' ? null : target.innerHTML,
-        href: target.tagName === 'A' ? target.getAttribute('href') : null,
-        src: target.tagName === 'IMG' ? target.getAttribute('src') : null,
-        alt: target.tagName === 'IMG' ? target.getAttribute('alt') : null,
-        srcset: target.tagName === 'IMG' ? target.getAttribute('srcset') : null,
-        sizes: target.tagName === 'IMG' ? target.getAttribute('sizes') : null,
-      };
+    const allEls = [...document.querySelectorAll('[data-kp-dom-key],[data-kp-edit-key]')];
+    // Initialise baseline on first call (once per editor session)
+    if (!_domBaseline) {
+      _domBaseline = new Map();
+      allEls.forEach(el => _domBaseline.set(el, _captureNodeState(el)));
+    }
+    // Delta: only elements whose state differs from the baseline
+    const delta = new Map();
+    allEls.forEach(el => {
+      const cur  = _captureNodeState(el);
+      const base = _domBaseline.get(el);
+      if (!base || !_nodeStatesEqual(cur, base)) delta.set(el, cur);
     });
     const section = sectionRootAndItems();
-    return {nodes, order: section.items.slice()};
+    return {delta, order: section.items.slice()};
   }
 
   function restoreAttr(el, name, value) {
@@ -328,34 +373,20 @@
   }
 
   function restoreHistoryDom(dom) {
-    if (!dom) return;
+    if (!dom || !_domBaseline) return;
     deactivateText();
-    (dom.nodes || []).forEach(saved => {
-      const el = saved.el, target = saved.target;
-      if (!el?.isConnected || !target?.isConnected) return;
-      if (saved.elStyle === null) el.removeAttribute('style');
-      else el.setAttribute('style', saved.elStyle);
-      if (target !== el) {
-        if (saved.targetStyle === null) target.removeAttribute('style');
-        else target.setAttribute('style', saved.targetStyle);
-      }
-      if (target.tagName === 'IMG') {
-        restoreAttr(target, 'src', saved.src);
-        restoreAttr(target, 'alt', saved.alt);
-        restoreAttr(target, 'srcset', saved.srcset);
-        restoreAttr(target, 'sizes', saved.sizes);
-      } else {
-        target.innerHTML = saved.html ?? '';
-        if (target.tagName === 'A') restoreAttr(target, 'href', saved.href);
-      }
-    });
+    // 1. Restore every tracked element to its baseline (page-load) state
+    _domBaseline.forEach((saved, el) => _applyNodeState(el, saved));
+    // 2. Apply sparse delta on top of baseline
+    (dom.delta || new Map()).forEach((saved, el) => _applyNodeState(el, saved));
+    // 3. Restore section order
     const section = sectionRootAndItems();
     if (section.root && Array.isArray(dom.order)) {
       dom.order.forEach(el => { if (el?.isConnected) section.root.appendChild(el); });
     }
     renderSectionCopies();
-    applyScope(draftGlobal,'global');
-    applyScope(draftPage,'page');
+    applyScope(draftGlobal, 'global');
+    applyScope(draftPage,   'page');
     clearSelection();
   }
 
@@ -411,6 +442,8 @@
         </select></label>
         <button type="button" class="kp-fe2-save"><span class="dashicons dashicons-saved"></span><span>Speichern</span></button>
       </div>`);
+    document.querySelector('.kp-fe2-undo').addEventListener('click',()=>{ undoHistory(); });
+    document.querySelector('.kp-fe2-redo').addEventListener('click',()=>{ redoHistoryStep(); });
   }
   buildUI();
 
@@ -649,11 +682,13 @@
     });
   }
 
+  let _mediaFrame=null;
   function pickImage(el, callback) {
     if(!window.wp?.media){toast('Mediathek konnte nicht geöffnet werden.','error');return;}
-    const frame=wp.media({title:'Bild auswählen',button:{text:'Dieses Bild verwenden'},multiple:false,library:{type:'image'}});
-    frame.on('select',()=>{
-      const a=frame.state().get('selection').first().toJSON();
+    if(!_mediaFrame)_mediaFrame=wp.media({title:'Bild auswählen',button:{text:'Dieses Bild verwenden'},multiple:false,library:{type:'image'}});
+    _mediaFrame.off('select');
+    _mediaFrame.on('select',()=>{
+      const a=_mediaFrame.state().get('selection').first().toJSON();
       if(callback){callback(a);return;}
       const target=contentTarget(el);if(!target)return;
       snapshot();
@@ -661,7 +696,7 @@
       target.src=a.url;target.alt=a.alt||a.title||'';target.removeAttribute('srcset');target.removeAttribute('sizes');
       toast('Bild gewählt – jetzt speichern.');
     });
-    frame.open();
+    _mediaFrame.open();
   }
 
   function moveSection(el,dir) {
@@ -697,21 +732,29 @@
 
   function bindSectionDragHandle(el,handle) {
     if(!handle)return;
-    let moved=false;
+    let moved=false,snapped=false;
+    // AbortController lets us tear down all listeners atomically (e.g. on blur).
+    const ac=new AbortController();
+    const sig={signal:ac.signal};
+    const cleanup=(save=false)=>{
+      if(!document.body.classList.contains('kp-fe2-touch-reorder'))return;
+      document.body.classList.remove('kp-fe2-touch-reorder');
+      if(save&&moved){saveSectionOrder();toast('Bereich verschoben – noch speichern.');}
+      ac.abort(); // removes all listeners on this handle instance
+    };
     // Chromium can turn a fast release into a fling even with touch-action:none,
     // then consume the next toolbar tap to stop it. Cancel native touch movement
     // only on this handle while reordering; pointer events still drive the move.
     handle.addEventListener('touchmove',event=>{
       if(document.body.classList.contains('kp-fe2-touch-reorder')&&event.cancelable)event.preventDefault();
-    },{passive:false});
+    },{passive:false,...sig});
     handle.addEventListener('pointerdown',event=>{
       if(event.button!==undefined&&event.button!==0)return;
-      moved=false;
-      snapshot();
+      moved=false;snapped=false;
       handle.setPointerCapture?.(event.pointerId);
       document.body.classList.add('kp-fe2-touch-reorder');
       event.preventDefault();
-    });
+    },sig);
     handle.addEventListener('pointermove',event=>{
       if(!document.body.classList.contains('kp-fe2-touch-reorder'))return;
       const target=document.elementFromPoint(event.clientX,event.clientY)?.closest?.('[data-kp-edit-key]');
@@ -720,17 +763,15 @@
       const rect=target.getBoundingClientRect();
       if(event.clientY<rect.top+rect.height/2)root.insertBefore(el,target);
       else target.insertAdjacentElement('afterend',el);
+      if(!snapped){snapped=true;snapshot();}
       moved=true;
       event.preventDefault();
-    });
-    const finish=event=>{
-      if(!document.body.classList.contains('kp-fe2-touch-reorder'))return;
-      document.body.classList.remove('kp-fe2-touch-reorder');
-      handle.releasePointerCapture?.(event.pointerId);
-      if(moved){saveSectionOrder();toast('Bereich verschoben – noch speichern.');}
-    };
-    handle.addEventListener('pointerup',finish);
-    handle.addEventListener('pointercancel',finish);
+    },sig);
+    handle.addEventListener('pointerup',  ()=>cleanup(true),  sig);
+    handle.addEventListener('pointercancel',()=>cleanup(false),sig);
+    // Safety net: if the window loses focus mid-drag the pointer-events may
+    // never fire on this handle → unlock the touch-reorder state immediately.
+    window.addEventListener('blur',()=>cleanup(false),{...sig,once:true});
   }
 
   function resetElement(el) {
@@ -776,13 +817,7 @@
     return true;
   }
 
-  document.querySelector('.kp-fe2-undo')?.addEventListener('click',()=>{
-    undoHistory();
-  });
-
-  document.querySelector('.kp-fe2-redo')?.addEventListener('click',()=>{
-    redoHistoryStep();
-  });
+  // Undo/Redo-Listener in buildUI() registriert
 
   document.addEventListener('keydown', event => {
     if (!document.body.classList.contains('kp-fe2-editing')) return;
@@ -804,10 +839,7 @@
         return;
       }
     }
-    if (editable && (key === 'z' || key === 'y')) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
+    // z/y nur bei Ctrl/Meta abfangen (bereits oben behandelt)
   }, true);
 
   window.KPFrontendEditorHistory={
@@ -841,7 +873,7 @@
   window.KPFrontendEditorNativeSave=saveAll;
   document.querySelector('.kp-fe2-save')?.addEventListener('click',saveAll);
 
-  const liveAiState={enabled:false,intervalMs:5000,mode:'cloud',busy:false,stream:null,video:null,rec:null,interval:null,lastSpeech:'',speechEnabled:true,talkEnabled:true};
+  const liveAiState={enabled:false,intervalMs:5000,mode:'cloud',busy:false,stream:null,video:null,canvas:null,ctx:null,rec:null,interval:null,lastSpeech:'',speechEnabled:true,talkEnabled:true};
   const liveAiButtonLabel=()=>liveAiState.enabled?'Live Snapshot & Sprache: AN':'Live Snapshot & Sprache';
   function liveAiNote(text){const el=document.querySelector('.kp-fe2-live-ai-note');if(el)el.textContent=text;}
   function liveAiStatus(text){const el=document.querySelector('.kp-fe2-live-ai-status');if(el)el.textContent=text;}
@@ -849,14 +881,14 @@
   function liveAiPanel(){let panel=document.querySelector('.kp-fe2-live-ai-panel');if(panel)return panel;panel=document.createElement('section');panel.className='kp-fe2-live-ai-panel';panel.innerHTML=`<button type="button" class="kp-fe2-live-ai-toggle">${liveAiButtonLabel()}</button><label class="kp-fe2-live-ai-field">Intervall <input class="kp-fe2-live-ai-interval" type="number" min="0" step="1" value="5"><span>s</span></label><button type="button" class="kp-fe2-live-ai-mic">🎙 Sprache</button><button type="button" class="kp-fe2-live-ai-speak">🔊 Antworten</button><button type="button" class="kp-fe2-live-ai-now">Snapshot</button><div class="kp-fe2-live-ai-status">Bereit</div><div class="kp-fe2-live-ai-note">Nur bei aktivierter Live-Sitzung werden Snapshots gesendet.</div>`;document.body.appendChild(panel);return panel;}
   function liveAiStyles(){if(document.getElementById('kp-fe2-live-ai-style'))return;const style=document.createElement('style');style.id='kp-fe2-live-ai-style';style.textContent=`.kp-fe2-live-ai-panel{position:fixed;right:16px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:2147482810;display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:min(420px,calc(100vw - 24px));padding:10px 12px;border:1px solid rgba(255,255,255,.14);border-radius:16px;background:rgba(25,20,18,.96);color:#fff;box-shadow:0 16px 42px rgba(0,0,0,.3);font:13px/1.3 system-ui,sans-serif}.kp-fe2-live-ai-panel button,.kp-fe2-live-ai-panel input{font:inherit}.kp-fe2-live-ai-panel button{border:0;border-radius:999px;padding:9px 12px;background:#3a312b;color:#fff;font-weight:800}.kp-fe2-live-ai-panel button.is-on{background:#315d37}.kp-fe2-live-ai-field{display:flex;align-items:center;gap:6px;padding:0 8px;border-radius:999px;background:rgba(255,255,255,.08)}.kp-fe2-live-ai-field input{width:60px;border:0;background:transparent;color:#fff}.kp-fe2-live-ai-status,.kp-fe2-live-ai-note{width:100%;color:#eaded6}.kp-fe2-live-ai-note{font-size:12px;opacity:.9}.kp-fe2-live-ai-launch{position:fixed;right:16px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:2147482809;border:0;border-radius:999px;padding:11px 14px;background:#241d19;color:#fff;font:800 14px/1.2 system-ui,sans-serif;box-shadow:0 10px 32px rgba(0,0,0,.28)}.kp-fe2-live-ai-launch.is-open{background:#315d37}`;document.head.appendChild(style);if(!document.querySelector('.kp-fe2-live-ai-launch')){const launch=document.createElement('button');launch.type='button';launch.className='kp-fe2-live-ai-launch';launch.textContent='Live Snapshot & Sprache';launch.addEventListener('click',()=>{liveAiState.enabled?liveAiStop():liveAiStart();});document.body.appendChild(launch);}}
   function liveAiCaptureStream(){if(liveAiState.stream)return Promise.resolve(liveAiState.stream);if(!navigator.mediaDevices?.getDisplayMedia)throw new Error('Bildschirmfreigabe ist in diesem Browser nicht verfügbar.');return navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:2,max:4}},audio:false,preferCurrentTab:true,selfBrowserSurface:'include',surfaceSwitching:'include'}).then(stream=>{liveAiState.stream=stream;liveAiState.video=document.createElement('video');liveAiState.video.muted=true;liveAiState.video.playsInline=true;try{liveAiState.video.srcObject=stream;}catch(_){try{liveAiState.video.dataset.kpFakeStream='1';}catch{}}liveAiState.video.style.cssText='position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none';document.body.appendChild(liveAiState.video);return liveAiState.video.play().then(()=>{stream.getVideoTracks().forEach(t=>t.addEventListener('ended',()=>liveAiStop(),{once:true}));return stream;});});}
-  async function liveAiFrame(){await liveAiCaptureStream();const video=liveAiState.video;if(!video?.videoWidth||!video?.videoHeight)throw new Error('Es ist noch kein Bildschirmframe verfügbar.');const maxSide=1280;const scale=Math.min(1,maxSide/Math.max(video.videoWidth,video.videoHeight));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(video.videoWidth*scale));canvas.height=Math.max(1,Math.round(video.videoHeight*scale));const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw new Error('Kein Bildpuffer verfügbar.');ctx.drawImage(video,0,0,canvas.width,canvas.height);const mime=canvas.toDataURL('image/webp',.78).startsWith('data:image/webp')?'image/webp':'image/jpeg';const quality=mime==='image/webp'?.78:.72;return {mime,data:canvas.toDataURL(mime,quality).split(',',2)[1]||''};}
+  async function liveAiFrame(){await liveAiCaptureStream();const video=liveAiState.video;if(!video?.videoWidth||!video?.videoHeight)throw new Error('Es ist noch kein Bildschirmframe verfügbar.');const maxSide=1280;const scale=Math.min(1,maxSide/Math.max(video.videoWidth,video.videoHeight));const w=Math.max(1,Math.round(video.videoWidth*scale)),h=Math.max(1,Math.round(video.videoHeight*scale));if(!liveAiState.canvas){liveAiState.canvas=document.createElement('canvas');liveAiState.canvas.style.cssText='position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none';document.body.appendChild(liveAiState.canvas);}liveAiState.canvas.width=w;liveAiState.canvas.height=h;if(!liveAiState.ctx)liveAiState.ctx=liveAiState.canvas.getContext('2d',{alpha:false});const ctx=liveAiState.ctx;if(!ctx)throw new Error('Kein Bildpuffer verfügbar.');ctx.drawImage(video,0,0,w,h);const mime=liveAiState.canvas.toDataURL('image/webp',.78).startsWith('data:image/webp')?'image/webp':'image/jpeg';const quality=mime==='image/webp'?.78:.72;return {mime,data:liveAiState.canvas.toDataURL(mime,quality).split(',',2)[1]||''};}
   function liveAiSpeak(text){if(!liveAiState.talkEnabled||!('speechSynthesis' in window))return;window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(String(text||'').replace(/\s+/g,' ').trim().slice(0,900));utterance.lang='de-DE';window.speechSynthesis.speak(utterance);}
   async function liveAiSend(prompt,reason='snapshot'){if(!liveAiState.enabled||liveAiState.busy)return;liveAiState.busy=true;liveAiStatus('Sende Snapshot …');try{const shot=await liveAiFrame();const fd=new FormData();fd.append('action','kp_ai_proxy');fd.append('nonce',cfg.nonce);fd.append('task','live_snapshot');fd.append('snapshot',JSON.stringify({prompt,reason,mode:liveAiState.mode,image:shot.data,mime:shot.mime,context:{url:location.href,title:document.title,selected:String(window.getSelection?.().toString()||'').slice(0,500),scrollY:Math.round(window.scrollY),viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio}}}));const res=await fetch(cfg.ajaxUrl,{method:'POST',credentials:'same-origin',cache:'no-store',body:fd});const json=await res.json().catch(()=>null);if(!res.ok||!json?.success){const data=json?.data||{};if(data?.rate_limited){liveAiState.intervalMs=Math.max(liveAiState.intervalMs*2,Number(data.suggested_interval_ms)||10000);liveAiState.mode=data.fallback_mode||'local_ollama';document.querySelector('.kp-fe2-live-ai-interval')&&(document.querySelector('.kp-fe2-live-ai-interval').value=String(Math.round(liveAiState.intervalMs/1000)));liveAiStatus('Rate-Limit erkannt · Intervall gedrosselt');liveAiNote('Weiter mit lokaler Fallback-Instanz oder langsamerem Intervall.');return;}throw new Error(data?.message||'Snapshot-Request fehlgeschlagen');}const reply=String(json.data?.reply||json.data?.message||'').trim();if(reply){toast(reply,'ok');liveAiSpeak(reply);liveAiStatus(`KI: ${reply.slice(0,90)}`);}else{liveAiStatus('Snapshot gesendet · keine Antwort');}}catch(err){liveAiStatus(`Snapshot-Fehler: ${err?.message||err}`);liveAiNote('Die Live-Sitzung bleibt an; nächster Snapshot kann erneut versuchen.');}finally{liveAiState.busy=false;}}
   async function liveAiTick(manual=false){if(!liveAiState.enabled)return;const prompt=manual?'Analysiere den aktuellen Editorzustand und antworte kurz auf Deutsch.':'Beschreibe nur die relevante Änderung seit dem letzten Snapshot und schlage den kleinsten nächsten Schritt vor.';await liveAiSend(prompt,manual?'manual':'interval');}
   async function liveAiStart(){if(liveAiState.enabled)return;liveAiStyles();liveAiPanel();liveAiState.enabled=true;liveAiState.intervalMs=Math.max(0,Math.min(30,Number(document.querySelector('.kp-fe2-live-ai-interval')?.value||5)))*1000||5000;liveAiToggleClass(true);liveAiStatus('Live Snapshot & Sprache aktiv');liveAiNote('Ereignisbasierte Snapshots direkt bei Spracheingaben · optionales Intervall in Sekunden.');await liveAiCaptureStream().catch(err=>{liveAiStatus(`Bildschirmfreigabe nötig: ${err?.message||err}`);liveAiToggleClass(false);liveAiState.enabled=false;throw err;});if(liveAiState.intervalMs>0){liveAiState.interval=setInterval(()=>liveAiTick(false),liveAiState.intervalMs);} }
-  function liveAiStop(){liveAiState.enabled=false;liveAiToggleClass(false);if(liveAiState.interval){clearInterval(liveAiState.interval);liveAiState.interval=null;}if(liveAiState.rec){try{liveAiState.rec.abort()}catch{}liveAiState.rec=null;}if(liveAiState.stream){try{liveAiState.stream.getTracks().forEach(t=>t.stop())}catch{}liveAiState.stream=null;}if(liveAiState.video){try{liveAiState.video.remove()}catch{}liveAiState.video=null;}liveAiStatus('Bereit');liveAiNote('Live Snapshot & Sprache gestoppt.');}
+  function liveAiStop(){liveAiState.enabled=false;liveAiToggleClass(false);if(liveAiState.interval){clearInterval(liveAiState.interval);liveAiState.interval=null;}if(liveAiState.rec){try{liveAiState.rec.abort()}catch{}liveAiState.rec=null;}if(liveAiState.stream){try{liveAiState.stream.getTracks().forEach(t=>t.stop())}catch{}liveAiState.stream=null;}if(liveAiState.video){try{liveAiState.video.remove()}catch{}liveAiState.video=null;}if(liveAiState.canvas){try{liveAiState.canvas.remove()}catch{}liveAiState.canvas=null;liveAiState.ctx=null;}liveAiStatus('Bereit');liveAiNote('Live Snapshot & Sprache gestoppt.');}
   function liveAiToggleSpeech(){const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;if(!Recognition){liveAiNote('Deutsche Browser-Spracherkennung ist nicht verfügbar.');return;}if(liveAiState.rec){liveAiState.rec.abort();return;}const rec=new Recognition();liveAiState.rec=rec;rec.lang='de-DE';rec.interimResults=true;rec.continuous=false;let finalText='';rec.onstart=()=>liveAiStatus('Ich höre zu …');rec.onresult=event=>{let interim='';for(let i=event.resultIndex;i<event.results.length;i++){const text=String(event.results[i][0]?.transcript||'').trim();if(event.results[i].isFinal)finalText+=`${finalText?' ':''}${text}`;else interim+=`${interim?' ':''}${text}`;}const value=(finalText||interim).trim();const input=document.querySelector('.kp-fe2-live-ai-input');if(input)input.value=value;};rec.onerror=event=>liveAiStatus(`Sprache: ${event.error||'Fehler'}`);rec.onend=()=>{liveAiState.rec=null;liveAiStatus(liveAiState.enabled?'Live Snapshot & Sprache aktiv':'Bereit');const text=finalText.trim();if(text){liveAiState.lastSpeech=text;liveAiTick(true);}};rec.start();}
-  liveAiStyles();
+  if(cfg.canEdit){liveAiStyles();}
   document.addEventListener('click',e=>{const panel=e.target.closest('.kp-fe2-live-ai-panel');if(!panel)return;const toggle=e.target.closest('.kp-fe2-live-ai-toggle');if(toggle){e.preventDefault();e.stopPropagation();liveAiState.enabled?liveAiStop():liveAiStart();return;}if(e.target.closest('.kp-fe2-live-ai-mic')){e.preventDefault();e.stopPropagation();liveAiToggleSpeech();return;}if(e.target.closest('.kp-fe2-live-ai-speak')){e.preventDefault();e.stopPropagation();liveAiState.talkEnabled=!liveAiState.talkEnabled;document.querySelector('.kp-fe2-live-ai-speak')?.classList.toggle('is-on',liveAiState.talkEnabled);liveAiNote(liveAiState.talkEnabled?'Antworten werden gesprochen.':'Antworten nur als Text.');return;}if(e.target.closest('.kp-fe2-live-ai-now')){e.preventDefault();e.stopPropagation();liveAiTick(true);return;}},true);
   document.addEventListener('input',e=>{const input=e.target.closest('.kp-fe2-live-ai-interval');if(!input)return;const next=Math.max(0,Math.min(30,Number(input.value||5)));liveAiState.intervalMs=next*1000;if(liveAiState.interval){clearInterval(liveAiState.interval);liveAiState.interval=null;if(liveAiState.enabled&&liveAiState.intervalMs>0)liveAiState.interval=setInterval(()=>liveAiTick(false),liveAiState.intervalMs);}liveAiStatus(next>0?`Intervall: ${next}s`:'Nur ereignisbasiert');},true);
 

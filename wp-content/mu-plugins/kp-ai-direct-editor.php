@@ -30,7 +30,10 @@ function kp_ai_key() {
 }
 function kp_ai_guard() {
     if ( ! kp_ai_can_edit() ) { wp_send_json_error( array( 'message' => 'Keine Berechtigung.' ), 403 ); }
-    check_ajax_referer( KP_AI_NONCE, 'nonce' );
+    $nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+    if ( ! wp_verify_nonce( $nonce, KP_AI_NONCE ) && ! wp_verify_nonce( $nonce, 'kp_frontend_editor_v2' ) ) {
+        wp_send_json_error( array( 'message' => 'Sicherheitstoken ungültig.' ), 403 );
+    }
 }
 function kp_ai_json_body( $response ) {
     if ( is_wp_error( $response ) ) { throw new RuntimeException( $response->get_error_message() ); }

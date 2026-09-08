@@ -10,6 +10,8 @@ on:
       - 'wp-content/mu-plugins/kp-ai-direct-editor.php'
       - 'wp-content/mu-plugins/kp-owner-web-agent.php'
       - 'wp-content/mu-plugins/kp-ai-repair-lab.php'
+      - 'wp-content/mu-plugins/00-kp-openrouter-config.php'
+      - 'wp-content/mu-plugins/inc/class-kp-ai-proxy.php'
       - '.github/workflows/deploy-staging.yml'
       - '.github/workflows/owner-all-persistence-staging-qa.yml'
   workflow_dispatch:
@@ -71,6 +73,8 @@ jobs:
           php -l wp-content/mu-plugins/kp-ai-direct-editor.php
           php -l wp-content/mu-plugins/kp-owner-web-agent.php
           php -l wp-content/mu-plugins/kp-ai-repair-lab.php
+          php -l wp-content/mu-plugins/00-kp-openrouter-config.php
+          php -l wp-content/mu-plugins/inc/class-kp-ai-proxy.php
 
       - name: Install secure FTP client
         shell: bash
@@ -160,6 +164,9 @@ jobs:
             put 'wp-content/mu-plugins/kp-ai-direct-editor.php' -o '/wp-content/mu-plugins/kp-ai-direct-editor.php';
             put 'wp-content/mu-plugins/kp-owner-web-agent.php' -o '/wp-content/mu-plugins/kp-owner-web-agent.php';
             put 'wp-content/mu-plugins/kp-ai-repair-lab.php' -o '/wp-content/mu-plugins/kp-ai-repair-lab.php';
+            put 'wp-content/mu-plugins/00-kp-openrouter-config.php' -o '/wp-content/mu-plugins/00-kp-openrouter-config.php';
+            mkdir -p '/wp-content/mu-plugins/inc';
+            put 'wp-content/mu-plugins/inc/class-kp-ai-proxy.php' -o '/wp-content/mu-plugins/inc/class-kp-ai-proxy.php';
             bye
           "
 
