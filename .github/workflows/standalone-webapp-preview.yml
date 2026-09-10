@@ -8,11 +8,18 @@ on:
       - 'webapp/**'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-*.json'
       - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-*/**'
+      - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/header.webp'
       - '.github/workflows/standalone-webapp-preview.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: standalone-webapp-preview
+  cancel-in-progress: true
 
 jobs:
   build-preview:
@@ -24,8 +31,8 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf preview
-          mkdir -p preview/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2
-          cp -a webapp preview/webapp
+          mkdir -p preview/webapp
+          cp -a webapp/. preview/webapp/
           mkdir -p preview/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data
           mkdir -p preview/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets
           cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-*.json preview/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/
@@ -34,13 +41,34 @@ jobs:
               cp -a "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" preview/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/
             fi
           done
+          mkdir -p preview/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images
+          cp wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/header.webp preview/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/
+          printf '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=webapp/"><title>Koblenzer Puppenspiele Vorschau</title><a href="webapp/">Vorschau öffnen</a>' > preview/index.html
+          touch preview/.nojekyll
+          test -f preview/index.html
           test -f preview/webapp/index.html
           test -f preview/webapp/app.js
           test -f preview/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-repertoire.json
-      - name: Upload standalone preview
+          test -f preview/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/header.webp
+      - name: Upload downloadable preview
         uses: actions/upload-artifact@v4
         with:
           name: koblenzer-puppenspiele-standalone-preview
           path: preview/
           if-no-files-found: error
           retention-days: 7
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: preview/
+
+  deploy-preview:
+    needs: build-preview
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy standalone preview to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
