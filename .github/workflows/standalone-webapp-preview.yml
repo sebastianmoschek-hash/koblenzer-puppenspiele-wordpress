@@ -30,6 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo "GitHub Pages enabled; fresh standalone preview deployment."
           rm -rf preview
           mkdir -p preview/webapp
           cp -a webapp/. preview/webapp/
