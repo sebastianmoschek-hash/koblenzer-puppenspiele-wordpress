@@ -1,4 +1,4 @@
-name: Standalone Webapp FTP Deploy
+name: Standalone Webapp FTPS Deploy
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: standalone-webapp-ftp-test
+  group: standalone-webapp-ftps-test
   cancel-in-progress: true
 
 env:
@@ -63,7 +63,7 @@ jobs:
           test -f deploy/api/editor-state.php
           echo "Deployment tree ready."
 
-      - name: Verify required FTP secrets
+      - name: Verify required FTPS secrets
         shell: bash
         env:
           FTP_SERVER: ${{ secrets.KP_TEST_FTP_SERVER }}
@@ -74,26 +74,37 @@ jobs:
           test -n "$FTP_SERVER"
           test -n "$FTP_USERNAME"
           test -n "$FTP_PASSWORD"
-          echo "Required FTP secrets are configured."
+          echo "Required FTPS secrets are configured."
 
-      # The host accepted the FTPS control connection but reset the TLS data
-      # socket on the first directory operation. Use the account's normal FTP
-      # transport instead; credentials remain encrypted at rest in GitHub
-      # Secrets and this account is jailed to /htdocs/neu by the host.
-      - name: Deploy only into FTP account root (/htdocs/neu)
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
-        with:
-          server: ${{ secrets.KP_TEST_FTP_SERVER }}
-          username: ${{ secrets.KP_TEST_FTP_USERNAME }}
-          password: ${{ secrets.KP_TEST_FTP_PASSWORD }}
-          protocol: ftp
-          local-dir: ./deploy/
-          server-dir: ./
-          dangerous-clean-slate: false
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
+      - name: Install lftp
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+
+      - name: Deploy only into jailed FTP account root (/htdocs/neu)
+        shell: bash
+        env:
+          FTP_SERVER: ${{ secrets.KP_TEST_FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.KP_TEST_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # Explicit FTPS (AUTH TLS) on port 21. The hosting account itself is
+          # jailed to /htdocs/neu; remote path remains ./ and no parent path is used.
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<'LFTP'
+          set cmd:fail-exit yes
+          set ftp:ssl-force yes
+          set ftp:ssl-protect-data yes
+          set ftp:passive-mode yes
+          set ftp:prefer-epsv no
+          set ssl:verify-certificate yes
+          set net:max-retries 3
+          set net:timeout 20
+          pwd
+          mirror --reverse --verbose --parallel=1 --only-newer --no-perms --exclude-glob .git* --exclude-glob node_modules/ ./deploy/ ./
+          bye
+          LFTP
 
       - name: HTTP smoke tests
         shell: bash
@@ -101,6 +112,9 @@ jobs:
           set -euo pipefail
           curl --fail --silent --show-error --location --retry 3 --retry-delay 2 https://neu.koblenzer-puppenspiele.de/ -o /tmp/test-site.html
           grep -qi 'Koblenzer Puppenspiele' /tmp/test-site.html
+          grep -qi 'cloudSave' /tmp/test-site.html || grep -qi 'Cloud speichern' /tmp/test-site.html
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 https://neu.koblenzer-puppenspiele.de/api/editor-state.php -o /tmp/cloud-api.json
+          grep -Eq '"(ok|version|html|exists)"' /tmp/cloud-api.json
           curl --fail --silent --show-error --location --retry 3 --retry-delay 2 https://koblenzer-puppenspiele.de/ -o /tmp/main-site.html
           test -s /tmp/main-site.html
-          echo "Test subdomain and production homepage are reachable."
+          echo "Test subdomain, PHP cloud endpoint and production homepage are reachable."
