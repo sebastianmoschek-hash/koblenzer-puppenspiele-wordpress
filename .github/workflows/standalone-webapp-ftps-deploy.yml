@@ -107,4 +107,4 @@ jobs:
           test -s /tmp/main-site.html
           echo "Test deployment and production reachability verified."
 
-# Deploy marker: structure-safe-cloud-editor-2026-09-10
+# Deploy marker: mobile-header-editor-controls-fix-2026-09-10
