@@ -60,6 +60,14 @@ jobs:
           test -f deploy/assets/header.webp
           test ! -d deploy/wp-content
 
+      - name: Publish exact Android local-test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Koblenzer-Puppenspiele-Android-Lokaltest
+          path: deploy/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Verify required FTPS secrets
         shell: bash
         env:
@@ -107,4 +115,4 @@ jobs:
           test -s /tmp/main-site.html
           echo "Test deployment and production reachability verified."
 
-# Deploy marker: local-editor-fix-redeploy-2026-09-10
+# Deploy marker: android-exact-local-package-2026-09-10
