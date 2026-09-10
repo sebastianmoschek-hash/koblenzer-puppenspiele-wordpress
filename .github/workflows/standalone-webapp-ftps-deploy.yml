@@ -107,4 +107,4 @@ jobs:
           test -s /tmp/main-site.html
           echo "Test deployment and production reachability verified."
 
-# Deploy marker: mobile-header-editor-controls-fix-2026-09-10
+# Deploy marker: local-editor-fix-redeploy-2026-09-10
