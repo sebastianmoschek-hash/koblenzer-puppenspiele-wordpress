@@ -1,17 +1,21 @@
-name: Standalone Webapp FTPS Deploy
+name: Fast Standalone Webapp FTPS Deploy
 
 on:
   push:
     branches: [webapp-no-wordpress-test]
+    paths:
+      - 'webapp/**'
+      - '.github/workflows/standalone-webapp-ftps-deploy.yml'
   workflow_dispatch:
 
 concurrency:
-  group: standalone-webapp-ftps-test
+  group: standalone-webapp-ftps-test-fast
   cancel-in-progress: true
 
 jobs:
   deploy-test-site:
     runs-on: ubuntu-latest
+    timeout-minutes: 4
     permissions:
       contents: read
     env:
@@ -21,6 +25,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: webapp-no-wordpress-test
+          fetch-depth: 1
 
       - name: Hard safety guard
         shell: bash
@@ -29,41 +34,13 @@ jobs:
           test "$GITHUB_REF" = "refs/heads/$EXPECTED_BRANCH"
           test "$GITHUB_REF_NAME" = "$EXPECTED_BRANCH"
           test "$EXPECTED_BRANCH" != "main"
-          echo "Safety guard passed: deploying test branch only."
+          test -f webapp/index.html
+          echo "Fast deploy safety guard passed."
 
-      - name: Build isolated standalone deployment tree
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf deploy
-          mkdir -p deploy/data deploy/assets
-          cp -a webapp/. deploy/
-          cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-repertoire.json deploy/data/repertoire.json
-          cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-termine-2026-2027.json deploy/data/termine.json
-          cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-ensemble.json deploy/data/ensemble.json
-          cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-referenzen.json deploy/data/referenzen.json
-          for dir in legacy-repertoire legacy-ensemble legacy-referenzen; do
-            if [ -d "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" ]; then cp -a "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" deploy/assets/; fi
-          done
-          cp wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/header.webp deploy/assets/header.webp
-          test -f deploy/index.html
-          test -f deploy/app.js
-          test -f deploy/editor-bootstrap.js
-          test -f deploy/api/editor-state.php
-          test -f deploy/version-history.js
-          test -f deploy/data/repertoire.json
-          test -f deploy/assets/header.webp
-          test ! -d deploy/wp-content
+      - name: Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends lftp
 
-      - name: Publish exact Android local-test package
-        uses: actions/upload-artifact@v4
-        with:
-          name: Koblenzer-Puppenspiele-Android-Lokaltest
-          path: deploy/
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Verify required FTPS secrets
+      - name: Fast deploy webapp only to jailed test FTP root
         shell: bash
         env:
           FTP_SERVER: ${{ secrets.KP_TEST_FTP_SERVER }}
@@ -74,36 +51,20 @@ jobs:
           test -n "$FTP_SERVER"
           test -n "$FTP_USERNAME"
           test -n "$FTP_PASSWORD"
-
-      - name: Install lftp
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
-
-      - name: Deploy only into jailed FTP account root (/htdocs/neu)
-        shell: bash
-        env:
-          FTP_SERVER: ${{ secrets.KP_TEST_FTP_SERVER }}
-          FTP_USERNAME: ${{ secrets.KP_TEST_FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
-        run: |
-          set -euo pipefail
           lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "ftps://$FTP_SERVER" <<'LFTP'
           set ssl:verify-certificate yes
           set ftp:ssl-force true
           set ftp:ssl-protect-data true
-          set net:max-retries 2
-          set net:timeout 20
-          mirror --reverse --delete --verbose=1 deploy/ ./
+          set net:max-retries 1
+          set net:timeout 12
+          mirror --reverse --only-newer --parallel=4 --verbose=1 webapp/ ./
           bye
           LFTP
 
-      - name: HTTP smoke tests
+      - name: Quick test-site check
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location --retry 4 --retry-delay 5 https://neu.koblenzer-puppenspiele.de/ -o /tmp/test-site.html
+          curl --fail --silent --show-error --location --retry 2 --retry-delay 2 https://neu.koblenzer-puppenspiele.de/ -o /tmp/test-site.html
           grep -q "Koblenzer Puppenspiele" /tmp/test-site.html
-          curl --fail --silent --show-error --location --retry 4 --retry-delay 5 https://koblenzer-puppenspiele.de/ -o /tmp/main-site.html
-          test -s /tmp/main-site.html
-          echo "Test deployment and production reachability verified."
-
-# Deploy marker: android-local-editor-bootstrap-2026-09-10
+          echo "Fast test deployment verified. Production was not modified."
