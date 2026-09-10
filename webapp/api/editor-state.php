@@ -11,10 +11,14 @@ if ($host !== 'neu.koblenzer-puppenspiele.de' || ($origin !== '' && $origin !== 
 }
 $file = __DIR__ . '/.editor-state.json';
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    if (!is_file($file)) { http_response_code(404); exit; }
+    if (!is_file($file)) {
+        echo json_encode(['ok'=>true, 'exists'=>false, 'version'=>1]); exit;
+    }
     $raw = file_get_contents($file);
     $data = json_decode((string)$raw, true);
     if (!is_array($data)) { http_response_code(500); echo json_encode(['error'=>'invalid state']); exit; }
+    $data['ok'] = true;
+    $data['exists'] = true;
     echo json_encode($data, JSON_UNESCAPED_UNICODE); exit;
 }
 if ($_SERVER['REQUEST_METHOD'] !== 'PUT') { http_response_code(405); exit; }
@@ -27,5 +31,4 @@ $tmp = $file . '.tmp';
 if (file_put_contents($tmp, json_encode($data, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES), LOCK_EX) === false || !rename($tmp, $file)) {
     http_response_code(500); echo json_encode(['error'=>'save failed']); exit;
 }
-echo json_encode(['ok'=>true, 'savedAt'=>$data['savedAt']]);
-
+echo json_encode(['ok'=>true, 'exists'=>true, 'savedAt'=>$data['savedAt']]);
