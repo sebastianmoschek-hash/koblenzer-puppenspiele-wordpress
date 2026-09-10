@@ -106,3 +106,5 @@ jobs:
           curl --fail --silent --show-error --location --retry 3 https://koblenzer-puppenspiele.de/ -o /tmp/main-site.html
           test -s /tmp/main-site.html
           echo "Test deployment and production reachability verified."
+
+# Deploy marker: contextual-editor-cleanup-2026-09-10
