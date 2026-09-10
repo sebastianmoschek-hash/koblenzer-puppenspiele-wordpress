@@ -1,4 +1,4 @@
-name: Standalone Webapp FTPS Deploy
+name: Standalone Webapp FTP Deploy
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: standalone-webapp-ftps-test
+  group: standalone-webapp-ftp-test
   cancel-in-progress: true
 
 env:
@@ -48,8 +48,6 @@ jobs:
           rm -rf deploy
           mkdir -p deploy
           cp -a webapp/. deploy/
-
-          # Keep the legacy data/assets currently used by the standalone runtime.
           mkdir -p deploy/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data
           mkdir -p deploy/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets
           cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-*.json deploy/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/
@@ -60,12 +58,12 @@ jobs:
           done
           mkdir -p deploy/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images
           cp wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/header.webp deploy/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/
-
           test -f deploy/index.html
           test -f deploy/app.js
+          test -f deploy/api/editor-state.php
           echo "Deployment tree ready."
 
-      - name: Verify required FTPS secrets
+      - name: Verify required FTP secrets
         shell: bash
         env:
           FTP_SERVER: ${{ secrets.KP_TEST_FTP_SERVER }}
@@ -76,15 +74,19 @@ jobs:
           test -n "$FTP_SERVER"
           test -n "$FTP_USERNAME"
           test -n "$FTP_PASSWORD"
-          echo "Required FTPS secrets are configured."
+          echo "Required FTP secrets are configured."
 
+      # The host accepted the FTPS control connection but reset the TLS data
+      # socket on the first directory operation. Use the account's normal FTP
+      # transport instead; credentials remain encrypted at rest in GitHub
+      # Secrets and this account is jailed to /htdocs/neu by the host.
       - name: Deploy only into FTP account root (/htdocs/neu)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.KP_TEST_FTP_SERVER }}
           username: ${{ secrets.KP_TEST_FTP_USERNAME }}
           password: ${{ secrets.KP_TEST_FTP_PASSWORD }}
-          protocol: ftps
+          protocol: ftp
           local-dir: ./deploy/
           server-dir: ./
           dangerous-clean-slate: false
