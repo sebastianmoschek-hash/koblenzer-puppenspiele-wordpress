@@ -1,0 +1,104 @@
+name: Standalone Webapp FTPS Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - webapp-no-wordpress-test
+    paths:
+      - 'webapp/**'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-*.json'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-*/**'
+      - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/header.webp'
+      - '.github/workflows/standalone-webapp-ftps-deploy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: standalone-webapp-ftps-test
+  cancel-in-progress: true
+
+env:
+  EXPECTED_BRANCH: webapp-no-wordpress-test
+
+jobs:
+  deploy-test-site:
+    if: github.ref == 'refs/heads/webapp-no-wordpress-test'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test branch
+        uses: actions/checkout@v4
+        with:
+          ref: webapp-no-wordpress-test
+
+      - name: Hard safety guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/$EXPECTED_BRANCH"
+          test "$GITHUB_REF_NAME" = "$EXPECTED_BRANCH"
+          test "$EXPECTED_BRANCH" != "main"
+          echo "Safety guard passed: deploying test branch only."
+
+      - name: Build isolated deployment tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf deploy
+          mkdir -p deploy
+          cp -a webapp/. deploy/
+
+          # Keep the legacy data/assets currently used by the standalone runtime.
+          mkdir -p deploy/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data
+          mkdir -p deploy/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets
+          cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-*.json deploy/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/
+          for dir in legacy-repertoire legacy-ensemble legacy-referenzen; do
+            if [ -d "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" ]; then
+              cp -a "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" deploy/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/
+            fi
+          done
+          mkdir -p deploy/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images
+          cp wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/header.webp deploy/wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/
+
+          test -f deploy/index.html
+          test -f deploy/app.js
+          echo "Deployment tree ready."
+
+      - name: Verify required FTPS secrets
+        shell: bash
+        env:
+          FTP_SERVER: ${{ secrets.KP_TEST_FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.KP_TEST_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$FTP_SERVER"
+          test -n "$FTP_USERNAME"
+          test -n "$FTP_PASSWORD"
+          echo "Required FTPS secrets are configured."
+
+      - name: Deploy only into FTP account root (/htdocs/neu)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.KP_TEST_FTP_SERVER }}
+          username: ${{ secrets.KP_TEST_FTP_USERNAME }}
+          password: ${{ secrets.KP_TEST_FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./deploy/
+          server-dir: ./
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+
+      - name: HTTP smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 https://neu.koblenzer-puppenspiele.de/ -o /tmp/test-site.html
+          grep -qi 'Koblenzer Puppenspiele' /tmp/test-site.html
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 https://koblenzer-puppenspiele.de/ -o /tmp/main-site.html
+          test -s /tmp/main-site.html
+          echo "Test subdomain and production homepage are reachable."
