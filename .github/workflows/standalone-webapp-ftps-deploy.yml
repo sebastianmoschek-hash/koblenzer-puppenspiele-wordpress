@@ -1,0 +1,97 @@
+name: Standalone Webapp FTPS Deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: standalone-webapp-ftps-test
+  cancel-in-progress: true
+
+env:
+  EXPECTED_BRANCH: webapp-no-wordpress-test
+
+jobs:
+  deploy-test-site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hard safety guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_BRANCH" = "webapp-no-wordpress-test"
+          test "$EXPECTED_BRANCH" != "main"
+
+      - name: Checkout test branch only
+        uses: actions/checkout@v4
+        with:
+          ref: webapp-no-wordpress-test
+
+      - name: Build isolated standalone deployment tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf deploy
+          mkdir -p deploy/data deploy/assets
+          cp -a webapp/. deploy/
+          cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-repertoire.json deploy/data/repertoire.json
+          cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-termine-2026-2027.json deploy/data/termine.json
+          cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-ensemble.json deploy/data/ensemble.json
+          cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-referenzen.json deploy/data/referenzen.json
+          for dir in legacy-repertoire legacy-ensemble legacy-referenzen; do
+            if [ -d "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" ]; then cp -a "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" deploy/assets/; fi
+          done
+          cp wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/header.webp deploy/assets/header.webp
+          test -f deploy/index.html
+          test -f deploy/app.js
+          test -f deploy/api/editor-state.php
+          test -f deploy/version-history.js
+          test ! -d deploy/wp-content
+
+      - name: Verify FTPS secrets
+        shell: bash
+        env:
+          FTP_SERVER: ${{ secrets.KP_TEST_FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.KP_TEST_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$FTP_SERVER"; test -n "$FTP_USERNAME"; test -n "$FTP_PASSWORD"
+
+      - name: Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      - name: Deploy only to jailed test FTP root
+        shell: bash
+        env:
+          FTP_SERVER: ${{ secrets.KP_TEST_FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.KP_TEST_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<'LFTP'
+          set cmd:fail-exit yes
+          set ftp:ssl-force yes
+          set ftp:ssl-protect-data yes
+          set ftp:passive-mode yes
+          set ftp:prefer-epsv no
+          set ssl:verify-certificate yes
+          set net:max-retries 3
+          set net:timeout 20
+          mirror --reverse --verbose --parallel=1 --only-newer --no-perms --exclude-glob .git* --exclude-glob node_modules/ ./deploy/ ./
+          bye
+          LFTP
+
+      - name: HTTP smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 3 https://neu.koblenzer-puppenspiele.de/ -o /tmp/test-site.html
+          grep -qi 'Koblenzer Puppenspiele' /tmp/test-site.html
+          grep -qi 'id="history"' /tmp/test-site.html
+          curl --fail --silent --show-error --location --retry 3 'https://neu.koblenzer-puppenspiele.de/api/editor-state.php?action=history' -o /tmp/history.json
+          grep -q '"ok"' /tmp/history.json
+          curl --fail --silent --show-error --location --retry 3 https://koblenzer-puppenspiele.de/ -o /tmp/main-site.html
+          test -s /tmp/main-site.html
