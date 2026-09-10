@@ -1,0 +1,46 @@
+name: Standalone Webapp Preview
+
+on:
+  push:
+    branches:
+      - webapp-no-wordpress-test
+    paths:
+      - 'webapp/**'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-*.json'
+      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-*/**'
+      - '.github/workflows/standalone-webapp-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated static preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf preview
+          mkdir -p preview/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2
+          cp -a webapp preview/webapp
+          mkdir -p preview/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data
+          mkdir -p preview/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets
+          cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-*.json preview/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/
+          for dir in legacy-repertoire legacy-ensemble legacy-referenzen; do
+            if [ -d "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" ]; then
+              cp -a "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" preview/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/
+            fi
+          done
+          test -f preview/webapp/index.html
+          test -f preview/webapp/app.js
+          test -f preview/wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-repertoire.json
+      - name: Upload standalone preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: koblenzer-puppenspiele-standalone-preview
+          path: preview/
+          if-no-files-found: error
+          retention-days: 7
