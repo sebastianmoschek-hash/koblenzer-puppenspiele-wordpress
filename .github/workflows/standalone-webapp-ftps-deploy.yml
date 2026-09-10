@@ -2,6 +2,11 @@ name: Standalone Webapp FTPS Deploy
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - webapp-no-wordpress-test
+    paths:
+      - '.github/workflows/standalone-webapp-ftps-deploy.yml'
 
 permissions:
   contents: read
@@ -39,28 +44,21 @@ jobs:
           rm -rf deploy
           mkdir -p deploy/data deploy/assets
           cp -a webapp/. deploy/
-
-          # Import the existing content into neutral standalone paths at build time.
           cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-repertoire.json deploy/data/repertoire.json
           cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-termine-2026-2027.json deploy/data/termine.json
           cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-ensemble.json deploy/data/ensemble.json
           cp wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-referenzen.json deploy/data/referenzen.json
           for dir in legacy-repertoire legacy-ensemble legacy-referenzen; do
-            if [ -d "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" ]; then
-              cp -a "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" deploy/assets/
-            fi
+            if [ -d "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" ]; then cp -a "wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/$dir" deploy/assets/; fi
           done
           cp wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/header.webp deploy/assets/header.webp
-
           test -f deploy/index.html
           test -f deploy/app.js
           test -f deploy/api/editor-state.php
+          test -f deploy/version-history.js
           test -f deploy/data/repertoire.json
-          test -f deploy/data/ensemble.json
-          test -f deploy/data/referenzen.json
           test -f deploy/assets/header.webp
           test ! -d deploy/wp-content
-          echo "Standalone deployment tree ready without WordPress runtime paths."
 
       - name: Verify required FTPS secrets
         shell: bash
@@ -70,16 +68,10 @@ jobs:
           FTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
         run: |
           set -euo pipefail
-          test -n "$FTP_SERVER"
-          test -n "$FTP_USERNAME"
-          test -n "$FTP_PASSWORD"
-          echo "Required FTPS secrets are configured."
+          test -n "$FTP_SERVER"; test -n "$FTP_USERNAME"; test -n "$FTP_PASSWORD"
 
       - name: Install lftp
-        shell: bash
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
       - name: Deploy only into jailed FTP account root (/htdocs/neu)
         shell: bash
@@ -98,7 +90,6 @@ jobs:
           set ssl:verify-certificate yes
           set net:max-retries 3
           set net:timeout 20
-          pwd
           mirror --reverse --verbose --parallel=1 --only-newer --no-perms --exclude-glob .git* --exclude-glob node_modules/ ./deploy/ ./
           bye
           LFTP
@@ -107,13 +98,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 https://neu.koblenzer-puppenspiele.de/ -o /tmp/test-site.html
+          curl --fail --silent --show-error --location --retry 3 https://neu.koblenzer-puppenspiele.de/ -o /tmp/test-site.html
           grep -qi 'Koblenzer Puppenspiele' /tmp/test-site.html
-          grep -qi 'cloudSave' /tmp/test-site.html || grep -qi 'Cloud speichern' /tmp/test-site.html
-          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 https://neu.koblenzer-puppenspiele.de/api/editor-state.php -o /tmp/cloud-api.json
-          grep -Eq '"(ok|version|html|exists)"' /tmp/cloud-api.json
-          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 https://neu.koblenzer-puppenspiele.de/data/repertoire.json -o /tmp/repertoire.json
-          test -s /tmp/repertoire.json
-          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 https://koblenzer-puppenspiele.de/ -o /tmp/main-site.html
+          grep -qi 'id="history"' /tmp/test-site.html
+          curl --fail --silent --show-error --location --retry 3 'https://neu.koblenzer-puppenspiele.de/api/editor-state.php?action=history' -o /tmp/history.json
+          grep -q '"ok"' /tmp/history.json
+          curl --fail --silent --show-error --location --retry 3 https://koblenzer-puppenspiele.de/ -o /tmp/main-site.html
           test -s /tmp/main-site.html
-          echo "Standalone test site, cloud endpoint, data and production homepage are reachable."
+          echo "Test deployment and production reachability verified."
