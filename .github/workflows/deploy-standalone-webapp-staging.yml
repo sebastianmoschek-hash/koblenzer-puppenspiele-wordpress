@@ -1,0 +1,24 @@
+name: Deploy standalone webapp to staging
+on:
+  push:
+    branches: [webapp-no-wordpress-test]
+    paths: [webapp/**, .github/workflows/deploy-standalone-webapp-staging.yml]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      FTP_SERVER: ${{ secrets.STAGING_FTP_SERVER }}
+      FTP_USERNAME: ${{ secrets.STAGING_FTP_USERNAME }}
+      LFTP_PASSWORD: ${{ secrets.STAGING_FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy only standalone files to /neu
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+          : "${FTP_SERVER:?missing staging FTP server}"; : "${FTP_USERNAME:?missing staging FTP username}"; : "${LFTP_PASSWORD:?missing staging FTP password}"
+          lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate true; open --user '$FTP_USERNAME' --env-password -p 21 '$FTP_SERVER'; mirror --reverse --verbose webapp /neu; bye"
+      - name: Verify PHP endpoint
+        run: curl --fail --silent --show-error -H 'Origin: https://neu.koblenzer-puppenspiele.de' https://neu.koblenzer-puppenspiele.de/api/editor-state.php -o /tmp/state
+
