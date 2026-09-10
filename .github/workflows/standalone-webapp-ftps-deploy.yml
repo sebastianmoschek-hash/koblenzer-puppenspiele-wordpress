@@ -2,15 +2,6 @@ name: Standalone Webapp FTPS Deploy
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - webapp-no-wordpress-test
-    paths:
-      - 'webapp/**'
-      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/data/legacy-*.json'
-      - 'wp-content/plugins/koblenzer-puppenspiele-core-phase2-2/assets/legacy-*/**'
-      - 'wp-content/themes/koblenzer-puppenspiele-block-theme-phase1-7/assets/images/header.webp'
-      - '.github/workflows/standalone-webapp-ftps-deploy.yml'
 
 permissions:
   contents: read
