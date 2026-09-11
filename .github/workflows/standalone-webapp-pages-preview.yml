@@ -1,0 +1,49 @@
+name: Fast Standalone Webapp Pages Preview
+
+on:
+  push:
+    branches:
+      - webapp-no-wordpress-test
+    paths:
+      - 'webapp/**'
+      - '.github/workflows/standalone-webapp-pages-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-webapp-preview
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    if: github.ref == 'refs/heads/webapp-no-wordpress-test'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test branch only
+        uses: actions/checkout@v4
+        with:
+          ref: webapp-no-wordpress-test
+
+      - name: Guard production branch
+        run: |
+          test "$GITHUB_REF" = "refs/heads/webapp-no-wordpress-test"
+          test "$GITHUB_REF_NAME" != "main"
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload standalone webapp
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: webapp
+
+      - name: Deploy fast preview
+        id: deployment
+        uses: actions/deploy-pages@v4
