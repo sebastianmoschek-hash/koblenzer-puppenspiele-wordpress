@@ -1,0 +1,17 @@
+(()=>{
+'use strict';
+let button=null,label=null,start=null,op=null,finish=null,hold=null;
+const buttonSelector='main a.btn,main a.ghost,main button';
+function checkpoint(){if(finish)finish();finish=window.__kpUndoCheckpoint?window.__kpUndoCheckpoint():null}
+function commit(){if(finish){finish();finish=null}}
+function ensureLabel(btn){let span=btn.querySelector(':scope > .kp-button-label');if(span)return span;const text=Array.from(btn.childNodes).filter(n=>n.nodeType===Node.TEXT_NODE).map(n=>n.textContent).join('').trim();if(!text)return null;Array.from(btn.childNodes).filter(n=>n.nodeType===Node.TEXT_NODE).forEach(n=>n.remove());span=document.createElement('span');span.className='kp-button-label';span.textContent=text;span.style.cssText='display:inline-block;position:relative;transform:translate(0px,0px);touch-action:none;user-select:none';btn.appendChild(span);return span}
+function selectLabel(btn){button=btn;label=ensureLabel(btn);if(!label)return;document.querySelectorAll('.kp-button-label-selected').forEach(x=>x.classList.remove('kp-button-label-selected'));label.classList.add('kp-button-label-selected');window.dispatchEvent(new CustomEvent('kp-button-label-selected',{detail:{element:label,button:btn}}))}
+function matrix(el){const t=getComputedStyle(el).transform;try{const m=new DOMMatrixReadOnly(t==='none'?'matrix(1,0,0,1,0,0)':t);return{x:m.m41,y:m.m42}}catch{return{x:0,y:0}}}
+function stop(e){if(e.cancelable)e.preventDefault();e.stopPropagation();e.stopImmediatePropagation()}
+document.addEventListener('pointerdown',e=>{if(!document.body.classList.contains('editing'))return;const l=e.target.closest('.kp-button-label');if(!l)return;stop(e);label=l;button=l.closest(buttonSelector);const m=matrix(l);start={id:e.pointerId,x:e.clientX,y:e.clientY,tx:m.x,ty:m.y};clearTimeout(hold);hold=setTimeout(()=>{if(!start)return;checkpoint();op={...start};try{label.setPointerCapture(e.pointerId)}catch{}navigator.vibrate?.(18)},280)},true);
+document.addEventListener('pointermove',e=>{if(!op||e.pointerId!==op.id)return;stop(e);label.style.setProperty('transform',`translate(${op.tx+e.clientX-op.x}px,${op.ty+e.clientY-op.y}px)`,'important')},{capture:true,passive:false});
+function end(e){clearTimeout(hold);if(op&&e.pointerId===op.id){stop(e);commit();op=null}else if(start&&e.pointerId===start.id){stop(e);selectLabel(button)}start=null}
+document.addEventListener('pointerup',end,true);document.addEventListener('pointercancel',e=>{clearTimeout(hold);if(op&&e.pointerId===op.id){commit();op=null}start=null},true);
+window.addEventListener('kp-element-selected',e=>{const el=e.detail&&e.detail.element;if(el&&el.matches(buttonSelector))selectLabel(el);else document.querySelectorAll('.kp-button-label-selected').forEach(x=>x.classList.remove('kp-button-label-selected'))});
+window.addEventListener('kp-editor-restored',()=>{button=null;label=null;document.querySelectorAll('.kp-button-label-selected').forEach(x=>x.classList.remove('kp-button-label-selected'))});
+})();
