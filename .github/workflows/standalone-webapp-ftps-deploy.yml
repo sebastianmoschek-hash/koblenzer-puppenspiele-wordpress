@@ -68,6 +68,6 @@ jobs:
           set -euo pipefail
           URL="https://neu.koblenzer-puppenspiele.de/?deploy=${GITHUB_SHA}"
           curl --fail --silent --show-error --location --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "$URL" -o /tmp/test-site.html
-          grep -q "android-editor-bar.js?v=20260911-4" /tmp/test-site.html
-          grep -q "app.css?v=20260911-4" /tmp/test-site.html
-          echo "Exact Android editor build is live on the test domain. Production was not modified."
+          grep -q "app.css?v=20260911-13" /tmp/test-site.html
+          grep -q "direct-manipulation.js?v=20260911-13" /tmp/test-site.html
+          echo "Exact direct-manipulation build is live on the test domain. Production was not modified."
