@@ -1,0 +1,17 @@
+(()=>{
+'use strict';
+const q=s=>document.querySelector(s);let target=null,op=null,hold=null,start=null,finish=null;
+const selector='main img,main a,main button,main h1,main h2,main h3,main p,main article,main section,main figure,main .wrap,main .hero-copy,main .actions';
+function checkpoint(){if(finish)finish();finish=window.__kpUndoCheckpoint?window.__kpUndoCheckpoint():null}
+function commit(){if(finish){finish();finish=null}}
+function handles(){let h=q('#kpTransformHandles');if(h)return h;h=document.createElement('div');h.id='kpTransformHandles';h.hidden=true;h.innerHTML='<i data-h="nw"></i><i data-h="ne"></i><i data-h="sw"></i><i data-h="se"></i>';document.body.appendChild(h);return h}
+function position(){if(!target)return;const r=target.getBoundingClientRect(),h=handles();h.style.left=(r.left+scrollX)+'px';h.style.top=(r.top+scrollY)+'px';h.style.width=r.width+'px';h.style.height=r.height+'px';h.hidden=false}
+function select(el){if(!el)return;target?.classList.remove('kp-transform-selected');target=el;target.classList.add('kp-transform-selected');position()}
+function clearHold(){clearTimeout(hold);hold=null}
+function matrix(el){const t=getComputedStyle(el).transform;try{const m=new DOMMatrixReadOnly(t==='none'?'matrix(1,0,0,1,0,0)':t);return{x:m.m41,y:m.m42}}catch(e){return{x:0,y:0}}}
+document.addEventListener('pointerdown',e=>{if(!document.body.classList.contains('editing'))return;const handle=e.target.closest('#kpTransformHandles [data-h]');if(handle&&target){e.preventDefault();checkpoint();const r=target.getBoundingClientRect();op={type:'resize',id:e.pointerId,x:e.clientX,y:e.clientY,w:r.width,h:r.height,ratio:r.width/Math.max(1,r.height)};handle.setPointerCapture?.(e.pointerId);return}if(e.target.closest('#editor,#kpDesignSheet,#kpVersionDialog'))return;const el=e.target.closest(selector);if(!el)return;select(el);start={id:e.pointerId,x:e.clientX,y:e.clientY,el};clearHold();hold=setTimeout(()=>{checkpoint();const m=matrix(el);op={type:'move',id:e.pointerId,x:start.x,y:start.y,tx:m.x,ty:m.y};el.classList.add('kp-transform-moving');navigator.vibrate?.(20)},420)},true);
+document.addEventListener('pointermove',e=>{if(start&&!op&&Math.hypot(e.clientX-start.x,e.clientY-start.y)>10)clearHold();if(!op||op.id!==e.pointerId)return;e.preventDefault();if(op.type==='move'){const dx=e.clientX-op.x,dy=e.clientY-op.y;target.style.setProperty('transform',`translate(${op.tx+dx}px,${op.ty+dy}px)`,'important');target.style.setProperty('position','relative','important');target.style.setProperty('z-index','12','important')}else{const dx=e.clientX-op.x,dy=e.clientY-op.y;const w=Math.max(36,op.w+dx),h=Math.max(24,op.h+dy);target.style.setProperty('width',w+'px','important');target.style.setProperty('max-width','none','important');target.style.setProperty('height',h+'px','important');target.style.setProperty('min-height','0','important');if(target.tagName==='IMG')target.style.setProperty('object-fit','cover','important')}position()},{capture:true,passive:false});
+document.addEventListener('pointerup',e=>{clearHold();start=null;if(op&&op.id===e.pointerId){target?.classList.remove('kp-transform-moving');commit();op=null;position()}},true);
+document.addEventListener('pointercancel',()=>{clearHold();start=null;if(op){target?.classList.remove('kp-transform-moving');commit();op=null}},true);
+window.addEventListener('scroll',()=>target&&position(),{passive:true});window.addEventListener('resize',()=>target&&position());
+})();
