@@ -3,48 +3,10 @@
 const endpoint='./api/editor-state.php';
 const q=s=>document.querySelector(s);
 const status=t=>{const el=q('#status');if(el)el.textContent=t};
-async function request(url){const r=await fetch(url,{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Server '+r.status);return r.json()}
-function ensureDialog(){
- let box=q('#kpVersionDialog');if(box)return box;
- box=document.createElement('div');box.id='kpVersionDialog';box.hidden=true;
- box.innerHTML='<div class="kp-version-backdrop"></div><section class="kp-version-sheet" role="dialog" aria-modal="true" aria-labelledby="kpVersionTitle"><header><div><small>Cloud-Sicherung</small><h2 id="kpVersionTitle">Versionen</h2></div><button type="button" class="kp-version-close" aria-label="Schließen">×</button></header><p class="kp-version-hint">Tippe auf einen Stand, um ihn wiederherzustellen.</p><div class="kp-version-list"></div></section>';
- document.body.appendChild(box);
- const close=()=>{box.hidden=true};
- box.querySelector('.kp-version-close').addEventListener('click',close);
- box.querySelector('.kp-version-backdrop').addEventListener('click',close);
- return box;
-}
-async function restoreVersion(chosen,box){
- try{
-  status('Version wird geladen …');
-  const state=await request(endpoint+'?action=version&id='+encodeURIComponent(chosen.id));
-  if(!state.html)throw Error('Version enthält keinen Inhalt');
-  const when=chosen.savedAt?new Date(chosen.savedAt).toLocaleString('de-DE'):'gewählte Version';
-  if(!window.confirm('Stand vom '+when+' wiederherstellen?\n\nDanach Online speichern, um ihn dauerhaft zu übernehmen.')){status('Wiederherstellung abgebrochen');return}
-  const main=q('main');if(!main)throw Error('Seiteninhalt nicht gefunden');
-  try{localStorage.setItem('kp-webapp-before-version-restore',main.innerHTML)}catch(err){}
-  main.innerHTML=state.html;document.body.classList.add('editing');q('#editor').hidden=false;q('#edit').hidden=true;
-  Array.from(document.querySelectorAll('main h1,main h2,main h3,main .lead,main section p:not(.eyebrow):not(.muted)')).forEach(el=>el.contentEditable='true');
-  box.hidden=true;status('Ältere Version geladen – jetzt Online speichern');
- }catch(err){status('Versionshistorie fehlgeschlagen: '+err.message)}
-}
-async function openHistory(e){
- if(e){e.preventDefault();e.stopPropagation()}
- status('Versionshistorie wird geladen …');
- try{
-  const data=await request(endpoint+'?action=history');const versions=Array.isArray(data.versions)?data.versions:[];
-  if(!versions.length){status('Noch keine älteren Cloud-Versionen vorhanden');return}
-  const box=ensureDialog(),list=box.querySelector('.kp-version-list');list.innerHTML='';
-  versions.slice(0,20).forEach((v,i)=>{
-   const b=document.createElement('button');b.type='button';b.className='kp-version-item';
-   const d=v.savedAt?new Date(v.savedAt):null;
-   const date=d&&!isNaN(d)?d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'Gespeicherter Stand';
-   const time=d&&!isNaN(d)?d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'';
-   b.innerHTML='<span class="kp-version-icon">↶</span><span class="kp-version-copy"><strong>'+date+'</strong><small>'+time+(i===0?' · Neueste Version':'')+'</small></span><span class="kp-version-arrow">›</span>';
-   b.addEventListener('click',()=>restoreVersion(v,box));list.appendChild(b);
-  });
-  box.hidden=false;status('Version auswählen');
- }catch(err){status('Versionshistorie fehlgeschlagen: '+err.message)}
-}
+const staticPreview=location.hostname.endsWith('github.io');
+async function request(url){const r=await fetch(url,{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Server '+r.status);const type=r.headers.get('content-type')||'';if(!type.includes('application/json'))throw Error('Cloud-Funktion auf dieser Vorschau nicht verfügbar');return r.json()}
+function ensureDialog(){let box=q('#kpVersionDialog');if(box)return box;box=document.createElement('div');box.id='kpVersionDialog';box.hidden=true;box.innerHTML='<div class="kp-version-backdrop"></div><section class="kp-version-sheet" role="dialog" aria-modal="true" aria-labelledby="kpVersionTitle"><header><div><small>Cloud-Sicherung</small><h2 id="kpVersionTitle">Versionen</h2></div><button type="button" class="kp-version-close" aria-label="Schließen">×</button></header><p class="kp-version-hint">Tippe auf einen Stand, um ihn wiederherzustellen.</p><div class="kp-version-list"></div></section>';document.body.appendChild(box);const close=()=>{box.hidden=true};box.querySelector('.kp-version-close').addEventListener('click',close);box.querySelector('.kp-version-backdrop').addEventListener('click',close);return box}
+async function restoreVersion(chosen,box){try{status('Version wird geladen …');const state=await request(endpoint+'?action=version&id='+encodeURIComponent(chosen.id));if(!state.html)throw Error('Version enthält keinen Inhalt');const when=chosen.savedAt?new Date(chosen.savedAt).toLocaleString('de-DE'):'gewählte Version';if(!window.confirm('Stand vom '+when+' wiederherstellen?\n\nDanach Online speichern, um ihn dauerhaft zu übernehmen.')){status('Wiederherstellung abgebrochen');return}const main=q('main');if(!main)throw Error('Seiteninhalt nicht gefunden');try{localStorage.setItem('kp-webapp-before-version-restore',main.innerHTML)}catch(err){}main.innerHTML=state.html;document.body.classList.add('editing');q('#editor').hidden=false;q('#edit').hidden=true;Array.from(document.querySelectorAll('main h1,main h2,main h3,main .lead,main section p:not(.eyebrow):not(.muted)')).forEach(el=>el.contentEditable='true');box.hidden=true;status('Ältere Version geladen – jetzt Online speichern')}catch(err){status('Versionshistorie fehlgeschlagen: '+err.message)}}
+async function openHistory(e){if(e){e.preventDefault();e.stopPropagation()}if(staticPreview){status('Versionshistorie gibt es auf der schnellen Vorschau nicht – auf der Testdomain funktioniert sie mit PHP.');return}status('Versionshistorie wird geladen …');try{const data=await request(endpoint+'?action=history');const versions=Array.isArray(data.versions)?data.versions:[];if(!versions.length){status('Noch keine älteren Cloud-Versionen vorhanden');return}const box=ensureDialog(),list=box.querySelector('.kp-version-list');list.innerHTML='';versions.slice(0,20).forEach((v,i)=>{const b=document.createElement('button');b.type='button';b.className='kp-version-item';const d=v.savedAt?new Date(v.savedAt):null;const date=d&&!isNaN(d)?d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}):'Gespeicherter Stand';const time=d&&!isNaN(d)?d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'';b.innerHTML='<span class="kp-version-icon">↶</span><span class="kp-version-copy"><strong>'+date+'</strong><small>'+time+(i===0?' · Neueste Version':'')+'</small></span><span class="kp-version-arrow">›</span>';b.addEventListener('click',()=>restoreVersion(v,box));list.appendChild(b)});box.hidden=false;status('Version auswählen')}catch(err){status('Versionshistorie fehlgeschlagen: '+err.message)}}
 const button=q('#history');if(button)button.addEventListener('click',openHistory,true);
 })();
