@@ -7,15 +7,16 @@ let past=[],future=[],current='',timer=0,restoring=false;
 function capture(){const m=q('main');return m?m.innerHTML:''}
 const say=t=>{if(status)status.textContent=t};
 function sync(){if(undo)undo.disabled=!past.length;if(redo)redo.disabled=!future.length}
+function clearSelection(){qa('.kp-transform-selected,.kp-design-selected,.kp-transform-moving').forEach(el=>el.classList.remove('kp-transform-selected','kp-design-selected','kp-transform-moving'));const h=q('#kpTransformHandles');if(h)h.hidden=true;window.dispatchEvent(new CustomEvent('kp-editor-restored'))}
 function editable(on){qa('main h1,main h2,main h3,main .lead,main section p:not(.eyebrow):not(.muted)').forEach(el=>el.contentEditable=on?'true':'false');editor.hidden=!on;edit.hidden=on;document.body.classList.toggle('editing',on);if(on)bindInputs()}
 function trim(){if(past.length>40)past.splice(0,past.length-40);if(future.length>40)future.splice(0,future.length-40)}
 function commit(now){if(restoring)return;now=now||capture();if(!current){current=now;sync();return}if(now===current)return;past.push(current);trim();current=now;future=[];sync();say('Nicht gespeichert')}
 function scheduleCommit(){clearTimeout(timer);timer=setTimeout(()=>commit(capture()),450)}
 function beforeEdit(){clearTimeout(timer);const now=capture();if(!current)current=now}
-function restore(html){restoring=true;const m=q('main');if(m)m.innerHTML=html;current=html;editable(true);restoring=false;sync()}
+function restore(html){restoring=true;clearSelection();const m=q('main');if(m)m.innerHTML=html;current=html;editable(true);clearSelection();restoring=false;sync()}
 function bindInputs(){qa('main [contenteditable=true]').forEach(el=>{if(el.dataset.kpHistoryBound)return;el.dataset.kpHistoryBound='1';el.addEventListener('beforeinput',beforeEdit);el.addEventListener('input',scheduleCommit);el.addEventListener('blur',()=>{clearTimeout(timer);commit(capture())})})}
 edit.addEventListener('click',()=>{editable(true);current=capture();sync();say('Editor aktiv')});
-if(close)close.addEventListener('click',()=>{clearTimeout(timer);commit(capture());editable(false)});
+if(close)close.addEventListener('click',()=>{clearTimeout(timer);commit(capture());clearSelection();editable(false)});
 if(add)add.addEventListener('click',()=>{clearTimeout(timer);commit(capture());const before=capture();const s=document.createElement('section');s.innerHTML='<div class="wrap"><p class="eyebrow">Neuer Abschnitt</p><h2>Neue Überschrift</h2><p>Hier Text eingeben.</p></div>';q('main').appendChild(s);current=before;commit(capture());editable(true);say('Abschnitt hinzugefügt – noch speichern')});
 if(undo)undo.addEventListener('click',()=>{clearTimeout(timer);commit(capture());if(!past.length)return;future.push(current||capture());trim();const previous=past.pop();restore(previous);say('Rückgängig · '+past.length+' weitere')});
 if(redo)redo.addEventListener('click',()=>{clearTimeout(timer);if(!future.length)return;past.push(current||capture());trim();const next=future.pop();restore(next);say('Wiederholt · '+future.length+' weitere')});
