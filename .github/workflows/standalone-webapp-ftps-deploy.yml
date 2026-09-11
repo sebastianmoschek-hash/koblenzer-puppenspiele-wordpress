@@ -51,8 +51,9 @@ jobs:
           test -n "$FTP_SERVER"
           test -n "$FTP_USERNAME"
           test -n "$FTP_PASSWORD"
-          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "ftps://$FTP_SERVER" <<'LFTP'
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<'LFTP'
           set ssl:verify-certificate yes
+          set ftp:ssl-allow true
           set ftp:ssl-force true
           set ftp:ssl-protect-data true
           set net:max-retries 1
