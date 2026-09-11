@@ -58,14 +58,16 @@ jobs:
           set ftp:ssl-protect-data true
           set net:max-retries 1
           set net:timeout 12
-          mirror --reverse --only-newer --parallel=4 --verbose=1 webapp/ ./
+          mirror --reverse --parallel=4 --verbose=1 webapp/ ./
           bye
           LFTP
 
-      - name: Quick test-site check
+      - name: Verify exact deployed version
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location --retry 2 --retry-delay 2 https://neu.koblenzer-puppenspiele.de/ -o /tmp/test-site.html
-          grep -q "Koblenzer Puppenspiele" /tmp/test-site.html
-          echo "Fast test deployment verified. Production was not modified."
+          URL="https://neu.koblenzer-puppenspiele.de/?deploy=${GITHUB_SHA}"
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "$URL" -o /tmp/test-site.html
+          grep -q "android-editor-bar.js?v=20260911-4" /tmp/test-site.html
+          grep -q "app.css?v=20260911-4" /tmp/test-site.html
+          echo "Exact Android editor build is live on the test domain. Production was not modified."
