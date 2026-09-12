@@ -23,7 +23,7 @@
     if (!bar) { bar = document.createElement('div'); bar.id = 'kpV2Toolbar'; bar.hidden = true; document.body.append(bar); }
     return bar;
   }
-  function closeSheet() { q('#kpV2CommandSheet')?.remove(); q('#kpV2NavSheet')?.remove(); }
+  function closeSheet() { ['#kpV2CommandSheet', '#kpV2NavSheet', '#kpV2ViewportSheet', '#kpV2SectionSheet', '#kpV2HeaderSheet'].forEach(selector => q(selector)?.remove()); }
   function aiSheet() {
     q('#kpV2AISheet')?.remove();
     const panel = document.createElement('div'); panel.id = 'kpV2AISheet';
@@ -39,6 +39,41 @@
     panel.querySelector('[data-close]').onclick = cancel; panel.querySelector('[data-cancel]').onclick = cancel;
     panel.querySelectorAll('[data-theme]').forEach(node => node.onclick = () => { v2.actions.previewBatch('Website-Design Vorschau', [{ name: 'applyTheme', payload: [presets[node.dataset.theme]] }]); panel.querySelector('[data-accept]').disabled = false; });
     panel.querySelector('[data-accept]').onclick = () => { v2.store.commitPreview(); panel.remove(); feedback('Website-Design übernommen · Rückgängig möglich'); };
+    document.body.append(panel);
+  }
+  function viewportSheet() {
+    closeSheet();
+    const panel = document.createElement('div'); panel.id = 'kpV2ViewportSheet';
+    panel.innerHTML = '<header><div><strong>Responsive Ansicht</strong><small>Vorschau für Smartphone, Tablet und Desktop</small></div><button type="button" data-close>×</button></header><div class="kp-v2-viewport-grid"><button type="button" data-viewport="mobile">▯ Smartphone</button><button type="button" data-viewport="tablet">▯ Tablet</button><button type="button" data-viewport="desktop">▱ Desktop</button></div><small>Die Vorschau verändert nur die Editoransicht. Inhalte und Layoutregeln bleiben responsive.</small>';
+    panel.querySelector('[data-close]').onclick = closeSheet;
+    panel.querySelectorAll('[data-viewport]').forEach(node => node.onclick = () => { v2.store.setViewport(node.dataset.viewport); document.body.dataset.v2Viewport = node.dataset.viewport; feedback(`${node.textContent.trim()}-Vorschau aktiv`); });
+    document.body.append(panel);
+  }
+  function sectionSheet(section) {
+    closeSheet();
+    const panel = document.createElement('div'); panel.id = 'kpV2SectionSheet';
+    panel.innerHTML = '<header><div><strong>Abschnitt gestalten</strong><small>Design ändern, Inhalte bleiben erhalten</small></div><button type="button" data-close>×</button></header><div class="kp-v2-section-grid"><button type="button" data-template="plain">Ruhig</button><button type="button" data-template="dark">Bühne</button><button type="button" data-template="warm">Warm</button><button type="button" data-template="cards">Kartenfläche</button></div><label>Innenabstand <output data-out>72</output> px<input data-padding type="range" min="24" max="140" value="72"></label><footer><button type="button" data-cancel>Verwerfen</button><button type="button" data-accept disabled>Übernehmen</button></footer>';
+    const original = { ...section.design };
+    const presets = { plain: { className: 'editable', backgroundColor: '#2b1c16' }, dark: { className: 'dark editable', backgroundColor: '#17100d' }, warm: { className: 'editable', backgroundColor: '#3a2119' }, cards: { className: 'dark editable', backgroundColor: '#241713', paddingTop: 56, paddingBottom: 56 } };
+    const cancel = () => { v2.store.cancelPreview(); panel.remove(); };
+    const preview = design => { v2.actions.previewBatch('Abschnitts-Design Vorschau', [{ name: 'setSectionDesign', payload: [section.id, design] }]); panel.querySelector('[data-accept]').disabled = false; };
+    panel.querySelector('[data-close]').onclick = cancel; panel.querySelector('[data-cancel]').onclick = cancel;
+    panel.querySelectorAll('[data-template]').forEach(node => node.onclick = () => preview(presets[node.dataset.template]));
+    panel.querySelector('[data-padding]').oninput = event => { panel.querySelector('[data-out]').value = event.target.value; preview({ paddingTop: Number(event.target.value), paddingBottom: Number(event.target.value) }); };
+    panel.querySelector('[data-accept]').onclick = () => { v2.store.commitPreview(); panel.remove(); feedback('Abschnitts-Design übernommen · Rückgängig möglich'); };
+    document.body.append(panel);
+  }
+  function headerSheet() {
+    closeSheet();
+    const panel = document.createElement('div'); panel.id = 'kpV2HeaderSheet';
+    panel.innerHTML = '<header><div><strong>Header gestalten</strong><small>Marke, Navigation und Höhe</small></div><button type="button" data-close>×</button></header><div class="kp-v2-header-grid"><button type="button" data-header="original">Original</button><button type="button" data-header="warm">Warmes Theater</button><button type="button" data-header="dark">Nachtbühne</button></div><label>Headerhöhe <output data-out>64</output> px<input data-height type="range" min="56" max="140" value="64"></label><footer><button type="button" data-cancel>Verwerfen</button><button type="button" data-accept disabled>Übernehmen</button></footer>';
+    const presets = { original: { preset: 'original', background: '#17100d', color: '#fff7ef', height: 64 }, warm: { preset: 'warm', background: '#4b2318', color: '#fff7ef', height: 76 }, dark: { preset: 'night', background: '#080d18', color: '#f8fafc', height: 70 } };
+    const cancel = () => { v2.store.cancelPreview(); panel.remove(); };
+    const preview = design => { v2.actions.previewBatch('Header-Design Vorschau', [{ name: 'setHeaderDesign', payload: [design] }]); panel.querySelector('[data-accept]').disabled = false; };
+    panel.querySelector('[data-close]').onclick = cancel; panel.querySelector('[data-cancel]').onclick = cancel;
+    panel.querySelectorAll('[data-header]').forEach(node => node.onclick = () => preview(presets[node.dataset.header]));
+    panel.querySelector('[data-height]').oninput = event => { panel.querySelector('[data-out]').value = event.target.value; preview({ height: Number(event.target.value) }); };
+    panel.querySelector('[data-accept]').onclick = () => { v2.store.commitPreview(); panel.remove(); feedback('Header-Design übernommen · Rückgängig möglich'); };
     document.body.append(panel);
   }
   function feedback(text) { const status = q('#status'); if (status) status.textContent = text; }
@@ -59,7 +94,7 @@
       });
     };
     panel.querySelector('[data-close]').onclick = closeSheet;
-    panel.querySelector('[data-add]').onclick = () => { v2.actions.createNavigationItem('Neue Seite', '#neue-seite'); render(); };
+    panel.querySelector('[data-add]').onclick = () => { const sectionId = unique('section'), label = 'Neue Seite'; v2.actions.createSection('home', { id: sectionId, design: { className: 'dark editable' }, elements: [{ id: unique('el'), type: 'heading', order: 0, content: { text: label }, styles: {}, transform: { x: 0, y: 0, scale: 1, rotation: 0 }, source: { tag: 'h2', className: '' } }] }); v2.actions.createNavigationItem(label, `#${sectionId}`); render(); };
     document.body.append(panel); render();
   }
   function moreSheet(current) {
@@ -69,13 +104,16 @@
     const host = panel.querySelector('.kp-v2-sheet');
     const add = (label, handler) => { const node = button(label, 'sheet'); node.onclick = () => { handler(); closeSheet(); }; host.append(node); };
     if (current.kind === 'section') { add('Abschnitt nach oben', () => v2.actions.moveSection(current.section.id, -1)); add('Abschnitt nach unten', () => v2.actions.moveSection(current.section.id, 1)); add('Abschnitt duplizieren', () => v2.actions.duplicateSection(current.section.id)); add('Abschnitt löschen', () => v2.actions.deleteSection(current.section.id)); }
+    else if (current.kind === 'header') { add('Header-Höhe und Farben', headerSheet); add('Navigation bearbeiten', navigationSheet); }
     else { if (current.kind === 'image') { add('Bild vergrößern', () => v2.actions.resizeElement(current.element.id, (current.element.transform?.scale || 1) * 1.15)); add('Bild verkleinern', () => v2.actions.resizeElement(current.element.id, (current.element.transform?.scale || 1) / 1.15)); add('90° drehen', () => v2.actions.rotateElement(current.element.id, (current.element.transform?.rotation || 0) + 90)); add('Bildrand zuschneiden', () => v2.actions.setImageAdjustments(current.element.id, { crop: { x: .08, y: .08, width: .84, height: .84 } })); add('Bild zurücksetzen', () => v2.actions.resetImage(current.element.id)); } add('Ganz nach vorne', () => v2.actions.moveLayer(current.element.id, 'front')); add('Ganz nach hinten', () => v2.actions.moveLayer(current.element.id, 'back')); add('Duplizieren', () => v2.actions.duplicateElement(current.element.id)); add('Löschen', () => v2.actions.deleteElement(current.element.id)); }
     panel.querySelector('.kp-v2-sheet-scrim').onclick = closeSheet; document.body.append(panel);
   }
   function addSection() {
-    const sectionId = unique('section'), headingId = unique('el'), textId = unique('el');
-    v2.actions.createSection('home', { id: sectionId, design: { className: 'dark editable' }, elements: [{ id: headingId, type: 'heading', order: 0, content: { text: 'Neue Überschrift' }, styles: {}, transform: { x: 0, y: 0, scale: 1, rotation: 0 }, source: { tag: 'h2', className: '' } }, { id: textId, type: 'text', order: 1, content: { text: 'Hier kann der neue Inhalt direkt bearbeitet werden.' }, styles: {}, transform: { x: 0, y: 0, scale: 1, rotation: 0 }, source: { tag: 'p', className: '' } }] });
-    v2.store.setSelection({ sectionId }); q(`[data-v2-section-id="${sectionId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); feedback('Neuer Abschnitt erstellt');
+    closeSheet();
+    const panel = document.createElement('div'); panel.id = 'kpV2SectionSheet';
+    panel.innerHTML = '<header><div><strong>Neuer Abschnitt</strong><small>Wähle eine Vorlage, Inhalte bleiben bearbeitbar</small></div><button type="button" data-close>×</button></header><div class="kp-v2-template-grid"><button type="button" data-template="text">Textbereich</button><button type="button" data-template="image">Bildbereich</button><button type="button" data-template="cta">Call-to-Action</button></div>';
+    const create = template => { const sectionId = unique('section'), headingId = unique('el'), textId = unique('el'), imageId = unique('el'); const elements = [{ id: headingId, type: 'heading', order: 0, content: { text: template === 'cta' ? 'Ihr nächster Auftritt' : template === 'image' ? 'Ein neuer Bühnenmoment' : 'Neue Überschrift' }, styles: {}, transform: { x: 0, y: 0, scale: 1, rotation: 0 }, source: { tag: 'h2', className: '' } }, { id: textId, type: 'text', order: 1, content: { text: template === 'cta' ? 'Erzählen Sie uns von Ihrer Veranstaltung.' : 'Hier kann der neue Inhalt direkt bearbeitet werden.' }, styles: {}, transform: { x: 0, y: 0, scale: 1, rotation: 0 }, source: { tag: 'p', className: '' } }]; if (template === 'image') elements.push({ id: imageId, type: 'image', order: 2, content: { src: 'assets/header.webp', alt: 'Koblenzer Puppenspiele' }, styles: {}, transform: { x: 0, y: 0, scale: 1, rotation: 0 }, source: { tag: 'img', className: 'kp-added-image' } }); v2.actions.createSection('home', { id: sectionId, design: { className: template === 'cta' ? 'dark editable' : 'editable' }, elements }); v2.store.setSelection({ sectionId }); panel.remove(); q(`[data-v2-section-id="${sectionId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); feedback('Neuer Abschnitt erstellt'); };
+    panel.querySelector('[data-close]').onclick = () => panel.remove(); panel.querySelectorAll('[data-template]').forEach(node => node.onclick = () => create(node.dataset.template)); document.body.append(panel);
   }
   function render(state) {
     document.body.classList.toggle('kp-v2-ui', state.mode === 'edit');
@@ -86,8 +124,8 @@
     const add = (label, action, handler, primary = false) => { const node = button(label, action, primary); node.onclick = event => { event.preventDefault(); event.stopPropagation(); handler(); }; bar.append(node); };
     if (current.kind === 'image') { add('Bild bearbeiten', 'edit', () => window.kpProImageEditor?.open(current.node), true); add('Duplizieren', 'duplicate', () => v2.actions.duplicateElement(current.element.id)); }
     else if (['text', 'heading', 'button'].includes(current.kind)) { add(current.kind === 'button' ? 'Button bearbeiten' : 'Text bearbeiten', 'edit', () => window.kpElementSheet?.open(current.node), true); add('Duplizieren', 'duplicate', () => v2.actions.duplicateElement(current.element.id)); }
-    else if (current.kind === 'section') { add('Design wechseln', 'design', () => { const dark = String(current.section.design?.className || '').split(/\s+/).includes('dark'); v2.actions.setSectionDesign(current.section.id, { ...current.section.design, className: dark ? 'editable' : 'dark editable' }); }); add('Duplizieren', 'duplicate', () => v2.actions.duplicateSection(current.section.id)); }
-    else if (current.kind === 'header') { add('Navigation', 'navigation', navigationSheet, true); add('Header-Design', 'header-design', () => { const warm = v2.store.get().document.header.design?.preset !== 'warm'; v2.actions.setHeaderDesign(warm ? { preset: 'warm', background: '#4b2318', color: '#fff7ef', height: 76 } : { preset: 'original', background: '#17100d', color: '#fff7ef', height: 64 }); }); }
+    else if (current.kind === 'section') { add('Design wechseln', 'design', () => sectionSheet(current.section)); add('Duplizieren', 'duplicate', () => v2.actions.duplicateSection(current.section.id)); }
+    else if (current.kind === 'header') { add('Navigation', 'navigation', navigationSheet, true); add('Header-Design', 'header-design', headerSheet); }
     add('Mehr', 'more', () => moreSheet(current));
   }
   function bindMainControls() {
@@ -98,6 +136,7 @@
     replace('#save', '▣ Gerät sichern', () => { v2.persistence.save(); feedback('Auf diesem Gerät gespeichert ✓'); });
     const host = q('#editor .tool-main'); if (host && !q('#kpV2AI')) { const ai = button('✦ KI-Assistent', 'ai'); ai.id = 'kpV2AI'; ai.onclick = aiSheet; host.append(ai); }
     if (host && !q('#kpV2Theme')) { const design = button('◐ Website-Design', 'theme'); design.id = 'kpV2Theme'; design.onclick = themeSheet; host.append(design); }
+    if (host && !q('#kpV2Viewport')) { const viewport = button('▱ Responsive Ansicht', 'viewport'); viewport.id = 'kpV2Viewport'; viewport.onclick = viewportSheet; host.append(viewport); }
   }
   const init = () => { bindMainControls(); v2.store.subscribe(render); render(v2.store.get()); window.addEventListener('kp-editor-restored', () => render(v2.store.get())); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();

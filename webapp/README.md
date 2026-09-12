@@ -19,8 +19,9 @@ Alternativ genügt im Verzeichnis `webapp` ein statischer Server auf Port 8080. 
 - Element antippen zeigt nur passende Werkzeuge.
 - Bilder: Filter, Anpassungen, Zuschneiden, Drehen, Spiegeln, Duplizieren und Ebenen.
 - Texte und Buttons: Inhalt, Schriftgestaltung, Farben, Ausrichtung, Link und Form.
-- Abschnitte: hinzufügen, sortieren, gestalten, duplizieren und löschen.
-- Header/Navigation: Design umschalten sowie Menüpunkte bearbeiten und sortieren.
+- Abschnitte: Text-, Bild- oder Call-to-Action-Vorlage hinzufügen, sortieren, gestalten, duplizieren und löschen.
+- Header/Navigation: Design umschalten sowie Menüpunkte bearbeiten, ergänzen, sortieren und löschen.
+- Responsive Ansicht: Smartphone, Tablet oder Desktop als kontrollierte Editor-Vorschau auswählen.
 - Website-Design: Original, Warmes Theater und Nachtbühne als verwerfbare Vorschau.
 - Auf Gerät speichern: Document Model in `localStorage`; Laden wird mit Schema-Migration unterstützt.
 - Undo/Redo fasst Regler-, Bildeditor- und Batchänderungen sinnvoll zusammen.

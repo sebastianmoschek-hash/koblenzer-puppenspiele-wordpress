@@ -1,6 +1,6 @@
 # Editor V2 – Architektur und Abnahmestand
 
-Stand: 2026-09-12. Zulässiger Branch: `webapp-no-wordpress-test`.
+Stand: 2026-09-13. Zulässiger Branch: `webapp-no-wordpress-test`.
 
 ## Laufende Architektur
 
@@ -9,7 +9,7 @@ Die Standalone-PWA arbeitet lokal und ohne WordPress. Der verbindliche Zustandsf
 `Document Model → Store → Actions/Transactions → Renderer → Website`
 
 - `editor-v2-core.js`: versioniertes Document Model (Schema 2), stabile IDs, Import/Migration, Store, Auswahl, Transaktionen, Undo/Redo, Renderer, lokale Persistenz, zentrale Touch-Gesten und Diagnosekontext.
-- `editor-v2-overlay.js`: kontextabhängige V2-Werkzeugleiste, Abschnitts-, Navigations-, Header-, Theme- und KI-Statusoberflächen.
+- `editor-v2-overlay.js`: kontextabhängige V2-Werkzeugleiste, responsive Ansichten, Abschnittsvorlagen, Abschnitts-/Navigations-/Header-/Theme- und KI-Statusoberflächen.
 - `text-button-sheet.js`: Text- und Buttonbearbeitung als Vorschau mit genau einer Commit-Transaktion.
 - `pro-image-editor.js`: Live-Bildvorschau, Filter, Helligkeit, Kontrast, Sättigung, Temperatur, Weichzeichnen, Transparenz, Zuschneiden, Rotation und Spiegelung als eine Transaktion.
 - `editor-v2-ai.js`: providerneutrale Verträge für Plan/Validierung, Realtime-Sitzung, Audio, Bildschirmfreigabe und kontrollierten Editor-/Diagnosekontext.
@@ -29,6 +29,7 @@ UI, Touch und der vorbereitete KI-Adapter rufen dieselben V2-Actions auf. Größ
 - Abschnitt hinzufügen, verschieben, duplizieren, gestalten und löschen.
 - Navigation umbenennen, ergänzen, sortieren und löschen.
 - Header-Preset und drei inhaltsbewahrende Website-Designvarianten.
+- Responsive Vorschau für Smartphone/Tablet/Desktop sowie neue Text-, Bild- und Call-to-Action-Abschnittsvorlagen.
 - Getrennter Edit-/View-Modus, mobile Navigation, PWA/Service Worker.
 - Providerneutrale KI-Action-Validierung, Preview/Commit/Cancel, Realtime-/Audio-/Screen-Contracts und Fehlerdiagnose.
 - Browserprüfungen auf 390, 820 und 1440 Pixel; eingebettete Offline-Android-WebView-Prüfung im Emulator ohne Laptop-Webserver.

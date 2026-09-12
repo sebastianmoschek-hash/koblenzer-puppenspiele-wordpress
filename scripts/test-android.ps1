@@ -10,17 +10,24 @@ Start-Sleep -Seconds 8
 $pidText = (& $adb shell pidof de.koblenzerpuppenspiele.techniker).Trim()
 if (-not $pidText) { throw 'Android-App-Prozess läuft nach dem Start nicht.' }
 $dumpPath = '/sdcard/kp-window.xml'
-& $adb shell uiautomator dump $dumpPath | Out-Null
-[xml]$window = (& $adb shell cat $dumpPath) -join "`n"
-$nativeEdit = $window.SelectSingleNode("//node[@text='✎ Bearbeiten']")
+$nativeEdit = $null
+for ($attempt = 0; $attempt -lt 12 -and -not $nativeEdit; $attempt++) {
+  & $adb shell uiautomator dump $dumpPath | Out-Null
+  try {
+    [xml]$window = (& $adb shell cat $dumpPath) -join "`n"
+    $nativeEdit = $window.SelectSingleNode("//node[@class='android.widget.Button' and contains(@text,'Bearbeiten')]")
+  } catch { $nativeEdit = $null }
+  if (-not $nativeEdit) { Start-Sleep -Seconds 1 }
+}
 if (-not $nativeEdit) { throw 'Native Android-Schaltfläche „Bearbeiten“ wurde nicht gefunden.' }
 $nativeBounds = [string]$nativeEdit.bounds
 if ($nativeBounds -notmatch '^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$') { throw 'Native Android-Schaltfläche „Bearbeiten“ hat ungültige Koordinaten.' }
 $tapX = [int](([int]$Matches[1] + [int]$Matches[3]) / 2)
 $tapY = [int](([int]$Matches[2] + [int]$Matches[4]) / 2)
+Start-Sleep -Milliseconds 500
 & $adb shell input tap $tapX $tapY
 if ($LASTEXITCODE -ne 0) { throw 'Native Android-Schaltfläche „Bearbeiten“ konnte nicht angetippt werden.' }
-Start-Sleep -Seconds 1
+Start-Sleep -Seconds 2
 & $adb forward tcp:9225 "localabstract:webview_devtools_remote_$pidText" | Out-Null
 $env:ANDROID_WEBVIEW_CDP_PORT = '9225'
 node (Join-Path $projectRoot 'qa\android-webview-smoke.mjs')
