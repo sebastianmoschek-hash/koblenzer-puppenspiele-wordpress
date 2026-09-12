@@ -93,6 +93,7 @@ try {
     });
     await page.locator('#close').click();
     await page.waitForFunction(() => window.KPEditorV2.store.get().mode === 'view');
+    await page.evaluate(async () => { document.querySelectorAll('img').forEach(image => { image.loading = 'eager'; }); await Promise.all([...document.images].map(image => image.decode().catch(() => null))); });
     const viewModeClean = await page.evaluate(() => window.KPEditorV2.store.get().selection === null && document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
     const imagesLoaded = await page.evaluate(() => [...document.images].every(image => image.complete && image.naturalWidth > 0));
     result.editorVisible = editorVisible;
