@@ -120,7 +120,29 @@
         if (!root || !doc) throw new TypeError('Renderer benötigt Dokument und Ziel-Element');
         root.dataset.v2Schema = String(doc.schemaVersion || SCHEMA_VERSION);
         root.dataset.v2Rendered = 'true';
+        const modelElements = doc.pages.flatMap(page => page.sections).flatMap(section => section.elements).concat(doc.header?.elements || []);
+        modelElements.forEach(element => {
+          const node = root.querySelector(`[data-v2-id="${element.id}"]`);
+          if (!node) return;
+          if (element.type === 'image') { node.setAttribute('src', element.content.src || ''); node.setAttribute('alt', element.content.alt || ''); }
+          else if (typeof element.content?.text === 'string' && node.textContent !== element.content.text) node.textContent = element.content.text;
+          if (element.type === 'button' && element.content?.href) node.setAttribute('href', element.content.href);
+          Object.entries(element.styles || {}).forEach(([property, value]) => { if (value == null) node.style.removeProperty(property); else node.style[property] = typeof value === 'number' && ['fontSize', 'lineHeight', 'letterSpacing', 'borderRadius'].includes(property) ? `${value}px` : String(value); });
+          const transform = element.transform || {};
+          node.style.transform = `translate(${Number(transform.x) || 0}px, ${Number(transform.y) || 0}px) scale(${Number(transform.scale) || 1}) rotate(${Number(transform.rotation) || 0}deg)`;
+          if (element.type === 'image') {
+            const adjustment = element.content.adjustments || {};
+            const brightness = 100 + (Number(adjustment.brightness) || 0), contrast = 100 + (Number(adjustment.contrast) || 0), saturation = 100 + (Number(adjustment.saturation) || 0), blur = Math.max(0, Number(adjustment.blur) || 0);
+            node.style.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px)`;
+            if (adjustment.opacity != null) node.style.opacity = String(Math.max(0, Math.min(1, Number(adjustment.opacity))));
+          }
+        });
         return root;
+      },
+      mount(root, store) {
+        const update = state => this.render(state.document, root);
+        update(store.get());
+        return store.subscribe(update);
       },
       bindSelection(root, store) {
         if (!root || !store) throw new TypeError('Selection benötigt Ziel-Element und Store');
@@ -180,7 +202,16 @@
   const context = createContextProvider(store);
   const diagnostics = createDiagnostics(store);
   const ai = createAIAdapter(store);
-  window.KPEditorV2 = Object.freeze({ SCHEMA_VERSION, importDocument, normalize, store, actions, persistence, renderer, context, diagnostics, ai });
+  const refreshFromDOM = root => { if (store.get().dirty) return false; store.replaceDocument(importDocument(root || document), { dirty: false, persistence: store.get().persistence }); return true; };
+  const runtime = {
+    unmountRenderer: renderer.mount(document.documentElement, store),
+    unbindSelection: renderer.bindSelection(document, store),
+    unbindGestures: renderer.bindGestures(document, store, actions)
+  };
+  document.getElementById('edit')?.addEventListener('click', () => store.setMode('edit'));
+  document.getElementById('close')?.addEventListener('click', () => { store.setSelection(null); store.setMode('view'); });
+  window.addEventListener('load', () => setTimeout(() => refreshFromDOM(document), 300), { once: true });
+  window.KPEditorV2 = Object.freeze({ SCHEMA_VERSION, importDocument, normalize, refreshFromDOM, store, actions, persistence, renderer, context, diagnostics, ai, runtime });
   if (!document.querySelector('script[data-kp-v2-ai]')) {
     const script = document.createElement('script');
     script.src = 'editor-v2-ai.js?v=20260912-1';

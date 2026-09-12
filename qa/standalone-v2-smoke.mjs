@@ -27,7 +27,9 @@ try {
       const before = heading.content.text;
       document.querySelector(`[data-v2-id="${heading.id}"]`)?.click();
       v2.actions.setText(heading.id, 'Smoke-Test Überschrift');
+      v2.renderer.render(v2.store.get().document, document.documentElement);
       const changed = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.content.text;
+      const renderedText = document.querySelector(`[data-v2-id="${heading.id}"]`)?.textContent === 'Smoke-Test Überschrift';
       v2.store.undo();
       const restored = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.content.text;
       const selected = v2.store.get().selection?.elementId === heading.id;
@@ -83,9 +85,9 @@ try {
       const aiContractReady = validPlan && rejectedPlan && privacyState.microphone && privacyState.screen && liveSession.getState().status === 'disconnected';
       unbindGestures();
       unbind();
-      return { before, changed, restored, selected, gestureMoved, styled, sectionSlice, navigationSlice, designSlice, duplicateDelete, imageSlice, persistenceRestored, aiContractReady, undoRestored: restored === before, schema: v2.SCHEMA_VERSION };
+      return { before, changed, restored, renderedText, selected, gestureMoved, styled, sectionSlice, navigationSlice, designSlice, duplicateDelete, imageSlice, persistenceRestored, aiContractReady, undoRestored: restored === before, schema: v2.SCHEMA_VERSION };
     });
-    if (!result.undoRestored || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Undo fehlgeschlagen`);
+    if (!result.undoRestored || !result.renderedText || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Renderer/Undo fehlgeschlagen`);
     if (!result.gestureMoved || !result.imageSlice || !result.sectionSlice || !result.navigationSlice || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.aiContractReady) failures.push(`${viewport.name}: V2-Slice unvollständig`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);
     if (httpErrors.length) failures.push(`${viewport.name}: HTTP ${httpErrors.join('; ')}`);
