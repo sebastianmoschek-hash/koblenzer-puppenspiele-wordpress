@@ -1,5 +1,7 @@
-/* Keep all editable page content in a low stacking context. Oversized/transformed images must never cover editor controls. */
-.editing main{position:relative!important;z-index:1!important;isolation:isolate!important}
+/* Keep page content below editor chrome. Oversized/transformed images must never cover controls. */
+main{position:relative;z-index:1;isolation:isolate}
+main img,.kp-bg-layer{z-index:1!important}
+#edit{position:fixed!important;z-index:2147483640!important;pointer-events:auto!important;isolation:isolate}
 .editing main section,.editing main figure,.editing main img,.editing [data-kp-background-image],.editing .kp-bg-layer{z-index:1!important}
 .editing main img,.editing .kp-bg-layer{isolation:auto!important}
 .editing .top{z-index:2147483000!important}
