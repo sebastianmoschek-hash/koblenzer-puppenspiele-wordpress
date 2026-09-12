@@ -3,3 +3,4 @@
 /test-results/
 /tests/screenshots/*.png
 /tests/screenshots/*.json
+/node_modules/
