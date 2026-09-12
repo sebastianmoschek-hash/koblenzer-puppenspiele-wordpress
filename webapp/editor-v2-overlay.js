@@ -46,7 +46,7 @@
     const panel = document.createElement('div'); panel.id = 'kpV2ViewportSheet';
     panel.innerHTML = '<header><div><strong>Responsive Ansicht</strong><small>Vorschau für Smartphone, Tablet und Desktop</small></div><button type="button" data-close>×</button></header><div class="kp-v2-viewport-grid"><button type="button" data-viewport="mobile">▯ Smartphone</button><button type="button" data-viewport="tablet">▯ Tablet</button><button type="button" data-viewport="desktop">▱ Desktop</button></div><small>Die Vorschau verändert nur die Editoransicht. Inhalte und Layoutregeln bleiben responsive.</small>';
     panel.querySelector('[data-close]').onclick = closeSheet;
-    panel.querySelectorAll('[data-viewport]').forEach(node => node.onclick = () => { v2.store.setViewport(node.dataset.viewport); document.body.dataset.v2Viewport = node.dataset.viewport; feedback(`${node.textContent.trim()}-Vorschau aktiv`); });
+    panel.querySelectorAll('[data-viewport]').forEach(node => node.onclick = () => { v2.store.setViewport(node.dataset.viewport); document.body.dataset.v2Viewport = node.dataset.viewport; panel.querySelectorAll('[data-viewport]').forEach(item => item.setAttribute('aria-pressed', String(item === node))); feedback(`${node.textContent.trim()}-Vorschau aktiv`); });
     document.body.append(panel);
   }
   function sectionSheet(section) {
