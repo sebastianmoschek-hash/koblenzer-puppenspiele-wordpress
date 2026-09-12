@@ -2,11 +2,8 @@ name: Standalone Webapp History Browser QA
 on:
   push:
     branches: [webapp-no-wordpress-test]
-    paths:
-      - 'webapp/**'
-      - '.github/workflows/webapp-history-browser-qa.yml'
-permissions:
-  contents: read
+    paths: ['webapp/**','.github/workflows/webapp-history-browser-qa.yml']
+permissions: {contents: read}
 jobs:
   history-browser-qa:
     runs-on: ubuntu-latest
@@ -14,39 +11,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
+        with: {node-version: 22}
       - run: npm install --no-save playwright@1.55.0
       - run: npx playwright install --with-deps chromium
-      - name: Test published GitHub Pages editor history
+      - name: Capture published v32 history behavior
         run: |
-          cat > /tmp/history-qa.mjs <<'JS'
-          import { chromium } from 'playwright';
-          const browser=await chromium.launch({headless:true});
-          const page=await browser.newPage({viewport:{width:412,height:915},isMobile:true,hasTouch:true});
-          const base='https://sebastianmoschek-hash.github.io/koblenzer-puppenspiele-wordpress/';let ready=false;
-          for(let i=0;i<45;i++){await page.goto(base+'?qa='+Date.now(),{waitUntil:'networkidle'});ready=await page.evaluate(()=>typeof window.__kpHistory?.reset==='function'&&document.querySelector('script[src*="20260912-32"]'));if(ready)break;await page.waitForTimeout(2000)}
-          if(!ready)throw Error('published v32 did not become ready');
-          const result=await page.evaluate(()=>{
-            const api=window.__kpHistory, el=document.querySelector('main h1'); if(!api||!el)throw Error('history/target missing'); api.reset();
-            const original=el.style.transform;
-            for(let i=1;i<=5;i++){const done=api.checkpoint();el.style.transform=`translate(${i*3}px, ${i*2}px)`;done()}
-            const after5=api.state(); const undoStates=[]; for(let i=0;i<5;i++){api.undo();undoStates.push(api.state())} const afterUndo=document.querySelector('main h1').style.transform;
-            const redoStates=[]; for(let i=0;i<5;i++){api.redo();redoStates.push(api.state())} const afterRedo=document.querySelector('main h1').style.transform;
-            const mixed=[]; let target=document.querySelector('main h1');
-            let done=api.checkpoint();target.textContent+=' QA';done();mixed.push('text');
-            const button=document.querySelector('main a.btn, main .btn, main a'); if(button){done=api.checkpoint();button.style.transform='translate(7px, 4px)';done();mixed.push('button-move');done=api.checkpoint();button.textContent=(button.textContent||'Button')+' QA';done();mixed.push('button-label')}
-            target=document.querySelector('main h1');done=api.checkpoint();target.style.width='88%';done();mixed.push('resize');done=api.checkpoint();target.style.opacity='0.91';done();mixed.push('design');
-            const mixedCount=api.state().undo;for(let i=0;i<mixed.length;i++)api.undo();const mixedUndone=api.state();for(let i=0;i<mixed.length;i++)api.redo();const mixedRedone=api.state();
-            return {original,after5,undoStates,afterUndo,redoStates,afterRedo,mixed,mixedCount,mixedUndone,mixedRedone,counters:[document.querySelector('#kpUndoCount')?.textContent,document.querySelector('#kpRedoCount')?.textContent]};
-          });
-          if(result.after5.undo!==5||result.after5.redo!==0)throw Error('5 actions not recorded: '+JSON.stringify(result));
-          if(result.afterUndo!==result.original)throw Error('5x undo did not restore original: '+JSON.stringify(result));
-          if(result.afterRedo!=='translate(15px, 10px)')throw Error('5x redo failed: '+JSON.stringify(result));
-          if(result.undoStates.map(x=>x.undo).join(',')!=='4,3,2,1,0')throw Error('undo stack counts wrong: '+JSON.stringify(result));
-          if(result.redoStates.map(x=>x.redo).join(',')!=='4,3,2,1,0')throw Error('redo stack counts wrong: '+JSON.stringify(result));
-          if(result.mixed.length<5)throw Error('mixed action coverage incomplete: '+JSON.stringify(result));
-          if(result.mixedUndone.redo!==result.mixed.length||result.mixedRedone.redo!==0)throw Error('mixed undo/redo failed: '+JSON.stringify(result));
-          console.log('PASS',JSON.stringify(result));await browser.close();
+          cat > /tmp/qa.mjs <<'JS'
+          import{chromium}from'playwright';import{writeFileSync}from'fs';const b=await chromium.launch({headless:true}),p=await b.newPage({viewport:{width:412,height:915},isMobile:true,hasTouch:true});let ready=false;for(let i=0;i<45;i++){await p.goto('https://sebastianmoschek-hash.github.io/koblenzer-puppenspiele-wordpress/?qa='+Date.now(),{waitUntil:'networkidle'});ready=await p.evaluate(()=>typeof __kpHistory?.reset==='function'&&!!document.querySelector('script[src*="20260912-32"]'));if(ready)break;await p.waitForTimeout(2000)}if(!ready)throw Error('v32 not ready');const r=await p.evaluate(()=>{const a=__kpHistory,e=document.querySelector('main h1');a.reset();const original=e.style.transform;for(let i=1;i<=5;i++){let d=a.checkpoint();e.style.transform=`translate(${i*3}px, ${i*2}px)`;d()}const after5=a.state(),us=[];for(let i=0;i<5;i++){a.undo();us.push(a.state())}const afterUndo=document.querySelector('main h1').style.transform,rs=[];for(let i=0;i<5;i++){a.redo();rs.push(a.state())}const afterRedo=document.querySelector('main h1').style.transform;let mixed=[],t=document.querySelector('main h1'),d=a.checkpoint();t.textContent+=' QA';d();mixed.push('text');const x=document.querySelector('main a.btn,main .btn,main a');if(x){d=a.checkpoint();x.style.transform='translate(7px, 4px)';d();mixed.push('button-move');d=a.checkpoint();x.textContent=(x.textContent||'Button')+' QA';d();mixed.push('button-label')}t=document.querySelector('main h1');d=a.checkpoint();t.style.width='88%';d();mixed.push('resize');d=a.checkpoint();t.style.opacity='.91';d();mixed.push('design');for(let i=0;i<mixed.length;i++)a.undo();const mu=a.state();for(let i=0;i<mixed.length;i++)a.redo();const mr=a.state();return{original,after5,us,afterUndo,rs,afterRedo,mixed,mu,mr}});writeFileSync('/tmp/result.json',JSON.stringify(r));console.log(r);await b.close();
           JS
-          node /tmp/history-qa.mjs
+          node /tmp/qa.mjs
+      - name: Assert five history steps
+        run: jq -e '.after5.undo==5 and .after5.redo==0' /tmp/result.json
+      - name: Assert five sequential undos
+        run: jq -e '.afterUndo==.original and ([.us[].undo]|join(","))=="4,3,2,1,0"' /tmp/result.json
+      - name: Assert five sequential redos
+        run: jq -e '.afterRedo=="translate(15px, 10px)" and ([.rs[].redo]|join(","))=="4,3,2,1,0"' /tmp/result.json
+      - name: Assert mixed text button resize design undo redo
+        run: jq -e '(.mixed|length)>=5 and .mu.redo==(.mixed|length) and .mr.redo==0' /tmp/result.json
