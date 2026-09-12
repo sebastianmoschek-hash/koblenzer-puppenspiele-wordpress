@@ -4,6 +4,17 @@
   const v2 = window.KPEditorV2;
   if (!v2 || window.KPEditorV2Keyboard) return;
   const isTyping = target => Boolean(target?.closest?.('input,textarea,select,[contenteditable="true"]'));
+  const activeDialog = () => [...document.querySelectorAll('[data-kp-v2-dialog="true"]')].filter(node => !node.hidden).at(-1) || null;
+  const trapFocus = event => {
+    const dialog = activeDialog();
+    if (!dialog) return false;
+    const focusable = [...dialog.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex]:not([tabindex="-1"])')].filter(node => node.getClientRects().length);
+    if (!focusable.length) return false;
+    const first = focusable[0], last = focusable.at(-1);
+    if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { last.focus(); event.preventDefault(); return true; }
+    if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { first.focus(); event.preventDefault(); return true; }
+    return false;
+  };
   const closeTopSheet = () => {
     const cancel = document.querySelector('#kpElementSheet:not([hidden]) .kp-es-scrim,#kpProImageEditor:not([hidden]) [data-cancel],#kpV2MediaSheet [data-cancel],#kpV2ThemeSheet [data-cancel],#kpV2SectionSheet [data-cancel],#kpV2HeaderSheet [data-cancel]');
     if (cancel) { cancel.click(); return true; }
@@ -14,8 +25,9 @@
   const handle = event => {
     if (v2.store.get().mode !== 'edit') return false;
     const key = String(event.key || '').toLowerCase(), modifier = event.ctrlKey || event.metaKey;
+    if (key === 'tab' && trapFocus(event)) return true;
     if (isTyping(event.target)) {
-      if (key === 'escape') event.target.blur();
+      if (key === 'escape') { event.target.blur(); closeTopSheet(); event.preventDefault(); }
       return false;
     }
     let handled = true;
@@ -39,5 +51,5 @@
     return handled;
   };
   document.addEventListener('keydown', handle, true);
-  window.KPEditorV2Keyboard = Object.freeze({ handle, isTyping });
+  window.KPEditorV2Keyboard = Object.freeze({ handle, isTyping, trapFocus });
 })();

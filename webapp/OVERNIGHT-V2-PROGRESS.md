@@ -17,7 +17,7 @@ Dieses Protokoll dokumentiert den lokalen, produktionsfreien Ausbau des Standalo
 | H – Mehrere Seiten | PARTIAL | Document Model vorbereitet; sichtbare Seitenverwaltung offen. |
 | I – Design Tokens | PARTIAL | Theme-Werte vorhanden; zentraler Token-Editor offen. |
 | J – Responsive Hardening | PARTIAL | 390/820/1440 automatisiert geprüft; Zwischenbreiten offen. |
-| K – Barrierefreiheit | PARTIAL | Semantische Dialoggrundlagen vorhanden; vollständiger Tastatur-/Fokuslauf offen. |
+| K – Barrierefreiheit | DONE | Dialog-/Toolbar-Semantik, Live-Status, sichtbare Fokusmarkierung, mindestens 44 px hohe Editorziele, Escape und Fokusbindung; Browser-Smoke auf 390/1440 grün. |
 | L – Tastaturkürzel | DONE | Ctrl/Cmd+Z, Shift+Z/Y, D, S, Delete/Backspace und Escape; Textfelder sind geschützt, Dialoge werden kontrolliert geschlossen; Browser-Smoke auf 390/1440 grün. |
 | M – Original/V2-Vergleich | PARTIAL | Inhaltsinventur und Visual-QA vorhanden; expliziter Vergleichsbericht offen. |
 | N/O – Legacy-Inventur/-Rückbau | PARTIAL | V2-Grenze dokumentiert und Legacy-Werkzeuge im V2-Modus deaktiviert; kontrollierter Rückbau offen. |

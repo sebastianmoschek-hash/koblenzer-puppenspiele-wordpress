@@ -20,7 +20,7 @@
   }
   function toolbar() {
     let bar = q('#kpV2Toolbar');
-    if (!bar) { bar = document.createElement('div'); bar.id = 'kpV2Toolbar'; bar.hidden = true; document.body.append(bar); }
+    if (!bar) { bar = document.createElement('div'); bar.id = 'kpV2Toolbar'; bar.hidden = true; bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'Werkzeuge für das ausgewählte Element'); document.body.append(bar); }
     return bar;
   }
   function closeSheet() { ['#kpV2CommandSheet', '#kpV2NavSheet', '#kpV2ViewportSheet', '#kpV2SectionSheet', '#kpV2HeaderSheet', '#kpV2LayerSheet', '#kpV2NavDeleteSheet'].forEach(selector => q(selector)?.remove()); }
@@ -225,7 +225,12 @@
     if (host && !q('#kpV2BackupImport')) { const backup = button('⇧ Import', 'backup'); backup.id = 'kpV2BackupImport'; backup.onclick = () => window.KPEditorV2Backup?.import(); host.append(backup); }
     if (host && !q('#kpV2BackupHistory')) { const backup = button('◷ Lokale Versionen', 'backup'); backup.id = 'kpV2BackupHistory'; backup.onclick = () => window.KPEditorV2Backup?.history(); host.append(backup); }
   }
-  const init = () => { bindMainControls(); v2.store.subscribe(render); render(v2.store.get()); window.addEventListener('kp-editor-restored', () => render(v2.store.get())); window.addEventListener('kp-v2-feedback', event => feedback(event.detail || 'Aktualisiert')); };
+  const init = () => {
+    bindMainControls(); q('#status')?.setAttribute('aria-live', 'polite');
+    const markDialogs = root => root.querySelectorAll?.('[id^="kpV2"][id$="Sheet"]').forEach(panel => { panel.dataset.kpV2Dialog = 'true'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true'); if (!panel.getAttribute('aria-label') && !panel.getAttribute('aria-labelledby')) panel.setAttribute('aria-label', panel.querySelector('strong')?.textContent || 'Editor-Dialog'); });
+    new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(node => { if (node.nodeType === 1) { if (node.matches?.('[id^="kpV2"][id$="Sheet"]')) markDialogs({ querySelectorAll: () => [node] }); markDialogs(node); } }))).observe(document.body, { childList: true, subtree: true });
+    v2.store.subscribe(render); render(v2.store.get()); window.addEventListener('kp-editor-restored', () => render(v2.store.get())); window.addEventListener('kp-v2-feedback', event => feedback(event.detail || 'Aktualisiert'));
+  };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
   window.KPEditorV2Overlay = Object.freeze({ render, navigationSheet, layerSheet, addSection, aiSheet, themeSheet });
 })();
