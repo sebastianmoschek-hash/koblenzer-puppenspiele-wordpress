@@ -433,4 +433,10 @@
     script.dataset.kpV2Overlay = '1';
     document.head.append(script);
   }
+  if (!document.querySelector('script[data-kp-v2-backup]')) {
+    const script = document.createElement('script');
+    script.src = 'editor-v2-backup.js?v=20260913-1';
+    script.dataset.kpV2Backup = '1';
+    document.head.append(script);
+  }
 })();

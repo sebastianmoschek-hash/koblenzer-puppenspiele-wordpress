@@ -14,7 +14,7 @@ try {
     page.on('pageerror', error => pageErrors.push(String(error)));
     page.on('response', response => { if (response.status() >= 400) httpErrors.push(`${response.status()} ${response.url()}`); });
     await page.goto(baseURL, { waitUntil: 'networkidle' });
-    await page.waitForFunction(() => window.KPEditorV2 && window.KPEditorActions && window.KPEditorV2AI);
+    await page.waitForFunction(() => window.KPEditorV2 && window.KPEditorActions && window.KPEditorV2AI && window.KPEditorV2Backup);
     const serviceWorkerReady = await page.evaluate(async () => { if (!('serviceWorker' in navigator)) return false; const registration = await Promise.race([navigator.serviceWorker.ready, new Promise(resolve => setTimeout(() => resolve(null), 5000))]); return Boolean(registration?.active); });
     await page.locator('#edit').click();
     await page.waitForFunction(() => window.KPEditorV2.store.get().mode === 'edit');
@@ -155,8 +155,37 @@ try {
       v2.store.undo();
       const previewUndo = v2.store.get().document.site.design.preset === originalTheme;
       const previewTransactions = previewVisible && previewCancelled && previewCommitted && previewUndo;
+      const backup = window.KPEditorV2Backup;
+      const backupEntry = backup.remember('Smoke-Sicherung');
+      const serializedBackup = backup.serialize();
+      const baselineDocument = JSON.parse(serializedBackup).document;
+      const baselineText = baselineDocument.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(element => element.id === heading.id)?.content.text;
+      v2.actions.setText(heading.id, 'Vor dem Sicherungsimport');
+      const importEntry = backup.importText(serializedBackup);
+      const reimported = v2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(element => element.id === heading.id)?.content.text === baselineText;
+      v2.store.undo();
+      const importUndo = v2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(element => element.id === heading.id)?.content.text === 'Vor dem Sicherungsimport';
+      v2.store.undo();
+      const importUndoCleanup = v2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(element => element.id === heading.id)?.content.text === baselineText;
+      const rejects = raw => { try { backup.parse(raw); return false; } catch { return true; } };
+      const future = structuredClone(baselineDocument); future.schemaVersion = v2.SCHEMA_VERSION + 1;
+      const old = structuredClone(baselineDocument); old.schemaVersion = 0;
+      const unknown = structuredClone(baselineDocument); unknown.unknownFutureField = { keepCompatible: true }; unknown.editorChrome = { shouldNeverImport: true };
+      const missing = structuredClone(baselineDocument); delete missing.pages;
+      const invalidType = structuredClone(baselineDocument); invalidType.pages[0].sections[0].elements[0].type = 'script';
+      const large = structuredClone(baselineDocument); large.meta = { ...(large.meta || {}), testPayload: 'x'.repeat(1024 * 1024) };
+      const migratedBackup = backup.parse(JSON.stringify(old));
+      const unknownBackup = backup.parse(JSON.stringify(unknown));
+      const largeBackup = backup.parse(JSON.stringify(large));
+      const backupContract = Boolean(
+        backupEntry?.document?.schemaVersion === v2.SCHEMA_VERSION && importEntry?.document && reimported && importUndo && importUndoCleanup &&
+        rejects('{kaputt') && rejects(JSON.stringify({ format: 'fremd', document: baselineDocument })) && rejects(JSON.stringify(future)) &&
+        rejects(JSON.stringify(missing)) && rejects(JSON.stringify(invalidType)) && migratedBackup.meta?.migratedFrom === 0 &&
+        unknownBackup.unknownFutureField?.keepCompatible && !unknownBackup.editorChrome && largeBackup.meta?.testPayload?.length === 1024 * 1024 &&
+        backup.history && backup.restore && backup.read().length <= 20
+      );
       const button = elements.find(element => element.type === 'button');
-      return { before, changed, restored, renderedText, selected, dragged, renderedTransform, gestureMoved, gestureRendered, batchTransaction, styled, sectionSlice, navigationSlice, navigationRendered, designSlice, duplicateDelete, imageSlice, pinchRotate, persistenceRestored, aiContractReady, schemaMigration, previewTransactions, undoRestored: restored === before, schema: v2.SCHEMA_VERSION, imageId: image?.id || null, headingId: heading.id, buttonId: button?.id || null };
+      return { before, changed, restored, renderedText, selected, dragged, renderedTransform, gestureMoved, gestureRendered, batchTransaction, styled, sectionSlice, navigationSlice, navigationRendered, designSlice, duplicateDelete, imageSlice, pinchRotate, persistenceRestored, aiContractReady, schemaMigration, previewTransactions, backupContract, undoRestored: restored === before, schema: v2.SCHEMA_VERSION, imageId: image?.id || null, headingId: heading.id, buttonId: button?.id || null };
     });
     const sectionCountBeforeUI = await page.evaluate(() => window.KPEditorV2.store.get().document.pages[0].sections.length);
     await page.locator('#aktuell').click({ position: { x: 5, y: 5 } });
@@ -275,7 +304,7 @@ try {
     result.imagesLoaded = imagesLoaded;
     result.serviceWorkerReady = serviceWorkerReady;
     if (!result.undoRestored || !result.renderedText || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Renderer/Undo fehlgeschlagen`);
-    if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
+    if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.backupContract || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
     if (!result.editorVisible || !result.runtimeSelection || !result.contextualToolbar || !result.viewModeClean || !result.imagesLoaded || !result.serviceWorkerReady) failures.push(`${viewport.name}: Edit/View-Modus, Auswahl, Werkzeugleiste, Bildladung, Offline-Basis oder horizontaler Overflow fehlerhaft`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);
     if (httpErrors.length) failures.push(`${viewport.name}: HTTP ${httpErrors.join('; ')}`);

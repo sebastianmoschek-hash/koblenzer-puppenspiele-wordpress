@@ -132,13 +132,16 @@
     const replace = (selector, label, handler) => { const old = q(selector); if (!old) return; const fresh = old.cloneNode(true); fresh.textContent = label; old.replaceWith(fresh); fresh.onclick = handler; };
     replace('#addSection', '＋ Abschnitt', addSection);
     replace('#undo', '↶', () => v2.store.undo()); replace('#redo', '↷', () => v2.store.redo());
-    replace('#cloudSave', '▣ Auf Gerät speichern', () => { v2.persistence.save(); feedback('Auf diesem Gerät gespeichert ✓'); });
-    replace('#save', '▣ Gerät sichern', () => { v2.persistence.save(); feedback('Auf diesem Gerät gespeichert ✓'); });
+    replace('#cloudSave', '▣ Auf Gerät speichern', () => { window.KPEditorV2Backup?.save() || v2.persistence.save(); feedback('Auf diesem Gerät gespeichert ✓'); });
+    replace('#save', '▣ Gerät sichern', () => { window.KPEditorV2Backup?.save() || v2.persistence.save(); feedback('Auf diesem Gerät gespeichert ✓'); });
     const host = q('#editor .tool-main'); if (host && !q('#kpV2AI')) { const ai = button('✦ KI-Assistent', 'ai'); ai.id = 'kpV2AI'; ai.onclick = aiSheet; host.append(ai); }
     if (host && !q('#kpV2Theme')) { const design = button('◐ Website-Design', 'theme'); design.id = 'kpV2Theme'; design.onclick = themeSheet; host.append(design); }
     if (host && !q('#kpV2Viewport')) { const viewport = button('▱ Responsive Ansicht', 'viewport'); viewport.id = 'kpV2Viewport'; viewport.onclick = viewportSheet; host.append(viewport); }
+    if (host && !q('#kpV2BackupExport')) { const backup = button('⇩ Sicherung', 'backup'); backup.id = 'kpV2BackupExport'; backup.onclick = () => { window.KPEditorV2Backup?.export(); feedback('JSON-Sicherung heruntergeladen ✓'); }; host.append(backup); }
+    if (host && !q('#kpV2BackupImport')) { const backup = button('⇧ Import', 'backup'); backup.id = 'kpV2BackupImport'; backup.onclick = () => window.KPEditorV2Backup?.import(); host.append(backup); }
+    if (host && !q('#kpV2BackupHistory')) { const backup = button('◷ Lokale Versionen', 'backup'); backup.id = 'kpV2BackupHistory'; backup.onclick = () => window.KPEditorV2Backup?.history(); host.append(backup); }
   }
-  const init = () => { bindMainControls(); v2.store.subscribe(render); render(v2.store.get()); window.addEventListener('kp-editor-restored', () => render(v2.store.get())); };
+  const init = () => { bindMainControls(); v2.store.subscribe(render); render(v2.store.get()); window.addEventListener('kp-editor-restored', () => render(v2.store.get())); window.addEventListener('kp-v2-feedback', event => feedback(event.detail || 'Aktualisiert')); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
   window.KPEditorV2Overlay = Object.freeze({ render, navigationSheet, addSection, aiSheet, themeSheet });
 })();
