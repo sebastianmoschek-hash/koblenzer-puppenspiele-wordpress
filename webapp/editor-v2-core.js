@@ -179,7 +179,7 @@
         update(store.get());
         return () => { unsubscribe(); root.removeEventListener('click', handler, true); root.querySelectorAll('[data-v2-id]').forEach(node => { node.style.outline = ''; node.style.outlineOffset = ''; }); };
       },
-      bindGestures(root, store, actions, { holdMs = 350, moveThreshold = 8 } = {}) {
+      bindGestures(root, store, actions, { holdMs = 350, moveThreshold = 8, snap = 8, trashSelector = '#kpDragTrash' } = {}) {
         if (!root || !store || !actions) throw new TypeError('Gestures benötigen Ziel-Element, Store und Actions');
         const active = new Map();
         const onDown = event => {
@@ -197,7 +197,20 @@
           if (!point.dragging && Math.hypot(dx, dy) > moveThreshold) { clearTimeout(point.timer); active.delete(event.pointerId); return; }
           if (point.dragging) { event.preventDefault(); point.x = event.clientX; point.y = event.clientY; point.node.style.transform = `translate(${point.originX + event.clientX - point.startX}px, ${point.originY + event.clientY - point.startY}px)`; }
         };
-        const onUp = event => { const point = active.get(event.pointerId); if (!point) return; clearTimeout(point.timer); if (point.dragging) { actions.moveElement(point.node.dataset.v2Id, point.originX + point.x - point.startX, point.originY + point.y - point.startY); point.node.style.transform = ''; } active.delete(event.pointerId); };
+        const onUp = event => {
+          const point = active.get(event.pointerId); if (!point) return; clearTimeout(point.timer);
+          if (point.dragging) {
+            const trash = root.querySelector?.(trashSelector), bounds = trash?.getBoundingClientRect?.();
+            const inTrash = bounds && bounds.width > 0 && event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
+            if (inTrash) actions.deleteElement(point.node.dataset.v2Id);
+            else {
+              const x = point.originX + point.x - point.startX, y = point.originY + point.y - point.startY;
+              actions.moveElement(point.node.dataset.v2Id, snap > 0 ? Math.round(x / snap) * snap : x, snap > 0 ? Math.round(y / snap) * snap : y);
+            }
+            point.node.style.transform = '';
+          }
+          active.delete(event.pointerId);
+        };
         root.addEventListener('pointerdown', onDown, true); root.addEventListener('pointermove', onMove, { passive: false, capture: true }); root.addEventListener('pointerup', onUp, true); root.addEventListener('pointercancel', onUp, true);
         return () => { active.forEach(point => clearTimeout(point.timer)); active.clear(); root.removeEventListener('pointerdown', onDown, true); root.removeEventListener('pointermove', onMove, true); root.removeEventListener('pointerup', onUp, true); root.removeEventListener('pointercancel', onUp, true); };
       }

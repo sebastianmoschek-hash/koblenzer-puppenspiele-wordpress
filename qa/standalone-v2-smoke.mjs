@@ -25,7 +25,7 @@ try {
       const aiContract = window.KPEditorV2AI;
       v2.store.setMode('edit');
       const unbind = v2.renderer.bindSelection(document, v2.store);
-      const unbindGestures = v2.renderer.bindGestures(document, v2.store, v2.actions, { holdMs: 20 });
+      const unbindGestures = v2.renderer.bindGestures(document, v2.store, v2.actions, { holdMs: 20, snap: 8 });
       const model = v2.store.get().document;
       const elements = model.pages.flatMap(page => page.sections).flatMap(section => section.elements);
       const heading = elements.find(element => element.type === 'heading');
@@ -45,7 +45,7 @@ try {
       node.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 7, pointerType: 'touch', clientX: 30, clientY: 25 }));
       node.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 7, pointerType: 'touch', clientX: 30, clientY: 25 }));
       const dragged = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.transform;
-      const gestureMoved = dragged?.x === 20 && dragged?.y === 15;
+      const gestureMoved = dragged?.x === 24 && dragged?.y === 16;
       v2.actions.moveElement(heading.id, 0, 0);
       v2.actions.setTextStyle(heading.id, { fontSize: 42, color: '#d97706' });
       const styled = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.styles.fontSize === 42;
