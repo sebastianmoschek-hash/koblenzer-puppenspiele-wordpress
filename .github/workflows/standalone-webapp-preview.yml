@@ -19,18 +19,22 @@ permissions:
 
 concurrency:
   group: standalone-webapp-preview
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  build-preview:
+  deploy-preview:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
       - name: Build isolated static preview
         shell: bash
         run: |
           set -euo pipefail
-          echo "GitHub Pages enabled; fresh standalone preview deployment."
           rm -rf preview
           mkdir -p preview/webapp
           cp -a webapp/. preview/webapp/
@@ -59,17 +63,9 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: preview/
-
-  deploy-preview:
-    needs: build-preview
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - name: Deploy standalone preview to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
