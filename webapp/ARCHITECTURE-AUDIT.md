@@ -1,45 +1,46 @@
-# Standalone-Editor – Phase-A-Audit
+# Editor V2 – Architektur und Abnahmestand
 
-Stand: 2026-09-12, Branch `webapp-no-wordpress-test`, Basis `origin/webapp-no-wordpress-test` (`0c5fe480`).
+Stand: 2026-09-12. Zulässiger Branch: `webapp-no-wordpress-test`.
 
-## Bestand
+## Laufende Architektur
 
-Die App ist eine statische, mobile-first PWA in `webapp/`. `app.js` rendert lokale JSON-Daten, verwaltet lokale Entwürfe und bietet einen einfachen Cloud-Adapter auf `api/editor-state.php`. Der PHP-Adapter ist auf GitHub Pages nicht ausführbar; dort bleibt Speichern eine lokale Browserfunktion. Der lokale PHP-Server kann den Adapter ausführen.
+Die Standalone-PWA arbeitet lokal und ohne WordPress. Der verbindliche Zustandsfluss ist:
 
-Die Editorlogik ist derzeit verteilt:
+`Document Model → Store → Actions/Transactions → Renderer → Website`
 
-- `editor-bootstrap.js`: Öffnen/Schließen und erste Content-Editable-Schicht.
-- `editor-core-mobile.js`: Snapshot-Historie, Wiederherstellung und Rewire.
-- `app.js`: Text-, Bild-, Abschnitts- und lokale/cloud Persistenz.
-- `direct-manipulation.js`, `mobile-gesture-arbiter.js`, `image-gesture-editor.js`, `background-gesture-editor.js`: direkte Pointer-/Touch-Interaktionen.
-- `context-toolbar.js`, `text-button-sheet.js`, `design-editor.js`, `pro-image-editor.js`, `menu-editor.js`, `site-manager-v2.js`: kontextbezogene UI-Module.
-- `full-state-persistence.js`, `version-history.js`: vollständiger Cloud-Zustand und Versionsdialog.
+- `editor-v2-core.js`: versioniertes Document Model (Schema 2), stabile IDs, Import/Migration, Store, Auswahl, Transaktionen, Undo/Redo, Renderer, lokale Persistenz, zentrale Touch-Gesten und Diagnosekontext.
+- `editor-v2-overlay.js`: kontextabhängige V2-Werkzeugleiste, Abschnitts-, Navigations-, Header-, Theme- und KI-Statusoberflächen.
+- `text-button-sheet.js`: Text- und Buttonbearbeitung als Vorschau mit genau einer Commit-Transaktion.
+- `pro-image-editor.js`: Live-Bildvorschau, Filter, Helligkeit, Kontrast, Sättigung, Temperatur, Weichzeichnen, Transparenz, Zuschneiden, Rotation und Spiegelung als eine Transaktion.
+- `editor-v2-ai.js`: providerneutrale Verträge für Plan/Validierung, Realtime-Sitzung, Audio, Bildschirmfreigabe und kontrollierten Editor-/Diagnosekontext.
+- `sw.js`: Offline-Basis der statischen PWA.
 
-## Funktionsmatrix
+UI, Touch und der vorbereitete KI-Adapter rufen dieselben V2-Actions auf. Größere Theme- und KI-Änderungen unterstützen Preview, Übernehmen, Verwerfen und Undo. Die frühere Editorlogik bleibt nur als technische Kompatibilitätsschicht geladen; konkurrierende Legacy-Griffe und -Werkzeuge sind im V2-Modus abgeschaltet.
 
-| Bereich | Status | Befund |
-|---|---|---|
-| View-Modus / responsive Layout | A | Statische Homepage lädt lokal ohne Console-/HTTP-Fehler. |
-| Editor öffnen/schließen | A | Im mobilen und Desktop-Smoke-Test erfolgreich. |
-| Textauswahl und Content-Editable | B | Mehrere Wiring-Schichten; zentrale Action fehlt. |
-| Abschnitt hinzufügen/verschieben/duplizieren/löschen | B | Vorhanden, primär in `app.js`; Undo-Anbindung verteilt. |
-| Undo/Redo/Restore | B | Mobile-Core und Legacy-Stack existieren parallel. |
-| Bildeditor | B | UI/Filter/Rotation vorhanden; Datei-/Persistenzpfad separat prüfen. |
-| Navigation bearbeiten | B | `menu-editor.js` und `site-manager-v2.js` teilen Zuständigkeiten. |
-| Persistenz | B | localStorage robust vorhanden; PHP-Cloud nur mit Server. |
-| KI | C | Keine echte KI-Leistung in dieser Standalone-Version; UI darf dies nicht vortäuschen. |
-| zentrale Actions | A/B | Vertrag mit `editor-action-engine.js` eingeführt, Migration der Module folgt schrittweise. |
+## Fertig und automatisch nachgewiesen
 
-## Phase-A-Roadmap
+- Originalinhalte: 9 Abschnitte, 17 Repertoireeinträge, 82 Termine, 9 Ensembleeinträge, 25 Referenzen und 66 lokale Mediendateien.
+- Strukturierter Import mit stabilen Element-, Abschnitts- und Navigations-IDs.
+- Zentrale Actions für Text, Button, Bild, Ebene, Abschnitt, Header, Navigation und Theme.
+- Auswahl, Long-Press-Verschieben, Raster-/Element-Snapping mit Hilfslinien, Zwei-Finger-Skalierung/Drehung und Drag-Papierkorb mit Undo.
+- Ein History-System für V2-Actions und zusammengefasste Transaktionen.
+- Lokales Speichern, neues Browserfenster, Laden und DOM-/Modell-Readback.
+- Text-, Button- und Bildeditor mit echter Browserbedienung.
+- Abschnitt hinzufügen, verschieben, duplizieren, gestalten und löschen.
+- Navigation umbenennen, ergänzen, sortieren und löschen.
+- Header-Preset und drei inhaltsbewahrende Website-Designvarianten.
+- Getrennter Edit-/View-Modus, mobile Navigation, PWA/Service Worker.
+- Providerneutrale KI-Action-Validierung, Preview/Commit/Cancel, Realtime-/Audio-/Screen-Contracts und Fehlerdiagnose.
+- Browserprüfungen auf 390, 820 und 1440 Pixel; Android-WebView-Prüfung im Emulator.
 
-1. Action-Engine als einzige öffentliche Command-Grenze verwenden; zuerst Abschnitts- und Textaktionen migrieren.
-2. Undo-Transaktionen ausschließlich über den bestehenden Mobile-Core registrieren.
-3. Selection-/Wiring-Lifecycle zentralisieren und nach Restore über ein Ereignis neu binden.
-4. Persistenz als expliziten Adapter behandeln: localStorage immer, PHP-Cloud nur bei erreichbarem Endpoint.
-5. Erst danach Bild-, Navigation- und Preset-Aktionen auf denselben Vertrag umstellen.
+## Bewusst externe Grenzen
 
-Die Action-Engine führt keine nicht implementierten Funktionen vor. Nicht registrierte Actions liefern einen klaren Fehler; echte KI- und Serverfunktionen bleiben bis zur tatsächlichen Anbindung deaktiviert.
+Eine echte generative Live-/Bild-KI ist nicht angebunden. Ohne ausdrücklich freigegebenen Provider und dessen Zugangsdaten bleiben diese Schaltflächen sichtbar als „Nicht verbunden“ bzw. deaktiviert; es gibt keine Fake-KI. Bildschirmfreigabe verlangt im Vertrag eine ausdrückliche Benutzerfreigabe. Ein physisches Android-Gerät wurde nicht als Emulator ausgegeben.
 
-## V2-Fundament verifiziert
+## Verifikation
 
-`editor-v2-core.js` stellt Document Model, Store, Actions, Undo/Redo, lokale Persistenz, Renderer-Hook, kontrollierten Kontext-/Diagnose-Snapshot sowie einen providerneutralen AI-Adapter bereit. `ai.plan()` meldet ohne Provider ausdrücklich „Kein KI-Provider verbunden“; es gibt keine vorgetäuschte KI-Funktion. Der reproduzierbare Test `npm run test:e2e:standalone-v2` prüft Mobile und Desktop inklusive Textaktion, Undo, Console-Fehler und HTTP-Fehler.
+```powershell
+.\scripts\verify-all.ps1
+```
+
+Die Prüfung startet lokal, testet Browserfunktion und Visuals, baut die Debug-APK und führt bei verbundenem Emulator Installation, WebView-Bedienung und Logcat-Absturzprüfung aus. Sie verwendet weder CircleCI noch GitHub Actions, FTPS, WordPress oder Produktion.

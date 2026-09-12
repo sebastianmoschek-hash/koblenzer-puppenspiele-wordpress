@@ -5,3 +5,5 @@ Set-Location $projectRoot
 $env:STANDALONE_BASE_URL = $BaseUrl
 npm run test:e2e:standalone-v2
 if ($LASTEXITCODE -ne 0) { throw "Standalone-Browsertest fehlgeschlagen ($LASTEXITCODE)" }
+npm run test:e2e:standalone-visual
+if ($LASTEXITCODE -ne 0) { throw "Standalone-Visual-QA fehlgeschlagen ($LASTEXITCODE)" }

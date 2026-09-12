@@ -11,6 +11,18 @@ if ($LASTEXITCODE -ne 0) { throw 'ADB-Portweiterleitung zum lokalen Webserver fe
 Start-Sleep -Seconds 8
 $pidText = (& $adb shell pidof de.koblenzerpuppenspiele.techniker).Trim()
 if (-not $pidText) { throw 'Android-App-Prozess läuft nach dem Start nicht.' }
+$dumpPath = '/sdcard/kp-window.xml'
+& $adb shell uiautomator dump $dumpPath | Out-Null
+[xml]$window = (& $adb shell cat $dumpPath) -join "`n"
+$nativeEdit = $window.SelectSingleNode("//node[@text='✎ Bearbeiten']")
+if (-not $nativeEdit) { throw 'Native Android-Schaltfläche „Bearbeiten“ wurde nicht gefunden.' }
+$nativeBounds = [string]$nativeEdit.bounds
+if ($nativeBounds -notmatch '^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$') { throw 'Native Android-Schaltfläche „Bearbeiten“ hat ungültige Koordinaten.' }
+$tapX = [int](([int]$Matches[1] + [int]$Matches[3]) / 2)
+$tapY = [int](([int]$Matches[2] + [int]$Matches[4]) / 2)
+& $adb shell input tap $tapX $tapY
+if ($LASTEXITCODE -ne 0) { throw 'Native Android-Schaltfläche „Bearbeiten“ konnte nicht angetippt werden.' }
+Start-Sleep -Seconds 1
 & $adb forward tcp:9225 "localabstract:webview_devtools_remote_$pidText" | Out-Null
 $env:ANDROID_WEBVIEW_CDP_PORT = '9225'
 node (Join-Path $projectRoot 'qa\android-webview-smoke.mjs')

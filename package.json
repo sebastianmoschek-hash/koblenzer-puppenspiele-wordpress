@@ -20,7 +20,8 @@
     "test:e2e:overnight": "node qa/overnight-crawler.mjs",
     "test:e2e:overnight:dry-run": "node qa/overnight-crawler.mjs --dry-run",
     "test:e2e:audit": "node qa/editor-audit.mjs"
-    ,"test:e2e:standalone-v2": "node qa/standalone-v2-smoke.mjs"
+    ,"test:e2e:standalone-v2": "node qa/standalone-v2-smoke.mjs",
+    "test:e2e:standalone-visual": "node qa/standalone-v2-visual.mjs"
   },
   "repository": {
     "type": "git",

@@ -3,14 +3,15 @@
   'use strict';
   if (window.KPEditorV2) return;
 
-  const SCHEMA_VERSION = 1;
+  const SCHEMA_VERSION = 2;
   const clone = value => JSON.parse(JSON.stringify(value));
   const id = prefix => `${prefix}-${(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`).replace(/[^a-z0-9-]/gi, '')}`;
 
-  function elementFromDOM(node, index = 0) {
+  function elementFromDOM(node, index = 0, scope = 'document') {
     const tag = node.tagName?.toLowerCase() || 'div';
     const type = tag === 'img' ? 'image' : tag === 'a' ? 'button' : /^h[1-6]$/.test(tag) ? 'heading' : 'text';
-    const elementId = node.dataset?.v2Id || id('el');
+    const stableId = `${scope}-el-${index}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const elementId = node.dataset?.v2Id || stableId;
     if (node.dataset) node.dataset.v2Id = elementId;
     return { id: elementId, type, order: index, content: type === 'image' ? { src: node.getAttribute('src') || '', alt: node.getAttribute('alt') || '' } : type === 'button' ? { text: node.textContent?.trim() || '', href: node.getAttribute('href') || '#' } : { text: node.textContent?.trim() || '' }, styles: {}, transform: { x: 0, y: 0, scale: 1, rotation: 0 }, source: { tag, className: node.className || '' } };
   }
@@ -21,9 +22,9 @@
     return {
       schemaVersion: SCHEMA_VERSION,
       site: { id: 'koblenzer-puppenspiele', title: root.title || '', design: { preset: 'original' } },
-      navigation: { items: [...(root.querySelectorAll('#nav > a') || [])].map((a, order) => { const itemId = a.dataset.v2NavId || id('nav'); a.dataset.v2NavId = itemId; return { id: itemId, label: a.textContent?.trim() || '', href: a.getAttribute('href') || '', order, className: a.className || '' }; }) },
-      header: { id: 'header', elements: [...(root.querySelectorAll('.top > .brand,.top > nav,#menu') || [])].map(elementFromDOM) },
-      pages: [{ id: 'home', path: '/', sections: sections.map((section, order) => { const sectionId = section.dataset.v2SectionId || section.id || id('section'); section.dataset.v2SectionId = sectionId; return { id: sectionId, order, design: { className: section.className || '' }, elements: [...section.querySelectorAll('h1,h2,h3,p,a,img,button')].map(elementFromDOM) }; }) }],
+      navigation: { items: [...(root.querySelectorAll('#nav a[href]') || [])].map((a, order) => { const itemId = a.dataset.v2NavId || `nav-${order}`; a.dataset.v2NavId = itemId; return { id: itemId, label: a.textContent?.trim() || '', href: a.getAttribute('href') || '', order, className: a.className || '' }; }) },
+      header: { id: 'header', elements: [...(root.querySelectorAll('.top > .brand,#menu') || [])].map((node, index) => elementFromDOM(node, index, 'header')) },
+      pages: [{ id: 'home', path: '/', sections: sections.map((section, order) => { const sectionId = section.dataset.v2SectionId || section.id || `section-${order}`; section.dataset.v2SectionId = sectionId; return { id: sectionId, order, design: { className: section.className || '' }, elements: [...section.querySelectorAll('h1,h2,h3,p,a,img,button')].map((node, index) => elementFromDOM(node, index, sectionId)) }; }) }],
       meta: { importedAt: new Date().toISOString(), source: 'standalone-dom' }
     };
   }
@@ -43,8 +44,25 @@
     const source = clone(doc || {});
     const version = Number(source.schemaVersion) || 0;
     if (version > SCHEMA_VERSION) throw new Error(`Dokumentschema ${version} wird noch nicht unterstützt`);
-    if (version === 0) { source.schemaVersion = 1; source.meta = { ...(source.meta || {}), migratedFrom: 0, migratedAt: new Date().toISOString() }; }
+    if (version < SCHEMA_VERSION) { source.schemaVersion = SCHEMA_VERSION; source.meta = { ...(source.meta || {}), migratedFrom: version, migratedAt: new Date().toISOString() }; }
     return normalize(source);
+  }
+
+  function mergeDocuments(baseDocument, savedDocument) {
+    const base = normalize(baseDocument), saved = migrate(savedDocument);
+    base.site = clone(saved.site || base.site); base.navigation = clone(saved.navigation || base.navigation); base.header = { ...base.header, ...clone(saved.header || {}), elements: base.header?.elements || [] };
+    base.pages = base.pages.map(basePage => {
+      const savedPage = saved.pages.find(page => page.id === basePage.id);
+      if (!savedPage) return basePage;
+      const baseSections = new Map(basePage.sections.map(section => [section.id, section]));
+      return { ...basePage, ...clone(savedPage), sections: savedPage.sections.map(savedSection => {
+        const baseSection = baseSections.get(savedSection.id);
+        if (!baseSection) return clone(savedSection);
+        const baseElements = new Map(baseSection.elements.map(element => [element.id, element]));
+        return { ...baseSection, ...clone(savedSection), elements: savedSection.elements.map(savedElement => ({ ...(baseElements.get(savedElement.id) || {}), ...clone(savedElement) })) };
+      }) };
+    });
+    return normalize(base);
   }
 
   function createStore(initial) {
@@ -141,15 +159,22 @@
       createSection: (pageId = 'home', section = {}) => store.transact('Abschnitt hinzufügen', state => { const page = state.document.pages.find(item => item.id === pageId) || state.document.pages[0]; if (page) page.sections.push({ id: id('section'), order: page.sections.length, design: {}, elements: [], ...clone(section) }); }),
       duplicateSection: sectionId => store.transact('Abschnitt duplizieren', state => { for (const page of state.document.pages) { const source = page.sections.find(section => section.id === sectionId); if (source) { const copy = clone(source); copy.id = id('section'); copy.order = page.sections.length; copy.elements.forEach(element => { element.id = id('el'); }); page.sections.push(copy); return; } } }),
       deleteSection: sectionId => store.transact('Abschnitt löschen', state => { for (const page of state.document.pages) page.sections = page.sections.filter(section => section.id !== sectionId); }),
+      moveSection: (sectionId, direction) => store.transact('Abschnitt verschieben', state => { for (const page of state.document.pages) { const index = page.sections.findIndex(section => section.id === sectionId); if (index < 0) continue; const target = Math.max(0, Math.min(page.sections.length - 1, index + Number(direction))); if (target === index) return; page.sections.splice(target, 0, page.sections.splice(index, 1)[0]); page.sections.forEach((section, order) => { section.order = order; }); return; } }),
       setSectionDesign: (sectionId, design = {}) => store.transact('Abschnitt gestalten', state => { for (const page of state.document.pages) { const section = page.sections.find(item => item.id === sectionId); if (section) section.design = { ...section.design, ...clone(design) }; } }),
       moveLayer: (elementId, direction) => store.transact('Ebene ändern', state => { const found = find(state.document, elementId); if (!found) return; const elements = found.section.elements; const index = elements.findIndex(item => item.id === elementId); const target = direction === 'front' ? elements.length - 1 : direction === 'back' ? 0 : Math.max(0, Math.min(elements.length - 1, index + (direction === 'forward' ? 1 : -1))); elements.splice(target, 0, elements.splice(index, 1)[0]); elements.forEach((element, order) => { element.order = order; }); }),
       setHeaderDesign: design => store.transact('Header gestalten', state => { state.document.header.design = { ...(state.document.header.design || {}), ...clone(design || {}) }; }),
       renameNavigationItem: (itemId, label) => store.transact('Menüpunkt umbenennen', state => { const item = state.document.navigation.items.find(entry => entry.id === itemId); if (item) item.label = String(label); }),
       createNavigationItem: (label, href = '#') => store.transact('Menüpunkt hinzufügen', state => { state.document.navigation.items.push({ id: id('nav'), label: String(label), href: String(href), order: state.document.navigation.items.length }); }),
       deleteNavigationItem: itemId => store.transact('Menüpunkt löschen', state => { state.document.navigation.items = state.document.navigation.items.filter(item => item.id !== itemId); state.document.navigation.items.forEach((item, order) => { item.order = order; }); }),
+      moveNavigationItem: (itemId, direction) => store.transact('Menüpunkt verschieben', state => { const items = state.document.navigation.items, index = items.findIndex(item => item.id === itemId), target = Math.max(0, Math.min(items.length - 1, index + Number(direction))); if (index < 0 || target === index) return; items.splice(target, 0, items.splice(index, 1)[0]); items.forEach((item, order) => { item.order = order; }); }),
       applyTheme: theme => store.transact('Website-Design anwenden', state => { state.document.site.design = { ...state.document.site.design, ...clone(theme || {}) }; }),
+      previewBatch: (label, commands = []) => {
+        const temporaryStore = createStore(store.get().document), temporaryActions = createActions(temporaryStore);
+        temporaryActions.executeBatch(label, commands);
+        return store.preview(label, state => { state.document = clone(temporaryStore.get().document); });
+      },
       executeBatch: (label, commands = []) => store.executeBatch(label, () => commands.map(command => api.apply(command.name, command.payload))),
-      apply: (name, payload) => { const action = api[name]; if (typeof action !== 'function' || name === 'apply' || name === 'executeBatch') throw new Error(`Unbekannte V2-Action: ${name}`); return action(...(Array.isArray(payload) ? payload : [payload])); }
+      apply: (name, payload) => { const action = api[name]; if (typeof action !== 'function' || ['apply', 'executeBatch', 'previewBatch'].includes(name)) throw new Error(`Unbekannte V2-Action: ${name}`); return action(...(Array.isArray(payload) ? payload : [payload])); }
     };
     return api;
   }
@@ -212,14 +237,16 @@
             const brightness = 100 + (Number(adjustment.brightness) || 0), contrast = 100 + (Number(adjustment.contrast) || 0), saturation = 100 + (Number(adjustment.saturation) || 0), blur = Math.max(0, Number(adjustment.blur) || 0), temperature = Number(adjustment.temperature) || 0, grayscale = Math.max(0, Number(adjustment.grayscale) || 0), sepia = Math.max(Number(adjustment.sepia) || 0, Math.max(0, temperature));
             node.style.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) sepia(${sepia}%) hue-rotate(${temperature < 0 ? Math.round(temperature * .35) : 0}deg) blur(${blur}px) grayscale(${grayscale}%)`;
             if (adjustment.opacity != null) node.style.opacity = String(Math.max(0, Math.min(1, Number(adjustment.opacity))));
+            const crop = adjustment.crop;
+            if (crop) { const top = Math.max(0, Number(crop.y) || 0) * 100, left = Math.max(0, Number(crop.x) || 0) * 100, right = Math.max(0, 1 - (Number(crop.x) || 0) - (Number(crop.width) || 1)) * 100, bottom = Math.max(0, 1 - (Number(crop.y) || 0) - (Number(crop.height) || 1)) * 100; node.style.clipPath = `inset(${top}% ${right}% ${bottom}% ${left}%)`; } else node.style.removeProperty('clip-path');
           }
         });
         const nav = root.querySelector('#nav');
         if (nav) {
           const items = [...(doc.navigation?.items || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
           const itemIds = new Set(items.map(item => item.id));
-          nav.querySelectorAll(':scope > a[data-v2-nav-id]').forEach(node => { if (!itemIds.has(node.dataset.v2NavId)) node.remove(); });
-          items.forEach(item => { let node = nav.querySelector(`:scope > a[data-v2-nav-id="${item.id}"]`); if (!node) { node = document.createElement('a'); node.dataset.v2NavId = item.id; node.className = item.className || ''; nav.append(node); } node.textContent = item.label; node.setAttribute('href', item.href || '#'); nav.append(node); });
+          nav.querySelectorAll('a[data-v2-nav-id]').forEach(node => { if (!itemIds.has(node.dataset.v2NavId)) (node.closest('.kp-nav-row') || node).remove(); });
+          items.forEach(item => { let node = nav.querySelector(`a[data-v2-nav-id="${item.id}"]`); if (!node) { node = document.createElement('a'); node.dataset.v2NavId = item.id; node.className = item.className || ''; nav.append(node); } node.textContent = item.label; node.setAttribute('href', item.href || '#'); const row = node.closest('.kp-nav-row'); if (row) nav.append(row); else nav.append(node); });
         }
         const header = root.querySelector('.top');
         if (header && doc.header?.design) {
@@ -229,7 +256,9 @@
           if (design.color != null) header.style.color = String(design.color);
         }
         const theme = doc.site?.design;
-        if (theme?.colors) Object.entries(theme.colors).forEach(([name, value]) => root.style.setProperty(`--v2-${name}`, String(value)));
+        const variables = { accent: '--orange', background: '--brown', surface: '--bg', text: '--text', muted: '--muted' };
+        Object.entries(variables).forEach(([name, variable]) => { root.style.removeProperty(`--v2-${name}`); root.style.removeProperty(variable); });
+        if (theme?.colors) Object.entries(theme.colors).forEach(([name, value]) => { root.style.setProperty(`--v2-${name}`, String(value)); if (variables[name]) root.style.setProperty(variables[name], String(value)); });
         return root;
       },
       mount(root, store) {
@@ -239,9 +268,9 @@
       },
       bindSelection(root, store) {
         if (!root || !store) throw new TypeError('Selection benötigt Ziel-Element und Store');
-        const update = state => root.querySelectorAll('[data-v2-id]').forEach(node => { node.style.outline = state.mode === 'edit' && state.selection?.elementId === node.dataset.v2Id ? '2px solid #1683ff' : ''; node.style.outlineOffset = '2px'; });
+        const update = state => { root.querySelectorAll('[data-v2-id]').forEach(node => { node.style.outline = state.mode === 'edit' && state.selection?.elementId === node.dataset.v2Id ? '2px solid #1683ff' : ''; node.style.outlineOffset = '2px'; }); root.querySelectorAll('[data-v2-section-id]').forEach(node => { node.style.outline = state.mode === 'edit' && state.selection?.sectionId === node.dataset.v2SectionId ? '2px solid #f28b35' : ''; node.style.outlineOffset = '-3px'; }); };
         const unsubscribe = store.subscribe(update);
-        const handler = event => { const node = event.target.closest?.('[data-v2-id]'); if (node && store.get().mode === 'edit') { event.preventDefault(); store.setSelection({ elementId: node.dataset.v2Id }); } };
+        const handler = event => { if (store.get().mode !== 'edit') return; const node = event.target.closest?.('[data-v2-id]'), section = event.target.closest?.('main > section[data-v2-section-id]'); if (node) { event.preventDefault(); store.setSelection({ elementId: node.dataset.v2Id }); } else if (section) { event.preventDefault(); store.setSelection({ sectionId: section.dataset.v2SectionId }); } };
         root.addEventListener('click', handler, true);
         update(store.get());
         return () => { unsubscribe(); root.removeEventListener('click', handler, true); root.querySelectorAll('[data-v2-id]').forEach(node => { node.style.outline = ''; node.style.outlineOffset = ''; }); };
@@ -265,6 +294,20 @@
           node.classList.add('show');
           node.querySelector('button').onclick = () => { store.undo(); node.classList.remove('show'); };
           setTimeout(() => node.classList.remove('show'), 5000);
+        };
+        const guides = () => { let node = root.querySelector?.('#kpV2SnapGuides'); if (!node && root.body) { node = document.createElement('div'); node.id = 'kpV2SnapGuides'; node.innerHTML = '<i data-v></i><i data-h></i>'; root.body.append(node); } return node; };
+        const showGuides = (x, y) => { const node = guides(); if (!node) return; const vertical = node.querySelector('[data-v]'), horizontal = node.querySelector('[data-h]'); node.hidden = x == null && y == null; vertical.hidden = x == null; horizontal.hidden = y == null; if (x != null) vertical.style.left = `${x}px`; if (y != null) horizontal.style.top = `${y}px`; };
+        const alignedPosition = (point, event) => {
+          let x = point.originX + event.clientX - point.startX, y = point.originY + event.clientY - point.startY;
+          point.node.style.transform = `translate(${x}px, ${y}px)`;
+          const rect = point.node.getBoundingClientRect(), candidatesX = [innerWidth / 2], candidatesY = [innerHeight / 2];
+          root.querySelectorAll('[data-v2-id]').forEach(node => { if (node === point.node) return; const other = node.getBoundingClientRect(); if (other.bottom < 0 || other.top > innerHeight) return; candidatesX.push(other.left, other.left + other.width / 2, other.right); candidatesY.push(other.top, other.top + other.height / 2, other.bottom); });
+          const best = (values, candidates) => { let match = null; for (const value of values) for (const candidate of candidates) { const delta = candidate - value; if (Math.abs(delta) <= 6 && (!match || Math.abs(delta) < Math.abs(match.delta))) match = { delta, guide: candidate }; } return match; };
+          const snapX = best([rect.left, rect.left + rect.width / 2, rect.right], candidatesX), snapY = best([rect.top, rect.top + rect.height / 2, rect.bottom], candidatesY);
+          if (snapX) x += snapX.delta; else if (snap > 0) x = Math.round(x / snap) * snap;
+          if (snapY) y += snapY.delta; else if (snap > 0) y = Math.round(y / snap) * snap;
+          point.finalX = x; point.finalY = y; showGuides(snapX?.guide ?? null, snapY?.guide ?? null);
+          return { x, y };
         };
         const onDown = event => {
           if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -294,7 +337,7 @@
           }
           const dx = event.clientX - point.x, dy = event.clientY - point.y;
           if (!point.dragging && Math.hypot(dx, dy) > moveThreshold) { clearTimeout(point.timer); active.delete(event.pointerId); return; }
-          if (point.dragging) { event.preventDefault(); point.x = event.clientX; point.y = event.clientY; showTrash(true); document.body.classList.add('kp-image-drag-active'); point.node.style.transform = `translate(${point.originX + event.clientX - point.startX}px, ${point.originY + event.clientY - point.startY}px)`; const bounds = trash()?.getBoundingClientRect?.(); trash()?.classList.toggle('hot', Boolean(bounds && event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom)); }
+          if (point.dragging) { event.preventDefault(); point.x = event.clientX; point.y = event.clientY; showTrash(true); document.body.classList.add('kp-image-drag-active'); const aligned = alignedPosition(point, event); point.node.style.transform = `translate(${aligned.x}px, ${aligned.y}px)`; const bounds = trash()?.getBoundingClientRect?.(); trash()?.classList.toggle('hot', Boolean(bounds && event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom)); }
         };
         const onUp = event => {
           const point = active.get(event.pointerId); if (!point) return; clearTimeout(point.timer);
@@ -310,17 +353,16 @@
             const trash = root.querySelector?.(trashSelector), bounds = trash?.getBoundingClientRect?.();
             const inTrash = bounds && bounds.width > 0 && event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
             point.node.style.transform = '';
-            showTrash(false); document.body.classList.remove('kp-image-drag-active');
+            showTrash(false); showGuides(null, null); document.body.classList.remove('kp-image-drag-active');
             if (inTrash) { const label = point.node.tagName === 'IMG' ? 'Bild gelöscht' : 'Element gelöscht'; actions.deleteElement(point.node.dataset.v2Id); showUndo(label); }
             else {
-              const x = point.originX + point.x - point.startX, y = point.originY + point.y - point.startY;
-              actions.moveElement(point.node.dataset.v2Id, snap > 0 ? Math.round(x / snap) * snap : x, snap > 0 ? Math.round(y / snap) * snap : y);
+              actions.moveElement(point.node.dataset.v2Id, point.finalX ?? point.originX + point.x - point.startX, point.finalY ?? point.originY + point.y - point.startY);
             }
           }
           active.delete(event.pointerId);
         };
         root.addEventListener('pointerdown', onDown, true); root.addEventListener('pointermove', onMove, { passive: false, capture: true }); root.addEventListener('pointerup', onUp, true); root.addEventListener('pointercancel', onUp, true);
-        return () => { active.forEach(point => clearTimeout(point.timer)); active.clear(); gesture = null; showTrash(false); root.removeEventListener('pointerdown', onDown, true); root.removeEventListener('pointermove', onMove, true); root.removeEventListener('pointerup', onUp, true); root.removeEventListener('pointercancel', onUp, true); };
+        return () => { active.forEach(point => clearTimeout(point.timer)); active.clear(); gesture = null; showTrash(false); showGuides(null, null); root.removeEventListener('pointerdown', onDown, true); root.removeEventListener('pointermove', onMove, true); root.removeEventListener('pointerup', onUp, true); root.removeEventListener('pointercancel', onUp, true); };
       }
     };
   }
@@ -330,14 +372,32 @@
   }
 
   function createDiagnostics(store) {
-    return { snapshot: () => ({ ...createContextProvider(store).snapshot(), history: store.history() }) };
+    const runtimeErrors = [], networkFailures = [];
+    const add = (list, value) => { list.push({ at: new Date().toISOString(), ...clone(value) }); if (list.length > 50) list.shift(); };
+    window.addEventListener('error', event => add(runtimeErrors, { message: event.message || String(event.error || 'Unbekannter Laufzeitfehler'), source: event.filename || '', line: event.lineno || 0 }));
+    window.addEventListener('unhandledrejection', event => add(runtimeErrors, { message: String(event.reason?.message || event.reason || 'Unbehandelte Promise-Ablehnung') }));
+    return {
+      recordRuntimeError: error => add(runtimeErrors, { message: String(error?.message || error) }),
+      recordNetworkFailure: failure => add(networkFailures, typeof failure === 'string' ? { url: failure } : failure),
+      clear: () => { runtimeErrors.length = 0; networkFailures.length = 0; },
+      snapshot: () => ({ ...createContextProvider(store).snapshot(), history: store.history(), runtimeErrors: clone(runtimeErrors), networkFailures: clone(networkFailures), layout: { width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth, horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 } })
+    };
   }
 
-  function createAIAdapter(store) {
+  function createAIAdapter(store, editorActions) {
+    const forbidden = new Set(['apply', 'executeBatch', 'previewBatch']);
+    const validatePlan = plan => {
+      if (!plan || !Array.isArray(plan.actions) || plan.actions.length === 0 || plan.actions.length > 100) return { ok: false, error: 'Ungültiger oder leerer Action-Plan' };
+      const invalid = plan.actions.find(command => !command || typeof command.name !== 'string' || forbidden.has(command.name) || typeof editorActions[command.name] !== 'function' || (command.payload != null && !Array.isArray(command.payload)));
+      return invalid ? { ok: false, error: `Nicht erlaubte Action: ${invalid?.name || 'unbekannt'}` } : { ok: true };
+    };
     return {
       plan: async () => { throw new Error('Kein KI-Provider verbunden'); },
-      validatePlan: plan => Boolean(plan && Array.isArray(plan.actions) && plan.actions.every(item => item && typeof item.name === 'string')),
-      applyPlan: plan => { if (!plan || !Array.isArray(plan.actions)) throw new TypeError('Ungültiger Action-Plan'); return plan.actions.map(item => store.get() && actions.apply(item.name, item.payload)); }
+      validatePlan,
+      previewPlan: (plan, label = 'KI-Vorschau') => { const validation = validatePlan(plan); if (!validation.ok) throw new TypeError(validation.error); return editorActions.previewBatch(label, plan.actions); },
+      applyPlan: (plan, label = 'KI-Änderung') => { const validation = validatePlan(plan); if (!validation.ok) throw new TypeError(validation.error); return editorActions.executeBatch(label, plan.actions); },
+      commit: () => store.commitPreview(),
+      cancel: () => store.cancelPreview()
     };
   }
 
@@ -345,10 +405,11 @@
   const store = createStore(documentModel);
   const actions = createActions(store);
   const persistence = createPersistence(store);
+  const savedDocument = (() => { try { return persistence.load(); } catch (error) { console.warn('[Editor V2] Gespeichertes Dokument konnte nicht geladen werden', error); return null; } })();
   const renderer = createRenderer();
   const context = createContextProvider(store);
   const diagnostics = createDiagnostics(store);
-  const ai = createAIAdapter(store);
+  const ai = createAIAdapter(store, actions);
   const refreshFromDOM = root => { if (store.get().dirty || store.get().mode === 'edit') return false; store.replaceDocument(importDocument(root || document), { dirty: false, persistence: store.get().persistence }); return true; };
   const runtime = {
     unmountRenderer: renderer.mount(document.documentElement, store),
@@ -357,12 +418,19 @@
   };
   document.getElementById('edit')?.addEventListener('click', () => store.setMode('edit'));
   document.getElementById('close')?.addEventListener('click', () => { store.setSelection(null); store.setMode('view'); });
-  window.addEventListener('load', () => setTimeout(() => refreshFromDOM(document), 300), { once: true });
-  window.KPEditorV2 = Object.freeze({ SCHEMA_VERSION, importDocument, normalize, migrate, refreshFromDOM, store, actions, persistence, renderer, context, diagnostics, ai, runtime });
+  document.getElementById('save')?.addEventListener('click', () => persistence.save(), true);
+  window.addEventListener('load', () => setTimeout(() => { if (savedDocument) store.replaceDocument(mergeDocuments(importDocument(document), savedDocument), { dirty: false, persistence: 'loaded' }); else refreshFromDOM(document); }, 500), { once: true });
+  window.KPEditorV2 = Object.freeze({ SCHEMA_VERSION, importDocument, normalize, migrate, mergeDocuments, refreshFromDOM, store, actions, persistence, renderer, context, diagnostics, ai, runtime });
   if (!document.querySelector('script[data-kp-v2-ai]')) {
     const script = document.createElement('script');
     script.src = 'editor-v2-ai.js?v=20260912-1';
     script.dataset.kpV2Ai = '1';
+    document.head.append(script);
+  }
+  if (!document.querySelector('script[data-kp-v2-overlay]')) {
+    const script = document.createElement('script');
+    script.src = 'editor-v2-overlay.js?v=20260912-1';
+    script.dataset.kpV2Overlay = '1';
     document.head.append(script);
   }
 })();
