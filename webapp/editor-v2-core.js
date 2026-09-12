@@ -202,7 +202,7 @@
   const context = createContextProvider(store);
   const diagnostics = createDiagnostics(store);
   const ai = createAIAdapter(store);
-  const refreshFromDOM = root => { if (store.get().dirty) return false; store.replaceDocument(importDocument(root || document), { dirty: false, persistence: store.get().persistence }); return true; };
+  const refreshFromDOM = root => { if (store.get().dirty || store.get().mode === 'edit') return false; store.replaceDocument(importDocument(root || document), { dirty: false, persistence: store.get().persistence }); return true; };
   const runtime = {
     unmountRenderer: renderer.mount(document.documentElement, store),
     unbindSelection: renderer.bindSelection(document, store),

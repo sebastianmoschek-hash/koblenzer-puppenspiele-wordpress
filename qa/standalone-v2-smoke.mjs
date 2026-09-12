@@ -17,6 +17,9 @@ try {
     await page.locator('#edit').click();
     await page.waitForFunction(() => window.KPEditorV2.store.get().mode === 'edit');
     const editorVisible = await page.locator('#editor').isVisible();
+    await page.locator('.hero-visual img').scrollIntoViewIfNeeded();
+    await page.locator('.hero-visual img').click({ position: { x: 20, y: 20 } });
+    const runtimeSelection = await page.evaluate(() => Boolean(window.KPEditorV2.store.get().selection?.elementId));
     const result = await page.evaluate(async () => {
       const v2 = window.KPEditorV2;
       const aiContract = window.KPEditorV2AI;
@@ -97,11 +100,12 @@ try {
     const viewModeClean = await page.evaluate(() => window.KPEditorV2.store.get().selection === null && document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
     const imagesLoaded = await page.evaluate(() => [...document.images].every(image => image.complete && image.naturalWidth > 0));
     result.editorVisible = editorVisible;
+    result.runtimeSelection = runtimeSelection;
     result.viewModeClean = viewModeClean;
     result.imagesLoaded = imagesLoaded;
     if (!result.undoRestored || !result.renderedText || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Renderer/Undo fehlgeschlagen`);
     if (!result.gestureMoved || !result.imageSlice || !result.sectionSlice || !result.navigationSlice || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.aiContractReady) failures.push(`${viewport.name}: V2-Slice unvollständig`);
-    if (!result.editorVisible || !result.viewModeClean || !result.imagesLoaded) failures.push(`${viewport.name}: Edit/View-Modus, Bildladung oder horizontaler Overflow fehlerhaft`);
+    if (!result.editorVisible || !result.runtimeSelection || !result.viewModeClean || !result.imagesLoaded) failures.push(`${viewport.name}: Edit/View-Modus, Auswahl, Bildladung oder horizontaler Overflow fehlerhaft`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);
     if (httpErrors.length) failures.push(`${viewport.name}: HTTP ${httpErrors.join('; ')}`);
     await page.close();
