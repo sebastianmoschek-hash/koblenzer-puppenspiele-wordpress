@@ -146,12 +146,12 @@
       },
       bindSelection(root, store) {
         if (!root || !store) throw new TypeError('Selection benötigt Ziel-Element und Store');
-        const nodes = [...root.querySelectorAll('[data-v2-id]')];
-        const update = state => nodes.forEach(node => { node.style.outline = state.mode === 'edit' && state.selection?.elementId === node.dataset.v2Id ? '2px solid #1683ff' : ''; node.style.outlineOffset = '2px'; });
+        const update = state => root.querySelectorAll('[data-v2-id]').forEach(node => { node.style.outline = state.mode === 'edit' && state.selection?.elementId === node.dataset.v2Id ? '2px solid #1683ff' : ''; node.style.outlineOffset = '2px'; });
         const unsubscribe = store.subscribe(update);
-        const handlers = nodes.map(node => { const handler = event => { if (store.get().mode === 'edit') { event.preventDefault(); event.stopPropagation(); store.setSelection({ elementId: node.dataset.v2Id }); } }; node.addEventListener('click', handler); return [node, handler]; });
+        const handler = event => { const node = event.target.closest?.('[data-v2-id]'); if (node && store.get().mode === 'edit') { event.preventDefault(); store.setSelection({ elementId: node.dataset.v2Id }); } };
+        root.addEventListener('click', handler, true);
         update(store.get());
-        return () => { unsubscribe(); handlers.forEach(([node, handler]) => node.removeEventListener('click', handler)); nodes.forEach(node => { node.style.outline = ''; node.style.outlineOffset = ''; }); };
+        return () => { unsubscribe(); root.removeEventListener('click', handler, true); root.querySelectorAll('[data-v2-id]').forEach(node => { node.style.outline = ''; node.style.outlineOffset = ''; }); };
       },
       bindGestures(root, store, actions, { holdMs = 350, moveThreshold = 8 } = {}) {
         if (!root || !store || !actions) throw new TypeError('Gestures benötigen Ziel-Element, Store und Actions');
@@ -172,8 +172,8 @@
           if (point.dragging) { event.preventDefault(); point.x = event.clientX; point.y = event.clientY; point.node.style.transform = `translate(${point.originX + event.clientX - point.startX}px, ${point.originY + event.clientY - point.startY}px)`; }
         };
         const onUp = event => { const point = active.get(event.pointerId); if (!point) return; clearTimeout(point.timer); if (point.dragging) { actions.moveElement(point.node.dataset.v2Id, point.originX + point.x - point.startX, point.originY + point.y - point.startY); point.node.style.transform = ''; } active.delete(event.pointerId); };
-        root.addEventListener('pointerdown', onDown); root.addEventListener('pointermove', onMove, { passive: false }); root.addEventListener('pointerup', onUp); root.addEventListener('pointercancel', onUp);
-        return () => { active.forEach(point => clearTimeout(point.timer)); active.clear(); root.removeEventListener('pointerdown', onDown); root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerup', onUp); root.removeEventListener('pointercancel', onUp); };
+        root.addEventListener('pointerdown', onDown, true); root.addEventListener('pointermove', onMove, { passive: false, capture: true }); root.addEventListener('pointerup', onUp, true); root.addEventListener('pointercancel', onUp, true);
+        return () => { active.forEach(point => clearTimeout(point.timer)); active.clear(); root.removeEventListener('pointerdown', onDown, true); root.removeEventListener('pointermove', onMove, true); root.removeEventListener('pointerup', onUp, true); root.removeEventListener('pointercancel', onUp, true); };
       }
     };
   }

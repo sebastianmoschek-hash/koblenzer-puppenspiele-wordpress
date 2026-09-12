@@ -14,6 +14,9 @@ try {
     page.on('response', response => { if (response.status() >= 400) httpErrors.push(`${response.status()} ${response.url()}`); });
     await page.goto(baseURL, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => window.KPEditorV2 && window.KPEditorActions && window.KPEditorV2AI);
+    await page.locator('#edit').click();
+    await page.waitForFunction(() => window.KPEditorV2.store.get().mode === 'edit');
+    const editorVisible = await page.locator('#editor').isVisible();
     const result = await page.evaluate(async () => {
       const v2 = window.KPEditorV2;
       const aiContract = window.KPEditorV2AI;
@@ -40,6 +43,7 @@ try {
       node.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 7, pointerType: 'touch', clientX: 30, clientY: 25 }));
       const dragged = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.transform;
       const gestureMoved = dragged?.x === 20 && dragged?.y === 15;
+      v2.actions.moveElement(heading.id, 0, 0);
       v2.actions.setTextStyle(heading.id, { fontSize: 42, color: '#d97706' });
       const styled = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.styles.fontSize === 42;
       const sectionCount = v2.store.get().document.pages[0].sections.length;
@@ -87,8 +91,14 @@ try {
       unbind();
       return { before, changed, restored, renderedText, selected, gestureMoved, styled, sectionSlice, navigationSlice, designSlice, duplicateDelete, imageSlice, persistenceRestored, aiContractReady, undoRestored: restored === before, schema: v2.SCHEMA_VERSION };
     });
+    await page.locator('#close').click();
+    await page.waitForFunction(() => window.KPEditorV2.store.get().mode === 'view');
+    const viewModeClean = await page.evaluate(() => window.KPEditorV2.store.get().selection === null && document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+    result.editorVisible = editorVisible;
+    result.viewModeClean = viewModeClean;
     if (!result.undoRestored || !result.renderedText || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Renderer/Undo fehlgeschlagen`);
     if (!result.gestureMoved || !result.imageSlice || !result.sectionSlice || !result.navigationSlice || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.aiContractReady) failures.push(`${viewport.name}: V2-Slice unvollständig`);
+    if (!result.editorVisible || !result.viewModeClean) failures.push(`${viewport.name}: Edit/View-Modus oder horizontaler Overflow fehlerhaft`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);
     if (httpErrors.length) failures.push(`${viewport.name}: HTTP ${httpErrors.join('; ')}`);
     await page.close();
