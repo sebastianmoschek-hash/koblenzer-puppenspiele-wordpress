@@ -39,3 +39,7 @@ Die Editorlogik ist derzeit verteilt:
 5. Erst danach Bild-, Navigation- und Preset-Aktionen auf denselben Vertrag umstellen.
 
 Die Action-Engine führt keine nicht implementierten Funktionen vor. Nicht registrierte Actions liefern einen klaren Fehler; echte KI- und Serverfunktionen bleiben bis zur tatsächlichen Anbindung deaktiviert.
+
+## V2-Fundament verifiziert
+
+`editor-v2-core.js` stellt Document Model, Store, Actions, Undo/Redo, lokale Persistenz, Renderer-Hook, kontrollierten Kontext-/Diagnose-Snapshot sowie einen providerneutralen AI-Adapter bereit. `ai.plan()` meldet ohne Provider ausdrücklich „Kein KI-Provider verbunden“; es gibt keine vorgetäuschte KI-Funktion. Der reproduzierbare Test `npm run test:e2e:standalone-v2` prüft Mobile und Desktop inklusive Textaktion, Undo, Console-Fehler und HTTP-Fehler.

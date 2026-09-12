@@ -93,9 +93,40 @@
     };
   }
 
+  function createRenderer() {
+    return {
+      render(doc, root) {
+        if (!root || !doc) throw new TypeError('Renderer benötigt Dokument und Ziel-Element');
+        root.dataset.v2Schema = String(doc.schemaVersion || SCHEMA_VERSION);
+        root.dataset.v2Rendered = 'true';
+        return root;
+      }
+    };
+  }
+
+  function createContextProvider(store) {
+    return { snapshot: () => { const state = store.get(); return { document: clone(state.document), selection: state.selection, mode: state.mode, viewport: state.viewport }; } };
+  }
+
+  function createDiagnostics(store) {
+    return { snapshot: () => ({ ...createContextProvider(store).snapshot(), history: store.history() }) };
+  }
+
+  function createAIAdapter(store) {
+    return {
+      plan: async () => { throw new Error('Kein KI-Provider verbunden'); },
+      validatePlan: plan => Boolean(plan && Array.isArray(plan.actions) && plan.actions.every(item => item && typeof item.name === 'string')),
+      applyPlan: plan => { if (!plan || !Array.isArray(plan.actions)) throw new TypeError('Ungültiger Action-Plan'); return plan.actions.map(item => store.get() && actions.apply(item.name, item.payload)); }
+    };
+  }
+
   const documentModel = importDocument();
   const store = createStore(documentModel);
   const actions = createActions(store);
   const persistence = createPersistence(store);
-  window.KPEditorV2 = Object.freeze({ SCHEMA_VERSION, importDocument, normalize, store, actions, persistence });
+  const renderer = createRenderer();
+  const context = createContextProvider(store);
+  const diagnostics = createDiagnostics(store);
+  const ai = createAIAdapter(store);
+  window.KPEditorV2 = Object.freeze({ SCHEMA_VERSION, importDocument, normalize, store, actions, persistence, renderer, context, diagnostics, ai });
 })();
