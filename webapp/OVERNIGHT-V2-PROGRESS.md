@@ -12,7 +12,7 @@ Dieses Protokoll dokumentiert den lokalen, produktionsfreien Ausbau des Standalo
 | C – Ebenenverwaltung | DONE | Mobiles Ebenenblatt mit lesbaren Typ-/Inhaltsnamen, synchroner Auswahl, vor/zurück/ganz-vorn/ganz-hinten, sichtbarer Stapelreihenfolge, Undo und Reload-Persistenz; Browser-Smoke auf 390/1440 grün. |
 | D – Medienbrowser | DONE | Durchsuchbare lokale Originalmedien-Galerie mit Vorschau, Verwerfen, genau einer Übernehmen-Transaktion, Undo und Reload-Persistenz; Bildladung und Browser-Smoke auf 390/1440 grün. |
 | E – Abschnitte | DONE | Auswahl, Sortierung, Vorlagen, Duplizieren/Löschen sowie Typ, Inhaltsbreite, Mindesthöhe, getrennte Innenabstände, Farbe, lokales Hintergrundbild und Presets; Preview, Undo und Reload-Persistenz auf 390/1440 grün. |
-| F – Header | PARTIAL | Basis-Presets vorhanden; Detailbearbeitung offen. |
+| F – Header | DONE | Titel, lokales Logo samt Größe/Position, Hintergrundfarbe/-bild, Höhe, Layout, Navigationsausrichtung/-abstand und Presets; Preview, Undo und Reload-Persistenz auf 390/1440 grün. |
 | G – Navigation | PARTIAL | Umbenennen, Hinzufügen, Sortieren und Löschen vorhanden. |
 | H – Mehrere Seiten | PARTIAL | Document Model vorbereitet; sichtbare Seitenverwaltung offen. |
 | I – Design Tokens | PARTIAL | Theme-Werte vorhanden; zentraler Token-Editor offen. |

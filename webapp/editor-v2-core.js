@@ -257,8 +257,25 @@
         if (header && doc.header?.design) {
           const design = doc.header.design;
           if (design.height != null) header.style.minHeight = `${Number(design.height) || 0}px`;
-          if (design.background != null) header.style.background = String(design.background);
+          if (design.background != null && design.backgroundColor == null) header.style.backgroundColor = String(design.background);
+          if (design.backgroundColor != null) header.style.backgroundColor = String(design.backgroundColor);
+          header.style.backgroundImage = String(design.backgroundImage || '');
           if (design.color != null) header.style.color = String(design.color);
+          header.dataset.v2HeaderLayout = design.layout || 'spread';
+          header.style.flexDirection = design.layout === 'stacked' ? 'column' : 'row';
+          header.style.justifyContent = design.layout === 'centered' ? 'center' : 'space-between';
+          const navNode = header.querySelector('#nav'), brand = header.querySelector('.brand');
+          if (navNode) { navNode.style.justifyContent = design.navPosition || 'end'; navNode.style.gap = (Number(design.gap) || 18) + 'px'; }
+          if (brand) {
+            const title = design.title || doc.header.elements?.[0]?.content?.text || 'Koblenzer Puppenspiele';
+            brand.replaceChildren();
+            if (design.logoSrc) {
+              const logo = document.createElement('img'); logo.className = 'kp-v2-header-logo'; logo.src = design.logoSrc; logo.alt = '';
+              logo.style.width = (Number(design.logoSize) || 42) + 'px'; logo.style.height = (Number(design.logoSize) || 42) + 'px';
+              const text = document.createElement('span'); text.textContent = title;
+              if (design.logoPosition === 'right') brand.append(text, logo); else brand.append(logo, text);
+            } else brand.textContent = title;
+          }
         }
         const theme = doc.site?.design;
         const variables = { accent: '--orange', background: '--brown', surface: '--bg', text: '--text', muted: '--muted' };

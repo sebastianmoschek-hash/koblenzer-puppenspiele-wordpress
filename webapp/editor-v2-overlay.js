@@ -79,13 +79,35 @@
   function headerSheet() {
     closeSheet();
     const panel = document.createElement('div'); panel.id = 'kpV2HeaderSheet';
-    panel.innerHTML = '<header><div><strong>Header gestalten</strong><small>Marke, Navigation und Höhe</small></div><button type="button" data-close>×</button></header><div class="kp-v2-header-grid"><button type="button" data-header="original">Original</button><button type="button" data-header="warm">Warmes Theater</button><button type="button" data-header="dark">Nachtbühne</button></div><label>Headerhöhe <output data-out>64</output> px<input data-height type="range" min="56" max="140" value="64"></label><footer><button type="button" data-cancel>Verwerfen</button><button type="button" data-accept disabled>Übernehmen</button></footer>';
-    const presets = { original: { preset: 'original', background: '#17100d', color: '#fff7ef', height: 64 }, warm: { preset: 'warm', background: '#4b2318', color: '#fff7ef', height: 76 }, dark: { preset: 'night', background: '#080d18', color: '#f8fafc', height: 70 } };
+    panel.innerHTML = '<header><div><strong>Header gestalten</strong><small>Logo, Titel, Navigation und Layout</small></div><button type="button" data-close>×</button></header><div class="kp-v2-header-grid"><button type="button" data-header="original">Original</button><button type="button" data-header="warm">Warmes Theater</button><button type="button" data-header="dark">Nachtbühne</button></div><div class="kp-v2-header-fields"><label>Titel<input data-title type="text"></label><label>Layout<select data-layout><option value="spread">Marke links</option><option value="centered">Zentriert</option><option value="stacked">Untereinander</option></select></label><label>Hintergrundfarbe<input data-background type="color"></label><label>Hintergrundbild<select data-background-image><option value="">Keins</option></select></label><label>Logo<select data-logo><option value="">Kein zusätzliches Logo</option></select></label><label>Logoposition<select data-logo-position><option value="left">Links</option><option value="right">Rechts</option></select></label><label>Navigation<select data-nav-position><option value="start">Links</option><option value="center">Mittig</option><option value="end">Rechts</option></select></label></div><label>Headerhöhe <output data-height-out>64</output> px<input data-height type="range" min="56" max="180" value="64"></label><label>Logogröße <output data-logo-size-out>42</output> px<input data-logo-size type="range" min="24" max="96" value="42"></label><label>Menüabstand <output data-gap-out>18</output> px<input data-gap type="range" min="4" max="44" value="18"></label><footer><button type="button" data-cancel>Verwerfen</button><button type="button" data-accept disabled>Übernehmen</button></footer>';
+    const current = { ...(v2.store.get().document.header?.design || {}) };
+    const originalTitle = v2.store.get().document.header?.elements?.[0]?.content?.text || 'Koblenzer Puppenspiele';
+    const presets = { original: { preset: 'original', backgroundColor: '#17100d', backgroundImage: '', color: '#fff7ef', height: 64, layout: 'spread', navPosition: 'end', gap: 18 }, warm: { preset: 'warm', backgroundColor: '#4b2318', backgroundImage: '', color: '#fff7ef', height: 76, layout: 'spread', navPosition: 'end', gap: 20 }, dark: { preset: 'night', backgroundColor: '#080d18', backgroundImage: '', color: '#f8fafc', height: 70, layout: 'centered', navPosition: 'center', gap: 16 } };
     const cancel = () => { v2.store.cancelPreview(); panel.remove(); };
     const preview = design => { v2.actions.previewBatch('Header-Design Vorschau', [{ name: 'setHeaderDesign', payload: [design] }]); panel.querySelector('[data-accept]').disabled = false; };
     panel.querySelector('[data-close]').onclick = cancel; panel.querySelector('[data-cancel]').onclick = cancel;
     panel.querySelectorAll('[data-header]').forEach(node => node.onclick = () => preview(presets[node.dataset.header]));
-    panel.querySelector('[data-height]').oninput = event => { panel.querySelector('[data-out]').value = event.target.value; preview({ height: Number(event.target.value) }); };
+    const images = window.KPEditorV2Media?.collect() || [], backgroundSelect = panel.querySelector('[data-background-image]'), logoSelect = panel.querySelector('[data-logo]');
+    images.forEach(item => {
+      const backgroundOption = document.createElement('option'); backgroundOption.value = 'url("' + item.src + '")'; backgroundOption.textContent = item.alt; backgroundSelect.append(backgroundOption);
+      const logoOption = document.createElement('option'); logoOption.value = item.src; logoOption.textContent = item.alt; logoSelect.append(logoOption);
+    });
+    panel.querySelector('[data-title]').value = current.title || originalTitle;
+    panel.querySelector('[data-layout]').value = current.layout || 'spread'; panel.querySelector('[data-logo-position]').value = current.logoPosition || 'left'; panel.querySelector('[data-nav-position]').value = current.navPosition || 'end';
+    panel.querySelector('[data-background]').value = /^#[0-9a-f]{6}$/i.test(current.backgroundColor || current.background || '') ? (current.backgroundColor || current.background) : '#17100d';
+    backgroundSelect.value = current.backgroundImage || ''; logoSelect.value = current.logoSrc || '';
+    const setRange = (name, value) => { panel.querySelector('[data-' + name + ']').value = value; panel.querySelector('[data-' + name + '-out]').value = value; };
+    setRange('height', Number(current.height) || 64); setRange('logo-size', Number(current.logoSize) || 42); setRange('gap', Number(current.gap) || 18);
+    panel.querySelector('[data-title]').oninput = event => preview({ title: event.target.value });
+    panel.querySelector('[data-layout]').onchange = event => preview({ layout: event.target.value });
+    panel.querySelector('[data-background]').oninput = event => preview({ backgroundColor: event.target.value });
+    backgroundSelect.onchange = event => preview({ backgroundImage: event.target.value });
+    logoSelect.onchange = event => preview({ logoSrc: event.target.value });
+    panel.querySelector('[data-logo-position]').onchange = event => preview({ logoPosition: event.target.value });
+    panel.querySelector('[data-nav-position]').onchange = event => preview({ navPosition: event.target.value });
+    panel.querySelector('[data-height]').oninput = event => { panel.querySelector('[data-height-out]').value = event.target.value; preview({ height: Number(event.target.value) }); };
+    panel.querySelector('[data-logo-size]').oninput = event => { panel.querySelector('[data-logo-size-out]').value = event.target.value; preview({ logoSize: Number(event.target.value) }); };
+    panel.querySelector('[data-gap]').oninput = event => { panel.querySelector('[data-gap-out]').value = event.target.value; preview({ gap: Number(event.target.value) }); };
     panel.querySelector('[data-accept]').onclick = () => { v2.store.commitPreview(); panel.remove(); feedback('Header-Design übernommen · Rückgängig möglich'); };
     document.body.append(panel);
   }
