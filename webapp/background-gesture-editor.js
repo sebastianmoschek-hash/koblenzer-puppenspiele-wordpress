@@ -1,0 +1,15 @@
+(()=>{
+'use strict';
+let active=null,start=null;
+const edit=()=>document.body.classList.contains('editing');
+const n=(v,d)=>Number.isFinite(parseFloat(v))?parseFloat(v):d;
+const d=(a,b)=>Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY);
+const a=(x,y)=>Math.atan2(y.clientY-x.clientY,y.clientX-x.clientX)*180/Math.PI;
+const m=(x,y)=>({x:(x.clientX+y.clientX)/2,y:(x.clientY+y.clientY)/2});
+function layer(el){let l=el.querySelector(':scope > .kp-bg-layer');if(l)return l;const bg=el.style.backgroundImage||'';const u=bg.match(/url\(["']?([^"')]+)["']?\)/);if(!u)return null;l=document.createElement('span');l.className='kp-bg-layer';l.style.backgroundImage='url("'+u[1]+'")';el.prepend(l);el.style.backgroundImage='none';if(getComputedStyle(el).position==='static')el.style.position='relative';return l}
+function apply(el){const l=layer(el);if(!l)return;l.style.opacity=String(n(el.dataset.kpBgOpacity,.65));l.style.transform='translate('+n(el.dataset.kpBgX,0)+'px,'+n(el.dataset.kpBgY,0)+'px) scale('+n(el.dataset.kpBgScale,1)+') rotate('+n(el.dataset.kpBgRotation,0)+'deg)'}
+function begin(e){if(!edit()||e.touches.length!==2)return;const el=e.target.closest('[data-kp-background-image]');if(!el)return;const t=e.touches,c=m(t[0],t[1]);active=el;start={dist:Math.max(1,d(t[0],t[1])),angle:a(t[0],t[1]),mid:c,scale:n(el.dataset.kpBgScale,1),rot:n(el.dataset.kpBgRotation,0),x:n(el.dataset.kpBgX,0),y:n(el.dataset.kpBgY,0),done:window.__kpUndoCheckpoint?.()};apply(el);e.preventDefault()}
+function move(e){if(!active||e.touches.length!==2)return;const t=e.touches,c=m(t[0],t[1]);active.dataset.kpBgScale=String(Math.max(.2,Math.min(6,start.scale*d(t[0],t[1])/start.dist)));active.dataset.kpBgRotation=String(start.rot+a(t[0],t[1])-start.angle);active.dataset.kpBgX=String(start.x+c.x-start.mid.x);active.dataset.kpBgY=String(start.y+c.y-start.mid.y);apply(active);e.preventDefault()}
+function end(e){if(!active||e.touches?.length>=2)return;start.done?.();active=null;start=null;window.markDirty?.('Hintergrundbild geändert – noch speichern')}
+document.addEventListener('touchstart',begin,{capture:true,passive:false});document.addEventListener('touchmove',move,{capture:true,passive:false});document.addEventListener('touchend',end,{capture:true,passive:false});document.addEventListener('touchcancel',end,{capture:true,passive:false});window.addEventListener('kp-editor-restored',()=>document.querySelectorAll('[data-kp-background-image]').forEach(apply));window.kpBackgroundGestures={apply};
+})();
