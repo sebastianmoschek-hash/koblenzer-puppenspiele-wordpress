@@ -124,7 +124,7 @@
         modelElements.forEach(element => {
           const node = root.querySelector(`[data-v2-id="${element.id}"]`);
           if (!node) return;
-          if (element.type === 'image') { node.setAttribute('src', element.content.src || ''); node.setAttribute('alt', element.content.alt || ''); }
+          if (element.type === 'image') { node.setAttribute('src', element.content.src || ''); node.setAttribute('alt', element.content.alt || ''); node.style.maxWidth = '100%'; node.style.height = 'auto'; }
           else if (typeof element.content?.text === 'string' && node.textContent !== element.content.text) node.textContent = element.content.text;
           if (element.type === 'button' && element.content?.href) node.setAttribute('href', element.content.href);
           Object.entries(element.styles || {}).forEach(([property, value]) => { if (value == null) node.style.removeProperty(property); else node.style[property] = typeof value === 'number' && ['fontSize', 'lineHeight', 'letterSpacing', 'borderRadius'].includes(property) ? `${value}px` : String(value); });
