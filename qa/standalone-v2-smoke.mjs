@@ -37,6 +37,11 @@ try {
       node.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 7, pointerType: 'touch', clientX: 30, clientY: 25 }));
       const dragged = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.transform;
       const gestureMoved = dragged?.x === 20 && dragged?.y === 15;
+      v2.actions.setTextStyle(heading.id, { fontSize: 42, color: '#d97706' });
+      const styled = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.styles.fontSize === 42;
+      const sectionCount = v2.store.get().document.pages[0].sections.length;
+      v2.actions.createSection('home', { design: { preset: 'smoke' } });
+      const sectionSlice = v2.store.get().document.pages[0].sections.length === sectionCount + 1;
       const image = elements.find(element => element.type === 'image');
       let imageSlice = false;
       if (image) {
@@ -50,7 +55,7 @@ try {
       }
       unbindGestures();
       unbind();
-      return { before, changed, restored, selected, gestureMoved, imageSlice, undoRestored: restored === before, schema: v2.SCHEMA_VERSION };
+      return { before, changed, restored, selected, gestureMoved, styled, sectionSlice, imageSlice, undoRestored: restored === before, schema: v2.SCHEMA_VERSION };
     });
     if (!result.undoRestored || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Undo fehlgeschlagen`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);

@@ -79,6 +79,8 @@
     return {
       selectElement: elementId => store.setSelection(elementId ? { elementId } : null),
       setText: (elementId, text) => store.transact('Text ändern', doc => { const found = find(doc.document, elementId); if (found && ['text', 'heading', 'button'].includes(found.element.type)) found.element.content.text = String(text); }),
+      setTextStyle: (elementId, styles = {}) => store.transact('Text gestalten', doc => { const found = find(doc.document, elementId); if (found && ['text', 'heading', 'button'].includes(found.element.type)) found.element.styles = { ...found.element.styles, ...clone(styles) }; }),
+      setButtonLink: (elementId, href) => store.transact('Button-Link ändern', doc => { const found = find(doc.document, elementId); if (found?.element.type === 'button') found.element.content.href = String(href); }),
       moveElement: (elementId, x, y) => store.transact('Element verschieben', doc => { const found = find(doc.document, elementId); if (found) { found.element.transform.x = Number(x) || 0; found.element.transform.y = Number(y) || 0; } }),
       resizeElement: (elementId, scale) => store.transact('Element skalieren', doc => { const found = find(doc.document, elementId); if (found) found.element.transform.scale = Math.max(.1, Math.min(10, Number(scale) || 1)); }),
       rotateElement: (elementId, rotation) => store.transact('Element drehen', doc => { const found = find(doc.document, elementId); if (found) found.element.transform.rotation = Number(rotation) || 0; }),
@@ -87,6 +89,9 @@
       setImageAdjustments: (elementId, adjustments = {}) => store.transact('Bild bearbeiten', doc => { const found = find(doc.document, elementId); if (found?.element.type === 'image') found.element.content.adjustments = { ...(found.element.content.adjustments || {}), ...clone(adjustments) }; }),
       resetImage: elementId => store.transact('Bild zurücksetzen', doc => { const found = find(doc.document, elementId); if (found?.element.type === 'image') { found.element.transform = { x: 0, y: 0, scale: 1, rotation: 0 }; delete found.element.content.adjustments; } }),
       deleteElement: elementId => store.transact('Element löschen', doc => { for (const page of doc.pages) for (const section of page.sections) section.elements = section.elements.filter(item => item.id !== elementId); }),
+      createSection: (pageId = 'home', section = {}) => store.transact('Abschnitt hinzufügen', doc => { const page = doc.pages.find(item => item.id === pageId) || doc.pages[0]; if (page) page.sections.push({ id: id('section'), order: page.sections.length, design: {}, elements: [], ...clone(section) }); }),
+      duplicateSection: sectionId => store.transact('Abschnitt duplizieren', doc => { for (const page of doc.pages) { const source = page.sections.find(section => section.id === sectionId); if (source) { const copy = clone(source); copy.id = id('section'); copy.order = page.sections.length; copy.elements.forEach(element => { element.id = id('el'); }); page.sections.push(copy); return; } } }),
+      deleteSection: sectionId => store.transact('Abschnitt löschen', doc => { for (const page of doc.pages) page.sections = page.sections.filter(section => section.id !== sectionId); }),
       apply: (name, payload) => { const action = actions[name]; if (typeof action !== 'function') throw new Error(`Unbekannte V2-Action: ${name}`); return action(...(Array.isArray(payload) ? payload : [payload])); }
     };
   }
