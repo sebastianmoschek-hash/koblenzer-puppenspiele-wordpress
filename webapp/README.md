@@ -1,5 +1,13 @@
 # Koblenzer Puppenspiele – Standalone Web-App
 
+Lokale Gesamtprüfung unter Windows:
+
+```powershell
+.\scripts\verify-all.ps1
+```
+
+Sie startet einen kurzlebigen lokalen PHP-Webserver, führt den mobilen und Desktop-Browsertest aus und beendet den Server anschließend. CircleCI, FTPS und Produktion werden dabei nicht verwendet.
+
 Experimentelle, vollständig von WordPress getrennte Version. Produktion und WordPress-Dateien werden nicht verändert.
 
 ## Lokal starten
