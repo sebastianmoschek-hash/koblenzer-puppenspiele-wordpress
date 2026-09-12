@@ -14,7 +14,7 @@ try {
     page.on('pageerror', error => pageErrors.push(String(error)));
     page.on('response', response => { if (response.status() >= 400) httpErrors.push(`${response.status()} ${response.url()}`); });
     await page.goto(baseURL, { waitUntil: 'networkidle' });
-    await page.waitForFunction(() => window.KPEditorV2 && window.KPEditorActions && window.KPEditorV2AI && window.KPEditorV2Backup && window.KPEditorV2Media);
+    await page.waitForFunction(() => window.KPEditorV2 && window.KPEditorActions && window.KPEditorV2AI && window.KPEditorV2Backup && window.KPEditorV2Media && window.KPEditorV2Keyboard);
     const serviceWorkerReady = await page.evaluate(async () => { if (!('serviceWorker' in navigator)) return false; const registration = await Promise.race([navigator.serviceWorker.ready, new Promise(resolve => setTimeout(() => resolve(null), 5000))]); return Boolean(registration?.active); });
     await page.locator('#edit').click();
     await page.waitForFunction(() => window.KPEditorV2.store.get().mode === 'edit');
@@ -155,6 +155,23 @@ try {
       v2.store.undo();
       const previewUndo = v2.store.get().document.site.design.preset === originalTheme;
       const previewTransactions = previewVisible && previewCancelled && previewCommitted && previewUndo;
+      const keyboardBefore = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.content.text;
+      v2.actions.setText(heading.id, 'Tastaturtest');
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+      const keyboardUndo = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.content.text === keyboardBefore;
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }));
+      const keyboardRedo = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.content.text === 'Tastaturtest';
+      v2.store.undo();
+      v2.actions.selectElement(heading.id);
+      const elementCountBeforeKeyboard = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).length;
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', ctrlKey: true, bubbles: true, cancelable: true }));
+      const keyboardDuplicate = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).length === elementCountBeforeKeyboard + 1;
+      v2.store.undo();
+      const input = document.createElement('input'); document.body.append(input); input.focus();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }));
+      const keyboardTypingSafe = Boolean(v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)); input.remove();
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      const keyboardContract = keyboardUndo && keyboardRedo && keyboardDuplicate && keyboardTypingSafe && !v2.store.get().selection;
       const backup = window.KPEditorV2Backup;
       const backupEntry = backup.remember('Smoke-Sicherung');
       const serializedBackup = backup.serialize();
@@ -185,7 +202,7 @@ try {
         backup.history && backup.restore && backup.read().length <= 20
       );
       const button = elements.find(element => element.type === 'button');
-      return { before, changed, restored, renderedText, selected, dragged, renderedTransform, gestureMoved, gestureRendered, batchTransaction, styled, sectionSlice, navigationSlice, navigationRendered, designSlice, duplicateDelete, imageSlice, pinchRotate, persistenceRestored, aiContractReady, schemaMigration, previewTransactions, backupContract, undoRestored: restored === before, schema: v2.SCHEMA_VERSION, imageId: image?.id || null, headingId: heading.id, buttonId: button?.id || null };
+      return { before, changed, restored, renderedText, selected, dragged, renderedTransform, gestureMoved, gestureRendered, batchTransaction, styled, sectionSlice, navigationSlice, navigationRendered, designSlice, duplicateDelete, imageSlice, pinchRotate, persistenceRestored, aiContractReady, schemaMigration, previewTransactions, keyboardContract, backupContract, undoRestored: restored === before, schema: v2.SCHEMA_VERSION, imageId: image?.id || null, headingId: heading.id, buttonId: button?.id || null };
     });
     const sectionCountBeforeUI = await page.evaluate(() => window.KPEditorV2.store.get().document.pages[0].sections.length);
     await page.locator('#aktuell').click({ position: { x: 5, y: 5 } });
@@ -385,7 +402,7 @@ try {
     result.imagesLoaded = imagesLoaded;
     result.serviceWorkerReady = serviceWorkerReady;
     if (!result.undoRestored || !result.renderedText || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Renderer/Undo fehlgeschlagen`);
-    if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.backupContract || !result.layerPanelUI || !result.mediaBrowserUI || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
+    if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.backupContract || !result.keyboardContract || !result.layerPanelUI || !result.mediaBrowserUI || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
     if (!result.editorVisible || !result.runtimeSelection || !result.contextualToolbar || !result.viewModeClean || !result.imagesLoaded || !result.serviceWorkerReady) failures.push(`${viewport.name}: Edit/View-Modus, Auswahl, Werkzeugleiste, Bildladung, Offline-Basis oder horizontaler Overflow fehlerhaft`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);
     if (httpErrors.length) failures.push(`${viewport.name}: HTTP ${httpErrors.join('; ')}`);

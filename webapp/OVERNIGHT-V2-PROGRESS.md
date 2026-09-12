@@ -18,7 +18,7 @@ Dieses Protokoll dokumentiert den lokalen, produktionsfreien Ausbau des Standalo
 | I – Design Tokens | PARTIAL | Theme-Werte vorhanden; zentraler Token-Editor offen. |
 | J – Responsive Hardening | PARTIAL | 390/820/1440 automatisiert geprüft; Zwischenbreiten offen. |
 | K – Barrierefreiheit | PARTIAL | Semantische Dialoggrundlagen vorhanden; vollständiger Tastatur-/Fokuslauf offen. |
-| L – Tastaturkürzel | NOT_DONE | Noch nicht begonnen. |
+| L – Tastaturkürzel | DONE | Ctrl/Cmd+Z, Shift+Z/Y, D, S, Delete/Backspace und Escape; Textfelder sind geschützt, Dialoge werden kontrolliert geschlossen; Browser-Smoke auf 390/1440 grün. |
 | M – Original/V2-Vergleich | PARTIAL | Inhaltsinventur und Visual-QA vorhanden; expliziter Vergleichsbericht offen. |
 | N/O – Legacy-Inventur/-Rückbau | PARTIAL | V2-Grenze dokumentiert und Legacy-Werkzeuge im V2-Modus deaktiviert; kontrollierter Rückbau offen. |
 | P – Offline/PWA | PARTIAL | Service Worker und Android-Offline-WebView funktionieren; gezielter Offline-Retest offen. |

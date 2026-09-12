@@ -28,6 +28,7 @@ Alternativ genügt im Verzeichnis `webapp` ein statischer Server auf Port 8080. 
 - Auf Gerät speichern: Document Model in `localStorage`; Laden wird mit Schema-Migration unterstützt.
 - Sicherung/Import: V2-Dokument als geprüfte JSON-Datei exportieren oder in einem anderen Browserprofil wiederherstellen; beschädigte, fremde und neuere inkompatible Schemas werden ohne Zustandsänderung abgewiesen. Bis zu 20 lokale Versionen bleiben zusätzlich auf dem Gerät und jeder Import ist per Undo rückgängig machbar.
 - Undo/Redo fasst Regler-, Bildeditor- und Batchänderungen sinnvoll zusammen.
+- Desktop-Tastatur: `Ctrl/Cmd+Z`, `Shift+Z`/`Ctrl+Y`, `Ctrl/Cmd+D`, `Ctrl/Cmd+S`, `Delete` und `Escape`; Eingabefelder bleiben davon sicher getrennt.
 
 ## KI-Status
 
