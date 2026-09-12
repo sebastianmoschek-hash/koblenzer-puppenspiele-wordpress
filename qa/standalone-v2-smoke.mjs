@@ -14,10 +14,11 @@ try {
     page.on('response', response => { if (response.status() >= 400) httpErrors.push(`${response.status()} ${response.url()}`); });
     await page.goto(baseURL, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => window.KPEditorV2 && window.KPEditorActions);
-    const result = await page.evaluate(() => {
+    const result = await page.evaluate(async () => {
       const v2 = window.KPEditorV2;
       v2.store.setMode('edit');
       const unbind = v2.renderer.bindSelection(document, v2.store);
+      const unbindGestures = v2.renderer.bindGestures(document, v2.store, v2.actions, { holdMs: 20 });
       const model = v2.store.get().document;
       const elements = model.pages.flatMap(page => page.sections).flatMap(section => section.elements);
       const heading = elements.find(element => element.type === 'heading');
@@ -29,8 +30,16 @@ try {
       v2.store.undo();
       const restored = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.content.text;
       const selected = v2.store.get().selection?.elementId === heading.id;
+      const node = document.querySelector(`[data-v2-id="${heading.id}"]`);
+      node.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 7, pointerType: 'touch', clientX: 10, clientY: 10 }));
+      await new Promise(resolve => setTimeout(resolve, 30));
+      node.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 7, pointerType: 'touch', clientX: 30, clientY: 25 }));
+      node.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 7, pointerType: 'touch', clientX: 30, clientY: 25 }));
+      const dragged = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.transform;
+      const gestureMoved = dragged?.x === 20 && dragged?.y === 15;
+      unbindGestures();
       unbind();
-      return { before, changed, restored, selected, undoRestored: restored === before, schema: v2.SCHEMA_VERSION };
+      return { before, changed, restored, selected, gestureMoved, undoRestored: restored === before, schema: v2.SCHEMA_VERSION };
     });
     if (!result.undoRestored || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Undo fehlgeschlagen`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);

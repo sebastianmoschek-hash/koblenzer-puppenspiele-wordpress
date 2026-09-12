@@ -111,6 +111,27 @@
         const handlers = nodes.map(node => { const handler = event => { if (store.get().mode === 'edit') { event.preventDefault(); event.stopPropagation(); store.setSelection({ elementId: node.dataset.v2Id }); } }; node.addEventListener('click', handler); return [node, handler]; });
         update(store.get());
         return () => { unsubscribe(); handlers.forEach(([node, handler]) => node.removeEventListener('click', handler)); nodes.forEach(node => { node.style.outline = ''; node.style.outlineOffset = ''; }); };
+      },
+      bindGestures(root, store, actions, { holdMs = 350, moveThreshold = 8 } = {}) {
+        if (!root || !store || !actions) throw new TypeError('Gestures benötigen Ziel-Element, Store und Actions');
+        const active = new Map();
+        const onDown = event => {
+          if (event.pointerType === 'mouse' && event.button !== 0) return;
+          const node = event.target.closest?.('[data-v2-id]');
+          if (!node || store.get().mode !== 'edit') return;
+          const point = { x: event.clientX, y: event.clientY, node, dragging: false };
+          point.timer = setTimeout(() => { point.dragging = true; store.setSelection({ elementId: node.dataset.v2Id }); try { node.setPointerCapture?.(event.pointerId); } catch (_) { /* synthetic pointers may not be capturable */ } }, holdMs);
+          active.set(event.pointerId, point);
+        };
+        const onMove = event => {
+          const point = active.get(event.pointerId); if (!point) return;
+          const dx = event.clientX - point.x, dy = event.clientY - point.y;
+          if (!point.dragging && Math.hypot(dx, dy) > moveThreshold) { clearTimeout(point.timer); active.delete(event.pointerId); return; }
+          if (point.dragging) { event.preventDefault(); actions.moveElement(point.node.dataset.v2Id, dx, dy); point.x = event.clientX; point.y = event.clientY; }
+        };
+        const onUp = event => { const point = active.get(event.pointerId); if (!point) return; clearTimeout(point.timer); active.delete(event.pointerId); };
+        root.addEventListener('pointerdown', onDown); root.addEventListener('pointermove', onMove, { passive: false }); root.addEventListener('pointerup', onUp); root.addEventListener('pointercancel', onUp);
+        return () => { active.forEach(point => clearTimeout(point.timer)); active.clear(); root.removeEventListener('pointerdown', onDown); root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerup', onUp); root.removeEventListener('pointercancel', onUp); };
       }
     };
   }
