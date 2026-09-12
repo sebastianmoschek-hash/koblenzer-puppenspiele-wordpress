@@ -10,7 +10,9 @@
   function elementFromDOM(node, index = 0) {
     const tag = node.tagName?.toLowerCase() || 'div';
     const type = tag === 'img' ? 'image' : tag === 'a' ? 'button' : /^h[1-6]$/.test(tag) ? 'heading' : 'text';
-    return { id: node.dataset?.v2Id || id('el'), type, order: index, content: type === 'image' ? { src: node.getAttribute('src') || '', alt: node.getAttribute('alt') || '' } : { text: node.textContent?.trim() || '' }, styles: {}, transform: { x: 0, y: 0, scale: 1, rotation: 0 }, source: { tag, className: node.className || '' } };
+    const elementId = node.dataset?.v2Id || id('el');
+    if (node.dataset) node.dataset.v2Id = elementId;
+    return { id: elementId, type, order: index, content: type === 'image' ? { src: node.getAttribute('src') || '', alt: node.getAttribute('alt') || '' } : { text: node.textContent?.trim() || '' }, styles: {}, transform: { x: 0, y: 0, scale: 1, rotation: 0 }, source: { tag, className: node.className || '' } };
   }
 
   function importDocument(root = document) {
@@ -100,6 +102,15 @@
         root.dataset.v2Schema = String(doc.schemaVersion || SCHEMA_VERSION);
         root.dataset.v2Rendered = 'true';
         return root;
+      },
+      bindSelection(root, store) {
+        if (!root || !store) throw new TypeError('Selection benötigt Ziel-Element und Store');
+        const nodes = [...root.querySelectorAll('[data-v2-id]')];
+        const update = state => nodes.forEach(node => { node.style.outline = state.mode === 'edit' && state.selection?.elementId === node.dataset.v2Id ? '2px solid #1683ff' : ''; node.style.outlineOffset = '2px'; });
+        const unsubscribe = store.subscribe(update);
+        const handlers = nodes.map(node => { const handler = event => { if (store.get().mode === 'edit') { event.preventDefault(); event.stopPropagation(); store.setSelection({ elementId: node.dataset.v2Id }); } }; node.addEventListener('click', handler); return [node, handler]; });
+        update(store.get());
+        return () => { unsubscribe(); handlers.forEach(([node, handler]) => node.removeEventListener('click', handler)); nodes.forEach(node => { node.style.outline = ''; node.style.outlineOffset = ''; }); };
       }
     };
   }
