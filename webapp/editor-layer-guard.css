@@ -1,0 +1,14 @@
+/* Editor chrome must always stay above transformed/zoomed page content. */
+.editing main,.editing main section,.editing main figure,.editing main img,.editing [data-kp-background-image],.editing .kp-bg-layer{z-index:auto!important}
+.editing main img,.editing .kp-bg-layer{isolation:auto!important}
+.editing #editor{z-index:2147483500!important}
+.editing #kpUniversalBar{z-index:2147483501!important}
+.editing #kpElementHandles,.editing #kpAreaActions{z-index:2147483502!important}
+.editing #kpHeaderSizer{z-index:2147483503!important}
+.editing .top{z-index:2147483400!important}
+.editing .top #menu,.editing .top nav{z-index:2147483450!important}
+.editing #kpDesignSheet,.editing #kpImageSourceSheet,.editing .kp-delete-sheet{z-index:2147483600!important}
+.editing #kpProImageEditor{z-index:2147483647!important}
+/* Large images may visually extend, but must not create a click shield over editor UI. */
+.editing img{max-width:none}
+#editor,#kpUniversalBar,#kpElementHandles,#kpAreaActions,#kpHeaderSizer,#kpDesignSheet,#kpImageSourceSheet,#kpProImageEditor,.top #menu,.top nav{pointer-events:auto!important}
