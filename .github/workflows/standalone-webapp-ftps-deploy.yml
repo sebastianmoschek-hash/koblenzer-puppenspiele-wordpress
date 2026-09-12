@@ -1,11 +1,8 @@
 name: Fast Standalone Webapp FTPS Deploy
 
+# FTPS is intentionally manual. Normal development on webapp-no-wordpress-test
+# is published only through GitHub Pages until the test-domain deploy is approved.
 on:
-  push:
-    branches: [webapp-no-wordpress-test]
-    paths:
-      - 'webapp/**'
-      - '.github/workflows/standalone-webapp-ftps-deploy.yml'
   workflow_dispatch:
 
 concurrency:
@@ -62,13 +59,11 @@ jobs:
           bye
           LFTP
 
-      - name: Verify exact deployed version
+      - name: Verify deployed test domain responds
         shell: bash
         run: |
           set -euo pipefail
           URL="https://neu.koblenzer-puppenspiele.de/?deploy=${GITHUB_SHA}"
           curl --fail --silent --show-error --location --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "$URL" -o /tmp/test-site.html
-          grep -q "app.css?v=20260911-15" /tmp/test-site.html
-          grep -q "design-editor.js?v=20260911-15" /tmp/test-site.html
-          grep -q "direct-manipulation.js?v=20260911-15" /tmp/test-site.html
-          echo "Exact v15 Android editor build is live on the test domain. Production was not modified."
+          grep -q "Koblenzer Puppenspiele" /tmp/test-site.html
+          echo "Manual test-domain deploy completed. Production was not modified."
