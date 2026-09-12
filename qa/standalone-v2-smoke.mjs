@@ -13,9 +13,10 @@ try {
     page.on('pageerror', error => pageErrors.push(String(error)));
     page.on('response', response => { if (response.status() >= 400) httpErrors.push(`${response.status()} ${response.url()}`); });
     await page.goto(baseURL, { waitUntil: 'networkidle' });
-    await page.waitForFunction(() => window.KPEditorV2 && window.KPEditorActions);
+    await page.waitForFunction(() => window.KPEditorV2 && window.KPEditorActions && window.KPEditorV2AI);
     const result = await page.evaluate(async () => {
       const v2 = window.KPEditorV2;
+      const aiContract = window.KPEditorV2AI;
       v2.store.setMode('edit');
       const unbind = v2.renderer.bindSelection(document, v2.store);
       const unbindGestures = v2.renderer.bindGestures(document, v2.store, v2.actions, { holdMs: 20 });
@@ -72,12 +73,20 @@ try {
       v2.actions.setText(heading.id, 'Nur vor Restore');
       const persistenceRestored = v2.persistence.restore() && v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.content.text !== 'Nur vor Restore' && v2.store.get().dirty === false;
       v2.persistence.clear();
+      const validPlan = aiContract.validatePlan({ actions: [{ name: 'setText', payload: [heading.id, 'KI-Vorschau'] }] }).ok;
+      const rejectedPlan = !aiContract.validatePlan({ actions: [{ name: 'runShell', payload: [] }] }).ok;
+      const liveSession = aiContract.createLiveSession();
+      liveSession.setMicrophoneSharing(true);
+      liveSession.setScreenSharing(true);
+      const privacyState = liveSession.getState();
+      liveSession.reset();
+      const aiContractReady = validPlan && rejectedPlan && privacyState.microphone && privacyState.screen && liveSession.getState().status === 'disconnected';
       unbindGestures();
       unbind();
-      return { before, changed, restored, selected, gestureMoved, styled, sectionSlice, navigationSlice, designSlice, duplicateDelete, imageSlice, persistenceRestored, undoRestored: restored === before, schema: v2.SCHEMA_VERSION };
+      return { before, changed, restored, selected, gestureMoved, styled, sectionSlice, navigationSlice, designSlice, duplicateDelete, imageSlice, persistenceRestored, aiContractReady, undoRestored: restored === before, schema: v2.SCHEMA_VERSION };
     });
     if (!result.undoRestored || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Undo fehlgeschlagen`);
-    if (!result.gestureMoved || !result.imageSlice || !result.sectionSlice || !result.navigationSlice || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored) failures.push(`${viewport.name}: V2-Slice unvollständig`);
+    if (!result.gestureMoved || !result.imageSlice || !result.sectionSlice || !result.navigationSlice || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.aiContractReady) failures.push(`${viewport.name}: V2-Slice unvollständig`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);
     if (httpErrors.length) failures.push(`${viewport.name}: HTTP ${httpErrors.join('; ')}`);
     await page.close();

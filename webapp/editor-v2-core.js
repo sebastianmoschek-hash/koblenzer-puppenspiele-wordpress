@@ -181,4 +181,10 @@
   const diagnostics = createDiagnostics(store);
   const ai = createAIAdapter(store);
   window.KPEditorV2 = Object.freeze({ SCHEMA_VERSION, importDocument, normalize, store, actions, persistence, renderer, context, diagnostics, ai });
+  if (!document.querySelector('script[data-kp-v2-ai]')) {
+    const script = document.createElement('script');
+    script.src = 'editor-v2-ai.js?v=20260912-1';
+    script.dataset.kpV2Ai = '1';
+    document.head.append(script);
+  }
 })();
