@@ -42,6 +42,21 @@ try {
       const sectionCount = v2.store.get().document.pages[0].sections.length;
       v2.actions.createSection('home', { design: { preset: 'smoke' } });
       const sectionSlice = v2.store.get().document.pages[0].sections.length === sectionCount + 1;
+      const navigationCount = v2.store.get().document.navigation.items.length;
+      v2.actions.createNavigationItem('Testseite', '#testseite');
+      const createdNavigation = v2.store.get().document.navigation.items.find(item => item.label === 'Testseite');
+      if (createdNavigation) v2.actions.renameNavigationItem(createdNavigation.id, 'Testseite neu');
+      const navigationSlice = v2.store.get().document.navigation.items.some(item => item.label === 'Testseite neu');
+      if (createdNavigation) v2.actions.deleteNavigationItem(createdNavigation.id);
+      v2.actions.setHeaderDesign({ preset: 'original', height: 88 });
+      v2.actions.applyTheme({ preset: 'original-koblenz', colors: { accent: '#d97706' } });
+      const designSlice = v2.store.get().document.header.design.height === 88 && v2.store.get().document.site.design.colors.accent === '#d97706' && v2.store.get().document.navigation.items.length === navigationCount;
+      const beforeDuplicate = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).map(element => element.id);
+      v2.actions.duplicateElement(heading.id);
+      const afterDuplicate = v2.store.get().document.pages[0].sections.flatMap(section => section.elements);
+      const duplicate = afterDuplicate.find(element => !beforeDuplicate.includes(element.id));
+      if (duplicate) v2.actions.deleteElement(duplicate.id);
+      const duplicateDelete = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).length === beforeDuplicate.length;
       const image = elements.find(element => element.type === 'image');
       let imageSlice = false;
       if (image) {
@@ -53,11 +68,16 @@ try {
         imageSlice = v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === image.id)?.content.adjustments?.brightness === 8;
         v2.store.undo();
       }
+      v2.persistence.save();
+      v2.actions.setText(heading.id, 'Nur vor Restore');
+      const persistenceRestored = v2.persistence.restore() && v2.store.get().document.pages[0].sections.flatMap(section => section.elements).find(element => element.id === heading.id)?.content.text !== 'Nur vor Restore' && v2.store.get().dirty === false;
+      v2.persistence.clear();
       unbindGestures();
       unbind();
-      return { before, changed, restored, selected, gestureMoved, styled, sectionSlice, imageSlice, undoRestored: restored === before, schema: v2.SCHEMA_VERSION };
+      return { before, changed, restored, selected, gestureMoved, styled, sectionSlice, navigationSlice, designSlice, duplicateDelete, imageSlice, persistenceRestored, undoRestored: restored === before, schema: v2.SCHEMA_VERSION };
     });
     if (!result.undoRestored || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Undo fehlgeschlagen`);
+    if (!result.gestureMoved || !result.imageSlice || !result.sectionSlice || !result.navigationSlice || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored) failures.push(`${viewport.name}: V2-Slice unvollständig`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);
     if (httpErrors.length) failures.push(`${viewport.name}: HTTP ${httpErrors.join('; ')}`);
     await page.close();

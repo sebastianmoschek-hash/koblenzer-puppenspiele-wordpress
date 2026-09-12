@@ -40,7 +40,7 @@
   }
 
   function createStore(initial) {
-    let state = { document: normalize(initial), selection: null, mode: 'view', viewport: 'desktop', dirty: false, persistence: 'idle' };
+    let state = { document: normalize(initial), selection: null, activePageId: 'home', activeSectionId: null, mode: 'view', viewport: 'desktop', breakpoint: 'desktop', gesture: { type: 'idle' }, dirty: false, persistence: 'idle', preview: null, aiContext: null, diagnosticsContext: null };
     const listeners = new Set();
     const history = [], future = [];
     const emit = () => listeners.forEach(listener => listener(state));
@@ -63,7 +63,9 @@
       snapshot,
       subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
       setMode: mode => set({ ...state, mode }),
+      setViewport: viewport => set({ ...state, viewport, breakpoint: viewport }),
       setSelection: selection => set({ ...state, selection }),
+      replaceDocument: (document, options = {}) => set({ ...state, document: normalize(document), selection: null, dirty: Boolean(options.dirty), persistence: options.persistence || state.persistence }),
       transact,
       undo: () => { const entry = history.pop(); if (!entry) return false; future.push(entry); set(entry.before); return true; },
       redo: () => { const entry = future.pop(); if (!entry) return false; history.push(entry); set(entry.after); return true; },
@@ -88,18 +90,26 @@
       replaceImage: (elementId, src, alt = '') => store.transact('Bild ersetzen', doc => { const found = find(doc.document, elementId); if (found?.element.type === 'image') { found.element.content.src = String(src); found.element.content.alt = String(alt); } }),
       setImageAdjustments: (elementId, adjustments = {}) => store.transact('Bild bearbeiten', doc => { const found = find(doc.document, elementId); if (found?.element.type === 'image') found.element.content.adjustments = { ...(found.element.content.adjustments || {}), ...clone(adjustments) }; }),
       resetImage: elementId => store.transact('Bild zurücksetzen', doc => { const found = find(doc.document, elementId); if (found?.element.type === 'image') { found.element.transform = { x: 0, y: 0, scale: 1, rotation: 0 }; delete found.element.content.adjustments; } }),
-      deleteElement: elementId => store.transact('Element löschen', doc => { for (const page of doc.pages) for (const section of page.sections) section.elements = section.elements.filter(item => item.id !== elementId); }),
+      deleteElement: elementId => store.transact('Element löschen', state => { for (const page of state.document.pages) for (const section of page.sections) section.elements = section.elements.filter(item => item.id !== elementId); if (state.selection?.elementId === elementId) state.selection = null; }),
       createSection: (pageId = 'home', section = {}) => store.transact('Abschnitt hinzufügen', state => { const page = state.document.pages.find(item => item.id === pageId) || state.document.pages[0]; if (page) page.sections.push({ id: id('section'), order: page.sections.length, design: {}, elements: [], ...clone(section) }); }),
       duplicateSection: sectionId => store.transact('Abschnitt duplizieren', state => { for (const page of state.document.pages) { const source = page.sections.find(section => section.id === sectionId); if (source) { const copy = clone(source); copy.id = id('section'); copy.order = page.sections.length; copy.elements.forEach(element => { element.id = id('el'); }); page.sections.push(copy); return; } } }),
       deleteSection: sectionId => store.transact('Abschnitt löschen', state => { for (const page of state.document.pages) page.sections = page.sections.filter(section => section.id !== sectionId); }),
+      setSectionDesign: (sectionId, design = {}) => store.transact('Abschnitt gestalten', state => { for (const page of state.document.pages) { const section = page.sections.find(item => item.id === sectionId); if (section) section.design = { ...section.design, ...clone(design) }; } }),
+      moveLayer: (elementId, direction) => store.transact('Ebene ändern', state => { const found = find(state.document, elementId); if (!found) return; const elements = found.section.elements; const index = elements.findIndex(item => item.id === elementId); const target = direction === 'front' ? elements.length - 1 : direction === 'back' ? 0 : Math.max(0, Math.min(elements.length - 1, index + (direction === 'forward' ? 1 : -1))); elements.splice(target, 0, elements.splice(index, 1)[0]); elements.forEach((element, order) => { element.order = order; }); }),
+      setHeaderDesign: design => store.transact('Header gestalten', state => { state.document.header.design = { ...(state.document.header.design || {}), ...clone(design || {}) }; }),
+      renameNavigationItem: (itemId, label) => store.transact('Menüpunkt umbenennen', state => { const item = state.document.navigation.items.find(entry => entry.id === itemId); if (item) item.label = String(label); }),
+      createNavigationItem: (label, href = '#') => store.transact('Menüpunkt hinzufügen', state => { state.document.navigation.items.push({ id: id('nav'), label: String(label), href: String(href), order: state.document.navigation.items.length }); }),
+      deleteNavigationItem: itemId => store.transact('Menüpunkt löschen', state => { state.document.navigation.items = state.document.navigation.items.filter(item => item.id !== itemId); state.document.navigation.items.forEach((item, order) => { item.order = order; }); }),
+      applyTheme: theme => store.transact('Website-Design anwenden', state => { state.document.site.design = { ...state.document.site.design, ...clone(theme || {}) }; }),
       apply: (name, payload) => { const action = actions[name]; if (typeof action !== 'function') throw new Error(`Unbekannte V2-Action: ${name}`); return action(...(Array.isArray(payload) ? payload : [payload])); }
     };
   }
 
   function createPersistence(store, key = 'kp-editor-v2-document') {
     return {
-      save: () => { const value = store.get().document; localStorage.setItem(key, JSON.stringify(value)); return value; },
+      save: () => { const value = store.get().document; localStorage.setItem(key, JSON.stringify(value)); store.replaceDocument(value, { dirty: false, persistence: 'saved' }); return value; },
       load: () => { const raw = localStorage.getItem(key); return raw ? normalize(JSON.parse(raw)) : null; },
+      restore: () => { const raw = localStorage.getItem(key); if (!raw) return false; store.replaceDocument(JSON.parse(raw), { dirty: false, persistence: 'loaded' }); return true; },
       clear: () => localStorage.removeItem(key)
     };
   }
@@ -128,7 +138,8 @@
           if (event.pointerType === 'mouse' && event.button !== 0) return;
           const node = event.target.closest?.('[data-v2-id]');
           if (!node || store.get().mode !== 'edit') return;
-          const point = { x: event.clientX, y: event.clientY, node, dragging: false };
+          const found = (() => { for (const page of store.get().document.pages) for (const section of page.sections) { const element = section.elements.find(item => item.id === node.dataset.v2Id); if (element) return element; } return null; })();
+          const point = { x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, originX: found?.transform?.x || 0, originY: found?.transform?.y || 0, node, dragging: false };
           point.timer = setTimeout(() => { point.dragging = true; store.setSelection({ elementId: node.dataset.v2Id }); try { node.setPointerCapture?.(event.pointerId); } catch (_) { /* synthetic pointers may not be capturable */ } }, holdMs);
           active.set(event.pointerId, point);
         };
@@ -136,9 +147,9 @@
           const point = active.get(event.pointerId); if (!point) return;
           const dx = event.clientX - point.x, dy = event.clientY - point.y;
           if (!point.dragging && Math.hypot(dx, dy) > moveThreshold) { clearTimeout(point.timer); active.delete(event.pointerId); return; }
-          if (point.dragging) { event.preventDefault(); actions.moveElement(point.node.dataset.v2Id, dx, dy); point.x = event.clientX; point.y = event.clientY; }
+          if (point.dragging) { event.preventDefault(); point.x = event.clientX; point.y = event.clientY; point.node.style.transform = `translate(${point.originX + event.clientX - point.startX}px, ${point.originY + event.clientY - point.startY}px)`; }
         };
-        const onUp = event => { const point = active.get(event.pointerId); if (!point) return; clearTimeout(point.timer); active.delete(event.pointerId); };
+        const onUp = event => { const point = active.get(event.pointerId); if (!point) return; clearTimeout(point.timer); if (point.dragging) { actions.moveElement(point.node.dataset.v2Id, point.originX + point.x - point.startX, point.originY + point.y - point.startY); point.node.style.transform = ''; } active.delete(event.pointerId); };
         root.addEventListener('pointerdown', onDown); root.addEventListener('pointermove', onMove, { passive: false }); root.addEventListener('pointerup', onUp); root.addEventListener('pointercancel', onUp);
         return () => { active.forEach(point => clearTimeout(point.timer)); active.clear(); root.removeEventListener('pointerdown', onDown); root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerup', onUp); root.removeEventListener('pointercancel', onUp); };
       }
