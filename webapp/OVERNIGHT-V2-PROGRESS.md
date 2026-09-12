@@ -8,7 +8,7 @@ Dieses Protokoll dokumentiert den lokalen, produktionsfreien Ausbau des Standalo
 | Paket | Status | Nachweis / offener Punkt |
 |---|---|---|
 | A – Export, Import, Sicherungen | DONE | Portabler JSON-Export/-Import, 20 lokale Versionen, Schema-/Größen-/Typ-/ID-Prüfung, Migration, transaktionales Undo und Datenbereinigung; Browser-Smoke auf 390/1440 sowie vollständiger Web-/Visual-/Android-Lauf grün. |
-| B – Schriftfamilien | NOT_DONE | Noch nicht begonnen. |
+| B – Schriftfamilien | DONE | System-, Georgia-, Trebuchet-, Arial-, Times- und Courier-Auswahl für Text, Überschriften und Buttons; Live-Vorschau, eine Commit-Transaktion, Undo und Reload-Persistenz im Browser-Smoke auf 390/1440 grün. |
 | C – Ebenenverwaltung | PARTIAL | Zentrale `moveLayer`-Action vorhanden; vollständige mobile Oberfläche fehlt. |
 | D – Medienbrowser | NOT_DONE | Noch nicht begonnen. |
 | E – Abschnitte | PARTIAL | Auswahl, Vorlagen, Verschieben, Duplizieren, Löschen und Basisdesign vorhanden. |

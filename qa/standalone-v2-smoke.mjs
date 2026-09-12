@@ -241,10 +241,11 @@ try {
     await page.locator(`[data-v2-id="${result.headingId}"]`).click();
     await page.locator('#kpV2Toolbar [data-v2-tool="edit"]').click();
     await page.locator('#kpElementSheet [data-content]').fill('Texteditor Browserprüfung');
+    await page.locator('#kpElementSheet [data-font]').selectOption({ label: 'Georgia' });
     await page.locator('#kpElementSheet [data-size]').fill('38');
     await page.locator('#kpElementSheet [data-align="center"]').click();
     await page.locator('#kpElementSheet [data-done]').click();
-    result.textEditorUI = await page.evaluate(({ id, before }) => { const element = window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(item => item.id === id), ok = element?.content.text === 'Texteditor Browserprüfung' && element?.styles.fontSize === 38 && element?.styles.textAlign === 'center' && document.querySelector(`[data-v2-id="${id}"]`)?.textContent === 'Texteditor Browserprüfung' && window.KPEditorV2.store.history().undo === before + 1; window.KPEditorV2.store.undo(); return ok; }, { id: result.headingId, before: textEditorBefore });
+    result.textEditorUI = await page.evaluate(({ id, before }) => { const element = window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(item => item.id === id), node = document.querySelector(`[data-v2-id="${id}"]`), ok = element?.content.text === 'Texteditor Browserprüfung' && element?.styles.fontSize === 38 && element?.styles.textAlign === 'center' && element?.styles.fontFamily?.startsWith('Georgia') && node?.textContent === 'Texteditor Browserprüfung' && getComputedStyle(node).fontFamily.includes('Georgia') && window.KPEditorV2.store.history().undo === before + 1; window.KPEditorV2.store.undo(); return ok; }, { id: result.headingId, before: textEditorBefore });
     result.buttonEditorUI = false;
     if (result.buttonId) {
       const buttonEditorBefore = await page.evaluate(() => window.KPEditorV2.store.history().undo);
@@ -280,13 +281,13 @@ try {
     }
     result.imageEditorUI = imageEditorUI;
     const reloadText = 'Gespeicherter V2-Neustarttest';
-    await page.evaluate(({ id, text }) => { window.KPEditorV2.actions.setText(id, text); window.KPEditorV2.persistence.save(); }, { id: result.headingId, text: reloadText });
+    await page.evaluate(({ id, text }) => { window.KPEditorV2.actions.executeBatch('Neustarttest', [{ name: 'setText', payload: [id, text] }, { name: 'setTextStyle', payload: [id, { fontFamily: 'Georgia, "Times New Roman", serif' }] }]); window.KPEditorV2.persistence.save(); }, { id: result.headingId, text: reloadText });
     const reloadPage = await page.context().newPage();
     const reloadErrors = [];
     reloadPage.on('pageerror', error => reloadErrors.push(String(error)));
     await reloadPage.goto(baseURL, { waitUntil: 'networkidle' });
     await reloadPage.waitForFunction(() => window.KPEditorV2?.store.get().persistence === 'loaded', null, { timeout: 5000 });
-    result.reloadPersistence = await reloadPage.evaluate(({ id, text }) => { const element = window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(item => item.id === id); return element?.content.text === text && document.querySelector(`[data-v2-id="${id}"]`)?.textContent === text; }, { id: result.headingId, text: reloadText });
+    result.reloadPersistence = await reloadPage.evaluate(({ id, text }) => { const element = window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(item => item.id === id), node = document.querySelector(`[data-v2-id="${id}"]`); return element?.content.text === text && element?.styles.fontFamily?.startsWith('Georgia') && node?.textContent === text && getComputedStyle(node).fontFamily.includes('Georgia'); }, { id: result.headingId, text: reloadText });
     result.reloadErrors = reloadErrors;
     await reloadPage.close();
     await page.evaluate(() => { window.KPEditorV2.store.undo(); window.KPEditorV2.persistence.clear(); });

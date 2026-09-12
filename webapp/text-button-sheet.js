@@ -5,6 +5,15 @@
   const editing = () => document.body.classList.contains('editing');
   const textSelector = 'h1,h2,h3,h4,h5,h6,p,li,figcaption,blockquote,.brand';
   const buttonSelector = 'a.btn,a.ghost,main button';
+  const fonts = [
+    ['system', 'Systemschrift', 'system-ui, -apple-system, "Segoe UI", sans-serif'],
+    ['georgia', 'Georgia', 'Georgia, "Times New Roman", serif'],
+    ['trebuchet', 'Trebuchet', '"Trebuchet MS", Arial, sans-serif'],
+    ['arial', 'Arial', 'Arial, Helvetica, sans-serif'],
+    ['times', 'Times', '"Times New Roman", Times, serif'],
+    ['mono', 'Courier', '"Courier New", Courier, monospace']
+  ];
+  const fontOptions = () => fonts.map(([key, label, value]) => `<option value="${value}" data-font-key="${key}">${label}</option>`).join('');
   const number = (value, fallback) => Number.isFinite(parseFloat(value)) ? parseFloat(value) : fallback;
   const hex = color => { const values = String(color).match(/\d+/g); return !values || values.length < 3 ? '#ffffff' : `#${values.slice(0, 3).map(value => (+value).toString(16).padStart(2, '0')).join('')}`; };
   function modelElement() {
@@ -28,7 +37,7 @@
     if (panel) return panel;
     panel = document.createElement('div');
     panel.id = 'kpElementSheet'; panel.hidden = true;
-    panel.innerHTML = `<div class="kp-es-scrim"></div><div class="kp-es-sheet"><div class="kp-es-grab"></div><header><strong data-title>Bearbeiten</strong><button data-done>Fertig</button></header><main><section data-text><label>Text<textarea data-content rows="3"></textarea></label><div class="kp-es-row"><button data-align="left">Links</button><button data-align="center">Mitte</button><button data-align="right">Rechts</button></div>${slider('size','Schriftgröße',10,96,1)}${slider('lineheight','Zeilenabstand',.8,2.2,.05)}${slider('spacing','Zeichenabstand',-2,8,.25)}<label>Textfarbe <input data-color type="color"></label><div class="kp-es-row"><button data-bold>Fett</button><button data-italic>Kursiv</button></div></section><section data-button hidden><label>Buttontext<input data-label type="text"></label><label>Link<input data-link type="text" inputmode="url" placeholder="#abschnitt oder https://…"></label><label>Buttonfarbe <input data-bg type="color"></label><label>Textfarbe <input data-bcolor type="color"></label>${slider('bsize','Schriftgröße',10,48,1)}${slider('radius','Rundung',0,40,1)}</section></main></div>`;
+    panel.innerHTML = `<div class="kp-es-scrim"></div><div class="kp-es-sheet"><div class="kp-es-grab"></div><header><strong data-title>Bearbeiten</strong><button data-done>Fertig</button></header><main><section data-text><label>Text<textarea data-content rows="3"></textarea></label><label>Schriftart<select data-font>${fontOptions()}</select></label><div class="kp-es-row"><button data-align="left">Links</button><button data-align="center">Mitte</button><button data-align="right">Rechts</button></div>${slider('size','Schriftgröße',10,96,1)}${slider('lineheight','Zeilenabstand',.8,2.2,.05)}${slider('spacing','Zeichenabstand',-2,8,.25)}<label>Textfarbe <input data-color type="color"></label><div class="kp-es-row"><button data-bold>Fett</button><button data-italic>Kursiv</button></div></section><section data-button hidden><label>Buttontext<input data-label type="text"></label><label>Link<input data-link type="text" inputmode="url" placeholder="#abschnitt oder https://…"></label><label>Schriftart<select data-bfont>${fontOptions()}</select></label><label>Buttonfarbe <input data-bg type="color"></label><label>Textfarbe <input data-bcolor type="color"></label>${slider('bsize','Schriftgröße',10,48,1)}${slider('radius','Rundung',0,40,1)}</section></main></div>`;
     document.body.append(panel);
     panel.querySelector('[data-done]').onclick = finish;
     panel.querySelector('.kp-es-scrim').onclick = cancel;
@@ -41,6 +50,7 @@
     bindRange('[data-bsize]', 'fontSize', 'fontSize', '[data-bsize-out]', 16);
     bindRange('[data-radius]', 'borderRadius', 'borderRadius', '[data-radius-out]');
     panel.querySelector('[data-color]').oninput = event => { checkpoint(); draft.styles.color = event.target.value; preview('color', event.target.value); };
+    panel.querySelectorAll('[data-font],[data-bfont]').forEach(select => select.onchange = event => { checkpoint(); draft.styles.fontFamily = event.target.value; preview('fontFamily', event.target.value); });
     panel.querySelector('[data-bold]').onclick = () => { checkpoint(); draft.styles.fontWeight = String(draft.styles.fontWeight ?? draft.effective.fontWeight) >= '600' ? '400' : '800'; preview('fontWeight', draft.styles.fontWeight); };
     panel.querySelector('[data-italic]').onclick = () => { checkpoint(); draft.styles.fontStyle = (draft.styles.fontStyle ?? draft.effective.fontStyle) === 'italic' ? 'normal' : 'italic'; preview('fontStyle', draft.styles.fontStyle); };
     panel.querySelector('[data-label]').oninput = event => { checkpoint(); draft.text = event.target.value; preview('text', draft.text); };
@@ -60,10 +70,10 @@
     if (!isButton && !isText) return;
     target = element; legacyDone = null; v2TargetId = element.dataset.v2Id && window.KPEditorV2 ? element.dataset.v2Id : ''; legacyBefore = v2TargetId ? '' : window.__kpHistory?.snapshot?.() || '';
     const computed = getComputedStyle(element), model = modelElement(), computedFontSize = number(computed.fontSize, 16), computedLineHeight = computed.lineHeight === 'normal' ? 1.2 : number(computed.lineHeight, computedFontSize * 1.2) / computedFontSize;
-    draft = { type: isButton ? 'button' : 'text', text: model?.content?.text ?? element.textContent, href: model?.content?.href ?? element.getAttribute('href') ?? '#', styles: { ...(model?.styles || {}) }, effective: { fontSize: computedFontSize, lineHeight: computedLineHeight, letterSpacing: number(computed.letterSpacing, 0), color: hex(computed.color), background: hex(computed.backgroundColor), borderRadius: number(computed.borderRadius, 0), fontWeight: computed.fontWeight, fontStyle: computed.fontStyle, textAlign: computed.textAlign } };
+    draft = { type: isButton ? 'button' : 'text', text: model?.content?.text ?? element.textContent, href: model?.content?.href ?? element.getAttribute('href') ?? '#', styles: { ...(model?.styles || {}) }, effective: { fontFamily: computed.fontFamily, fontSize: computedFontSize, lineHeight: computedLineHeight, letterSpacing: number(computed.letterSpacing, 0), color: hex(computed.color), background: hex(computed.backgroundColor), borderRadius: number(computed.borderRadius, 0), fontWeight: computed.fontWeight, fontStyle: computed.fontStyle, textAlign: computed.textAlign } };
     const panel = ui(); panel.hidden = false; panel.querySelector('.kp-es-sheet').style.transform = ''; panel.querySelector('[data-title]').textContent = isButton ? 'Button bearbeiten' : 'Text bearbeiten'; panel.querySelector('[data-text]').hidden = isButton; panel.querySelector('[data-button]').hidden = !isButton;
-    if (isButton) { panel.querySelector('[data-label]').value = draft.text; panel.querySelector('[data-link]').value = draft.href; panel.querySelector('[data-bg]').value = draft.styles.background ?? draft.effective.background; panel.querySelector('[data-bcolor]').value = draft.styles.color ?? draft.effective.color; setRange(panel, 'bsize', Math.round(draft.styles.fontSize ?? draft.effective.fontSize)); setRange(panel, 'radius', Math.round(draft.styles.borderRadius ?? draft.effective.borderRadius)); }
-    else { panel.querySelector('[data-content]').value = draft.text; panel.querySelector('[data-color]').value = draft.styles.color ?? draft.effective.color; setRange(panel, 'size', Math.round(draft.styles.fontSize ?? draft.effective.fontSize)); setRange(panel, 'lineheight', number(draft.styles.lineHeight ?? draft.effective.lineHeight, 1.2).toFixed(2), ''); setRange(panel, 'spacing', number(draft.styles.letterSpacing ?? draft.effective.letterSpacing, 0)); }
+    if (isButton) { panel.querySelector('[data-label]').value = draft.text; panel.querySelector('[data-link]').value = draft.href; panel.querySelector('[data-bfont]').value = draft.styles.fontFamily ?? fonts[0][2]; panel.querySelector('[data-bg]').value = draft.styles.background ?? draft.effective.background; panel.querySelector('[data-bcolor]').value = draft.styles.color ?? draft.effective.color; setRange(panel, 'bsize', Math.round(draft.styles.fontSize ?? draft.effective.fontSize)); setRange(panel, 'radius', Math.round(draft.styles.borderRadius ?? draft.effective.borderRadius)); }
+    else { panel.querySelector('[data-content]').value = draft.text; panel.querySelector('[data-font]').value = draft.styles.fontFamily ?? fonts[0][2]; panel.querySelector('[data-color]').value = draft.styles.color ?? draft.effective.color; setRange(panel, 'size', Math.round(draft.styles.fontSize ?? draft.effective.fontSize)); setRange(panel, 'lineheight', number(draft.styles.lineHeight ?? draft.effective.lineHeight, 1.2).toFixed(2), ''); setRange(panel, 'spacing', number(draft.styles.letterSpacing ?? draft.effective.letterSpacing, 0)); }
     document.body.classList.add('kp-element-sheet-open');
   }
   function finish() {

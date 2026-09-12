@@ -18,7 +18,7 @@ Alternativ genügt im Verzeichnis `webapp` ein statischer Server auf Port 8080. 
 - `Bearbeiten` öffnet den V2-Modus.
 - Element antippen zeigt nur passende Werkzeuge.
 - Bilder: Filter, Anpassungen, Zuschneiden, Drehen, Spiegeln, Duplizieren und Ebenen.
-- Texte und Buttons: Inhalt, Schriftgestaltung, Farben, Ausrichtung, Link und Form.
+- Texte und Buttons: Inhalt, sechs Schriftfamilien, Schriftgestaltung, Farben, Ausrichtung, Link und Form.
 - Abschnitte: Text-, Bild- oder Call-to-Action-Vorlage hinzufügen, sortieren, gestalten, duplizieren und löschen.
 - Header/Navigation: Design umschalten sowie Menüpunkte bearbeiten, ergänzen, sortieren und löschen.
 - Responsive Ansicht: Smartphone, Tablet oder Desktop als kontrollierte Editor-Vorschau auswählen.
