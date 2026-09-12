@@ -7,7 +7,7 @@ Lokale Gesamtprüfung unter Windows:
 ```
 
 Sie startet einen kurzlebigen lokalen PHP-Webserver, führt den mobilen und Desktop-Browsertest aus und beendet den Server anschließend. CircleCI, FTPS und Produktion werden dabei nicht verwendet.
-Zusätzlich baut sie die vorhandene Android-App und prüft, ob eine Debug-APK erzeugt wurde. Mit `.\scripts\install-android.ps1` wird diese bei vorhandenem Emulator oder freigegebenem Gerät installiert und gestartet.
+Zusätzlich baut sie die vorhandene Android-App und prüft, ob eine Debug-APK erzeugt wurde. Bei verbundenem Emulator/Gerät folgen automatisch Installation, Start, Prozessprüfung, Logcat-Absturzprüfung und Screenshot. Diese Schritte lassen sich einzeln mit `.\scripts\install-android.ps1` und `.\scripts\test-android.ps1` ausführen.
 
 Experimentelle, vollständig von WordPress getrennte Version. Produktion und WordPress-Dateien werden nicht verändert.
 
