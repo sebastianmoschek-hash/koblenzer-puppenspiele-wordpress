@@ -39,6 +39,14 @@
     return out;
   }
 
+  function migrate(doc) {
+    const source = clone(doc || {});
+    const version = Number(source.schemaVersion) || 0;
+    if (version > SCHEMA_VERSION) throw new Error(`Dokumentschema ${version} wird noch nicht unterstützt`);
+    if (version === 0) { source.schemaVersion = 1; source.meta = { ...(source.meta || {}), migratedFrom: 0, migratedAt: new Date().toISOString() }; }
+    return normalize(source);
+  }
+
   function createStore(initial) {
     let state = { document: normalize(initial), selection: null, activePageId: 'home', activeSectionId: null, mode: 'view', viewport: 'desktop', breakpoint: 'desktop', gesture: { type: 'idle' }, dirty: false, persistence: 'idle', preview: null, aiContext: null, diagnosticsContext: null };
     const listeners = new Set();
@@ -58,6 +66,21 @@
       set(draft);
       return result;
     };
+    const preview = (label, mutator) => {
+      const before = state.preview?.before || snapshot();
+      const draft = snapshot();
+      draft.preview = { label, before };
+      mutator(draft);
+      set(draft);
+      return draft;
+    };
+    const commitPreview = () => {
+      if (!state.preview) return false;
+      const { label, before } = state.preview;
+      const after = snapshot(); after.preview = null; after.dirty = true;
+      history.push({ label, before, after, at: Date.now() }); future.length = 0; set(after); return true;
+    };
+    const cancelPreview = () => { if (!state.preview) return false; const before = state.preview.before; set(before); return true; };
     return {
       get: () => state,
       snapshot,
@@ -67,6 +90,9 @@
       setSelection: selection => set({ ...state, selection }),
       replaceDocument: (document, options = {}) => set({ ...state, document: normalize(document), selection: null, dirty: Boolean(options.dirty), persistence: options.persistence || state.persistence }),
       transact,
+      preview,
+      commitPreview,
+      cancelPreview,
       undo: () => { const entry = history.pop(); if (!entry) return false; future.push(entry); set(entry.before); return true; },
       redo: () => { const entry = future.pop(); if (!entry) return false; history.push(entry); set(entry.after); return true; },
       history: () => ({ undo: history.length, redo: future.length })
@@ -108,8 +134,8 @@
   function createPersistence(store, key = 'kp-editor-v2-document') {
     return {
       save: () => { const value = store.get().document; localStorage.setItem(key, JSON.stringify(value)); store.replaceDocument(value, { dirty: false, persistence: 'saved' }); return value; },
-      load: () => { const raw = localStorage.getItem(key); return raw ? normalize(JSON.parse(raw)) : null; },
-      restore: () => { const raw = localStorage.getItem(key); if (!raw) return false; store.replaceDocument(JSON.parse(raw), { dirty: false, persistence: 'loaded' }); return true; },
+      load: () => { const raw = localStorage.getItem(key); return raw ? migrate(JSON.parse(raw)) : null; },
+      restore: () => { const raw = localStorage.getItem(key); if (!raw) return false; store.replaceDocument(migrate(JSON.parse(raw)), { dirty: false, persistence: 'loaded' }); return true; },
       clear: () => localStorage.removeItem(key)
     };
   }
@@ -211,7 +237,7 @@
   document.getElementById('edit')?.addEventListener('click', () => store.setMode('edit'));
   document.getElementById('close')?.addEventListener('click', () => { store.setSelection(null); store.setMode('view'); });
   window.addEventListener('load', () => setTimeout(() => refreshFromDOM(document), 300), { once: true });
-  window.KPEditorV2 = Object.freeze({ SCHEMA_VERSION, importDocument, normalize, refreshFromDOM, store, actions, persistence, renderer, context, diagnostics, ai, runtime });
+  window.KPEditorV2 = Object.freeze({ SCHEMA_VERSION, importDocument, normalize, migrate, refreshFromDOM, store, actions, persistence, renderer, context, diagnostics, ai, runtime });
   if (!document.querySelector('script[data-kp-v2-ai]')) {
     const script = document.createElement('script');
     script.src = 'editor-v2-ai.js?v=20260912-1';
