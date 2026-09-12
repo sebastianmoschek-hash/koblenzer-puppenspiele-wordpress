@@ -402,16 +402,25 @@ try {
     const viewModeState = await page.evaluate(() => ({ clean: window.KPEditorV2.store.get().selection === null && document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1, scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth, overflowNodes: [...document.querySelectorAll('html,body,body *')].filter(node => { const rect = node.getBoundingClientRect(); return rect.right > innerWidth + 1 || rect.left < -1 || node.scrollWidth > node.clientWidth + 1; }).slice(0, 12).map(node => ({ tag: node.tagName, id: node.id, className: String(node.className || ''), left: Math.round(node.getBoundingClientRect().left), right: Math.round(node.getBoundingClientRect().right), scrollWidth: node.scrollWidth, clientWidth: node.clientWidth, display: getComputedStyle(node).display, transform: getComputedStyle(node).transform })) }));
     const viewModeClean = viewModeState.clean;
     const imagesLoaded = await page.evaluate(() => [...document.images].every(image => image.complete && image.naturalWidth > 0));
+    await context.setOffline(true);
+    let offlineReady = false;
+    try {
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.waitForFunction(() => window.KPEditorV2 && document.querySelectorAll('main > section').length >= 9, null, { timeout: 10000 });
+      await page.evaluate(async () => { document.querySelectorAll('img').forEach(image => { image.loading = 'eager'; }); await Promise.all([...document.images].map(image => image.decode().catch(() => null))); });
+      offlineReady = await page.evaluate(() => Boolean(window.KPEditorV2 && document.querySelector('h1')?.textContent && document.querySelectorAll('main > section').length >= 9 && [...document.images].every(image => image.complete && image.naturalWidth > 0)));
+    } finally { await context.setOffline(false); }
     result.editorVisible = editorVisible;
     result.runtimeSelection = runtimeSelection;
     result.contextualToolbar = contextualToolbar;
     result.viewModeClean = viewModeClean;
     result.viewModeState = viewModeState;
     result.imagesLoaded = imagesLoaded;
+    result.offlineReady = offlineReady;
     result.serviceWorkerReady = serviceWorkerReady;
     if (!result.undoRestored || !result.renderedText || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Renderer/Undo fehlgeschlagen`);
     if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.backupContract || !result.keyboardContract || !result.layerPanelUI || !result.mediaBrowserUI || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
-    if (!result.editorVisible || !result.runtimeSelection || !result.contextualToolbar || !result.viewModeClean || !result.imagesLoaded || !result.serviceWorkerReady) failures.push(`${viewport.name}: Edit/View-Modus, Auswahl, Werkzeugleiste, Bildladung, Offline-Basis oder horizontaler Overflow fehlerhaft`);
+    if (!result.editorVisible || !result.runtimeSelection || !result.contextualToolbar || !result.viewModeClean || !result.imagesLoaded || !result.serviceWorkerReady || !result.offlineReady) failures.push(`${viewport.name}: Edit/View-Modus, Auswahl, Werkzeugleiste, Bildladung, Offline-Neustart oder horizontaler Overflow fehlerhaft`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);
     if (httpErrors.length) failures.push(`${viewport.name}: HTTP ${httpErrors.join('; ')}`);
     await page.close();

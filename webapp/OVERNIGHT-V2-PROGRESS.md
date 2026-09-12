@@ -21,7 +21,7 @@ Dieses Protokoll dokumentiert den lokalen, produktionsfreien Ausbau des Standalo
 | L – Tastaturkürzel | DONE | Ctrl/Cmd+Z, Shift+Z/Y, D, S, Delete/Backspace und Escape; Textfelder sind geschützt, Dialoge werden kontrolliert geschlossen; Browser-Smoke auf 390/1440 grün. |
 | M – Original/V2-Vergleich | PARTIAL | Inhaltsinventur und Visual-QA vorhanden; expliziter Vergleichsbericht offen. |
 | N/O – Legacy-Inventur/-Rückbau | PARTIAL | V2-Grenze dokumentiert und Legacy-Werkzeuge im V2-Modus deaktiviert; kontrollierter Rückbau offen. |
-| P – Offline/PWA | PARTIAL | Service Worker und Android-Offline-WebView funktionieren; gezielter Offline-Retest offen. |
+| P – Offline/PWA | DONE | Service Worker, gecachte Oberfläche/Originalmedien und Android-Offline-WebView; echter Browser-Neustart ohne Netzwerk auf 390/1440 mit 9 Abschnitten und vollständig geladenen Bildern grün. |
 | Q – Performance | PARTIAL | Gestenpfad vorhanden; Messbericht offen. |
 | R – Schema/Migration | PARTIAL | Version 2, Altstandmigration und strikte Importgrenzen vorhanden; zusätzliche Kernmodell-Validierung bleibt offen. |
 | S–V – KI/Live/Diagnose/Provider | PARTIAL | Providerneutrale Verträge, Preview, Berechtigungsgrenzen und Diagnosekontext vorhanden; Live-Provider extern. |

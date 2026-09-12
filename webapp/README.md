@@ -13,6 +13,8 @@ Alternativ genügt im Verzeichnis `webapp` ein statischer Server auf Port 8080. 
 
 `verify-all.ps1` prüft Browserfunktion und Visuals, baut die Android-Debug-APK und führt bei verbundenem Emulator Installation, echte WebView-Bedienung und Logcat-Prüfung aus. CircleCI, GitHub Actions, FTPS, WordPress und Produktion werden nicht verwendet.
 
+Der Browser-Smoke schaltet das Netzwerk nach einem vollständigen Erstaufruf gezielt ab und verifiziert einen echten Offline-Neustart einschließlich Editor-Laufzeit, neun Originalabschnitten und Bildern.
+
 ## Bedienung
 
 - `Bearbeiten` öffnet den V2-Modus.
