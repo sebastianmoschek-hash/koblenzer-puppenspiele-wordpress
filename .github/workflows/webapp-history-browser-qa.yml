@@ -24,8 +24,9 @@ jobs:
           import { chromium } from 'playwright';
           const browser=await chromium.launch({headless:true});
           const page=await browser.newPage({viewport:{width:412,height:915},isMobile:true,hasTouch:true});
-          const url='https://sebastianmoschek-hash.github.io/koblenzer-puppenspiele-wordpress/?qa='+Date.now();
-          for(let i=0;i<30;i++){await page.goto(url,{waitUntil:'networkidle'});if(await page.evaluate(()=>!!window.__kpHistory&&document.querySelector('#kpUndoCount')))break;await page.waitForTimeout(2000)}
+          const base='https://sebastianmoschek-hash.github.io/koblenzer-puppenspiele-wordpress/';let ready=false;
+          for(let i=0;i<45;i++){await page.goto(base+'?qa='+Date.now(),{waitUntil:'networkidle'});ready=await page.evaluate(()=>typeof window.__kpHistory?.reset==='function'&&document.querySelector('script[src*="20260912-32"]'));if(ready)break;await page.waitForTimeout(2000)}
+          if(!ready)throw Error('published v32 did not become ready');
           const result=await page.evaluate(()=>{
             const api=window.__kpHistory, el=document.querySelector('main h1'); if(!api||!el)throw Error('history/target missing'); api.reset();
             const original=el.style.transform;
