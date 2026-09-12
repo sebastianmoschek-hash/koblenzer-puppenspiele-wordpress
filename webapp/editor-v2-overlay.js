@@ -23,7 +23,7 @@
     if (!bar) { bar = document.createElement('div'); bar.id = 'kpV2Toolbar'; bar.hidden = true; document.body.append(bar); }
     return bar;
   }
-  function closeSheet() { ['#kpV2CommandSheet', '#kpV2NavSheet', '#kpV2ViewportSheet', '#kpV2SectionSheet', '#kpV2HeaderSheet', '#kpV2LayerSheet'].forEach(selector => q(selector)?.remove()); }
+  function closeSheet() { ['#kpV2CommandSheet', '#kpV2NavSheet', '#kpV2ViewportSheet', '#kpV2SectionSheet', '#kpV2HeaderSheet', '#kpV2LayerSheet', '#kpV2NavDeleteSheet'].forEach(selector => q(selector)?.remove()); }
   function aiSheet() {
     q('#kpV2AISheet')?.remove();
     const panel = document.createElement('div'); panel.id = 'kpV2AISheet';
@@ -118,19 +118,34 @@
     panel.innerHTML = '<header><strong>Navigation bearbeiten</strong><button type="button" data-close>×</button></header><div data-items></div><button type="button" data-add>＋ Menüpunkt hinzufügen</button>';
     const render = () => {
       const host = panel.querySelector('[data-items]'); host.innerHTML = '';
+      let draggedId = '';
       v2.store.get().document.navigation.items.forEach((item, index, items) => {
-        const row = document.createElement('div'); row.className = 'kp-v2-nav-row';
-        row.innerHTML = `<input aria-label="Menütext" value="${String(item.label).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"><button type="button" data-up aria-label="Nach oben">↑</button><button type="button" data-down aria-label="Nach unten">↓</button><button type="button" data-delete aria-label="Löschen">×</button>`;
-        row.querySelector('input').onchange = event => v2.actions.renameNavigationItem(item.id, event.target.value);
+        const row = document.createElement('div'); row.className = 'kp-v2-nav-row'; row.draggable = true; row.dataset.itemId = item.id;
+        const targetId = item.href?.startsWith('#') ? item.href.slice(1) : '', hasTarget = v2.store.get().document.pages.some(page => page.sections.some(section => section.id === targetId));
+        row.innerHTML = `<span class="kp-v2-nav-grip" aria-hidden="true">⋮⋮</span><label>Text<input data-label aria-label="Menütext" value="${String(item.label).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"></label><label>Ziel<input data-href aria-label="Linkziel" value="${String(item.href || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"></label><small data-target>${hasTarget ? 'Abschnitt verbunden' : 'Externes/freies Ziel'}</small><button type="button" data-up aria-label="Nach oben">↑</button><button type="button" data-down aria-label="Nach unten">↓</button><button type="button" data-delete aria-label="Löschen">×</button>`;
+        row.querySelector('[data-label]').onchange = event => v2.actions.updateNavigationItem(item.id, { label: event.target.value });
+        row.querySelector('[data-href]').onchange = event => v2.actions.updateNavigationItem(item.id, { href: event.target.value });
         row.querySelector('[data-up]').disabled = index === 0; row.querySelector('[data-up]').onclick = () => { v2.actions.moveNavigationItem(item.id, -1); render(); };
         row.querySelector('[data-down]').disabled = index === items.length - 1; row.querySelector('[data-down]').onclick = () => { v2.actions.moveNavigationItem(item.id, 1); render(); };
-        row.querySelector('[data-delete]').onclick = () => { v2.actions.deleteNavigationItem(item.id); render(); };
+        row.querySelector('[data-delete]').onclick = () => deleteNavigationChoice(item, hasTarget, render);
+        row.ondragstart = () => { draggedId = item.id; row.classList.add('dragging'); }; row.ondragend = () => row.classList.remove('dragging');
+        row.ondragover = event => event.preventDefault(); row.ondrop = event => { event.preventDefault(); if (draggedId) { v2.actions.reorderNavigationItem(draggedId, index); render(); } };
         host.append(row);
       });
     };
     panel.querySelector('[data-close]').onclick = closeSheet;
-    panel.querySelector('[data-add]').onclick = () => { const sectionId = unique('section'), label = 'Neue Seite'; v2.actions.createSection('home', { id: sectionId, design: { className: 'dark editable' }, elements: [{ id: unique('el'), type: 'heading', order: 0, content: { text: label }, styles: {}, transform: { x: 0, y: 0, scale: 1, rotation: 0 }, source: { tag: 'h2', className: '' } }] }); v2.actions.createNavigationItem(label, `#${sectionId}`); render(); };
+    panel.querySelector('[data-add]').onclick = () => { v2.actions.createNavigationSection('Neuer Abschnitt', 'home'); render(); };
     document.body.append(panel); render();
+  }
+  function deleteNavigationChoice(item, hasTarget, refresh) {
+    q('#kpV2NavDeleteSheet')?.remove();
+    const panel = document.createElement('div'); panel.id = 'kpV2NavDeleteSheet';
+    panel.innerHTML = '<div class="kp-v2-sheet-scrim"></div><div class="kp-v2-sheet" role="dialog" aria-modal="true"><strong>Menüpunkt löschen?</strong><small>Du kannst nur „' + String(item.label).replace(/[<>]/g, '') + '“ entfernen oder zusätzlich den verbundenen Abschnitt.</small><button type="button" data-nav>Nur Menüpunkt löschen</button><button type="button" data-both>Menüpunkt und Abschnitt löschen</button><button type="button" data-cancel>Abbrechen</button></div>';
+    panel.querySelector('[data-both]').disabled = !hasTarget;
+    const finish = both => { v2.actions.deleteNavigationTarget(item.id, both); panel.remove(); refresh(); };
+    panel.querySelector('[data-nav]').onclick = () => finish(false); panel.querySelector('[data-both]').onclick = () => finish(true);
+    panel.querySelector('[data-cancel]').onclick = () => panel.remove(); panel.querySelector('.kp-v2-sheet-scrim').onclick = () => panel.remove();
+    document.body.append(panel);
   }
   function layerSheet(current) {
     closeSheet();

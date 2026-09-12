@@ -280,8 +280,16 @@ try {
     const navBefore = await page.locator('#kpV2NavSheet input').first().inputValue();
     await page.locator('#kpV2NavSheet input').first().fill('Start geprüft');
     await page.locator('#kpV2NavSheet input').first().press('Tab');
-    result.navigationEditorUI = await page.evaluate(() => window.KPEditorV2.store.get().document.navigation.items[0]?.label === 'Start geprüft' && document.querySelector('[data-v2-nav-id="nav-0"]')?.textContent === 'Start geprüft');
+    const navigationRenameUI = await page.evaluate(() => window.KPEditorV2.store.get().document.navigation.items[0]?.label === 'Start geprüft' && document.querySelector('[data-v2-nav-id="nav-0"]')?.textContent === 'Start geprüft');
     await page.evaluate(() => window.KPEditorV2.store.undo());
+    const navigationCouplingBefore = await page.evaluate(() => ({ nav: window.KPEditorV2.store.get().document.navigation.items.length, sections: window.KPEditorV2.store.get().document.pages[0].sections.length, history: window.KPEditorV2.store.history().undo }));
+    await page.locator('#kpV2NavSheet [data-add]').click();
+    const navigationAdded = await page.evaluate(before => { const state = window.KPEditorV2.store.get(), item = state.document.navigation.items.at(-1), target = item?.href?.slice(1); return state.document.navigation.items.length === before.nav + 1 && state.document.pages[0].sections.length === before.sections + 1 && state.document.pages[0].sections.some(section => section.id === target) && window.KPEditorV2.store.history().undo === before.history + 1; }, navigationCouplingBefore);
+    await page.locator('#kpV2NavSheet .kp-v2-nav-row').last().locator('[data-delete]').click();
+    await page.locator('#kpV2NavDeleteSheet [data-both]').click();
+    const navigationDeletedTogether = await page.evaluate(before => { const state = window.KPEditorV2.store.get(); return state.document.navigation.items.length === before.nav && state.document.pages[0].sections.length === before.sections && window.KPEditorV2.store.history().undo === before.history + 2; }, navigationCouplingBefore);
+    await page.evaluate(() => { window.KPEditorV2.store.undo(); window.KPEditorV2.store.undo(); });
+    result.navigationEditorUI = navigationRenameUI && navigationAdded && navigationDeletedTogether;
     await page.locator('#kpV2NavSheet [data-close]').click();
     const layerHistoryBefore = await page.evaluate(() => window.KPEditorV2.store.history().undo);
     await page.locator(`[data-v2-id="${result.headingId}"]`).click();

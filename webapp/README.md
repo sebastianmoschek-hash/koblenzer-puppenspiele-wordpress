@@ -22,7 +22,7 @@ Alternativ genügt im Verzeichnis `webapp` ein statischer Server auf Port 8080. 
 - Texte und Buttons: Inhalt, sechs Schriftfamilien, Schriftgestaltung, Farben, Ausrichtung, Link und Form.
 - Abschnitte: Text-, Bild- oder Call-to-Action-Vorlage hinzufügen, sortieren, duplizieren/löschen sowie Typ, Breite, Höhe, Abstände, Farbe und lokales Hintergrundbild gestalten.
 - Header: Titel, lokales Logo, Größe/Position, Hintergrund, Höhe, Layout und Navigationsabstände bearbeiten oder als Preset wechseln.
-- Navigation: Menüpunkte bearbeiten, ergänzen, sortieren und löschen.
+- Navigation: Text und Linkziel bearbeiten, per Pfeil/Drag sortieren, gekoppelte Abschnitte anlegen und wahlweise nur den Menüpunkt oder auch seinen Abschnitt löschen.
 - Responsive Ansicht: Smartphone, Tablet oder Desktop als kontrollierte Editor-Vorschau auswählen.
 - Website-Design: Original, Warmes Theater und Nachtbühne als verwerfbare Vorschau.
 - Auf Gerät speichern: Document Model in `localStorage`; Laden wird mit Schema-Migration unterstützt.

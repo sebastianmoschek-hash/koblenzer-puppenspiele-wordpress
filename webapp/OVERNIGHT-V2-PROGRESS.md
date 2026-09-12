@@ -13,7 +13,7 @@ Dieses Protokoll dokumentiert den lokalen, produktionsfreien Ausbau des Standalo
 | D – Medienbrowser | DONE | Durchsuchbare lokale Originalmedien-Galerie mit Vorschau, Verwerfen, genau einer Übernehmen-Transaktion, Undo und Reload-Persistenz; Bildladung und Browser-Smoke auf 390/1440 grün. |
 | E – Abschnitte | DONE | Auswahl, Sortierung, Vorlagen, Duplizieren/Löschen sowie Typ, Inhaltsbreite, Mindesthöhe, getrennte Innenabstände, Farbe, lokales Hintergrundbild und Presets; Preview, Undo und Reload-Persistenz auf 390/1440 grün. |
 | F – Header | DONE | Titel, lokales Logo samt Größe/Position, Hintergrundfarbe/-bild, Höhe, Layout, Navigationsausrichtung/-abstand und Presets; Preview, Undo und Reload-Persistenz auf 390/1440 grün. |
-| G – Navigation | PARTIAL | Umbenennen, Hinzufügen, Sortieren und Löschen vorhanden. |
+| G – Navigation | DONE | Text und Linkziel, Pfeil- und Drag-Sortierung, atomare Menüpunkt-/Abschnittserstellung sowie klare Löschwahl „nur Menü“ oder „mit Abschnitt“; Undo und Browser-Smoke auf 390/1440 grün. |
 | H – Mehrere Seiten | PARTIAL | Document Model vorbereitet; sichtbare Seitenverwaltung offen. |
 | I – Design Tokens | PARTIAL | Theme-Werte vorhanden; zentraler Token-Editor offen. |
 | J – Responsive Hardening | PARTIAL | 390/820/1440 automatisiert geprüft; Zwischenbreiten offen. |
