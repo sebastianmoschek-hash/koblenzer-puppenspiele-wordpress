@@ -1,0 +1,54 @@
+name: Standalone Webapp History Browser QA
+on:
+  push:
+    branches: [webapp-no-wordpress-test]
+    paths:
+      - 'webapp/**'
+      - '.github/workflows/webapp-history-browser-qa.yml'
+permissions:
+  contents: read
+jobs:
+  history-browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save playwright@1.55.0
+      - run: npx playwright install --with-deps chromium
+      - name: Test published GitHub Pages editor history
+        run: |
+          cat > /tmp/history-qa.mjs <<'JS'
+          import { chromium } from 'playwright';
+          const browser=await chromium.launch({headless:true});
+          const page=await browser.newPage({viewport:{width:412,height:915},isMobile:true,hasTouch:true});
+          const errors=[]; page.on('console',m=>{if(m.type()==='error')errors.push(m.text())}); page.on('pageerror',e=>errors.push(e.message));
+          const url='https://sebastianmoschek-hash.github.io/koblenzer-puppenspiele-wordpress/?qa='+Date.now();
+          for(let i=0;i<30;i++){await page.goto(url,{waitUntil:'networkidle'});if(await page.evaluate(()=>!!window.__kpHistory&&document.querySelector('#kpUndoCount')))break;await page.waitForTimeout(2000)}
+          await page.click('#edit'); await page.waitForTimeout(100);
+          const result=await page.evaluate(()=>{
+            const api=window.__kpHistory, el=document.querySelector('main .hero h1')||document.querySelector('main h1'); if(!api||!el)throw Error('history/target missing');
+            const original=el.style.transform;
+            for(let i=1;i<=5;i++){const done=api.checkpoint();el.style.transform=`translate(${i*3}px, ${i*2}px)`;done()}
+            const after5=api.state(); const undoStates=[]; for(let i=0;i<5;i++){api.undo();undoStates.push(api.state())} const afterUndo=el.style.transform;
+            const redoStates=[]; for(let i=0;i<5;i++){api.redo();redoStates.push(api.state())} const afterRedo=el.style.transform;
+            const mixed=[];
+            const text=document.querySelector('main [contenteditable=true]'); if(text){const done=api.checkpoint();text.textContent+=' QA';done();mixed.push('text')}
+            const button=document.querySelector('main a.btn, main .btn'); if(button){let done=api.checkpoint();button.style.transform='translate(7px, 4px)';done();mixed.push('button-move'); const label=button.querySelector('.kp-button-label')||button;done=api.checkpoint();label.textContent=(label.textContent||'Button')+' QA';done();mixed.push('button-label')}
+            let done=api.checkpoint();el.style.width='88%';done();mixed.push('resize');done=api.checkpoint();el.style.opacity='0.91';done();mixed.push('design');
+            const mixedCount=api.state().undo; for(let i=0;i<mixed.length;i++)api.undo(); const mixedUndone=api.state(); for(let i=0;i<mixed.length;i++)api.redo(); const mixedRedone=api.state();
+            return {original,after5,undoStates,afterUndo,redoStates,afterRedo,mixed,mixedCount,mixedUndone,mixedRedone,counters:[document.querySelector('#kpUndoCount')?.textContent,document.querySelector('#kpRedoCount')?.textContent]};
+          });
+          if(result.after5.undo!==5||result.after5.redo!==0)throw Error('5 actions not recorded: '+JSON.stringify(result));
+          if(result.afterUndo!==result.original)throw Error('5x undo did not restore original: '+JSON.stringify(result));
+          if(result.afterRedo!=='translate(15px, 10px)')throw Error('5x redo failed: '+JSON.stringify(result));
+          if(result.undoStates.map(x=>x.undo).join(',')!=='4,3,2,1,0')throw Error('undo stack counts wrong: '+JSON.stringify(result));
+          if(result.redoStates.map(x=>x.redo).join(',')!=='4,3,2,1,0')throw Error('redo stack counts wrong: '+JSON.stringify(result));
+          if(result.mixed.length<4)throw Error('mixed action coverage incomplete: '+JSON.stringify(result));
+          if(result.mixedUndone.redo!==result.mixed.length||result.mixedRedone.redo!==0)throw Error('mixed undo/redo failed: '+JSON.stringify(result));
+          if(errors.length)throw Error('browser errors: '+errors.join(' | '));
+          console.log('PASS',JSON.stringify(result)); await browser.close();
+          JS
+          node /tmp/history-qa.mjs
