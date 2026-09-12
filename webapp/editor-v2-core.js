@@ -229,6 +229,7 @@
           else if (typeof element.content?.text === 'string' && node.textContent !== element.content.text) node.textContent = element.content.text;
           if (element.type === 'button' && element.content?.href) node.setAttribute('href', element.content.href);
           Object.entries(element.styles || {}).forEach(([property, value]) => { if (value == null) node.style.removeProperty(property); else node.style[property] = typeof value === 'number' && ['fontSize', 'letterSpacing', 'borderRadius'].includes(property) ? `${value}px` : String(value); });
+          node.style.setProperty('--kp-v2-layer', String(Number(element.order) || 0));
           const transform = element.transform || {};
           const flipX = Number(transform.flipX) === -1 ? -1 : 1, flipY = Number(transform.flipY) === -1 ? -1 : 1;
           node.style.setProperty('transform', `translate(${Number(transform.x) || 0}px, ${Number(transform.y) || 0}px) scale(${(Number(transform.scale) || 1) * flipX}, ${(Number(transform.scale) || 1) * flipY}) rotate(${Number(transform.rotation) || 0}deg)`);

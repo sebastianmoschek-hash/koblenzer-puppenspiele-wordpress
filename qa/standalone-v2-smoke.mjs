@@ -237,6 +237,30 @@ try {
     result.navigationEditorUI = await page.evaluate(() => window.KPEditorV2.store.get().document.navigation.items[0]?.label === 'Start geprüft' && document.querySelector('[data-v2-nav-id="nav-0"]')?.textContent === 'Start geprüft');
     await page.evaluate(() => window.KPEditorV2.store.undo());
     await page.locator('#kpV2NavSheet [data-close]').click();
+    const layerHistoryBefore = await page.evaluate(() => window.KPEditorV2.store.history().undo);
+    await page.locator(`[data-v2-id="${result.headingId}"]`).click();
+    await page.locator('#kpV2Toolbar [data-v2-tool="layers"]').click();
+    const layerCount = await page.locator('#kpV2LayerSheet [data-layers] button').count();
+    await page.locator('#kpV2LayerSheet [data-front]').click();
+    const layerMoved = await page.evaluate(({ id, before }) => {
+      const section = window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).find(item => item.elements.some(element => element.id === id));
+      const element = section?.elements.find(item => item.id === id);
+      const max = Math.max(...(section?.elements || []).map(item => item.order));
+      window.KPEditorV2.persistence.save();
+      return Boolean(section && element?.order === max && getComputedStyle(document.querySelector(`[data-v2-id="${id}"]`)).zIndex === String(max) && window.KPEditorV2.store.history().undo === before + 1);
+    }, { id: result.headingId, before: layerHistoryBefore });
+    const layerReloadPage = await page.context().newPage();
+    await layerReloadPage.goto(baseURL, { waitUntil: 'networkidle' });
+    await layerReloadPage.waitForFunction(() => window.KPEditorV2?.store.get().persistence === 'loaded', null, { timeout: 5000 });
+    const layerPersisted = await layerReloadPage.evaluate(id => {
+      const section = window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).find(item => item.elements.some(element => element.id === id));
+      const element = section?.elements.find(item => item.id === id);
+      return element?.order === Math.max(...(section?.elements || []).map(item => item.order));
+    }, result.headingId);
+    await layerReloadPage.close();
+    await page.evaluate(() => { window.KPEditorV2.store.undo(); window.KPEditorV2.persistence.clear(); });
+    result.layerPanelUI = layerCount > 1 && layerMoved && layerPersisted;
+    await page.locator('#kpV2LayerSheet [data-close]').click();
     const textEditorBefore = await page.evaluate(() => window.KPEditorV2.store.history().undo);
     await page.locator(`[data-v2-id="${result.headingId}"]`).click();
     await page.locator('#kpV2Toolbar [data-v2-tool="edit"]').click();
@@ -305,7 +329,7 @@ try {
     result.imagesLoaded = imagesLoaded;
     result.serviceWorkerReady = serviceWorkerReady;
     if (!result.undoRestored || !result.renderedText || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Renderer/Undo fehlgeschlagen`);
-    if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.backupContract || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
+    if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.backupContract || !result.layerPanelUI || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
     if (!result.editorVisible || !result.runtimeSelection || !result.contextualToolbar || !result.viewModeClean || !result.imagesLoaded || !result.serviceWorkerReady) failures.push(`${viewport.name}: Edit/View-Modus, Auswahl, Werkzeugleiste, Bildladung, Offline-Basis oder horizontaler Overflow fehlerhaft`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);
     if (httpErrors.length) failures.push(`${viewport.name}: HTTP ${httpErrors.join('; ')}`);

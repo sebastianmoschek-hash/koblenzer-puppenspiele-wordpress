@@ -23,7 +23,7 @@
     if (!bar) { bar = document.createElement('div'); bar.id = 'kpV2Toolbar'; bar.hidden = true; document.body.append(bar); }
     return bar;
   }
-  function closeSheet() { ['#kpV2CommandSheet', '#kpV2NavSheet', '#kpV2ViewportSheet', '#kpV2SectionSheet', '#kpV2HeaderSheet'].forEach(selector => q(selector)?.remove()); }
+  function closeSheet() { ['#kpV2CommandSheet', '#kpV2NavSheet', '#kpV2ViewportSheet', '#kpV2SectionSheet', '#kpV2HeaderSheet', '#kpV2LayerSheet'].forEach(selector => q(selector)?.remove()); }
   function aiSheet() {
     q('#kpV2AISheet')?.remove();
     const panel = document.createElement('div'); panel.id = 'kpV2AISheet';
@@ -97,6 +97,39 @@
     panel.querySelector('[data-add]').onclick = () => { const sectionId = unique('section'), label = 'Neue Seite'; v2.actions.createSection('home', { id: sectionId, design: { className: 'dark editable' }, elements: [{ id: unique('el'), type: 'heading', order: 0, content: { text: label }, styles: {}, transform: { x: 0, y: 0, scale: 1, rotation: 0 }, source: { tag: 'h2', className: '' } }] }); v2.actions.createNavigationItem(label, `#${sectionId}`); render(); };
     document.body.append(panel); render();
   }
+  function layerSheet(current) {
+    closeSheet();
+    const panel = document.createElement('div'); panel.id = 'kpV2LayerSheet';
+    panel.innerHTML = '<div class="kp-v2-sheet-scrim"></div><div class="kp-v2-sheet" role="dialog" aria-modal="true" aria-labelledby="kpV2LayerTitle"><header><div><strong id="kpV2LayerTitle">Ebenen</strong><small>Vorne liegende Elemente stehen oben.</small></div><button type="button" data-close aria-label="Schließen">×</button></header><div data-layers></div><footer><button type="button" data-front>Ganz nach vorne</button><button type="button" data-forward>Eine Ebene vor</button><button type="button" data-backward>Eine Ebene zurück</button><button type="button" data-back>Ganz nach hinten</button></footer></div>';
+    let selectedId = current.element.id;
+    const elementLabel = element => {
+      const type = { image: 'Bild', heading: 'Überschrift', text: 'Text', button: 'Button' }[element.type] || 'Element';
+      const content = element.type === 'image' ? element.content?.alt : element.content?.text;
+      return `${type}: ${String(content || 'Ohne Bezeichnung').trim().slice(0, 54)}`;
+    };
+    const renderLayers = () => {
+      const section = v2.store.get().document.pages.flatMap(page => page.sections).find(item => item.id === current.section.id);
+      const elements = [...(section?.elements || [])].sort((a, b) => (b.order || 0) - (a.order || 0));
+      const host = panel.querySelector('[data-layers]'); host.replaceChildren();
+      elements.forEach(element => {
+        const row = document.createElement('button'); row.type = 'button'; row.dataset.elementId = element.id; row.setAttribute('aria-pressed', String(element.id === selectedId));
+        const label = document.createElement('span'); label.textContent = elementLabel(element); row.append(label);
+        row.onclick = () => { selectedId = element.id; v2.actions.selectElement(element.id); renderLayers(); q(`[data-v2-id="${element.id}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+        host.append(row);
+      });
+      const modelOrder = [...(section?.elements || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+      const index = modelOrder.findIndex(element => element.id === selectedId);
+      panel.querySelector('[data-front]').disabled = index < 0 || index === modelOrder.length - 1;
+      panel.querySelector('[data-forward]').disabled = index < 0 || index === modelOrder.length - 1;
+      panel.querySelector('[data-backward]').disabled = index <= 0;
+      panel.querySelector('[data-back]').disabled = index <= 0;
+    };
+    const move = direction => { v2.actions.moveLayer(selectedId, direction); renderLayers(); feedback('Ebene geändert · Rückgängig möglich'); };
+    panel.querySelector('[data-front]').onclick = () => move('front'); panel.querySelector('[data-forward]').onclick = () => move('forward');
+    panel.querySelector('[data-backward]').onclick = () => move('backward'); panel.querySelector('[data-back]').onclick = () => move('back');
+    panel.querySelector('[data-close]').onclick = closeSheet; panel.querySelector('.kp-v2-sheet-scrim').onclick = closeSheet;
+    document.body.append(panel); renderLayers(); panel.querySelector('[data-close]').focus();
+  }
   function moreSheet(current) {
     closeSheet();
     const panel = document.createElement('div'); panel.id = 'kpV2CommandSheet';
@@ -105,7 +138,7 @@
     const add = (label, handler) => { const node = button(label, 'sheet'); node.onclick = () => { handler(); closeSheet(); }; host.append(node); };
     if (current.kind === 'section') { add('Abschnitt nach oben', () => v2.actions.moveSection(current.section.id, -1)); add('Abschnitt nach unten', () => v2.actions.moveSection(current.section.id, 1)); add('Abschnitt duplizieren', () => v2.actions.duplicateSection(current.section.id)); add('Abschnitt löschen', () => v2.actions.deleteSection(current.section.id)); }
     else if (current.kind === 'header') { add('Header-Höhe und Farben', headerSheet); add('Navigation bearbeiten', navigationSheet); }
-    else { if (current.kind === 'image') { add('Bild vergrößern', () => v2.actions.resizeElement(current.element.id, (current.element.transform?.scale || 1) * 1.15)); add('Bild verkleinern', () => v2.actions.resizeElement(current.element.id, (current.element.transform?.scale || 1) / 1.15)); add('90° drehen', () => v2.actions.rotateElement(current.element.id, (current.element.transform?.rotation || 0) + 90)); add('Bildrand zuschneiden', () => v2.actions.setImageAdjustments(current.element.id, { crop: { x: .08, y: .08, width: .84, height: .84 } })); add('Bild zurücksetzen', () => v2.actions.resetImage(current.element.id)); } add('Ganz nach vorne', () => v2.actions.moveLayer(current.element.id, 'front')); add('Ganz nach hinten', () => v2.actions.moveLayer(current.element.id, 'back')); add('Duplizieren', () => v2.actions.duplicateElement(current.element.id)); add('Löschen', () => v2.actions.deleteElement(current.element.id)); }
+    else { if (current.kind === 'image') { add('Bild vergrößern', () => v2.actions.resizeElement(current.element.id, (current.element.transform?.scale || 1) * 1.15)); add('Bild verkleinern', () => v2.actions.resizeElement(current.element.id, (current.element.transform?.scale || 1) / 1.15)); add('90° drehen', () => v2.actions.rotateElement(current.element.id, (current.element.transform?.rotation || 0) + 90)); add('Bildrand zuschneiden', () => v2.actions.setImageAdjustments(current.element.id, { crop: { x: .08, y: .08, width: .84, height: .84 } })); add('Bild zurücksetzen', () => v2.actions.resetImage(current.element.id)); } add('Ebenen verwalten', () => layerSheet(current)); add('Duplizieren', () => v2.actions.duplicateElement(current.element.id)); add('Löschen', () => v2.actions.deleteElement(current.element.id)); }
     panel.querySelector('.kp-v2-sheet-scrim').onclick = closeSheet; document.body.append(panel);
   }
   function addSection() {
@@ -126,6 +159,7 @@
     else if (['text', 'heading', 'button'].includes(current.kind)) { add(current.kind === 'button' ? 'Button bearbeiten' : 'Text bearbeiten', 'edit', () => window.kpElementSheet?.open(current.node), true); add('Duplizieren', 'duplicate', () => v2.actions.duplicateElement(current.element.id)); }
     else if (current.kind === 'section') { add('Design wechseln', 'design', () => sectionSheet(current.section)); add('Duplizieren', 'duplicate', () => v2.actions.duplicateSection(current.section.id)); }
     else if (current.kind === 'header') { add('Navigation', 'navigation', navigationSheet, true); add('Header-Design', 'header-design', headerSheet); }
+    if (current.element && current.section) add('Ebenen', 'layers', () => layerSheet(current));
     add('Mehr', 'more', () => moreSheet(current));
   }
   function bindMainControls() {
@@ -143,5 +177,5 @@
   }
   const init = () => { bindMainControls(); v2.store.subscribe(render); render(v2.store.get()); window.addEventListener('kp-editor-restored', () => render(v2.store.get())); window.addEventListener('kp-v2-feedback', event => feedback(event.detail || 'Aktualisiert')); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
-  window.KPEditorV2Overlay = Object.freeze({ render, navigationSheet, addSection, aiSheet, themeSheet });
+  window.KPEditorV2Overlay = Object.freeze({ render, navigationSheet, layerSheet, addSection, aiSheet, themeSheet });
 })();
