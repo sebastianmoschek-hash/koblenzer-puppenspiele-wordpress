@@ -14,5 +14,12 @@ main img,.kp-bg-layer{z-index:1!important}
 .editing #kpProImageEditor{z-index:2147483647!important}
 .editing img{max-width:none}
 #editor,#kpUniversalBar,#kpElementHandles,#kpAreaActions,#kpHeaderSizer,#kpDesignSheet,#kpImageSourceSheet,#kpProImageEditor,.top #menu,.top nav{pointer-events:auto!important}
-/* During a two-finger image gesture only the page image owns the gesture; chrome returns immediately afterwards. */
-.kp-image-gesture-active #kpUniversalBar,.kp-image-gesture-active #kpElementHandles,.kp-image-gesture-active #kpAreaActions,.kp-image-gesture-active #kpHeaderSizer{visibility:hidden!important}
+.kp-image-gesture-active #kpUniversalBar,.kp-image-gesture-active #kpElementHandles,.kp-image-gesture-active #kpAreaActions,.kp-image-gesture-active #kpHeaderSizer,.kp-image-drag-active #kpUniversalBar,.kp-image-drag-active #kpElementHandles,.kp-image-drag-active #kpAreaActions,.kp-image-drag-active #kpHeaderSizer{visibility:hidden!important}
+.kp-dragging-image{filter:drop-shadow(0 14px 18px rgba(0,0,0,.38));opacity:.94;transition:filter .12s ease,opacity .12s ease;will-change:transform}
+#kpDragTrash{position:fixed;left:50%;bottom:max(22px,calc(env(safe-area-inset-bottom) + 14px));transform:translate(-50%,28px) scale(.86);display:flex;align-items:center;gap:10px;min-height:62px;padding:0 22px;border-radius:999px;background:rgba(34,27,25,.94);color:#fff;font:600 14px/1.2 system-ui,sans-serif;box-shadow:0 12px 34px rgba(0,0,0,.32);z-index:2147483638;opacity:0;pointer-events:none;transition:opacity .16s ease,transform .16s ease,background .12s ease}
+#kpDragTrash.show{opacity:1;transform:translate(-50%,0) scale(1)}
+#kpDragTrash.hot{background:#b3261e;transform:translate(-50%,-4px) scale(1.12)}
+#kpDragTrash .kp-trash-icon{font-size:25px;line-height:1}
+#kpUndoSnack{position:fixed;left:16px;right:16px;bottom:max(20px,calc(env(safe-area-inset-bottom) + 14px));display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:520px;margin:auto;padding:13px 14px 13px 18px;border-radius:16px;background:#292321;color:#fff;font:500 14px/1.25 system-ui,sans-serif;box-shadow:0 12px 34px rgba(0,0,0,.32);z-index:2147483642;opacity:0;transform:translateY(24px);pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+#kpUndoSnack.show{opacity:1;transform:none;pointer-events:auto}
+#kpUndoSnack button{border:0;background:transparent;color:#ffd6c9;font:800 13px/1 system-ui,sans-serif;padding:10px;border-radius:10px}
