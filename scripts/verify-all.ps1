@@ -1,10 +1,12 @@
-param([int]$Port = 8090)
+param([int]$Port = 8080)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $projectRoot
-$server = Start-Process -FilePath 'php' -ArgumentList '-S', "127.0.0.1:$Port", '-t', 'webapp' -PassThru -WindowStyle Hidden
+$server = $null
 try {
   $ready = $false
+  try { $response = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/" -UseBasicParsing -TimeoutSec 2; $ready = $response.StatusCode -eq 200 } catch {}
+  if (-not $ready) { $server = Start-Process -FilePath 'php' -ArgumentList '-S', "127.0.0.1:$Port", '-t', 'webapp' -PassThru -WindowStyle Hidden }
   for ($attempt = 0; $attempt -lt 30; $attempt++) {
     try { $response = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/" -UseBasicParsing -TimeoutSec 2; if ($response.StatusCode -eq 200) { $ready = $true; break } } catch {}
     Start-Sleep -Milliseconds 200

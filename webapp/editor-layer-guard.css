@@ -23,3 +23,4 @@ main img,.kp-bg-layer{z-index:1!important}
 #kpUndoSnack{position:fixed;left:16px;right:16px;bottom:max(20px,calc(env(safe-area-inset-bottom) + 14px));display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:520px;margin:auto;padding:13px 14px 13px 18px;border-radius:16px;background:#292321;color:#fff;font:500 14px/1.25 system-ui,sans-serif;box-shadow:0 12px 34px rgba(0,0,0,.32);z-index:2147483642;opacity:0;transform:translateY(24px);pointer-events:none;transition:opacity .18s ease,transform .18s ease}
 #kpUndoSnack.show{opacity:1;transform:none;pointer-events:auto}
 #kpUndoSnack button{border:0;background:transparent;color:#ffd6c9;font:800 13px/1 system-ui,sans-serif;padding:10px;border-radius:10px}
+@media(max-width:760px){h1{font-size:clamp(2.1rem,9.6vw,2.6rem);overflow-wrap:anywhere;hyphens:auto}}
