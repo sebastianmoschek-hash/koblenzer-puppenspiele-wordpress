@@ -440,4 +440,10 @@
     script.dataset.kpV2Backup = '1';
     document.head.append(script);
   }
+  if (!document.querySelector('script[data-kp-v2-media]')) {
+    const script = document.createElement('script');
+    script.src = 'editor-v2-media.js?v=20260913-1';
+    script.dataset.kpV2Media = '1';
+    document.head.append(script);
+  }
 })();

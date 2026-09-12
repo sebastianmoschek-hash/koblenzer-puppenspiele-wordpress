@@ -155,7 +155,7 @@
     if (state.mode !== 'edit' || !current) { bar.hidden = true; return; }
     bar.hidden = false;
     const add = (label, action, handler, primary = false) => { const node = button(label, action, primary); node.onclick = event => { event.preventDefault(); event.stopPropagation(); handler(); }; bar.append(node); };
-    if (current.kind === 'image') { add('Bild bearbeiten', 'edit', () => window.kpProImageEditor?.open(current.node), true); add('Duplizieren', 'duplicate', () => v2.actions.duplicateElement(current.element.id)); }
+    if (current.kind === 'image') { add('Ersetzen', 'replace', () => window.KPEditorV2Media?.open(current.element.id), true); add('Bild bearbeiten', 'edit', () => window.kpProImageEditor?.open(current.node)); add('Duplizieren', 'duplicate', () => v2.actions.duplicateElement(current.element.id)); }
     else if (['text', 'heading', 'button'].includes(current.kind)) { add(current.kind === 'button' ? 'Button bearbeiten' : 'Text bearbeiten', 'edit', () => window.kpElementSheet?.open(current.node), true); add('Duplizieren', 'duplicate', () => v2.actions.duplicateElement(current.element.id)); }
     else if (current.kind === 'section') { add('Design wechseln', 'design', () => sectionSheet(current.section)); add('Duplizieren', 'duplicate', () => v2.actions.duplicateSection(current.section.id)); }
     else if (current.kind === 'header') { add('Navigation', 'navigation', navigationSheet, true); add('Header-Design', 'header-design', headerSheet); }

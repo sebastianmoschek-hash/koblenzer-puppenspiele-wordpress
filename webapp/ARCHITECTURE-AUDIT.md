@@ -14,6 +14,7 @@ Die Standalone-PWA arbeitet lokal und ohne WordPress. Der verbindliche Zustandsf
 - `pro-image-editor.js`: Live-Bildvorschau, Filter, Helligkeit, Kontrast, Sättigung, Temperatur, Weichzeichnen, Transparenz, Zuschneiden, Rotation und Spiegelung als eine Transaktion.
 - `editor-v2-ai.js`: providerneutrale Verträge für Plan/Validierung, Realtime-Sitzung, Audio, Bildschirmfreigabe und kontrollierten Editor-/Diagnosekontext.
 - `editor-v2-backup.js`: portable JSON-Sicherung, Import und lokale Versionen ohne Serverkonto.
+- `editor-v2-media.js`: lokale Medieninventur und transaktionale Bildersetzung ohne externen Dienst.
 - `sw.js`: Offline-Basis der statischen PWA.
 
 UI, Touch und der vorbereitete KI-Adapter rufen dieselben V2-Actions auf. Größere Theme- und KI-Änderungen unterstützen Preview, Übernehmen, Verwerfen und Undo. Die frühere Editorlogik bleibt nur als technische Kompatibilitätsschicht geladen; konkurrierende Legacy-Griffe und -Werkzeuge sind im V2-Modus abgeschaltet.

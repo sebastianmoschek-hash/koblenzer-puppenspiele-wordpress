@@ -14,7 +14,7 @@ try {
     page.on('pageerror', error => pageErrors.push(String(error)));
     page.on('response', response => { if (response.status() >= 400) httpErrors.push(`${response.status()} ${response.url()}`); });
     await page.goto(baseURL, { waitUntil: 'networkidle' });
-    await page.waitForFunction(() => window.KPEditorV2 && window.KPEditorActions && window.KPEditorV2AI && window.KPEditorV2Backup);
+    await page.waitForFunction(() => window.KPEditorV2 && window.KPEditorActions && window.KPEditorV2AI && window.KPEditorV2Backup && window.KPEditorV2Media);
     const serviceWorkerReady = await page.evaluate(async () => { if (!('serviceWorker' in navigator)) return false; const registration = await Promise.race([navigator.serviceWorker.ready, new Promise(resolve => setTimeout(() => resolve(null), 5000))]); return Boolean(registration?.active); });
     await page.locator('#edit').click();
     await page.waitForFunction(() => window.KPEditorV2.store.get().mode === 'edit');
@@ -261,6 +261,33 @@ try {
     await page.evaluate(() => { window.KPEditorV2.store.undo(); window.KPEditorV2.persistence.clear(); });
     result.layerPanelUI = layerCount > 1 && layerMoved && layerPersisted;
     await page.locator('#kpV2LayerSheet [data-close]').click();
+    result.mediaBrowserUI = false;
+    if (result.imageId) {
+      const originalMediaSrc = await page.evaluate(id => window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(item => item.id === id)?.content.src, result.imageId);
+      await page.locator(`[data-v2-id="${result.imageId}"]`).click();
+      await page.locator('#kpV2Toolbar [data-v2-tool="replace"]').click();
+      const mediaCount = await page.locator('#kpV2MediaSheet [data-media-src]').count();
+      await page.locator('#kpV2MediaSheet [data-search]').fill('header');
+      const mediaSearch = await page.locator('#kpV2MediaSheet [data-media-src]').count() > 0;
+      await page.locator('#kpV2MediaSheet [data-search]').fill('');
+      const previewSource = await page.evaluate(source => { const button = [...document.querySelectorAll('#kpV2MediaSheet [data-media-src]')].find(item => item.dataset.mediaSrc !== source); button?.click(); return button?.dataset.mediaSrc || ''; }, originalMediaSrc);
+      const mediaPreview = await page.evaluate(({ id, src }) => window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(item => item.id === id)?.content.src === src && document.querySelector(`[data-v2-id="${id}"]`)?.getAttribute('src') === src, { id: result.imageId, src: previewSource });
+      await page.locator('#kpV2MediaSheet [data-cancel]').click();
+      const mediaCancelled = await page.evaluate(({ id, src }) => window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(item => item.id === id)?.content.src === src, { id: result.imageId, src: originalMediaSrc });
+      const mediaHistoryBefore = await page.evaluate(() => window.KPEditorV2.store.history().undo);
+      await page.locator('#kpV2Toolbar [data-v2-tool="replace"]').click();
+      await page.evaluate(source => [...document.querySelectorAll('#kpV2MediaSheet [data-media-src]')].find(item => item.dataset.mediaSrc !== source)?.click(), originalMediaSrc);
+      await page.locator('#kpV2MediaSheet [data-accept]').click();
+      const mediaCommitted = await page.evaluate(({ id, src, before }) => { window.KPEditorV2.persistence.save(); return window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(item => item.id === id)?.content.src === src && window.KPEditorV2.store.history().undo === before + 1; }, { id: result.imageId, src: previewSource, before: mediaHistoryBefore });
+      const mediaReloadPage = await page.context().newPage();
+      await mediaReloadPage.goto(baseURL, { waitUntil: 'networkidle' });
+      await mediaReloadPage.waitForFunction(() => window.KPEditorV2?.store.get().persistence === 'loaded', null, { timeout: 5000 });
+      const mediaPersisted = await mediaReloadPage.evaluate(({ id, src }) => { const element = window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(item => item.id === id), image = document.querySelector(`[data-v2-id="${id}"]`); return element?.content.src === src && image?.complete && image?.naturalWidth > 0; }, { id: result.imageId, src: previewSource });
+      await mediaReloadPage.close();
+      await page.evaluate(() => { window.KPEditorV2.store.undo(); window.KPEditorV2.persistence.clear(); });
+      const mediaUndo = await page.evaluate(({ id, src }) => window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(item => item.id === id)?.content.src === src && document.querySelector(`[data-v2-id="${id}"]`)?.getAttribute('src') === src, { id: result.imageId, src: originalMediaSrc });
+      result.mediaBrowserUI = mediaCount > 1 && mediaSearch && Boolean(previewSource) && mediaPreview && mediaCancelled && mediaCommitted && mediaPersisted && mediaUndo;
+    }
     const textEditorBefore = await page.evaluate(() => window.KPEditorV2.store.history().undo);
     await page.locator(`[data-v2-id="${result.headingId}"]`).click();
     await page.locator('#kpV2Toolbar [data-v2-tool="edit"]').click();
@@ -329,7 +356,7 @@ try {
     result.imagesLoaded = imagesLoaded;
     result.serviceWorkerReady = serviceWorkerReady;
     if (!result.undoRestored || !result.renderedText || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Renderer/Undo fehlgeschlagen`);
-    if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.backupContract || !result.layerPanelUI || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
+    if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.backupContract || !result.layerPanelUI || !result.mediaBrowserUI || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
     if (!result.editorVisible || !result.runtimeSelection || !result.contextualToolbar || !result.viewModeClean || !result.imagesLoaded || !result.serviceWorkerReady) failures.push(`${viewport.name}: Edit/View-Modus, Auswahl, Werkzeugleiste, Bildladung, Offline-Basis oder horizontaler Overflow fehlerhaft`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);
     if (httpErrors.length) failures.push(`${viewport.name}: HTTP ${httpErrors.join('; ')}`);
