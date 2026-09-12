@@ -5,6 +5,8 @@ if (-not (Test-Path -LiteralPath $adb)) { throw 'ADB wurde nicht gefunden.' }
 $devices = & $adb devices | Select-String '\tdevice$'
 if (-not $devices) { throw 'Kein Android-Emulator und kein freigegebenes Gerät erkannt.' }
 & $adb logcat -c
+& $adb reverse tcp:8080 tcp:8080
+if ($LASTEXITCODE -ne 0) { throw 'ADB-Portweiterleitung zum lokalen Webserver fehlgeschlagen.' }
 & "$PSScriptRoot\install-android.ps1"
 Start-Sleep -Seconds 5
 $pidText = (& $adb shell pidof de.koblenzerpuppenspiele.techniker).Trim()

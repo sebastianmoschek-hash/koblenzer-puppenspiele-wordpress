@@ -412,7 +412,7 @@ class MainActivity : Activity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val uri = request?.url ?: return false
-                if (uri.scheme == "https" && isTrustedHost(uri.host)) return false
+                if (isTrustedUri(uri)) return false
                 runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
                 return true
             }
@@ -420,13 +420,20 @@ class MainActivity : Activity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 val uri = url?.let { runCatching { Uri.parse(it) }.getOrNull() }
-                currentPageTrusted = uri?.scheme == "https" && isTrustedHost(uri.host)
-                val signedIn = hasWordPressSession()
+                currentPageTrusted = uri?.let(::isTrustedUri) == true
+                val signedIn = hasWordPressSession() || (uri?.let(::isLocalDebugUri) == true)
                 editButton.text = if (signedIn) "✎ Bearbeiten" else "✎ Anmelden"
                 logoutButton.visibility = if (signedIn) View.VISIBLE else View.GONE
                 val isEditing = url?.contains("kp_edit=1") == true
                 // In active edit mode, hide native bottomBar so web edit toolbars have exclusive screen space
                 bottomBar.visibility = if (signedIn && isEditing && !aiOpen) View.GONE else View.VISIBLE
+                if (uri?.let(::isLocalDebugUri) == true) {
+                    logoutButton.visibility = View.GONE
+                    webView.evaluateJavascript(
+                        "document.getElementById('edit')?.setAttribute('hidden','hidden');document.getElementById('close')?.addEventListener('click',()=>window.KPAndroidTechnician?.editorClosed?.(),{once:false});",
+                        null,
+                    )
+                }
                 if (!aiOpen && currentPageTrusted) {
                     showStatus(
                         if (signedIn) "Homepage bereit · Bearbeiten oder KI verwenden"
@@ -467,12 +474,19 @@ class MainActivity : Activity() {
         } else {
             base.buildUpon().clearQuery().path("/").build().toString()
         }
-        val url = if (uri != null && uri.scheme == "https" && isTrustedHost(uri.host)) uri.toString() else defaultUrl
+        val url = if (uri != null && isTrustedUri(uri)) uri.toString() else defaultUrl
         currentPageTrusted = false
         webView.loadUrl(url)
     }
 
     private fun openEditor() {
+        val current = webView.url?.let { runCatching { Uri.parse(it) }.getOrNull() }
+        if (current?.let(::isLocalDebugUri) == true) {
+            webView.evaluateJavascript("document.getElementById('edit')?.click();", null)
+            bottomBar.visibility = View.GONE
+            showStatus("Lokaler V2-Bearbeitungsmodus")
+            return
+        }
         if (hasWordPressSession()) {
             showStatus("Manueller Bearbeitungsmodus wird geöffnet …")
             webView.loadUrl(BuildConfig.HOMEPAGE_URL)
@@ -1052,8 +1066,14 @@ class MainActivity : Activity() {
 
     private fun isTrustedWebPage(): Boolean {
         val uri = runCatching { Uri.parse(webView.url ?: return false) }.getOrNull() ?: return false
-        return uri.scheme == "https" && isTrustedHost(uri.host)
+        return isTrustedUri(uri)
     }
+
+    private fun isTrustedUri(uri: Uri): Boolean =
+        (uri.scheme == "https" && isTrustedHost(uri.host)) || isLocalDebugUri(uri)
+
+    private fun isLocalDebugUri(uri: Uri): Boolean =
+        BuildConfig.DEBUG && uri.scheme == "http" && uri.host == "127.0.0.1"
 
     private fun isTrustedHost(host: String?): Boolean {
         val value = host?.lowercase().orEmpty()
@@ -1061,6 +1081,11 @@ class MainActivity : Activity() {
     }
 
     private inner class NativeAiBridge {
+        @JavascriptInterface
+        fun editorClosed() {
+            runOnUiThread { if (!aiOpen) bottomBar.visibility = View.VISIBLE }
+        }
+
         @JavascriptInterface
         fun startLive() {
             if (!currentPageTrusted) return

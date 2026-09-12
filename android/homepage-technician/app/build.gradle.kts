@@ -20,7 +20,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "HOMEPAGE_URL", "\"https://neu.koblenzer-puppenspiele.de/?kp_edit=1\"")
+            buildConfigField("String", "HOMEPAGE_URL", "\"http://127.0.0.1:8080/\"")
         }
         release {
             isMinifyEnabled = false
