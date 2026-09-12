@@ -20,7 +20,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "HOMEPAGE_URL", "\"http://127.0.0.1:8080/\"")
+            buildConfigField("String", "HOMEPAGE_URL", "\"https://appassets.androidplatform.net/assets/index.html\"")
         }
         release {
             isMinifyEnabled = false
@@ -32,6 +32,10 @@ android {
         }
     }
 
+    sourceSets {
+        getByName("debug").assets.setSrcDirs(listOf(rootProject.file("../../webapp")))
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -40,6 +44,7 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.webkit:webkit:1.15.0")
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.0")
     implementation("com.github.k2-fsa:sherpa-onnx:v1.13.4")
     implementation("com.squareup.okhttp3:okhttp:5.1.0")

@@ -31,7 +31,7 @@ Die KI-Schnittstellen sind providerneutral vorbereitet. Es ist absichtlich kein 
 
 ## Android
 
-Die Debug-App lädt den lokalen Editor über `adb reverse` in einer Android-WebView. Die erzeugte APK liegt unter `android/homepage-technician/app/build/outputs/apk/debug/app-debug.apk`. Release-Builds enthalten keine hart codierte lokale Entwicklungsadresse.
+Die Debug-App enthält den Standalone-Editor vollständig in der APK und lädt ihn über Androids sicheren lokalen Asset-Host. Sie benötigt auf dem Handy keinen Laptop-Webserver und keine `adb reverse`-Verbindung. Die erzeugte APK liegt unter `android/homepage-technician/app/build/outputs/apk/debug/app-debug.apk`. Release-Builds enthalten keine hart codierte lokale Entwicklungsadresse.
 
 ## Sicherheitsgrenze
 

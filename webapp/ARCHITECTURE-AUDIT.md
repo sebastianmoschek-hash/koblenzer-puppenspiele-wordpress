@@ -31,7 +31,7 @@ UI, Touch und der vorbereitete KI-Adapter rufen dieselben V2-Actions auf. Größ
 - Header-Preset und drei inhaltsbewahrende Website-Designvarianten.
 - Getrennter Edit-/View-Modus, mobile Navigation, PWA/Service Worker.
 - Providerneutrale KI-Action-Validierung, Preview/Commit/Cancel, Realtime-/Audio-/Screen-Contracts und Fehlerdiagnose.
-- Browserprüfungen auf 390, 820 und 1440 Pixel; Android-WebView-Prüfung im Emulator.
+- Browserprüfungen auf 390, 820 und 1440 Pixel; eingebettete Offline-Android-WebView-Prüfung im Emulator ohne Laptop-Webserver.
 
 ## Bewusst externe Grenzen
 

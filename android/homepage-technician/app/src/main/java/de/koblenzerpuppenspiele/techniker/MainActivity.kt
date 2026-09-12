@@ -19,6 +19,7 @@ import android.view.inputmethod.InputMethodManager
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -30,6 +31,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.webkit.WebViewAssetLoader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -60,6 +62,11 @@ class MainActivity : Activity() {
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private lateinit var webView: WebView
+    private val localAssetLoader by lazy {
+        WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
+    }
     private lateinit var statusView: TextView
     private lateinit var editButton: Button
     private lateinit var aiButton: Button
@@ -410,6 +417,11 @@ class MainActivity : Activity() {
             userAgentString = userAgentString + " KoblenzerPuppenspieleTechnician/0.6-chatwindow"
         }
         webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                val uri = request?.url
+                return if (BuildConfig.DEBUG && uri?.host == "appassets.androidplatform.net") localAssetLoader.shouldInterceptRequest(uri) else super.shouldInterceptRequest(view, request)
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val uri = request?.url ?: return false
                 if (isTrustedUri(uri)) return false
@@ -469,7 +481,7 @@ class MainActivity : Activity() {
         } else null
         val uri = requested?.let { runCatching { Uri.parse(it) }.getOrNull() }
         val base = Uri.parse(BuildConfig.HOMEPAGE_URL)
-        val defaultUrl = if (hasWordPressSession()) {
+        val defaultUrl = if (isLocalDebugUri(base) || hasWordPressSession()) {
             BuildConfig.HOMEPAGE_URL
         } else {
             base.buildUpon().clearQuery().path("/").build().toString()
@@ -1073,7 +1085,7 @@ class MainActivity : Activity() {
         (uri.scheme == "https" && isTrustedHost(uri.host)) || isLocalDebugUri(uri)
 
     private fun isLocalDebugUri(uri: Uri): Boolean =
-        BuildConfig.DEBUG && uri.scheme == "http" && uri.host == "127.0.0.1"
+        BuildConfig.DEBUG && ((uri.scheme == "http" && uri.host == "127.0.0.1") || (uri.scheme == "https" && uri.host == "appassets.androidplatform.net"))
 
     private fun isTrustedHost(host: String?): Boolean {
         val value = host?.lowercase().orEmpty()

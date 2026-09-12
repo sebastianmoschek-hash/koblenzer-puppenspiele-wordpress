@@ -4,7 +4,7 @@ const port = process.env.ANDROID_WEBVIEW_CDP_PORT || '9225';
 const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
 try {
   const pages = browser.contexts().flatMap(context => context.pages());
-  const page = pages.find(candidate => candidate.url().startsWith('http://127.0.0.1:8080/'));
+  const page = pages.find(candidate => candidate.url().startsWith('https://appassets.androidplatform.net/assets/index.html'));
   if (!page) throw new Error('Lokale Editor-V2-WebView wurde nicht gefunden.');
   await page.waitForFunction(() => window.KPEditorV2 && window.KPEditorV2AI, null, { timeout: 15000 });
   const inventory = await page.evaluate(async () => {
