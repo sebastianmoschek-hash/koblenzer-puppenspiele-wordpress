@@ -212,11 +212,15 @@
           if (!sectionNode && main) { sectionNode = document.createElement('section'); sectionNode.dataset.v2SectionId = section.id; sectionNode.className = section.design?.className || 'editable'; sectionNode.innerHTML = '<div class="wrap"></div>'; main.append(sectionNode); }
           if (!sectionNode) return;
           if (section.design?.className != null) sectionNode.className = section.design.className;
+          sectionNode.dataset.v2Type = section.design?.type || 'content';
+          sectionNode.dataset.v2Layout = section.design?.layout || 'normal';
           for (const [property, value] of Object.entries(section.design || {})) {
-            if (property === 'className' || property === 'preset') continue;
-            if (value == null) sectionNode.style.removeProperty(property); else sectionNode.style[property] = String(value);
+            if (['className', 'preset', 'type', 'layout'].includes(property)) continue;
+            const pixels = ['minHeight', 'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight'].includes(property);
+            if (value == null) sectionNode.style.removeProperty(property); else sectionNode.style[property] = typeof value === 'number' && pixels ? `${value}px` : String(value);
           }
           const host = sectionNode.querySelector('.wrap,.hero-copy') || sectionNode;
+          if (host !== sectionNode) host.style.maxWidth = section.design?.layout === 'narrow' ? '760px' : section.design?.layout === 'wide' ? '1320px' : '';
           section.elements.sort((a, b) => (a.order || 0) - (b.order || 0)).forEach(element => { if (!root.querySelector(`[data-v2-id="${element.id}"]`)) host.append(makeElement(element)); });
         });
         const modelElements = modelSections.flatMap(section => section.elements).concat(doc.header?.elements || []);

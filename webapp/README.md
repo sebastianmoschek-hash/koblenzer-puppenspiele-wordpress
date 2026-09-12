@@ -20,7 +20,7 @@ Alternativ genügt im Verzeichnis `webapp` ein statischer Server auf Port 8080. 
 - Bilder: lokale Originalmedien durchsuchen/ersetzen sowie Filter, Anpassungen, Zuschneiden, Drehen, Spiegeln und Duplizieren.
 - Ebenen: Elemente eines Abschnitts in einer mobilen Liste auswählen und schrittweise oder vollständig nach vorne/hinten anordnen.
 - Texte und Buttons: Inhalt, sechs Schriftfamilien, Schriftgestaltung, Farben, Ausrichtung, Link und Form.
-- Abschnitte: Text-, Bild- oder Call-to-Action-Vorlage hinzufügen, sortieren, gestalten, duplizieren und löschen.
+- Abschnitte: Text-, Bild- oder Call-to-Action-Vorlage hinzufügen, sortieren, duplizieren/löschen sowie Typ, Breite, Höhe, Abstände, Farbe und lokales Hintergrundbild gestalten.
 - Header/Navigation: Design umschalten sowie Menüpunkte bearbeiten, ergänzen, sortieren und löschen.
 - Responsive Ansicht: Smartphone, Tablet oder Desktop als kontrollierte Editor-Vorschau auswählen.
 - Website-Design: Original, Warmes Theater und Nachtbühne als verwerfbare Vorschau.
