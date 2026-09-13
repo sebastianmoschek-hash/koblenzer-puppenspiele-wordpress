@@ -1,0 +1,2 @@
+export function findNode(doc,id){for(const page of doc.pages)for(const section of page.sections){if(section.id===id)return section;for(const child of section.children||[])if(child.id===id)return child}return doc.navigation.find(n=>n.id===id)||null}
+export function editText(store,id,text){store.update(doc=>{const node=findNode(doc,id);if(!node)return;if('text'in node)node.text=text;else if('label'in node)node.label=text;else if('title'in node)node.title=text})}
