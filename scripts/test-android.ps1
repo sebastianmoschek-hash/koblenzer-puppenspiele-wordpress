@@ -6,20 +6,27 @@ $devices = & $adb devices | Select-String '\tdevice$'
 if (-not $devices) { throw 'Kein Android-Emulator und kein freigegebenes Gerät erkannt.' }
 & $adb logcat -c
 & "$PSScriptRoot\install-android.ps1"
-Start-Sleep -Seconds 8
+Start-Sleep -Seconds 2
 $pidText = (& $adb shell pidof de.koblenzerpuppenspiele.techniker).Trim()
 if (-not $pidText) { throw 'Android-App-Prozess läuft nach dem Start nicht.' }
 $dumpPath = '/sdcard/kp-window.xml'
 $nativeEdit = $null
-for ($attempt = 0; $attempt -lt 12 -and -not $nativeEdit; $attempt++) {
+for ($attempt = 0; $attempt -lt 20 -and -not $nativeEdit; $attempt++) {
+  $nativeEdit = $null
+  & $adb shell rm -f $dumpPath | Out-Null
   & $adb shell uiautomator dump $dumpPath | Out-Null
-  try {
-    [xml]$window = (& $adb shell cat $dumpPath) -join "`n"
-    $nativeEdit = $window.SelectSingleNode("//node[@class='android.widget.Button' and contains(@text,'Bearbeiten')]")
-  } catch { $nativeEdit = $null }
+  if ($LASTEXITCODE -eq 0) {
+    try {
+      [xml]$window = (& $adb shell cat $dumpPath) -join "`n"
+      $ready = $window.SelectSingleNode("//node[@class='android.widget.TextView' and contains(@text,'Homepage bereit')]")
+      if ($ready) {
+        $nativeEdit = $window.SelectSingleNode("//node[@class='android.widget.Button' and contains(@text,'Bearbeiten')]")
+      }
+    } catch { $nativeEdit = $null }
+  }
   if (-not $nativeEdit) { Start-Sleep -Seconds 1 }
 }
-if (-not $nativeEdit) { throw 'Native Android-Schaltfläche „Bearbeiten“ wurde nicht gefunden.' }
+if (-not $nativeEdit) { throw 'Native Android-Schaltfläche „Bearbeiten“ wurde im fertig geladenen Zustand nicht gefunden.' }
 $nativeBounds = [string]$nativeEdit.bounds
 if ($nativeBounds -notmatch '^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$') { throw 'Native Android-Schaltfläche „Bearbeiten“ hat ungültige Koordinaten.' }
 $tapX = [int](([int]$Matches[1] + [int]$Matches[3]) / 2)
