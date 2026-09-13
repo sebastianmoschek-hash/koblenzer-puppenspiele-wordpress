@@ -3,11 +3,22 @@
   'use strict';
   if (window.KPEditorV2) return;
 
-  const SCHEMA_VERSION = 3;
+  const SCHEMA_VERSION = 4;
   const clone = value => JSON.parse(JSON.stringify(value));
   const id = prefix => `${prefix}-${(globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`).replace(/[^a-z0-9-]/gi, '')}`;
   const slugify = value => String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'seite';
   const pageHref = pageId => pageId === 'home' ? '#home' : `#page/${encodeURIComponent(pageId)}`;
+  const BREAKPOINTS = new Set(['mobile', 'tablet', 'desktop']);
+  // Existing direct values remain the base layer.  Breakpoint changes live in
+  // their own object, so a phone adjustment cannot overwrite desktop styling.
+  function resolvedResponsive(object, breakpoint) {
+    const responsive = object?.responsive || {};
+    return { ...(object || {}), ...(responsive.base || {}), ...(BREAKPOINTS.has(breakpoint) ? (responsive[breakpoint] || {}) : {}) };
+  }
+  function setResponsiveValues(object, values, breakpoint = 'base') {
+    const target = breakpoint === 'base' ? object : ((object.responsive ||= {}), (object.responsive[breakpoint] ||= {}));
+    Object.assign(target, clone(values || {}));
+  }
 
   function resolveNavigationTarget(doc, item) {
     const explicit = item?.target;
@@ -114,7 +125,7 @@
 
   function createStore(initial) {
     const initialDocument = normalize(initial);
-    let state = { document: initialDocument, selection: null, activePageId: initialDocument.pages.find(page => page.id === 'home')?.id || initialDocument.pages[0]?.id || null, activeSectionId: null, mode: 'view', viewport: 'desktop', breakpoint: 'desktop', gesture: { type: 'idle' }, dirty: false, persistence: 'idle', preview: null, aiContext: null, diagnosticsContext: null };
+    let state = { document: initialDocument, selection: null, activePageId: initialDocument.pages.find(page => page.id === 'home')?.id || initialDocument.pages[0]?.id || null, activeSectionId: null, mode: 'view', viewport: 'desktop', breakpoint: 'desktop', responsiveScope: 'base', gesture: { type: 'idle' }, dirty: false, persistence: 'idle', preview: null, aiContext: null, diagnosticsContext: null };
     const listeners = new Set();
     const history = [], future = [];
     const emit = () => listeners.forEach(listener => listener(state));
@@ -172,6 +183,7 @@
       subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
       setMode: mode => set({ ...state, mode }),
       setViewport: viewport => set({ ...state, viewport, breakpoint: viewport }),
+      setResponsiveScope: scope => { const normalized = scope === 'base' ? 'base' : (BREAKPOINTS.has(scope) ? scope : state.breakpoint); set({ ...state, responsiveScope: normalized }); return normalized; },
       setSelection: selection => set({ ...state, selection }),
       setActivePage: pageId => { const page = state.document.pages.find(item => item.id === pageId); if (!page || page.id === state.activePageId) return Boolean(page); set({ ...state, activePageId: page.id, activeSectionId: null, selection: null }); return true; },
       replaceDocument: (document, options = {}) => {
@@ -274,7 +286,8 @@
     const api = {
       selectElement: elementId => store.setSelection(elementId ? { elementId } : null),
       setText: (elementId, text) => store.transact('Text ändern', doc => { const found = find(doc.document, elementId); if (found && ['text', 'heading', 'button'].includes(found.element.type)) found.element.content.text = String(text); }),
-      setTextStyle: (elementId, styles = {}) => store.transact('Text gestalten', doc => { const found = find(doc.document, elementId); if (found && ['text', 'heading', 'button'].includes(found.element.type)) found.element.styles = { ...found.element.styles, ...clone(styles) }; }),
+      setTextStyle: (elementId, styles = {}, breakpoint = 'base') => store.transact('Text gestalten', doc => { const found = find(doc.document, elementId); if (found && ['text', 'heading', 'button'].includes(found.element.type)) setResponsiveValues(found.element.styles ||= {}, styles, breakpoint); }),
+      setElementResponsiveStyle: (elementId, styles = {}, breakpoint = 'base') => store.transact('Element responsiv gestalten', doc => { const found = find(doc.document, elementId); if (found) setResponsiveValues(found.element.styles ||= {}, styles, breakpoint); }),
       setButtonLink: (elementId, href) => store.transact('Button-Link ändern', doc => { const found = find(doc.document, elementId); if (found?.element.type === 'button') found.element.content.href = String(href); }),
       moveElement: (elementId, x, y) => store.transact('Element verschieben', doc => { const found = find(doc.document, elementId); if (found) { found.element.transform.x = Number(x) || 0; found.element.transform.y = Number(y) || 0; } }),
       resizeElement: (elementId, scale) => store.transact('Element skalieren', doc => { const found = find(doc.document, elementId); if (found) found.element.transform.scale = Math.max(.1, Math.min(10, Number(scale) || 1)); }),
@@ -323,9 +336,11 @@
       duplicateSection: sectionId => store.transact('Abschnitt duplizieren', state => { for (const page of state.document.pages) { const source = page.sections.find(section => section.id === sectionId); if (source) { const copy = clone(source); copy.id = id('section'); copy.order = page.sections.length; copy.elements.forEach(element => { element.id = id('el'); }); page.sections.push(copy); return; } } }),
       deleteSection: sectionId => store.transact('Abschnitt löschen', state => { for (const page of state.document.pages) page.sections = page.sections.filter(section => section.id !== sectionId); state.document.navigation.items.forEach(item => { const target = navigationTarget(state.document, item); if (target.type === 'section' && target.sectionId === sectionId) { delete item.target; item.href = '#'; } }); if (state.selection?.sectionId === sectionId) state.selection = null; }),
       moveSection: (sectionId, direction) => store.transact('Abschnitt verschieben', state => { for (const page of state.document.pages) { const index = page.sections.findIndex(section => section.id === sectionId); if (index < 0) continue; const target = Math.max(0, Math.min(page.sections.length - 1, index + Number(direction))); if (target === index) return; page.sections.splice(target, 0, page.sections.splice(index, 1)[0]); page.sections.forEach((section, order) => { section.order = order; }); return; } }),
-      setSectionDesign: (sectionId, design = {}) => store.transact('Abschnitt gestalten', state => { for (const page of state.document.pages) { const section = page.sections.find(item => item.id === sectionId); if (section) section.design = { ...section.design, ...clone(design) }; } }),
+      setSectionDesign: (sectionId, design = {}, breakpoint = 'base') => store.transact('Abschnitt gestalten', state => { for (const page of state.document.pages) { const section = page.sections.find(item => item.id === sectionId); if (section) setResponsiveValues(section.design ||= {}, design, breakpoint); } }),
+      setSectionResponsiveDesign: (sectionId, design = {}, breakpoint = 'base') => store.transact('Abschnitt responsiv gestalten', state => { for (const page of state.document.pages) { const section = page.sections.find(item => item.id === sectionId); if (section) setResponsiveValues(section.design ||= {}, design, breakpoint); } }),
       moveLayer: (elementId, direction) => store.transact('Ebene ändern', state => { const found = find(state.document, elementId); if (!found) return; const elements = found.section.elements; const index = elements.findIndex(item => item.id === elementId); const target = direction === 'front' ? elements.length - 1 : direction === 'back' ? 0 : Math.max(0, Math.min(elements.length - 1, index + (direction === 'forward' ? 1 : -1))); elements.splice(target, 0, elements.splice(index, 1)[0]); elements.forEach((element, order) => { element.order = order; }); }),
-      setHeaderDesign: design => store.transact('Header gestalten', state => { state.document.header.design = { ...(state.document.header.design || {}), ...clone(design || {}) }; }),
+      setHeaderDesign: (design, breakpoint = 'base') => store.transact('Header gestalten', state => { setResponsiveValues(state.document.header.design ||= {}, design, breakpoint); }),
+      setHeaderResponsiveDesign: (design, breakpoint = 'base') => store.transact('Header responsiv gestalten', state => { setResponsiveValues(state.document.header.design ||= {}, design, breakpoint); }),
       renameNavigationItem: (itemId, label) => store.transact('Menüpunkt umbenennen', state => { const item = state.document.navigation.items.find(entry => entry.id === itemId); if (item) item.label = String(label); }),
       updateNavigationItem: (itemId, changes = {}) => store.transact('Menüpunkt bearbeiten', state => { const item = state.document.navigation.items.find(entry => entry.id === itemId); if (item) { if (changes.label != null) item.label = String(changes.label); if (changes.href != null) { item.href = String(changes.href); delete item.target; const target = navigationTarget(state.document, item); if (target.type === 'page') item.target = { type: 'page', pageId: target.pageId }; else if (target.type === 'section') item.target = { type: 'section', pageId: target.pageId, sectionId: target.sectionId }; } } }),
       createNavigationItem: (label, href = '#', target = null) => store.transact('Menüpunkt hinzufügen', state => appendNavigation(state, label, target, href)),
@@ -388,7 +403,7 @@
       return node;
     };
     return {
-      render(doc, root, activePageId = null) {
+      render(doc, root, activePageId = null, breakpoint = 'desktop') {
         if (!root || !doc) throw new TypeError('Renderer benötigt Dokument und Ziel-Element');
         root.dataset.v2Schema = String(doc.schemaVersion || SCHEMA_VERSION);
         root.dataset.v2Rendered = 'true';
@@ -400,21 +415,22 @@
         const sectionIds = new Set(modelSections.map(section => section.id));
         root.querySelectorAll('main > section[data-v2-section-id]').forEach(node => { if (!sectionIds.has(node.dataset.v2SectionId)) node.remove(); });
         sectionEntries.forEach(({ page, section }) => {
+          const design = resolvedResponsive(section.design, breakpoint);
           let sectionNode = root.querySelector(`main > section[data-v2-section-id="${section.id}"]`);
-          if (!sectionNode && main) { sectionNode = document.createElement('section'); sectionNode.dataset.v2SectionId = section.id; sectionNode.className = section.design?.className || 'editable'; sectionNode.innerHTML = '<div class="wrap"></div>'; main.append(sectionNode); }
+          if (!sectionNode && main) { sectionNode = document.createElement('section'); sectionNode.dataset.v2SectionId = section.id; sectionNode.className = design.className || 'editable'; sectionNode.innerHTML = '<div class="wrap"></div>'; main.append(sectionNode); }
           if (!sectionNode) return;
           sectionNode.dataset.v2PageId = page.id;
           sectionNode.hidden = page.id !== activePage?.id;
-          if (section.design?.className != null) sectionNode.className = section.design.className;
-          sectionNode.dataset.v2Type = section.design?.type || 'content';
-          sectionNode.dataset.v2Layout = section.design?.layout || 'normal';
-          for (const [property, value] of Object.entries(section.design || {})) {
-            if (['className', 'preset', 'type', 'layout'].includes(property)) continue;
+          if (design.className != null) sectionNode.className = design.className;
+          sectionNode.dataset.v2Type = design.type || 'content';
+          sectionNode.dataset.v2Layout = design.layout || 'normal';
+          for (const [property, value] of Object.entries(design)) {
+            if (['className', 'preset', 'type', 'layout', 'responsive'].includes(property)) continue;
             const pixels = ['minHeight', 'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight'].includes(property);
             if (value == null) sectionNode.style.removeProperty(property); else sectionNode.style[property] = typeof value === 'number' && pixels ? `${value}px` : String(value);
           }
           const host = sectionNode.querySelector('.wrap,.hero-copy') || sectionNode;
-          if (host !== sectionNode) host.style.maxWidth = section.design?.layout === 'narrow' ? '760px' : section.design?.layout === 'wide' ? '1320px' : '';
+          if (host !== sectionNode) host.style.maxWidth = design.layout === 'narrow' ? '760px' : design.layout === 'wide' ? '1320px' : '';
           section.elements.sort((a, b) => (a.order || 0) - (b.order || 0)).forEach(element => { if (!root.querySelector(`[data-v2-id="${element.id}"]`)) host.append(makeElement(element)); });
         });
         if (main) {
@@ -431,7 +447,7 @@
           if (element.type === 'image') { node.setAttribute('src', element.content.src || ''); node.setAttribute('alt', element.content.alt || ''); node.style.maxWidth = '100%'; node.style.height = 'auto'; }
           else if (typeof element.content?.text === 'string' && node.textContent !== element.content.text) node.textContent = element.content.text;
           if (element.type === 'button' && element.content?.href) node.setAttribute('href', element.content.href);
-          Object.entries(element.styles || {}).forEach(([property, value]) => { if (value == null) node.style.removeProperty(property); else node.style[property] = typeof value === 'number' && ['fontSize', 'letterSpacing', 'borderRadius'].includes(property) ? `${value}px` : String(value); });
+          Object.entries(resolvedResponsive(element.styles, breakpoint)).forEach(([property, value]) => { if (property === 'responsive') return; if (value == null) node.style.removeProperty(property); else node.style[property] = typeof value === 'number' && ['fontSize', 'letterSpacing', 'borderRadius'].includes(property) ? `${value}px` : String(value); });
           node.style.setProperty('--kp-v2-layer', String(Number(element.order) || 0));
           const transform = element.transform || {};
           const flipX = Number(transform.flipX) === -1 ? -1 : 1, flipY = Number(transform.flipY) === -1 ? -1 : 1;
@@ -465,7 +481,7 @@
         }
         const header = root.querySelector('.top');
         if (header && doc.header?.design) {
-          const design = doc.header.design;
+          const design = resolvedResponsive(doc.header.design, breakpoint);
           if (design.height != null) header.style.minHeight = `${Number(design.height) || 0}px`;
           if (design.background != null && design.backgroundColor == null) header.style.backgroundColor = String(design.background);
           if (design.backgroundColor != null) header.style.backgroundColor = String(design.backgroundColor);
@@ -487,14 +503,14 @@
             } else brand.textContent = title;
           }
         }
-        const theme = doc.site?.design;
+        const theme = resolvedResponsive(doc.site?.design, breakpoint);
         const variables = { accent: '--orange', background: '--brown', surface: '--bg', text: '--text', muted: '--muted' };
         Object.entries(variables).forEach(([name, variable]) => { root.style.removeProperty(`--v2-${name}`); root.style.removeProperty(variable); });
         if (theme?.colors) Object.entries(theme.colors).forEach(([name, value]) => { root.style.setProperty(`--v2-${name}`, String(value)); if (variables[name]) root.style.setProperty(variables[name], String(value)); });
         return root;
       },
       mount(root, store) {
-        const update = state => this.render(state.document, root, state.activePageId);
+        const update = state => this.render(state.document, root, state.activePageId, state.breakpoint);
         update(store.get());
         return store.subscribe(update);
       },
@@ -690,7 +706,7 @@
   document.getElementById('close')?.addEventListener('click', () => { store.setSelection(null); store.setMode('view'); });
   document.getElementById('save')?.addEventListener('click', () => persistence.save(), true);
   window.addEventListener('load', () => setTimeout(() => { if (savedDocument) store.replaceDocument(mergeDocuments(importDocument(document), savedDocument), { activePageId: savedWorkspace?.activePageId, dirty: false, persistence: 'loaded' }); else refreshFromDOM(document); }, 500), { once: true });
-  window.KPEditorV2 = Object.freeze({ SCHEMA_VERSION, importDocument, normalize, migrate, mergeDocuments, resolveNavigationTarget, pageHref, refreshFromDOM, store, actions, persistence, renderer, context, diagnostics, ai, runtime });
+  window.KPEditorV2 = Object.freeze({ SCHEMA_VERSION, importDocument, normalize, migrate, mergeDocuments, resolveNavigationTarget, pageHref, resolvedResponsive, refreshFromDOM, store, actions, persistence, renderer, context, diagnostics, ai, runtime });
   if (!document.querySelector('script[data-kp-v2-ai]')) {
     const script = document.createElement('script');
     script.src = 'editor-v2-ai.js?v=20260912-1';

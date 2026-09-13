@@ -44,9 +44,10 @@
   function viewportSheet() {
     closeSheet();
     const panel = document.createElement('div'); panel.id = 'kpV2ViewportSheet';
-    panel.innerHTML = '<header><div><strong>Responsive Ansicht</strong><small>Vorschau für Smartphone, Tablet und Desktop</small></div><button type="button" data-close>×</button></header><div class="kp-v2-viewport-grid"><button type="button" data-viewport="mobile">▯ Smartphone</button><button type="button" data-viewport="tablet">▯ Tablet</button><button type="button" data-viewport="desktop">▱ Desktop</button></div><small>Die Vorschau verändert nur die Editoransicht. Inhalte und Layoutregeln bleiben responsive.</small>';
+    panel.innerHTML = '<header><div><strong>Responsive Ansicht</strong><small>Vorschau und Bearbeitungsbereich getrennt wählen</small></div><button type="button" data-close>×</button></header><div class="kp-v2-viewport-grid"><button type="button" data-viewport="mobile">▯ Smartphone</button><button type="button" data-viewport="tablet">▯ Tablet</button><button type="button" data-viewport="desktop">▱ Desktop</button></div><strong>Änderungen speichern in</strong><div class="kp-v2-viewport-grid"><button type="button" data-scope="base">Basis für alle</button><button type="button" data-scope="mobile">Smartphone</button><button type="button" data-scope="tablet">Tablet</button><button type="button" data-scope="desktop">Desktop</button></div><small>Eine Bereichsänderung überschreibt nur diesen Breakpoint; Basiswerte bleiben erhalten.</small>';
     panel.querySelector('[data-close]').onclick = closeSheet;
     panel.querySelectorAll('[data-viewport]').forEach(node => node.onclick = () => { v2.store.setViewport(node.dataset.viewport); document.body.dataset.v2Viewport = node.dataset.viewport; panel.querySelectorAll('[data-viewport]').forEach(item => item.setAttribute('aria-pressed', String(item === node))); feedback(`${node.textContent.trim()}-Vorschau aktiv`); });
+    panel.querySelectorAll('[data-scope]').forEach(node => { node.setAttribute('aria-pressed', String(v2.store.get().responsiveScope === node.dataset.scope)); node.onclick = () => { v2.store.setResponsiveScope(node.dataset.scope); panel.querySelectorAll('[data-scope]').forEach(item => item.setAttribute('aria-pressed', String(item === node))); feedback(`${node.textContent.trim()} wird bearbeitet`); }; });
     document.body.append(panel);
   }
   function sectionSheet(section) {
@@ -56,7 +57,7 @@
     const original = { ...section.design };
     const presets = { plain: { className: 'editable', type: 'content', layout: 'normal', backgroundColor: '#2b1c16', backgroundImage: '' }, dark: { className: 'dark editable', type: 'content', layout: 'normal', backgroundColor: '#17100d', backgroundImage: '' }, warm: { className: 'editable', type: 'content', layout: 'normal', backgroundColor: '#3a2119', backgroundImage: '' }, cards: { className: 'dark editable', type: 'gallery', layout: 'wide', backgroundColor: '#241713', backgroundImage: '', paddingTop: 56, paddingBottom: 56 } };
     const cancel = () => { v2.store.cancelPreview(); panel.remove(); };
-    const preview = design => { v2.actions.previewBatch('Abschnitts-Design Vorschau', [{ name: 'setSectionDesign', payload: [section.id, design] }]); panel.querySelector('[data-accept]').disabled = false; };
+    const preview = design => { v2.actions.previewBatch('Abschnitts-Design Vorschau', [{ name: 'setSectionDesign', payload: [section.id, design, v2.store.get().responsiveScope] }]); panel.querySelector('[data-accept]').disabled = false; };
     panel.querySelector('[data-close]').onclick = cancel; panel.querySelector('[data-cancel]').onclick = cancel;
     panel.querySelectorAll('[data-template]').forEach(node => node.onclick = () => preview(presets[node.dataset.template]));
     const mediaSelect = panel.querySelector('[data-background-image]');
@@ -84,7 +85,7 @@
     const originalTitle = v2.store.get().document.header?.elements?.[0]?.content?.text || 'Koblenzer Puppenspiele';
     const presets = { original: { preset: 'original', backgroundColor: '#17100d', backgroundImage: '', color: '#fff7ef', height: 64, layout: 'spread', navPosition: 'end', gap: 18 }, warm: { preset: 'warm', backgroundColor: '#4b2318', backgroundImage: '', color: '#fff7ef', height: 76, layout: 'spread', navPosition: 'end', gap: 20 }, dark: { preset: 'night', backgroundColor: '#080d18', backgroundImage: '', color: '#f8fafc', height: 70, layout: 'centered', navPosition: 'center', gap: 16 } };
     const cancel = () => { v2.store.cancelPreview(); panel.remove(); };
-    const preview = design => { v2.actions.previewBatch('Header-Design Vorschau', [{ name: 'setHeaderDesign', payload: [design] }]); panel.querySelector('[data-accept]').disabled = false; };
+    const preview = design => { v2.actions.previewBatch('Header-Design Vorschau', [{ name: 'setHeaderDesign', payload: [design, v2.store.get().responsiveScope] }]); panel.querySelector('[data-accept]').disabled = false; };
     panel.querySelector('[data-close]').onclick = cancel; panel.querySelector('[data-cancel]').onclick = cancel;
     panel.querySelectorAll('[data-header]').forEach(node => node.onclick = () => preview(presets[node.dataset.header]));
     const images = window.KPEditorV2Media?.collect() || [], backgroundSelect = panel.querySelector('[data-background-image]'), logoSelect = panel.querySelector('[data-logo]');

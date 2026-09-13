@@ -145,6 +145,15 @@ try {
       const aiContractReady = validPlan && rejectedPlan && screenPermissionRejected && privacyState.microphone && privacyState.screen && liveSession.getState().status === 'disconnected' && aiPreviewVisible && aiPreviewCancelled && aiAppliedOnce && planned && typeof audioSession.start === 'function' && typeof screenSession.start === 'function' && diagnosticsReady;
       const migrated = v2.migrate({ site: { title: 'Altstand' }, pages: [], navigation: { items: [] } });
       const schemaMigration = migrated.schemaVersion === v2.SCHEMA_VERSION && migrated.meta.migratedFrom === 0;
+      v2.actions.setElementResponsiveStyle(heading.id, { fontSize: 51 }, 'mobile');
+      const responsiveStored = v2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(element => element.id === heading.id)?.styles?.responsive?.mobile?.fontSize === 51;
+      v2.store.setViewport('mobile');
+      const responsiveRendered = document.querySelector(`[data-v2-id="${heading.id}"]`)?.style.fontSize === '51px';
+      v2.store.setResponsiveScope('mobile');
+      const responsiveScope = v2.store.get().responsiveScope === 'mobile';
+      v2.store.undo();
+      v2.store.setViewport('desktop');
+      v2.store.setResponsiveScope('base');
       const originalTheme = v2.store.get().document.site.design.preset;
       v2.store.preview('Theme Vorschau', state => { state.document.site.design.preset = 'preview-theme'; });
       const previewVisible = v2.store.get().document.site.design.preset === 'preview-theme';
@@ -202,7 +211,7 @@ try {
         backup.history && backup.restore && backup.read().length <= 20
       );
       const button = elements.find(element => element.type === 'button');
-      return { before, changed, restored, renderedText, selected, dragged, renderedTransform, gestureMoved, gestureRendered, batchTransaction, styled, sectionSlice, navigationSlice, navigationRendered, designSlice, duplicateDelete, imageSlice, pinchRotate, persistenceRestored, aiContractReady, schemaMigration, previewTransactions, keyboardContract, backupContract, undoRestored: restored === before, schema: v2.SCHEMA_VERSION, imageId: image?.id || null, headingId: heading.id, buttonId: button?.id || null };
+      return { before, changed, restored, renderedText, selected, dragged, renderedTransform, gestureMoved, gestureRendered, batchTransaction, styled, sectionSlice, navigationSlice, navigationRendered, designSlice, duplicateDelete, imageSlice, pinchRotate, persistenceRestored, aiContractReady, schemaMigration, responsiveStored, responsiveRendered, responsiveScope, previewTransactions, keyboardContract, backupContract, undoRestored: restored === before, schema: v2.SCHEMA_VERSION, imageId: image?.id || null, headingId: heading.id, buttonId: button?.id || null };
     });
     const sectionCountBeforeUI = await page.evaluate(() => window.KPEditorV2.store.get().document.pages[0].sections.length);
     await page.locator('#aktuell').click({ position: { x: 5, y: 5 } });
@@ -405,6 +414,7 @@ try {
     await page.locator('#kpElementSheet [data-size]').fill('38');
     await page.locator('#kpElementSheet [data-align="center"]').click();
     await page.locator('#kpElementSheet [data-done]').click();
+    await page.waitForFunction(() => !document.querySelector('#kpElementSheet'), null, { timeout: 3000 });
     result.textEditorUI = await page.evaluate(({ id, before }) => { const element = window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(item => item.id === id), node = document.querySelector(`[data-v2-id="${id}"]`), ok = element?.content.text === 'Texteditor Browserprüfung' && element?.styles.fontSize === 38 && element?.styles.textAlign === 'center' && element?.styles.fontFamily?.startsWith('Georgia') && node?.textContent === 'Texteditor Browserprüfung' && getComputedStyle(node).fontFamily.includes('Georgia') && window.KPEditorV2.store.history().undo === before + 1; window.KPEditorV2.store.undo(); return ok; }, { id: result.headingId, before: textEditorBefore });
     result.buttonEditorUI = false;
     if (result.buttonId) {
@@ -415,6 +425,7 @@ try {
       await page.locator('#kpElementSheet [data-link]').fill('#geprueft');
       await page.locator('#kpElementSheet [data-radius]').fill('18');
       await page.locator('#kpElementSheet [data-done]').click();
+      await page.waitForFunction(() => !document.querySelector('#kpElementSheet'), null, { timeout: 3000 });
       result.buttonEditorUI = await page.evaluate(({ id, before }) => { const element = window.KPEditorV2.store.get().document.pages.flatMap(page => page.sections).flatMap(section => section.elements).find(item => item.id === id), node = document.querySelector(`[data-v2-id="${id}"]`), ok = element?.content.text === 'Geprüfter Button' && element?.content.href === '#geprueft' && element?.styles.borderRadius === 18 && node?.textContent === 'Geprüfter Button' && node?.getAttribute('href') === '#geprueft' && window.KPEditorV2.store.history().undo === before + 1; window.KPEditorV2.store.undo(); return ok; }, { id: result.buttonId, before: buttonEditorBefore });
     }
     let imageEditorUI = false;
@@ -474,7 +485,7 @@ try {
     result.offlineReady = offlineReady;
     result.serviceWorkerReady = serviceWorkerReady;
     if (!result.undoRestored || !result.renderedText || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Renderer/Undo fehlgeschlagen`);
-    if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.backupContract || !result.keyboardContract || !result.accessibilityUI || !result.layerPanelUI || !result.mediaBrowserUI || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.multiPageUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
+    if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.backupContract || !result.keyboardContract || !result.accessibilityUI || !result.layerPanelUI || !result.mediaBrowserUI || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.multiPageUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.responsiveStored || !result.responsiveRendered || !result.responsiveScope || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
     if (!result.editorVisible || !result.runtimeSelection || !result.contextualToolbar || !result.viewModeClean || !result.imagesLoaded || !result.serviceWorkerReady || !result.offlineReady) failures.push(`${viewport.name}: Edit/View-Modus, Auswahl, Werkzeugleiste, Bildladung, Offline-Neustart oder horizontaler Overflow fehlerhaft`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);
     if (httpErrors.length) failures.push(`${viewport.name}: HTTP ${httpErrors.join('; ')}`);

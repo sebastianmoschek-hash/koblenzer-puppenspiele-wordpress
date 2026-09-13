@@ -78,15 +78,20 @@
   }
   function finish() {
     if (v2TargetId && draft) {
-      const commands = [{ name: 'setText', payload: [v2TargetId, draft.text] }, { name: 'setTextStyle', payload: [v2TargetId, draft.styles] }];
+      const scope = window.KPEditorV2.store.get().responsiveScope || 'base';
+      const commands = [{ name: 'setText', payload: [v2TargetId, draft.text] }, { name: 'setTextStyle', payload: [v2TargetId, draft.styles, scope] }];
       if (draft.type === 'button') commands.push({ name: 'setButtonLink', payload: [v2TargetId, draft.href] });
       window.KPEditorV2.actions.executeBatch(draft.type === 'button' ? 'Button bearbeiten' : 'Text bearbeiten', commands);
     } else legacyDone?.();
-    legacyDone = null; legacyBefore = ''; v2TargetId = ''; draft = null; ui().hidden = true; document.body.classList.remove('kp-element-sheet-open'); window.markDirty?.('Element bearbeitet – noch speichern'); target = null;
+    // The sheet is intentionally disposable.  Older editor listeners can
+    // retain references to a hidden panel and otherwise leave a transparent
+    // full-screen scrim over the next selected element.
+    const panel = ui();
+    legacyDone = null; legacyBefore = ''; v2TargetId = ''; draft = null; panel.remove(); document.body.classList.remove('kp-element-sheet-open'); window.markDirty?.('Element bearbeitet – noch speichern'); target = null;
   }
   function cancel() {
-    const before = legacyBefore, isV2 = Boolean(v2TargetId), element = target;
-    legacyDone = null; legacyBefore = ''; v2TargetId = ''; draft = null; ui().hidden = true; document.body.classList.remove('kp-element-sheet-open');
+    const before = legacyBefore, isV2 = Boolean(v2TargetId), element = target, panel = ui();
+    legacyDone = null; legacyBefore = ''; v2TargetId = ''; draft = null; panel.remove(); document.body.classList.remove('kp-element-sheet-open');
     if (isV2 && element) { element.removeAttribute('style'); window.KPEditorV2.renderer.render(window.KPEditorV2.store.get().document, document.documentElement); } else if (before) window.__kpHistory?.restore?.(before);
     target = null;
   }
