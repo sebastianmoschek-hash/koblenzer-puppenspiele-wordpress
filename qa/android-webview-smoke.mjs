@@ -1,6 +1,9 @@
 import { chromium } from 'playwright';
+import { execFileSync } from 'node:child_process';
 
 const port = process.env.ANDROID_WEBVIEW_CDP_PORT || '9225';
+const adb = process.env.ANDROID_ADB;
+if (!adb) throw new Error('ANDROID_ADB wurde für den nativen Zurück-Test nicht gesetzt.');
 const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
 try {
   const pages = browser.contexts().flatMap(context => context.pages());
@@ -19,10 +22,12 @@ try {
   await page.locator('#kpV2Toolbar [data-v2-tool="edit"]').click();
   const imageEditor = await page.locator('#kpProImageEditor').isVisible();
   await page.locator('#kpProImageEditor [data-close]').click();
-  await page.locator('#close').click();
+  execFileSync(adb, ['shell', 'input', 'keyevent', '4'], { stdio: 'ignore' });
+  await page.waitForFunction(() => window.KPEditorV2.store.get().mode === 'view');
   const view = await page.evaluate(() => window.KPEditorV2.store.get().mode === 'view');
-  const result = { ...inventory, nativeEditTap: true, edit, toolbar, imageEditor, view };
-  if (!result.edit || !result.toolbar || !result.imageEditor || !result.view || result.brokenImages) throw new Error(`Android-WebView-Prüfung fehlgeschlagen: ${JSON.stringify(result)}`);
+  const processAlive = Boolean(execFileSync(adb, ['shell', 'pidof', 'de.koblenzerpuppenspiele.techniker'], { encoding: 'utf8' }).trim());
+  const result = { ...inventory, nativeEditTap: true, edit, toolbar, imageEditor, nativeBack: view && processAlive, view };
+  if (!result.edit || !result.toolbar || !result.imageEditor || !result.nativeBack || !result.view || result.brokenImages) throw new Error(`Android-WebView-Prüfung fehlgeschlagen: ${JSON.stringify(result)}`);
   console.log(JSON.stringify(result));
   console.log('Android WebView V2 Smoke erfolgreich.');
 } finally {

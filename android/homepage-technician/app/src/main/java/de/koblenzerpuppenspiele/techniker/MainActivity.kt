@@ -10,10 +10,13 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.CookieManager
@@ -145,6 +148,16 @@ class MainActivity : Activity() {
         }
         textInput.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) transcriptScroll.post { transcriptScroll.fullScroll(View.FOCUS_DOWN) }
+        }
+
+        // targetSdk 36 uses the predictive-back dispatcher.  onBackPressed()
+        // alone is no longer guaranteed to receive a hardware Back key, which
+        // used to close the whole technician app instead of leaving edit mode.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                OnBackInvokedCallback { handleBackNavigation() },
+            )
         }
 
         loadInitialUrl(intent)
@@ -1155,8 +1168,33 @@ class MainActivity : Activity() {
 
     @Deprecated("Legacy back handling keeps minSdk implementation compact")
     override fun onBackPressed() {
-        if (aiOpen) hideAi()
-        else if (webView.canGoBack()) webView.goBack()
+        handleBackNavigation()
+    }
+
+    private fun handleBackNavigation() {
+        if (aiOpen) {
+            hideAi()
+            return
+        }
+        if (::webView.isInitialized && currentPageTrusted) {
+            webView.evaluateJavascript(
+                """(() => {
+                    const editor = window.KPEditorV2;
+                    if (editor?.store?.get?.().mode !== 'edit') return false;
+                    document.getElementById('close')?.click();
+                    return true;
+                })()""".trimIndent(),
+            ) { handled ->
+                if (handled != "true") performDefaultBack()
+            }
+            return
+        }
+        performDefaultBack()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun performDefaultBack() {
+        if (::webView.isInitialized && webView.canGoBack()) webView.goBack()
         else super.onBackPressed()
     }
 

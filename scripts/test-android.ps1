@@ -14,13 +14,25 @@ $nativeEdit = $null
 for ($attempt = 0; $attempt -lt 20 -and -not $nativeEdit; $attempt++) {
   $nativeEdit = $null
   & $adb shell rm -f $dumpPath | Out-Null
-  & $adb shell uiautomator dump $dumpPath | Out-Null
-  if ($LASTEXITCODE -eq 0) {
+  # Android can briefly return a null accessibility root while the activity is
+  # attaching.  This is transient and must not abort the whole test run before
+  # the retry loop gets a chance to observe the ready UI.
+  $dumpExitCode = 1
+  try {
+    & $adb shell uiautomator dump $dumpPath 2>$null | Out-Null
+    $dumpExitCode = $LASTEXITCODE
+  } catch {
+    $dumpExitCode = 1
+  }
+  if ($dumpExitCode -eq 0) {
     try {
-      [xml]$window = (& $adb shell cat $dumpPath) -join "`n"
-      $ready = $window.SelectSingleNode("//node[@class='android.widget.TextView' and contains(@text,'Homepage bereit')]")
-      if ($ready) {
-        $nativeEdit = $window.SelectSingleNode("//node[@class='android.widget.Button' and contains(@text,'Bearbeiten')]")
+      $windowText = (& $adb shell cat $dumpPath 2>$null) -join "`n"
+      if ($windowText) {
+        [xml]$window = $windowText
+        $ready = $window.SelectSingleNode("//node[@class='android.widget.TextView' and contains(@text,'Homepage bereit')]")
+        if ($ready) {
+          $nativeEdit = $window.SelectSingleNode("//node[@class='android.widget.Button' and contains(@text,'Bearbeiten')]")
+        }
       }
     } catch { $nativeEdit = $null }
   }
@@ -37,6 +49,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Native Android-Schaltfläche „Bearbeiten“ 
 Start-Sleep -Seconds 2
 & $adb forward tcp:9225 "localabstract:webview_devtools_remote_$pidText" | Out-Null
 $env:ANDROID_WEBVIEW_CDP_PORT = '9225'
+$env:ANDROID_ADB = $adb
 node (Join-Path $projectRoot 'qa\android-webview-smoke.mjs')
 if ($LASTEXITCODE -ne 0) { throw "Android-WebView-Test fehlgeschlagen ($LASTEXITCODE)" }
 $fatal = & $adb logcat -d -t 500 | Select-String 'FATAL EXCEPTION|Process: de.koblenzerpuppenspiele.techniker'
