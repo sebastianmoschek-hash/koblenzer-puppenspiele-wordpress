@@ -1,0 +1,1 @@
+export function bindSelection(root,onSelect){root.addEventListener('click',e=>{const node=e.target.closest('[data-node]');root.querySelectorAll('.is-selected').forEach(x=>x.classList.remove('is-selected'));if(!node)return;node.classList.add('is-selected');onSelect?.(node.dataset.node,node);});}
