@@ -1,0 +1,4 @@
+import {createDocument} from './model.js';import {EditorStore} from './store.js';import {renderDocument} from './renderer.js';
+const host=document.querySelector('#kp-editor');const store=new EditorStore(createDocument());
+function paint(){host.innerHTML='<div class="editor-shell"><div class="topbar"><b>Editor V2</b><span class="status">Lokaler V2-Arbeitsbereich</span><button id="undo">↶</button><button id="redo">↷</button></div><div id="canvas" class="canvas"></div></div>';renderDocument(store.doc,host.querySelector('#canvas'));host.querySelector('#undo').onclick=()=>store.undo();host.querySelector('#redo').onclick=()=>store.redo()}
+store.subscribe(paint);paint();window.KPEditorV2={store};

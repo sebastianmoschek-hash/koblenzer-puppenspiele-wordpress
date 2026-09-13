@@ -1,0 +1,2 @@
+export const createDocument=()=>({version:2,site:{title:'Koblenzer Puppenspiele',locale:'de-DE'},navigation:[],pages:[{id:'home',slug:'/',title:'Startseite',sections:[]}],assets:[],settings:{breakpoints:{mobile:480,tablet:900}}});
+export const assertDocument=d=>{if(!d||d.version!==2||!Array.isArray(d.pages))throw new Error('Invalid Editor V2 document');return d;};
