@@ -68,6 +68,10 @@
   }
 
   function parse(raw) {
+    return parsePackage(raw).document;
+  }
+
+  function parsePackage(raw) {
     if (typeof raw !== 'string') throw new TypeError('Die Sicherung muss eine JSON-Datei sein.');
     if (!raw.trim()) throw new TypeError('Die Sicherungsdatei ist leer.');
     if (new Blob([raw]).size > MAX_BYTES) throw new RangeError('Die Sicherungsdatei ist größer als 8 MB.');
@@ -77,7 +81,10 @@
     if (parsed.format != null && parsed.format !== FORMAT) throw new TypeError('Die Datei gehört nicht zum Koblenzer-Puppenspiele-Editor.');
     const document = cleanUnsafeKeys(parsed.document || parsed);
     validateDocument(document);
-    return v2.migrate(document);
+    const migrated = v2.migrate(document);
+    const requestedPageId = typeof parsed.workspace?.activePageId === 'string' ? parsed.workspace.activePageId : null;
+    const activePageId = migrated.pages.some(page => page.id === requestedPageId) ? requestedPageId : migrated.pages[0]?.id || null;
+    return { document: migrated, activePageId };
   }
 
   const read = () => {
@@ -92,16 +99,16 @@
   };
   const signature = document => JSON.stringify(document);
   const remember = (label = 'Lokale Sicherung') => {
-    const document = clone(v2.store.get().document);
-    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, label: String(label), savedAt: new Date().toISOString(), document };
-    const currentSignature = signature(document);
-    write([entry, ...read().filter(item => signature(item.document) !== currentSignature)]);
+    const state = v2.store.get(), document = clone(state.document);
+    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, label: String(label), savedAt: new Date().toISOString(), activePageId: state.activePageId, document };
+    const currentSignature = signature({ document, activePageId: entry.activePageId });
+    write([entry, ...read().filter(item => signature({ document: item.document, activePageId: item.activePageId || null }) !== currentSignature)]);
     return entry;
   };
   const save = (label = 'Gespeichert') => { v2.persistence.save(); return remember(label); };
   const serialize = () => {
-    const document = clone(v2.store.get().document);
-    return JSON.stringify({ format: FORMAT, schemaVersion: v2.SCHEMA_VERSION, exportedAt: new Date().toISOString(), document }, null, 2);
+    const state = v2.store.get(), document = clone(state.document);
+    return JSON.stringify({ format: FORMAT, schemaVersion: v2.SCHEMA_VERSION, exportedAt: new Date().toISOString(), workspace: { activePageId: state.activePageId }, document }, null, 2);
   };
   const download = (filename, text) => {
     const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -114,16 +121,18 @@
     download(`koblenzer-puppenspiele-v2-${entry.savedAt.slice(0, 10)}.json`, serialize());
     return entry;
   };
-  const applyDocument = (document, label, persistenceState) => {
+  const applyDocument = (document, label, persistenceState, activePageId = null) => {
     v2.store.transact(label, state => {
       state.document = document;
+      state.activePageId = document.pages.some(page => page.id === activePageId) ? activePageId : document.pages[0]?.id || null;
+      state.activeSectionId = null;
       state.selection = null;
       state.persistence = persistenceState;
     });
     v2.persistence.save();
     return remember(label);
   };
-  const importText = raw => applyDocument(parse(raw), 'Import', 'imported');
+  const importText = raw => { const backup = parsePackage(raw); return applyDocument(backup.document, 'Import', 'imported', backup.activePageId); };
   const importFromFile = () => {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'application/json,.json';
@@ -140,8 +149,8 @@
   };
   const restore = entry => {
     if (!isObject(entry)) throw new TypeError('Die lokale Version ist ungültig.');
-    const document = parse(JSON.stringify({ format: FORMAT, document: entry.document }));
-    const result = applyDocument(document, 'Lokale Version wiederherstellen', 'restored');
+    const backup = parsePackage(JSON.stringify({ format: FORMAT, workspace: { activePageId: entry.activePageId }, document: entry.document }));
+    const result = applyDocument(backup.document, 'Lokale Version wiederherstellen', 'restored', backup.activePageId);
     window.dispatchEvent(new CustomEvent('kp-v2-feedback', { detail: 'Lokale Version wiederhergestellt ✓' }));
     return result;
   };
@@ -166,5 +175,5 @@
     panel.querySelector('[data-close]').focus();
   };
 
-  window.KPEditorV2Backup = Object.freeze({ FORMAT, MAX_BYTES, export: exportDocument, import: importFromFile, importText, parse, serialize, history, read, remember, restore, save });
+  window.KPEditorV2Backup = Object.freeze({ FORMAT, MAX_BYTES, export: exportDocument, import: importFromFile, importText, parse, parsePackage, serialize, history, read, remember, restore, save });
 })();

@@ -294,6 +294,58 @@ try {
     await page.evaluate(() => { window.KPEditorV2.store.undo(); window.KPEditorV2.store.undo(); });
     result.navigationEditorUI = navigationRenameUI && navigationAdded && navigationDeletedTogether;
     await page.locator('#kpV2NavSheet [data-close]').click();
+    const multiPageHistoryBefore = await page.evaluate(() => window.KPEditorV2.store.history().undo);
+    await page.locator('#kpV2Pages').click();
+    const multiPageBefore = await page.evaluate(() => ({ pages: window.KPEditorV2.store.get().document.pages.length, navigation: window.KPEditorV2.store.get().document.navigation.items.length }));
+    await page.locator('#kpV2PageSheet [data-new-title]').fill('Mehrseiten Rauchtest');
+    await page.locator('#kpV2PageSheet [data-create]').click();
+    const pageCreated = await page.evaluate(before => {
+      const state = window.KPEditorV2.store.get(), page = state.document.pages.find(item => item.id === state.activePageId), item = state.document.navigation.items.find(entry => entry.target?.type === 'page' && entry.target.pageId === page?.id);
+      return state.document.pages.length === before.pages + 1 && state.document.navigation.items.length === before.navigation + 1 && page?.title === 'Mehrseiten Rauchtest' && item?.label === 'Mehrseiten Rauchtest' && document.querySelector('main')?.dataset.v2ActivePageId === page.id;
+    }, multiPageBefore);
+    await page.locator('#kpV2PageSheet [data-close]').click();
+    await page.locator('#addSection').click();
+    await page.locator('#kpV2SectionSheet [data-template="text"]').click();
+    const pageSectionCreated = await page.evaluate(() => {
+      const state = window.KPEditorV2.store.get(), page = state.document.pages.find(item => item.id === state.activePageId), section = page?.sections.at(-1), node = section && document.querySelector(`main > section[data-v2-section-id="${section.id}"]`);
+      return Boolean(page && section?.elements.length >= 2 && node && !node.hidden && node.dataset.v2PageId === page.id);
+    });
+    await page.locator('#kpV2Pages').click();
+    const activePageRow = page.locator('#kpV2PageSheet .kp-v2-page-row.active');
+    await activePageRow.locator('[data-title]').fill('Mehrseiten geprüft');
+    await activePageRow.locator('[data-title]').press('Tab');
+    const pageRenamed = await page.evaluate(() => {
+      const state = window.KPEditorV2.store.get(), page = state.document.pages.find(item => item.id === state.activePageId), item = state.document.navigation.items.find(entry => entry.target?.type === 'page' && entry.target.pageId === page?.id);
+      return page?.title === 'Mehrseiten geprüft' && page?.metadata?.title === 'Mehrseiten geprüft' && item?.label === 'Mehrseiten geprüft';
+    });
+    await page.locator('#kpV2PageSheet .kp-v2-page-row.active [data-duplicate]').click();
+    const pageDuplicated = await page.evaluate(before => {
+      const state = window.KPEditorV2.store.get(), active = state.document.pages.find(page => page.id === state.activePageId);
+      return state.document.pages.length === before.pages + 2 && state.document.navigation.items.length === before.navigation + 2 && active?.metadata?.duplicatedFrom && active.sections.length > 0;
+    }, multiPageBefore);
+    await page.locator('#kpV2PageSheet .kp-v2-page-row.active [data-up]').click();
+    const pageReordered = await page.evaluate(() => {
+      const state = window.KPEditorV2.store.get(), pages = [...state.document.pages].sort((a, b) => a.order - b.order), activeIndex = pages.findIndex(page => page.id === state.activePageId);
+      return activeIndex === 1 && pages.every((page, index) => page.order === index);
+    });
+    await page.evaluate(() => window.KPEditorV2.persistence.save());
+    const multiPageBackup = await page.evaluate(() => window.KPEditorV2Backup.serialize());
+    const multiPageReload = await page.context().newPage();
+    await multiPageReload.goto(baseURL, { waitUntil: 'networkidle' });
+    await multiPageReload.waitForFunction(() => window.KPEditorV2?.store.get().persistence === 'loaded', null, { timeout: 5000 });
+    const multiPagePersisted = await multiPageReload.evaluate(backup => {
+      const state = window.KPEditorV2.store.get(), imported = window.KPEditorV2Backup.parsePackage(backup), active = state.document.pages.find(page => page.id === state.activePageId);
+      return state.document.pages.length === 3 && active?.metadata?.duplicatedFrom && active.sections.length > 0 && imported.activePageId === state.activePageId && imported.document.pages.length === state.document.pages.length;
+    }, multiPageBackup);
+    await multiPageReload.close();
+    await page.locator('#kpV2PageSheet .kp-v2-page-row.active [data-delete]').click();
+    await page.locator('#kpV2PageDeleteSheet [data-both]').click();
+    const pageDeleted = await page.evaluate(before => { const state = window.KPEditorV2.store.get(); return state.document.pages.length === before.pages + 1 && state.document.navigation.items.length === before.navigation + 1; }, multiPageBefore);
+    await page.evaluate(() => window.KPEditorV2.store.undo());
+    const pageDeleteUndo = await page.evaluate(before => { const state = window.KPEditorV2.store.get(); return state.document.pages.length === before.pages + 2 && state.document.navigation.items.length === before.navigation + 2; }, multiPageBefore);
+    await page.evaluate(before => { const v2 = window.KPEditorV2; while (v2.store.history().undo > before) v2.store.undo(); v2.store.setActivePage('home'); v2.persistence.clear(); }, multiPageHistoryBefore);
+    await page.locator('#kpV2PageSheet [data-close]').click();
+    result.multiPageUI = pageCreated && pageSectionCreated && pageRenamed && pageDuplicated && pageReordered && multiPagePersisted && pageDeleted && pageDeleteUndo;
     const layerHistoryBefore = await page.evaluate(() => window.KPEditorV2.store.history().undo);
     await page.locator(`[data-v2-id="${result.headingId}"]`).click();
     await page.locator('#kpV2Toolbar [data-v2-tool="layers"]').click();
@@ -422,7 +474,7 @@ try {
     result.offlineReady = offlineReady;
     result.serviceWorkerReady = serviceWorkerReady;
     if (!result.undoRestored || !result.renderedText || result.changed !== 'Smoke-Test Überschrift') failures.push(`${viewport.name}: V2-Aktion/Renderer/Undo fehlgeschlagen`);
-    if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.backupContract || !result.keyboardContract || !result.accessibilityUI || !result.layerPanelUI || !result.mediaBrowserUI || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
+    if (!result.gestureMoved || !result.gestureRendered || !result.batchTransaction || !result.backupContract || !result.keyboardContract || !result.accessibilityUI || !result.layerPanelUI || !result.mediaBrowserUI || !result.sectionEditorUI || !result.addSectionUI || !result.viewportUI || !result.sectionDesignUI || !result.headerDesignUI || !result.navigationEditorUI || !result.multiPageUI || !result.aiDisconnectedUI || !result.themeVariantsUI || !result.textEditorUI || !result.buttonEditorUI || !result.imageSlice || !result.pinchRotate || !result.imageEditorUI || !result.sectionSlice || !result.navigationSlice || !result.navigationRendered || !result.designSlice || !result.duplicateDelete || !result.persistenceRestored || !result.reloadPersistence || result.reloadErrors.length || !result.aiContractReady || !result.schemaMigration || !result.previewTransactions) failures.push(`${viewport.name}: V2-Slice unvollständig`);
     if (!result.editorVisible || !result.runtimeSelection || !result.contextualToolbar || !result.viewModeClean || !result.imagesLoaded || !result.serviceWorkerReady || !result.offlineReady) failures.push(`${viewport.name}: Edit/View-Modus, Auswahl, Werkzeugleiste, Bildladung, Offline-Neustart oder horizontaler Overflow fehlerhaft`);
     if (pageErrors.length) failures.push(`${viewport.name}: ${pageErrors.join('; ')}`);
     if (httpErrors.length) failures.push(`${viewport.name}: HTTP ${httpErrors.join('; ')}`);

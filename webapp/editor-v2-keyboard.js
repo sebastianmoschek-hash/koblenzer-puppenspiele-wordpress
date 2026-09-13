@@ -18,7 +18,7 @@
   const closeTopSheet = () => {
     const cancel = document.querySelector('#kpElementSheet:not([hidden]) .kp-es-scrim,#kpProImageEditor:not([hidden]) [data-cancel],#kpV2MediaSheet [data-cancel],#kpV2ThemeSheet [data-cancel],#kpV2SectionSheet [data-cancel],#kpV2HeaderSheet [data-cancel]');
     if (cancel) { cancel.click(); return true; }
-    const close = document.querySelector('#kpV2LayerSheet [data-close],#kpV2NavSheet [data-close],#kpV2ViewportSheet [data-close],#kpV2AISheet [data-close],#kpV2CommandSheet .kp-v2-sheet-scrim,#kpV2BackupSheet [data-close]');
+    const close = document.querySelector('#kpV2PageDeleteSheet [data-cancel],#kpV2NavDeleteSheet [data-cancel],#kpV2LayerSheet [data-close],#kpV2PageSheet [data-close],#kpV2NavSheet [data-close],#kpV2ViewportSheet [data-close],#kpV2AISheet [data-close],#kpV2CommandSheet .kp-v2-sheet-scrim,#kpV2BackupSheet [data-close]');
     if (close) { close.click(); return true; }
     return false;
   };
