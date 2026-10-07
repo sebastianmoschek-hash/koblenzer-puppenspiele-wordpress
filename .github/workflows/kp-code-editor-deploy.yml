@@ -49,7 +49,7 @@ jobs:
           path: /tmp/previous/
           if-no-files-found: ignore
           retention-days: 14
-      - name: Upload only staging API
+      - name: Remove staging API pending authentication review
         run: |
           set -euo pipefail
           lftp -c "
@@ -59,14 +59,11 @@ jobs:
             set net:max-retries 2;
             set net:timeout 20;
             open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
-            put deployments/kp-code-editor/code-editor.php -o api/code-editor.php;
-            get api/code-editor.php -o /tmp/readback.php;
+            rm -f api/code-editor.php;
             bye
           "
-          cmp deployments/kp-code-editor/code-editor.php /tmp/readback.php
-      - name: Check anonymous access denied
+      - name: Verify endpoint removed
         run: |
-          set -euo pipefail
-          status=$(curl -sS -o /tmp/anonymous.json -w '%{http_code}' --max-time 20 'https://neu.koblenzer-puppenspiele.de/api/code-editor.php?file=modern.html')
-          echo "Anonymous request returned HTTP $status"\n          cat /tmp/anonymous.json\n          test "$status" = 401 -o "$status" = 403
-          echo "Anonymous source read denied (HTTP $status)"
+          status=$(curl -sS -o /tmp/removed -w '%{http_code}' --max-time 20 'https://neu.koblenzer-puppenspiele.de/api/code-editor.php?file=modern.html')
+          echo "Removed endpoint HTTP $status"
+          test "$status" = 404 -o "$status" = 403
