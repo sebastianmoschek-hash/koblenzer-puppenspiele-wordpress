@@ -1,0 +1,302 @@
+/* KP Studio – Inline-Modus (29.09.2026): Bearbeiten sieht aus wie die Vorschau (WYSIWYG).
+   body.editing.kp-inline: alle Editor-Leisten aus, nichts Layoutwirksames; ein schwebender Knopf + Bottom-Sheet.
+   Mit „Klassische Werkzeuge“ (body ohne kp-inline) kommen die alten Leisten zurück. */
+body.editing.kp-inline :is(.studio-bar,.mobile-editor-bar,.editor-rail,.studio-link-toolbar,.kp-ctx,.kp-strip,.kp-fmt,.kp-sheet,.kp-sel-frame,.resize-handle,.move-handle,.kp-corner-handle,.kp-hintchip,.kp-mode-ctl,.header-style-toggle,[data-edit-toggle],[data-admin-status]){display:none!important}
+body.editing.kp-inline .builder-tools{display:none!important}
+/* ↶/↷ in der Kopfzeile (links neben der Lupe; position:absolute, daher ohne Einfluss auf Header/Hero/Nav) */
+.kp-hdr-undo{display:none}
+body.editing.kp-inline:not(.kp-pure):not(.kp-preview) .site-header .kp-hdr-undo{display:flex;position:absolute;z-index:2;margin:0;padding:0;border:1px solid var(--line);border-radius:999px;background:transparent}
+body.editing.kp-inline .site-header .kp-hdr-undo button::after{content:'';position:absolute;inset:-5px 0}
+/* Handy: Trefferfläche nach außen (links zum Logo, rechts bis vor die Lupe) und 46 px hoch; nicht in der Lage unter der Lupe */
+body.editing.kp-inline .site-header .kp-hdr-undo[data-pos=side] [data-il=undo]::after{inset:-6px 0 -6px -8px}
+body.editing.kp-inline .site-header .kp-hdr-undo[data-pos=side] [data-il=redo]::after{inset:-6px -5px -6px 0}
+body.editing.kp-inline .site-header .kp-hdr-undo button{position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:34px;margin:0;padding:0;border:0;border-radius:0;background:transparent;color:var(--muted);box-shadow:none;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+body.editing.kp-inline .site-header .kp-hdr-undo button+button{border-left:1px solid var(--line)}
+body.editing.kp-inline .site-header .kp-hdr-undo button:not(:disabled):hover{color:var(--text)}
+body.editing.kp-inline .site-header .kp-hdr-undo button:not(:disabled):active{background:rgba(255,255,255,.12)}
+body.editing.kp-inline .site-header .kp-hdr-undo button:disabled{opacity:.35;cursor:default}
+body.editing.kp-inline .site-header .kp-hdr-undo svg{width:16px;height:16px;filter:drop-shadow(0 1px 2px #000)}
+body.editing.kp-inline .site-header .kp-hdr-undo[data-pos=below] button{width:32px;height:22px}
+body.editing.kp-inline .site-header .kp-hdr-undo button:first-child{border-radius:999px 0 0 999px}body.editing.kp-inline .site-header .kp-hdr-undo button:last-child{border-radius:0 999px 999px 0}
+body.editing.kp-inline .site-header .kp-hdr-undo[data-pos=below] svg{width:15px;height:15px}
+body.editing.kp-inline .site-header .kp-hdr-undo[data-pos=off],html.kp-menu-open body.editing.kp-inline .site-header .kp-hdr-undo,body.editing.kp-inline .site-header:has(.site-search:focus-within) .kp-hdr-undo[data-pos=side]{visibility:hidden}
+html[data-site-theme=light] body.editing.kp-inline .site-header .kp-hdr-undo{border-color:rgba(74,44,26,.3)}
+html[data-site-theme=light] body.editing.kp-inline .site-header .kp-hdr-undo button{color:#23160f}
+html[data-site-theme=light] body.editing.kp-inline .site-header .kp-hdr-undo button+button{border-left-color:rgba(74,44,26,.3)}
+html[data-site-theme=light]:not(.kp-header-solid) body.editing.kp-inline .site-header:not(.is-scrolled) .kp-hdr-undo,html[data-site-theme=light]:not(.kp-header-solid) body.editing.kp-inline .site-header:not(.is-scrolled) .kp-hdr-undo button+button{border-color:rgba(255,255,255,.4)}
+html[data-site-theme=light]:not(.kp-header-solid) body.editing.kp-inline .site-header:not(.is-scrolled) .kp-hdr-undo button{color:#fff5eb}
+/* keine dauerhaften Rahmen/Markierungen (nur outline/box-shadow wären ohnehin nicht layoutwirksam) */
+body.editing.kp-inline :is(main,.masthead,.footer,.site-header,.mobile-menu,.piece-modal,.mobile-conversion-bar) :not(.kp-il-active):not(:focus-visible),
+body.editing.kp-inline :is(main,.masthead,.footer,.site-header,.mobile-menu,.piece-modal,.mobile-conversion-bar) [contenteditable=true]:not(.kp-il-active){outline:none!important}
+body.editing.kp-inline main{outline:none!important}
+body.editing.kp-inline .poster-user-text{background:transparent}
+body.editing.kp-inline .kp-il-active{outline:1.5px solid rgba(240,122,34,.7)!important;outline-offset:3px!important}
+body.editing.kp-inline .kp-il-active[contenteditable=true]{outline-color:rgba(143,212,138,.8)!important;caret-color:#8fd48a}
+body.editing.kp-inline .kp-il-dragging{outline:2px solid rgba(240,122,34,.95)!important;box-shadow:0 10px 28px rgba(0,0,0,.45)!important;cursor:grabbing!important}
+body.editing.kp-inline .kp-il-overtrash{opacity:.5!important;outline-color:#ff5a4a!important;filter:grayscale(.4)}
+/* Scrollen bleibt normal; Long-Press unterscheidet Ziehen von Scrollen */
+body.editing.kp-inline :is(main,.masthead,.footer,.piece-modal) :is(img[data-editable-image],a[data-editable-text],[data-editable-text]){touch-action:manipulation;cursor:default}
+body.editing.kp-inline.kp-phone :is(main,.masthead,.footer,.site-header,.piece-modal,.mobile-conversion-bar) :not([contenteditable=true]):not([contenteditable=true] *){-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+body.editing.kp-inline img[data-editable-image]{-webkit-touch-callout:none;-webkit-user-drag:none}
+body.editing.kp-inline .kp-gesturing{touch-action:none}
+/* Schwebender Knopf */
+.kp-il-fab,.kp-il-sheet,.kp-il-pop,.kp-il-toast,.kp-il-scrim{display:none}
+body.editing.kp-inline .kp-il-fab{display:grid;place-items:center;position:fixed;right:max(12px,env(safe-area-inset-right));bottom:var(--kp-il-fab-bottom,14px);z-index:190;width:44px;height:44px;padding:0;border:1px solid rgba(255,255,255,.28);border-radius:50%;background:rgba(23,17,14,.55);color:#fff5eb;box-shadow:0 4px 14px rgba(0,0,0,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.72;cursor:pointer;touch-action:manipulation;transition:opacity .15s}
+body.editing.kp-inline .kp-il-fab:is(:hover,:focus-visible,[aria-expanded=true]){opacity:1}
+/* sammel9: „Bearbeiten beenden“ sichtbar, 44×44, über dem ✎ */
+.kp-il-exit{display:none}
+body.editing.kp-inline .kp-il-exit{display:grid;place-items:center;position:fixed;right:max(12px,env(safe-area-inset-right));bottom:calc(var(--kp-il-fab-bottom,14px) + 54px);z-index:190;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:1px solid rgba(255,255,255,.28);border-radius:50%;background:rgba(23,17,14,.55);color:#fff5eb;box-shadow:0 4px 14px rgba(0,0,0,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.72;cursor:pointer;touch-action:manipulation;transition:opacity .15s}
+body.editing.kp-inline .kp-il-exit:is(:hover,:focus-visible){opacity:1}
+body.editing.kp-inline .kp-il-exit svg{width:20px;height:20px}
+body.editing.kp-inline:is(.kp-preview,.kp-pure) .kp-il-exit,body.editing.kp-inline:has(.kp-il-sheet.open) .kp-il-exit,body.editing.kp-inline:has(.kp-il-imgsheet.open) .kp-il-exit,html.kp-menu-open body.editing.kp-inline .kp-il-exit,body.editing.kp-inline:has(.mobile-menu.open) .kp-il-exit{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
+body.editing.kp-inline .kp-il-fab svg{width:20px;height:20px}
+body.editing.kp-inline .kp-il-fab i{position:absolute;top:3px;right:3px;width:9px;height:9px;border-radius:50%;background:#8fd48a;box-shadow:0 0 0 2px rgba(23,17,14,.8)}
+body.editing.kp-inline .kp-il-fab[data-state=dirty] i{background:#ffb35c}
+body.editing.kp-inline .kp-il-fab[data-state=saving] i{background:#6ec6ff}
+body.editing.kp-inline .kp-il-fab[data-state=error] i{background:#ff5a4a}
+[data-kp-il-back]{display:none}
+body.editing:not(.kp-inline) .studio-bar>[data-kp-il-back]{display:inline-flex}body.editing.kp-phone:not(.kp-inline) .studio-bar>[data-kp-il-back]{display:none!important}body.editing:not(.kp-inline) .kp-page-menu [data-kp-il-back]{display:block}
+/* Bottom-Sheet */
+body.editing.kp-inline .kp-il-scrim.open{display:block;position:fixed;inset:0;z-index:191;background:rgba(0,0,0,.28)}
+body.editing.kp-inline .kp-il-sheet.open{display:block;position:fixed;left:50%;bottom:0;z-index:192;width:min(100%,460px);max-height:78svh;overflow:auto;transform:translateX(-50%);box-sizing:border-box;padding:10px 12px calc(12px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0;background:#1f1814;color:#f6ece2;box-shadow:0 -10px 34px rgba(0,0,0,.5);font:500 14px/1.3 var(--sans,system-ui)}
+body.editing.kp-inline .kp-il-sheet.open:has(.kp-il-resize){max-height:90svh}
+body.editing.kp-inline .kp-il-sheet .kp-il-resize{z-index:2;display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;min-width:44px;min-height:44px;padding:11px;border:1px solid #3d2f27;border-radius:10px;background:#2a201b;color:#f6ece2;cursor:nesw-resize;touch-action:none;user-select:none}
+body.editing.kp-inline .kp-il-sheet .kp-il-resize svg{width:22px;height:22px}
+body.editing.kp-inline .kp-il-sheet .kp-il-resize:is(:hover,:focus-visible,.dragging){background:#523a2e;color:#ffb27a;outline:2px solid #f07a22;outline-offset:-2px}
+body.editing.kp-inline .kp-il-sheet.open:has(.kp-il-corner){padding-bottom:calc(12px + env(safe-area-inset-bottom));overflow:hidden}
+.kp-il-sheet .kp-il-content{height:100%;max-height:calc(90svh - 54px - env(safe-area-inset-bottom));overflow:auto;overscroll-behavior:contain;box-sizing:border-box}
+.kp-il-sheet:has(.kp-il-corner) .kp-il-head{padding-inline:28px}
+.kp-il-sheet:has(.kp-il-corner) .kp-il-head b,.kp-il-sheet:has(.kp-il-corner) .kp-il-head small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.editing.kp-inline .kp-il-sheet .kp-il-corner{position:absolute;z-index:5;display:block;width:36px;height:36px;min-width:36px;min-height:36px;padding:0;border:0;border-radius:9px;background:transparent;color:transparent;font-size:0;touch-action:none;user-select:none;box-shadow:none}
+body.editing.kp-inline .kp-il-sheet .kp-il-corner:is(:focus-visible,.dragging){outline:2px solid #f07a22;outline-offset:-2px}
+.kp-il-sheet .kp-il-corner-nw{top:0;left:0;cursor:nwse-resize}
+.kp-il-sheet .kp-il-corner-ne{top:0;right:0;cursor:nesw-resize}
+.kp-il-sheet .kp-il-corner-sw{bottom:0;left:0;cursor:nesw-resize}
+.kp-il-sheet .kp-il-corner-se{bottom:0;right:0;cursor:nwse-resize}
+.kp-il-sheet .kp-il-head{display:flex;align-items:center;gap:8px;margin:0 0 8px;touch-action:none;user-select:none}
+.kp-il-sheet .kp-il-head.dragging{cursor:grabbing}
+.kp-il-sheet .kp-il-move{flex:0 0 44px;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border-radius:10px;cursor:grab;touch-action:none;user-select:none;color:#cbb9aa}
+.kp-il-sheet .kp-il-move:is(:hover,:focus-visible,.dragging){color:#ffb27a;border-color:#f07a22;outline:2px solid #f07a22;outline-offset:-2px}
+.kp-il-sheet .kp-il-move.dragging{cursor:grabbing}
+.kp-il-sheet .kp-il-head b{flex:1;font-size:15px}
+.kp-il-sheet .kp-il-head small{color:#bfae9f;font-size:12px}
+.kp-il-sheet .kp-il-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.kp-il-sheet button,.kp-il-pop button{display:flex;align-items:center;justify-content:center;gap:5px;min-height:44px;margin:0;padding:6px 8px;border:1px solid #3d2f27;border-radius:10px;background:#2a201b;color:#f6ece2;font:600 13px/1.15 var(--sans,system-ui);text-align:center;cursor:pointer;touch-action:manipulation}
+.kp-il-sheet button[aria-pressed=true]{border-color:#f07a22;color:#ffb27a}
+.kp-il-sheet .kp-il-wide{grid-column:1/-1}
+.kp-il-sheet .kp-il-publish{margin-top:10px;width:100%;background:#d96832;border-color:#e98a54;color:#fff}
+.kp-il-sheet .kp-il-devs{display:flex;gap:6px;grid-column:1/-1}
+.kp-il-sheet .kp-il-devs button{flex:1}
+.kp-il-sheet .kp-il-x{flex:0 0 44px;min-height:44px;min-width:44px;width:44px;height:44px;padding:0;border-radius:50%}
+/* Kontext-Popover am aktiven Element */
+body.editing.kp-inline .kp-il-pop.open{display:flex;flex-wrap:nowrap;max-width:calc(100vw - 12px);box-sizing:border-box;position:fixed;z-index:185;gap:8px;padding:4px;border-radius:12px;background:rgba(23,17,14,.9);box-shadow:0 6px 20px rgba(0,0,0,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.kp-il-pop button{min-height:44px;min-width:44px;padding:4px 8px;border:0;border-radius:9px;background:transparent;font-size:12.5px}
+.kp-il-pop button:active,.kp-il-pop button:hover{background:rgba(255,255,255,.1)}
+.kp-il-pop .kp-il-danger{position:relative;margin-left:9px;color:#ffb4a8}
+.kp-il-pop .kp-il-danger::before{content:'';position:absolute;left:-13px;top:8px;bottom:8px;width:1px;background:rgba(255,255,255,.22)}
+.kp-il-pop .kp-il-layer{padding-inline:6px;font-size:11.5px}
+.kp-il-layer-pop{display:none;position:fixed;z-index:186;gap:8px;padding:4px;border-radius:10px;background:rgba(23,17,14,.94);box-shadow:0 6px 20px rgba(0,0,0,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.kp-il-layer-pop.open{display:flex}
+.kp-il-layer-pop button{min-height:44px;padding:5px 8px;border:0;border-radius:8px;background:transparent;color:#f6ece2;font:600 12px/1.1 var(--sans,system-ui);white-space:nowrap;cursor:pointer;touch-action:manipulation}
+.kp-il-layer-pop button:hover,.kp-il-layer-pop button:focus-visible{background:rgba(255,255,255,.1)}
+body.editing.kp-inline .kp-il-toast.show{display:block;position:fixed;left:12px;right:68px;bottom:var(--kp-il-fab-bottom,14px);z-index:189;width:max-content;max-width:calc(100% - 80px);padding:9px 12px;border-radius:12px;background:rgba(23,17,14,.92);color:#f6ece2;font:500 13px/1.35 var(--sans,system-ui);box-shadow:0 6px 20px rgba(0,0,0,.4)}
+.kp-il-toast button{margin-left:8px;padding:0;border:0;background:none;color:#ffb27a;font:700 13px var(--sans,system-ui)}
+html[data-app-theme=light] .kp-il-sheet.open{background:#fffaf4;color:#2a1c14}
+html[data-app-theme=light] .kp-il-sheet button{background:#f1e6da;border-color:#dfcdbb;color:#2a1c14}
+html[data-app-theme=light] .kp-il-sheet .kp-il-publish{background:#e0702f;color:#fff}
+body.kp-il-nosel,body.kp-il-nosel *{-webkit-user-select:none!important;user-select:none!important}
+/* ☰-Menü offen (29.09. delanim): Buchungsleiste und ✎ ausblenden, Menü bis unten scrollbar mit Abstand für Leiste + Safe-Area */
+html.kp-menu-open .mobile-conversion-bar,body:has(.mobile-menu.open) .mobile-conversion-bar,html.kp-menu-open body.editing.kp-inline .kp-il-fab,body.editing.kp-inline:has(.mobile-menu.open) .kp-il-fab{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
+body.editing .mobile-menu.open nav:not(.kp-nav-placed){position:relative!important}
+body.editing .mobile-menu.open nav .kp-nav-touch{position:absolute;z-index:5;display:block;width:34px;height:34px;padding:0;border:0;background:transparent;color:transparent;font-size:0;box-shadow:none;touch-action:none}
+body.editing .mobile-menu.open nav .kp-nav-touch:focus-visible{outline:2px solid #f07a22;outline-offset:-2px}
+body.editing .mobile-menu.open nav .kp-nav-touch-move{top:0;left:36px;width:calc(100% - 72px);height:20px;cursor:grab}
+body.editing .mobile-menu.open nav .kp-nav-touch-nw{top:0;left:0;cursor:nwse-resize}
+body.editing .mobile-menu.open nav .kp-nav-touch-ne{top:0;right:0;cursor:nesw-resize}
+body.editing .mobile-menu.open nav .kp-nav-touch-sw{bottom:0;left:0;cursor:nesw-resize}
+body.editing .mobile-menu.open nav .kp-nav-touch-se{bottom:0;right:0;cursor:nwse-resize}
+@media(max-width:980px){body .mobile-menu.open nav{max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important;padding-bottom:calc(14px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(72px + env(safe-area-inset-bottom))}}
+@supports not (height:100dvh){@media(max-width:980px){body .mobile-menu.open nav{max-height:calc(100vh - 120px)!important}}}
+
+/* 30.09.2026: Speicherstatus über dem ✎ (fixed, kein Layout-Shift) */
+.kp-il-status{display:none}
+body.editing.kp-inline .kp-il-status.show{display:inline-flex;align-items:center;position:fixed;right:max(12px,env(safe-area-inset-right));bottom:calc(var(--kp-il-fab-bottom,14px) + 52px);z-index:189;min-height:28px;margin:0;padding:4px 10px;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:rgba(23,17,14,.72);color:#e9dccf;font:600 12px/1.2 var(--sans,system-ui);box-shadow:0 3px 10px rgba(0,0,0,.3);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);pointer-events:none}
+body.editing.kp-inline .kp-il-status.show[data-state=saved]{color:#bfe8bb}
+body.editing.kp-inline .kp-il-status.show[data-state=error]{min-height:44px;padding:6px 14px;border-color:#ff8a7a;background:rgba(120,24,16,.92);color:#fff;pointer-events:auto;cursor:pointer}
+html.kp-da-trashing .kp-il-status,html.kp-menu-open .kp-il-status{visibility:hidden}
+/* Desktop: Hover-Rahmen für Bearbeitbares, Text-Cursor, Verschiebe-Griff ⠿ */
+.kp-il-grip{display:none}
+@media (hover:hover) and (pointer:fine){
+  body.editing.kp-inline :is(main,.masthead,.footer,.desktop-nav,.piece-modal) :is([data-editable-text],img[data-editable-image]):not(.kp-il-active):hover{outline:1px dashed rgba(240,122,34,.6)!important;outline-offset:3px!important}
+  body.editing.kp-inline :is(main,.masthead,.footer,.piece-modal) :is(a[data-editable-text],[data-editable-text]){cursor:text}
+  body.editing.kp-inline .kp-il-grip.show{display:grid;place-items:center;position:fixed;z-index:184;width:26px;height:26px;margin:0;padding:0;border:1px solid rgba(255,255,255,.28);border-radius:7px;background:rgba(23,17,14,.82);color:#f6ece2;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:grab;touch-action:none}
+  body.editing.kp-inline .kp-il-grip.show:hover{background:#f07a22;border-color:#f07a22}
+  body.editing.kp-inline .kp-il-grip svg{width:9px;height:14px}
+}
+/* 30.09.2026 (2): Hinweise nie unter dem ✎ – Handy-Toasts links davon enden lassen */
+body.editing.kp-inline.kp-phone .kp-toasts{right:calc(max(12px,env(safe-area-inset-right)) + 54px)}
+/* Element-Menü einzeilig (am Handy waagrecht wischbar); angedockt ersetzt es kurz die Buchungsleiste */
+.kp-il-pop button{flex:0 0 auto}
+html.kp-il-docked .mobile-conversion-bar{visibility:hidden!important;pointer-events:none!important}
+.kp-il-pop .kp-il-pscroll{display:flex;gap:8px;flex:0 1 auto;min-width:0;overflow-x:auto;overscroll-behavior:contain;scrollbar-width:none}
+/* 02.10.2026 Liste Nr. 4: deutlicherer Wisch-Hinweis (Verlauf) – rechts, solange es weitergeht; links, sobald gewischt wurde */
+.kp-il-pop .kp-il-pscroll.ovf{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 40px),rgba(0,0,0,.18));mask-image:linear-gradient(90deg,#000 calc(100% - 40px),rgba(0,0,0,.18))}
+.kp-il-pop .kp-il-pscroll.ovf.kp-il-at-end{-webkit-mask-image:none;mask-image:none}
+.kp-il-pop .kp-il-pscroll.ovf.kp-il-scrolled{-webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,.18),#000 40px,#000 calc(100% - 40px),rgba(0,0,0,.18));mask-image:linear-gradient(90deg,rgba(0,0,0,.18),#000 40px,#000 calc(100% - 40px),rgba(0,0,0,.18))}
+.kp-il-pop .kp-il-pscroll.ovf.kp-il-scrolled.kp-il-at-end{-webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,.18),#000 40px);mask-image:linear-gradient(90deg,rgba(0,0,0,.18),#000 40px)}
+.kp-il-pop .kp-il-pscroll::-webkit-scrollbar{display:none}
+.kp-il-pop .kp-il-pfix{display:flex;gap:8px;flex:0 0 auto}
+
+/* 03.10.2026 (Nachtest 3, F-D): ↶/↷ im offenen Stück-/Termin-Fenster, links neben dem ✎ */
+.kp-modal-undo{display:none}
+body.editing.kp-inline:not(.kp-pure):not(.kp-preview):has(.piece-modal.open) .kp-modal-undo{display:flex;position:fixed;right:calc(max(12px,env(safe-area-inset-right)) + 52px);bottom:var(--kp-il-fab-bottom,14px);z-index:189;height:44px;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(23,17,14,.72);box-shadow:0 4px 14px rgba(0,0,0,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);overflow:hidden}
+body.editing.kp-inline .kp-modal-undo button{display:inline-flex;align-items:center;justify-content:center;width:44px;height:42px;margin:0;padding:0;border:0;background:transparent;color:#fff5eb;cursor:pointer;touch-action:manipulation}
+body.editing.kp-inline .kp-modal-undo button+button{border-left:1px solid rgba(255,255,255,.28)}
+body.editing.kp-inline .kp-modal-undo button:disabled{opacity:.35;cursor:default}
+body.editing.kp-inline .kp-modal-undo button:not(:disabled):active{background:rgba(255,255,255,.14)}
+body.editing.kp-inline .kp-modal-undo svg{width:17px;height:17px}
+html.kp-menu-open body.editing.kp-inline .kp-modal-undo{visibility:hidden}
+
+/* ===== sammel3 (03.10.2026) – Editor-Runde: eigene Studio-Farbe Blau, Element-Leiste mit Wörtern, Bild-Blatt, Menü, Hinweise =====
+   Regel Sebastian (19:00): keine feste Leiste oben, im Bearbeiten sieht die Seite exakt aus wie die echte – Studio-Teile schweben nur. */
+:root{--kp-blue:#2563eb;--kp-blue-h:#1d4ed8;--kp-studio:#15110e;--kp-studio-line:rgba(255,255,255,.12);--kp-red:#dc2626}
+/* Auswahl (Optik 4): 2 px blau, 4 px Abstand; beim Schreiben heller Schein; Laptop-Hover gestrichelt blau */
+body.editing.kp-inline .kp-il-active{outline:2px solid var(--kp-blue)!important;outline-offset:4px!important}
+body.editing.kp-inline .kp-il-active[contenteditable=true]{outline-color:var(--kp-blue)!important;box-shadow:0 0 0 4px rgba(37,99,235,.25);caret-color:#93c5fd}
+/* sammel12 (NB-9): Laptop-Hover = gleiche Optik wie die Auswahl beim Antippen am Handy (2 px blau, 4 px Abstand, Ecken folgen dem Element), ohne Label */
+@media (hover:hover) and (pointer:fine){body.editing.kp-inline :is(main,.masthead,.footer,.desktop-nav,.piece-modal) :is([data-editable-text],img[data-editable-image]):not(.kp-il-active):hover{outline:2px solid var(--kp-blue)!important;outline-offset:4px!important}}
+.kp-il-tag{display:none}
+body.editing.kp-inline .kp-il-tag.show{display:block;position:fixed;z-index:186;margin:0;padding:1px 6px;border-radius:4px;background:var(--kp-blue);color:#fff;font:600 11px/16px var(--sans,'Outfit',system-ui);pointer-events:none;white-space:nowrap}
+body.editing.kp-inline:has(.kp-il-sheet.open,.kp-il-imgsheet.open) .kp-il-tag{display:none}
+/* Element-Leiste (W1/Optik 3) */
+body.editing.kp-inline .kp-il-pop.open{flex-direction:column;align-items:stretch;gap:0;padding:4px;border:1px solid var(--kp-studio-line);border-radius:12px;background:var(--kp-studio);box-shadow:0 8px 24px rgba(0,0,0,.5);font-family:var(--sans,'Outfit',system-ui);-webkit-backdrop-filter:none;backdrop-filter:none}
+.kp-il-pop .kp-il-bar{display:flex;gap:2px;align-items:stretch}
+body.editing.kp-inline .kp-il-pop button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;min-width:44px;margin:0;padding:4px 10px;border:0;border-radius:9px;background:transparent;color:#fff;font:600 13px/1.1 var(--sans,'Outfit',system-ui);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+body.editing.kp-inline .kp-il-pop button:is(:hover,:focus-visible){background:rgba(37,99,235,.28)}
+body.editing.kp-inline .kp-il-pop button:active{background:var(--kp-blue-h)}
+body.editing.kp-inline .kp-il-pop button:disabled{opacity:.35;cursor:default;background:transparent}
+body.editing.kp-inline .kp-il-pop .kp-il-bar [data-il=done]{background:var(--kp-blue);color:#fff}
+body.editing.kp-inline .kp-il-pop .kp-il-bar [data-il=done]:is(:hover,:focus-visible,:active){background:var(--kp-blue-h)}
+.kp-il-pop .kp-il-ico{display:inline-grid;place-items:center;width:20px;height:20px;font-size:17px;line-height:1}
+.kp-il-pop .kp-il-ico svg{width:20px;height:20px}
+.kp-il-pop .kp-il-word{white-space:nowrap}
+/* Handy: fest unten, 5 gleich breite Knöpfe, Symbol über Wort (≥ 48 × 56), Buchungsleiste solange aus */
+body.editing.kp-inline .kp-il-pop.open.kp-il-docked-bottom{left:0!important;right:0;width:100%;max-width:none!important;padding:4px 4px calc(4px + env(safe-area-inset-bottom));border-width:1px 0 0;border-radius:14px 14px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.45)}
+body.editing.kp-inline .kp-il-pop.kp-il-docked-bottom .kp-il-bar button{flex:1 1 0;flex-direction:column;gap:3px;min-width:48px;min-height:56px;padding:4px 2px;font-size:12px}
+body.editing.kp-inline .kp-il-pop.kp-il-docked-bottom .kp-il-ico,body.editing.kp-inline .kp-il-pop.kp-il-docked-bottom .kp-il-ico svg{width:22px;height:22px;font-size:19px}
+/* sammel4 (a1): Handy-Leiste – Wörter brechen im eigenen Knopf um (weiche Trennung), nie über den Nachbarn; Knöpfe bleiben ≥ 48 × 56 */
+body.editing.kp-inline .kp-il-pop.kp-il-docked-bottom .kp-il-bar button{min-width:48px;overflow:hidden}
+body.editing.kp-inline .kp-il-pop.kp-il-docked-bottom .kp-il-bar{min-width:0}
+body.editing.kp-inline .kp-il-pop.kp-il-docked-bottom .kp-il-word{display:block;max-width:100%;white-space:normal;text-align:center;font-size:11px;line-height:1.08;overflow-wrap:anywhere;hyphens:manual}
+/* sammel4 (a2): solange „Mehr“ offen ist, liegen Hinweis-Blase und Typ-Schild nicht darüber */
+body.editing.kp-inline:has(.kp-il-pop.open .kp-il-more-sheet) :is(.kp-il-tag,.kp-il-bubble){display:none!important}
+html.kp-il-barmode body.editing.kp-inline .mobile-conversion-bar{visibility:hidden!important;pointer-events:none!important}
+/* „Mehr“: Blatt mit Zeilen (Handy über der Leiste, Laptop darunter), Löschen rot und abgesetzt */
+.kp-il-pop .kp-il-more-sheet{display:flex;flex-direction:column;gap:2px;margin:4px 0 0;padding:4px 0 0;border-top:1px solid var(--kp-studio-line);max-height:min(60svh,430px);overflow:auto}
+.kp-il-pop.kp-il-docked-bottom .kp-il-more-sheet{order:-1;margin:0 0 4px;padding:4px 4px 6px;border-top:0;border-bottom:1px solid var(--kp-studio-line)}
+.kp-il-pop .kp-il-more-head{display:flex;align-items:center;justify-content:space-between;padding:2px 4px 4px 10px;color:#bfdbfe;font:600 13px/1.2 var(--sans,'Outfit',system-ui)}
+body.editing.kp-inline .kp-il-pop .kp-il-more-sheet>button{justify-content:flex-start;gap:12px;min-height:52px;padding:6px 12px;font-size:15px;font-weight:500;text-align:left}
+body.editing.kp-inline .kp-il-pop:not(.kp-il-docked-bottom) .kp-il-more-sheet>button{min-height:44px;font-size:14px}
+.kp-il-pop .kp-il-more-sheet hr{width:100%;height:1px;margin:6px 0;border:0;background:var(--kp-studio-line)}
+body.editing.kp-inline .kp-il-pop .kp-il-danger{margin:0;color:#fca5a5}
+body.editing.kp-inline .kp-il-pop .kp-il-danger .kp-il-ico{color:var(--kp-red)}
+body.editing.kp-inline .kp-il-pop .kp-il-danger:is(:hover,:focus-visible,:active){background:rgba(220,38,38,.22)}
+.kp-il-pop .kp-il-danger::before{display:none!important}
+body.editing.kp-inline .kp-il-pop .kp-il-x{min-width:44px;min-height:44px;width:44px;height:44px;padding:0;border-radius:50%;font-size:16px}
+/* ↶/↷ ohne Leiste, aber 44 × 44 (Handy und Laptop) */
+body.editing.kp-inline .site-header .kp-hdr-undo button,body.editing.kp-inline .site-header .kp-hdr-undo[data-pos=below] button{width:44px;height:44px}
+body.editing.kp-inline .site-header .kp-hdr-undo svg,body.editing.kp-inline .site-header .kp-hdr-undo[data-pos=below] svg{width:20px;height:20px}
+body.editing.kp-inline .site-header .kp-hdr-undo[data-pos=below]{background:var(--kp-studio);border-color:var(--kp-studio-line)}
+body.editing.kp-inline .site-header .kp-hdr-undo[data-pos=below] button{color:#fff}
+body.editing.kp-inline .site-header .kp-hdr-undo button::after{display:none}
+body.editing.kp-inline .kp-modal-undo button{height:44px}
+body.editing.kp-inline:not(.kp-pure):not(.kp-preview):has(.piece-modal.open) .kp-modal-undo{height:46px;background:var(--kp-studio);border-color:var(--kp-studio-line)}
+/* ✎ in Studio-Blau */
+body.editing.kp-inline .kp-il-fab{background:var(--kp-blue);border-color:rgba(255,255,255,.35);color:#fff;opacity:1}
+body.editing.kp-inline .kp-il-fab:is(:hover,:focus-visible){background:var(--kp-blue-h)}
+/* Studio-Menü (W7/Optik 6) */
+body.editing.kp-inline .kp-il-sheet.open,html[data-app-theme=light] body.editing.kp-inline .kp-il-sheet.open{background:var(--kp-studio);color:#f6ece2;border-top:1px solid var(--kp-studio-line);font-family:var(--sans,'Outfit',system-ui)}
+.kp-il-sheet .kp-il-rows{display:flex;flex-direction:column;gap:2px}
+body.editing.kp-inline .kp-il-sheet .kp-il-row,html[data-app-theme=light] body.editing.kp-inline .kp-il-sheet .kp-il-row{justify-content:flex-start;gap:12px;min-height:52px;padding:6px 12px;border:0;border-radius:10px;background:transparent;color:#f6ece2;font:500 15px/1.2 var(--sans,'Outfit',system-ui);text-align:left}
+body.editing.kp-inline .kp-il-sheet .kp-il-row:is(:hover,:focus-visible){background:rgba(37,99,235,.22)}
+.kp-il-sheet .kp-il-rico{display:inline-grid;place-items:center;width:24px;font-size:18px}
+.kp-il-sheet .kp-il-row[aria-pressed=true]{color:#bfdbfe}
+.kp-il-sheet .kp-il-sep{height:1px;margin:10px 0;border:0;background:var(--kp-studio-line)}
+body.editing.kp-inline .kp-il-sheet .kp-il-publish,html[data-app-theme=light] body.editing.kp-inline .kp-il-sheet .kp-il-publish{width:100%;min-height:52px;margin:0;border:2px solid #f6ece2;border-radius:12px;background:transparent;color:#f6ece2;font:700 15px/1.2 var(--sans,'Outfit',system-ui)}
+.kp-il-sheet .kp-il-pub p{margin:0 0 8px}
+.kp-il-sheet .kp-il-pubtitle{font-weight:700;font-size:16px}
+.kp-il-sheet .kp-il-publist ul{margin:0 0 8px;padding-left:20px}
+.kp-il-sheet .kp-il-pubnote{color:#bfae9f;font-size:13px}
+.kp-il-sheet .kp-il-pubbtns{display:flex;gap:10px;margin-top:10px}
+body.editing.kp-inline .kp-il-sheet .kp-il-pubbtns button{flex:1;min-height:52px;border-radius:12px;font:700 15px/1.2 var(--sans,'Outfit',system-ui)}
+body.editing.kp-inline .kp-il-sheet .kp-il-pubcancel,html[data-app-theme=light] body.editing.kp-inline .kp-il-sheet .kp-il-pubcancel{border:2px solid #9a8b7f;background:transparent;color:#f6ece2}
+body.editing.kp-inline .kp-il-sheet .kp-il-pubgo,html[data-app-theme=light] body.editing.kp-inline .kp-il-sheet .kp-il-pubgo{border:2px solid var(--kp-blue);background:var(--kp-blue);color:#fff}
+body.editing.kp-inline .kp-il-sheet .kp-il-devs button{min-height:44px}
+/* Bild-Blatt (W5/Optik 5) */
+.kp-il-imgsheet,.kp-il-imgscrim{display:none}
+body.editing.kp-inline .kp-il-imgscrim.open{display:block;position:fixed;inset:0;z-index:193;background:rgba(0,0,0,.45)}
+body.editing.kp-inline .kp-il-imgsheet.open{display:flex;flex-direction:column;position:fixed;left:0;right:0;bottom:0;z-index:194;max-height:85svh;box-sizing:border-box;padding:6px 14px 0;border-top:1px solid var(--kp-studio-line);border-radius:16px 16px 0 0;background:var(--kp-studio);color:#f6ece2;font:500 15px/1.3 var(--sans,'Outfit',system-ui);box-shadow:0 -10px 34px rgba(0,0,0,.55)}
+.kp-il-imgsheet .kp-il-grab{width:36px;height:4px;margin:2px auto 6px;border-radius:2px;background:rgba(255,255,255,.3)}
+.kp-il-imgsheet .kp-il-ishead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.kp-il-imgsheet .kp-il-ishead b{font-size:17px}
+.kp-il-imgsheet .kp-il-isbody{flex:1 1 auto;overflow:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:10px}
+.kp-il-imgsheet .kp-il-isprev{display:grid;place-items:center;max-height:40svh;border-radius:12px;overflow:hidden;background:#000}
+.kp-il-imgsheet .kp-il-isprev img{display:block;max-width:100%;max-height:40svh;object-fit:contain}
+.kp-il-imgsheet .kp-il-isprev img.kp-il-cropped{width:100%;height:100%;object-fit:cover}
+.kp-il-imgsheet .kp-il-isrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kp-il-imgsheet button{min-height:44px;margin:0;border:1px solid var(--kp-studio-line);border-radius:12px;background:#231b16;color:#fff;font:600 14px/1.2 var(--sans,'Outfit',system-ui);cursor:pointer}
+.kp-il-imgsheet .kp-il-isrow button{min-height:52px}
+.kp-il-imgsheet .kp-il-iscrop{display:flex;flex-direction:column;gap:6px}
+.kp-il-imgsheet .kp-il-iscrop>div{display:flex;flex-wrap:wrap;gap:6px}
+.kp-il-imgsheet .kp-il-iscrop button{min-width:64px;padding:0 14px;border-radius:999px}
+.kp-il-imgsheet .kp-il-isnote{color:#bfdbfe;font:500 13px/1.35 var(--sans,'Outfit',system-ui)} /* sammel4 (a4) */
+.kp-il-imgsheet .kp-il-iscrop button[aria-pressed=true]{background:var(--kp-blue);border-color:var(--kp-blue)}
+.kp-il-imgsheet .kp-il-isalt{display:flex;flex-direction:column;gap:6px}
+.kp-il-imgsheet .kp-il-isalt textarea{box-sizing:border-box;width:100%;min-height:64px;padding:10px 12px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:#0f0c0a;color:#fff;font:400 16px/1.35 var(--sans,'Outfit',system-ui);resize:vertical}
+.kp-il-imgsheet .kp-il-isalt textarea:focus{outline:2px solid var(--kp-blue);outline-offset:1px}
+.kp-il-imgsheet .kp-il-isfoot{flex:0 0 auto;padding:10px 0 calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--kp-studio-line)}
+.kp-il-imgsheet .kp-il-isok{width:100%;min-height:52px;border-color:var(--kp-blue);background:var(--kp-blue);font-size:16px}
+.kp-il-imgsheet .kp-il-isok:disabled{opacity:.6}
+.kp-il-imgsheet .kp-il-x{width:44px;height:44px;min-height:44px;padding:0;border-radius:50%}
+@media (min-width:901px){
+  body.editing.kp-inline .kp-il-imgsheet.open{left:auto;top:0;width:380px;max-height:none;border-top:0;border-left:1px solid var(--kp-studio-line);border-radius:0;padding-top:14px}
+  body.editing.kp-inline .kp-il-imgscrim.open{background:rgba(0,0,0,.25)}
+  .kp-il-imgsheet .kp-il-grab{display:none}
+}
+/* Hinweis-Blase (S1) */
+.kp-il-bubble{display:none}
+body.editing.kp-inline .kp-il-bubble.show{display:flex;align-items:center;gap:10px;position:fixed;z-index:187;max-width:min(320px,calc(100vw - 16px));box-sizing:border-box;padding:8px 8px 8px 12px;border-radius:12px;background:var(--kp-blue);color:#fff;font:500 14px/1.3 var(--sans,'Outfit',system-ui);box-shadow:0 6px 18px rgba(0,0,0,.4)}
+body.editing.kp-inline .kp-il-bubble button{min-width:44px;min-height:44px;margin:0;border:1px solid rgba(255,255,255,.6);border-radius:9px;background:transparent;color:#fff;font:700 13px/1 var(--sans,'Outfit',system-ui)}
+@media (prefers-reduced-motion:reduce){body.editing.kp-inline :is(.kp-il-pop,.kp-il-sheet,.kp-il-imgsheet,.kp-il-bubble){transition:none!important;animation:none!important}}
+.kp-il-pop.kp-il-docked-bottom .kp-il-more-sheet{max-height:calc(100svh - 150px)}
+body.editing.kp-inline .kp-il-pop button:focus-visible{outline:2px solid #93c5fd;outline-offset:-2px;box-shadow:none}
+body.editing.kp-inline:has(.kp-il-pop.kp-il-more-open) .kp-il-fab,body.editing.kp-inline:has(.kp-il-imgsheet.open) .kp-il-fab{visibility:hidden}
+body.editing.kp-inline .kp-il-sheet :is(button,a):focus-visible{outline:2px solid #93c5fd!important;outline-offset:-2px;box-shadow:none!important}
+
+/* sammel8: Bild-Leiste S20 – Icon über Wort, ≥8 px Abstand, horizontal scrollbar falls nötig */
+body.editing.kp-inline .kp-il-pop.kp-il-docked-bottom .kp-il-bar{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 2px}
+body.editing.kp-inline .kp-il-pop.kp-il-docked-bottom .kp-il-bar::-webkit-scrollbar{display:none}
+body.editing.kp-inline .kp-il-pop.kp-il-docked-bottom .kp-il-bar button{flex:1 0 auto;min-width:56px;gap:4px}
+/* Hinweisblase + Typ-Etikett aus, solange „Mehr“-Blatt offen (auch ohne :has-Fallback via Klasse) */
+body.editing.kp-inline .kp-il-pop.kp-il-more-open ~ .kp-il-tag,
+body.editing.kp-inline:has(.kp-il-pop.kp-il-more-open) .kp-il-tag,
+body.editing.kp-inline:has(.kp-il-pop.kp-il-more-open) .kp-il-bubble{display:none!important}
+/* sammel13: Einstellungen → Seitendesign + Unterblatt „Bühnen-Effekte“ (Touch-Ziele ≥ 44×44) */
+.kp-il-sheet .kp-il-design{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:52px;padding:4px 12px}
+.kp-il-sheet .kp-il-design-l{display:flex;align-items:center;gap:12px;font:500 15px/1.2 var(--sans,'Outfit',system-ui)}
+.kp-il-sheet .kp-il-seg{display:flex;gap:0;border:1px solid var(--kp-studio-line,#3d2f27);border-radius:10px;overflow:hidden}
+body.editing.kp-inline .kp-il-sheet .kp-il-seg button{min-height:44px;min-width:64px;border:0;border-radius:0;background:transparent;color:#f6ece2}
+body.editing.kp-inline .kp-il-sheet .kp-il-seg button[aria-checked=true]{background:var(--kp-blue,#2563eb);color:#fff}
+.kp-il-sheet .kp-il-fx{display:flex;flex-direction:column;gap:4px}
+.kp-il-sheet .kp-il-fxnote{margin:0 0 4px;color:#bfae9f;font-size:13px}
+body.editing.kp-inline .kp-il-sheet .kp-il-fxplay{width:100%;min-height:48px;margin:0 0 6px;border:2px solid #f07a22;border-radius:12px;background:transparent;color:#ffb27a;font:700 15px/1.2 var(--sans,'Outfit',system-ui)}
+.kp-il-sheet .kp-il-fxrow{display:flex;align-items:center;gap:12px;min-height:48px;padding:2px 12px;border-radius:10px;font:500 15px/1.25 var(--sans,'Outfit',system-ui);cursor:pointer}
+.kp-il-sheet .kp-il-fxrow:is(:hover,:focus-within){background:rgba(37,99,235,.18)}
+.kp-il-sheet .kp-il-fxrow input{flex:0 0 auto;width:24px;height:24px;margin:0;accent-color:var(--kp-blue,#2563eb)}
+.kp-il-sheet .kp-il-fxfield{display:flex;flex-direction:column;gap:2px;min-height:48px;padding:2px 12px;font:500 15px/1.25 var(--sans,'Outfit',system-ui)}
+.kp-il-sheet .kp-il-fxfield input[type=range]{width:100%;height:44px;margin:0;accent-color:#f07a22}
+.kp-il-sheet .kp-il-fxinline{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+.kp-il-sheet .kp-il-fxfield select{min-height:44px;min-width:170px;padding:0 10px;border:1px solid #3d2f27;border-radius:10px;background:#2a201b;color:#f6ece2;font:600 14px/1.2 var(--sans,system-ui)}
+.kp-il-sheet .kp-il-fxfield input[type=color]{width:44px;height:44px;padding:2px;border:1px solid #3d2f27;border-radius:10px;background:#2a201b}
+.kp-il-sheet .kp-il-fxinline label{white-space:nowrap}
+.kp-il-sheet .kp-il-fxinline select{flex:1 1 auto;min-width:0;max-width:230px}
