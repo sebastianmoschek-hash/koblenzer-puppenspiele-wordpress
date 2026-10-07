@@ -36,12 +36,14 @@ jobs:
           cat > /tmp/kp-ai-deploy.py <<'PY'
           import ftplib, hashlib, io, json, os, pathlib, ssl, sys
           files = {
+              "modern.html": "deployments/kp-menu-corners/modern.html",
               "kp-ai-panel.js": "deployments/kp-code-editor/kp-ai-panel.js",
-              "api/ai-draft.php": "deployments/kp-code-editor/ai-draft.php",
+              "kp-ai-panel.css": "deployments/kp-code-editor/kp-ai-panel.css",
           }
           expected = {
-              "kp-ai-panel.js": "cbfcb6225b448110773a59f4ac863dde4a78810df11cb46352be20d3c5359b76",
-              "api/ai-draft.php": "d8fc4c52aff2ee4138f7cedd8312a5a58e7b5fa594fb534a522eecd1b832e6f4",
+              "modern.html": "ab64dc0b4c948e10f2889183c3a9a3fdc1ff7e08eb828b51641f51eac2088c17",
+              "kp-ai-panel.js": "4692ccea911c3e604b459db217a3194b7991044b1e4de05f97af8c3754de7832",
+              "kp-ai-panel.css": "258c7d47cf2319499c56aa227d92f1bd83ae1f08cb6d3445243a1883d9bb2913",
           }
           ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
           ftp.connect("srv26.dsbsrv.de", 21)
