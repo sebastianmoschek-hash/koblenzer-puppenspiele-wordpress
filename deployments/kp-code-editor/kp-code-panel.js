@@ -118,6 +118,21 @@
     dialog.showModal();
     try { await session(); await loadFile(); } catch (error) { status(error.message,true); }
   }
+  window.addEventListener('kp-ai-code-draft', async (event) => {
+    const draft = event.detail;
+    if (!draft || !['modern.html','kp-inline.css','kp-inline.js'].includes(draft.file) || typeof draft.content !== 'string') return;
+    await open();
+    dialog.querySelector('[data-code-file]').value = draft.file;
+    await loadFile();
+    if (!current || current.file !== draft.file || current.sha256 !== draft.expectedSha256) {
+      status('Die Datei hat sich inzwischen geändert. Bitte den KI-Entwurf neu erstellen.', true);
+      return;
+    }
+    dialog.querySelector('[data-code-content]').value = draft.content;
+    previewed = false;
+    dialog.querySelector('[data-code-publish]').disabled = true;
+    status((draft.message || 'KI-Entwurf geladen.') + ' Änderung prüfen, bevor du veröffentlichst.');
+  });
   const observer = new MutationObserver(() => {
     if (!document.body.classList.contains('editing')) return;
     const rows = document.querySelector('.kp-il-sheet.open .kp-il-rows');
