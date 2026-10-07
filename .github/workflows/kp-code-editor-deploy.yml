@@ -16,112 +16,107 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
-      LFTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
-      FTP_USERNAME: ${{ secrets.KP_TEST_FTP_USERNAME }}
+      KP_FTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
+      KP_FTP_USERNAME: ${{ secrets.KP_TEST_FTP_USERNAME }}
     steps:
       - uses: actions/checkout@v4
       - name: Guard and syntax checks
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/codex/kp-editor-ai-staging
-          test "$FTP_USERNAME" = web16_ftpneu
-          test -n "$LFTP_PASSWORD"
-          php -l deployments/kp-code-editor/code-editor.php
+          test "$KP_FTP_USERNAME" = web16_ftpneu
+          test -n "$KP_FTP_PASSWORD"
           php -l deployments/kp-code-editor/ai-draft.php
           node --check deployments/kp-code-editor/kp-code-panel.js
           node --check deployments/kp-code-editor/kp-ai-panel.js
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends lftp
-      - name: Inspect staging file hashes (read only)
-        run: |
-          set -euo pipefail
-          mkdir -p inspection
-          lftp -c "
-            set ftp:ssl-force true;
-            set ftp:ssl-protect-data true;
-            set ssl:verify-certificate true;
-            set net:max-retries 2;
-            set net:timeout 20;
-            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
-            get api/code-editor.php -o inspection/code-editor.php;
-            get kp-code-panel.js -o inspection/kp-code-panel.js;
-            get kp-code-panel.css -o inspection/kp-code-panel.css;
-            get modern.html -o inspection/modern.html;
-            bye
-          "
-          sha256sum inspection/*
-      - name: Back up and check current staging files
+      - name: Prepare verified staging backup
         if: contains(github.event.head_commit.message, '[kp-code-upload]')
         run: |
           set -euo pipefail
-          mkdir -p backup
-          lftp -c "
-            set ftp:ssl-force true;
-            set ftp:ssl-protect-data true;
-            set ssl:verify-certificate true;
-            set net:max-retries 2;
-            set net:timeout 20;
-            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
-            get api/code-editor.php -o backup/code-editor.php;
-            get kp-code-panel.js -o backup/kp-code-panel.js;
-            get kp-code-panel.css -o backup/kp-code-panel.css;
-            get modern.html -o backup/modern.html;
-            bye
-          "
-          cd backup
-          printf '%s\n' \
-            '1993bf9625659ab90cc53f4fdea624240111550bc4c74f88a4be11c1e6ecd76f  code-editor.php' \
-            '17930b8d8f6ff11a0de52e7d1632710be1dde47ff6970343ec3250f1c056ef2f  kp-code-panel.js' \
-            'c889245473299613cbf590293e04e86182faabc58003a70d1a2e41f40fc08b6d  kp-code-panel.css' \
-            'e2c40d00c3a074bf22b32e8812327958807c35cc74a247cf8d884282fa3ffde6  modern.html' | sha256sum -c -
+          cat > /tmp/kp-ai-deploy.py <<'PY'
+          import ftplib, hashlib, io, json, os, pathlib, sys
+          files = {
+              "modern.html": "deployments/kp-menu-corners/modern.html",
+              "kp-code-panel.js": "deployments/kp-code-editor/kp-code-panel.js",
+              "kp-ai-panel.js": "deployments/kp-code-editor/kp-ai-panel.js",
+              "kp-ai-panel.css": "deployments/kp-code-editor/kp-ai-panel.css",
+              "api/ai-draft.php": "deployments/kp-code-editor/ai-draft.php",
+          }
+          expected = {
+              "modern.html": "8e33d55ce228ad4c26ad352b8153a45172423cbdca7cf62f8a8cfee9a0fb6b08",
+              "kp-code-panel.js": "6ecf835c7a7e3fda7c25a2cee735751d39787bd6067df7d54c4c3713d107383c",
+          }
+          ftp = ftplib.FTP_TLS(timeout=30)
+          ftp.connect("srv26.dsbsrv.de", 21)
+          ftp.login(os.environ["KP_FTP_USERNAME"], os.environ["KP_FTP_PASSWORD"])
+          ftp.prot_p()
+          def read(path):
+              out = io.BytesIO()
+              try:
+                  ftp.retrbinary("RETR " + path, out.write)
+              except ftplib.error_perm as error:
+                  if str(error).startswith("550"):
+                      return None
+                  raise
+              return out.getvalue()
+          def digest(data):
+              return hashlib.sha256(data).hexdigest() if data is not None else None
+          backup = pathlib.Path("backup")
+          if sys.argv[1] == "backup":
+              backup.mkdir()
+              manifest = {}
+              for remote in files:
+                  data = read(remote)
+                  sha = digest(data)
+                  if remote in expected and sha != expected[remote]:
+                      raise RuntimeError("Staging changed: " + remote)
+                  if remote not in expected and data is not None:
+                      raise RuntimeError("AI file already exists; review before replacing: " + remote)
+                  manifest[remote] = sha
+                  if data is not None:
+                      target = backup / remote
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      target.write_bytes(data)
+              (backup / "manifest.json").write_text(json.dumps(manifest))
+          else:
+              manifest = json.loads((backup / "manifest.json").read_text())
+              for remote, sha in manifest.items():
+                  if digest(read(remote)) != sha:
+                      raise RuntimeError("Staging changed since backup: " + remote)
+              touched = []
+              try:
+                  for remote, local in files.items():
+                      touched.append(remote)
+                      data = pathlib.Path(local).read_bytes()
+                      ftp.storbinary("STOR " + remote, io.BytesIO(data))
+                      if read(remote) != data:
+                          raise RuntimeError("Upload readback failed: " + remote)
+              except BaseException:
+                  for remote in reversed(touched):
+                      if manifest[remote] is None:
+                          ftp.delete(remote)
+                      else:
+                          data = (backup / remote).read_bytes()
+                          ftp.storbinary("STOR " + remote, io.BytesIO(data))
+                          if read(remote) != data:
+                              raise RuntimeError("Rollback readback failed: " + remote)
+                  raise
+              print("Verified AI upload: " + ", ".join(files))
+          ftp.quit()
+          PY
+          python /tmp/kp-ai-deploy.py backup
       - name: Retain verified backup
         if: contains(github.event.head_commit.message, '[kp-code-upload]')
         uses: actions/upload-artifact@v4
         with:
-          name: kp-code-before-${{ github.run_id }}
+          name: kp-ai-before-${{ github.run_id }}
           path: backup/
           retention-days: 30
           if-no-files-found: error
-      - name: Upload code editor and cache version
-        id: upload
+      - name: Upload AI files with readback and rollback
         if: contains(github.event.head_commit.message, '[kp-code-upload]')
         run: |
           set -euo pipefail
-          lftp -c "
-            set ftp:ssl-force true;
-            set ftp:ssl-protect-data true;
-            set ssl:verify-certificate true;
-            set net:max-retries 2;
-            set net:timeout 20;
-            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
-            put deployments/kp-code-editor/code-editor.php -o api/code-editor.php;
-            put deployments/kp-code-editor/kp-code-panel.js -o kp-code-panel.js;
-            put deployments/kp-code-editor/kp-code-panel.css -o kp-code-panel.css;
-            put deployments/kp-menu-corners/modern.html -o modern.html;
-            get api/code-editor.php -o /tmp/code-editor.php;
-            get kp-code-panel.js -o /tmp/kp-code-panel.js;
-            get kp-code-panel.css -o /tmp/kp-code-panel.css;
-            get modern.html -o /tmp/modern.html;
-            bye
-          "
-          cmp deployments/kp-code-editor/code-editor.php /tmp/code-editor.php
-          cmp deployments/kp-code-editor/kp-code-panel.js /tmp/kp-code-panel.js
-          cmp deployments/kp-code-editor/kp-code-panel.css /tmp/kp-code-panel.css
-          cmp deployments/kp-menu-corners/modern.html /tmp/modern.html
-          status=$(curl -sS -o /tmp/anonymous.json -w '%{http_code}' --max-time 20 'https://neu.koblenzer-puppenspiele.de/api/code-editor.php?file=modern.html')
+          python /tmp/kp-ai-deploy.py upload
+          status=$(curl -sS -o /tmp/anonymous-ai.json -w '%{http_code}' --max-time 20 'https://neu.koblenzer-puppenspiele.de/api/ai-draft.php')
           test "$status" = 401
-      - name: Restore files after a failed upload
-        if: failure() && steps.upload.outcome == 'failure'
-        run: |
-          lftp -c "
-            set ftp:ssl-force true;
-            set ftp:ssl-protect-data true;
-            set ssl:verify-certificate true;
-            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
-            put backup/code-editor.php -o api/code-editor.php;
-            put backup/kp-code-panel.js -o kp-code-panel.js;
-            put backup/kp-code-panel.css -o kp-code-panel.css;
-            put backup/modern.html -o modern.html;
-            bye
-          "
-
