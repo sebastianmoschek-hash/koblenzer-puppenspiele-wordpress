@@ -38,12 +38,10 @@ jobs:
           files = {
               "modern.html": "deployments/kp-menu-corners/modern.html",
               "kp-ai-panel.js": "deployments/kp-code-editor/kp-ai-panel.js",
-              "kp-ai-panel.css": "deployments/kp-code-editor/kp-ai-panel.css",
           }
           expected = {
-              "modern.html": "0aa91705003a4b18807119e35ec7842e7663c983da39885fff76abdb75e44904",
-              "kp-ai-panel.js": "985ef79ecc671c55e6bdb832a1d6dd158dc7c23584ce353f2d7a3b5950718b8b",
-              "kp-ai-panel.css": "12f8e624cd65873f5dd86abd23fa525ddf0d2a9187c134ab0152c1ca45d69e90",
+              "modern.html": "34686e3de3dde69c7131d1b03a30e588f283f2cc6890b6cd249877a9ea55e181",
+              "kp-ai-panel.js": "67c0daab7ad7a658490803970be877a6a8373b47f28af07cdabe55d98ae98c85",
           }
           ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
           ftp.connect("srv26.dsbsrv.de", 21)
