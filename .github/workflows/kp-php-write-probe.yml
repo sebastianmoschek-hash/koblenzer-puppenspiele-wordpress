@@ -67,6 +67,23 @@ jobs:
               data = json.load(f)
           assert data['php_write_read_remove'] is True, data
           PY
+      - name: Read staging editor backend for integration review
+        run: |
+          mkdir -p /tmp/kp-backend-review
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            get api/studio.php -o /tmp/kp-backend-review/studio.php;
+            bye
+          "
+      - name: Retain private backend review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kp-staging-backend-review
+          path: /tmp/kp-backend-review/studio.php
+          retention-days: 1
       - name: Remove probe and marker, even on failure
         if: always()
         run: |
