@@ -13,7 +13,11 @@ if (strtolower((string)($_SERVER['HTTP_HOST'] ?? '')) !== 'neu.koblenzer-puppens
 if (!current_admin_username()) code_fail(401, 'Admin-Anmeldung erforderlich.');
 $root = realpath(dirname(__DIR__));
 if (!$root || basename($root) !== 'neu') code_fail(500, 'Testverzeichnis nicht erkannt.');
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && ($_GET['action'] ?? '') === 'session') {\n  if (empty($_SESSION['studio_csrf'])) $_SESSION['studio_csrf'] = bin2hex(random_bytes(32));\n  echo json_encode(['ok'=>true,'csrf'=>$_SESSION['studio_csrf']]); exit;\n}\n$allowed = ['modern.html', 'kp-inline.css', 'kp-inline.js'];
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && ($_GET['action'] ?? '') === 'session') {
+  if (empty($_SESSION['studio_csrf'])) $_SESSION['studio_csrf'] = bin2hex(random_bytes(32));
+  echo json_encode(['ok'=>true,'csrf'=>$_SESSION['studio_csrf']]); exit;
+}
+$allowed = ['modern.html', 'kp-inline.css', 'kp-inline.js'];
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $path = (string)($method === 'GET' ? ($_GET['file'] ?? '') : '');
 if ($method === 'POST') {
