@@ -52,7 +52,7 @@ if ($action === 'preview') {
   echo json_encode(['ok'=>true,'file'=>$path,'beforeSha256'=>$sha,'afterSha256'=>$proposedSha,'beforeBytes'=>strlen($current),'afterBytes'=>strlen($content)]);
   exit;
 }
-$backupDir = dirname($root, 2) . '/.koblenzer-studio/code-history';
+$backupDir = dirname($root) . '/.koblenzer-studio/code-history';
 if (!is_dir($backupDir) && !mkdir($backupDir, 0700, true) && !is_dir($backupDir)) code_fail(500, 'Sicherung nicht möglich.');
 $backup = $backupDir . '/' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(6)) . '-' . $path;
 if (file_put_contents($backup, $current, LOCK_EX) !== strlen($current)) code_fail(500, 'Sicherung fehlgeschlagen.');
