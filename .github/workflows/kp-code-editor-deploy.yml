@@ -5,7 +5,6 @@ on:
     paths:
       - .github/workflows/kp-code-editor-deploy.yml
       - deployments/kp-code-editor/**
-      - deployments/kp-menu-corners/modern.html
 permissions:
   contents: read
 concurrency:
@@ -20,7 +19,7 @@ jobs:
       FTP_USERNAME: ${{ secrets.KP_TEST_FTP_USERNAME }}
     steps:
       - uses: actions/checkout@v4
-      - name: Guard target and check PHP syntax
+      - name: Guard and syntax checks
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/codex/kp-editor-ai-staging
@@ -30,9 +29,10 @@ jobs:
           node --check deployments/kp-code-editor/kp-code-panel.js
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends lftp
-      - name: Save any existing test API
+      - name: Back up and check current staging files
         run: |
-          mkdir -p /tmp/previous
+          set -euo pipefail
+          mkdir -p backup
           lftp -c "
             set ftp:ssl-force true;
             set ftp:ssl-protect-data true;
@@ -40,38 +40,26 @@ jobs:
             set net:max-retries 2;
             set net:timeout 20;
             open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
-            get api/code-editor.php -o /tmp/previous/code-editor.php;
-            bye
-          " || true
-      - name: Keep existing version if present
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: kp-code-editor-previous
-          path: /tmp/previous/
-          if-no-files-found: ignore
-          retention-days: 14
-      - name: Verify and back up current staging HTML
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/kp-html-before
-          lftp -c "
-            set ftp:ssl-force true;
-            set ftp:ssl-protect-data true;
-            set ssl:verify-certificate true;
-            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
-            get modern.html -o /tmp/kp-html-before/modern.html;
+            get api/code-editor.php -o backup/code-editor.php;
+            get kp-code-panel.js -o backup/kp-code-panel.js;
+            get kp-code-panel.css -o backup/kp-code-panel.css;
             bye
           "
-          echo '6181ff848bc222ea7c050bd743139251dd2b9f834dfca481bab166baca62d483  /tmp/kp-html-before/modern.html' | sha256sum -c -
-      - name: Retain staging HTML backup
+          cd backup
+          printf '%s\n' \
+            '011a9f2131150c37257a8ac14de6b799d6d14e606103fcbaad495c8fdaac5043  code-editor.php' \
+            '5ee2c97dd8f971d1a99f6227e8642768391e2ea3819b8c7a4ba41ba62f8113cc  kp-code-panel.js' \
+            '166caee27eaee2254acdb450f30c88d5219481600b37401b46fbfb493e32f9ce  kp-code-panel.css' | sha256sum -c -
+      - name: Retain verified backup
         uses: actions/upload-artifact@v4
         with:
-          name: kp-html-before-${{ github.run_id }}
-          path: /tmp/kp-html-before/modern.html
-          retention-days: 14
+          name: kp-code-before-${{ github.run_id }}
+          path: backup/
+          retention-days: 30
           if-no-files-found: error
-      - name: Upload staging API and verify anonymous denial
+      - name: Upload three code editor files
+        id: upload
+        if: contains(github.event.head_commit.message, '[kp-code-upload]')
         run: |
           set -euo pipefail
           lftp -c "
@@ -82,48 +70,29 @@ jobs:
             set net:timeout 20;
             open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
             put deployments/kp-code-editor/code-editor.php -o api/code-editor.php;
-            get api/code-editor.php -o /tmp/readback.php;
-            bye
-          "
-          cmp deployments/kp-code-editor/code-editor.php /tmp/readback.php
-          status=$(curl -sS -o /tmp/anonymous.json -w '%{http_code}' --max-time 20 'https://neu.koblenzer-puppenspiele.de/api/code-editor.php?file=modern.html')
-          echo "Anonymous request returned HTTP $status"
-          test "$status" = 401
-          python3 - <<'PY'
-          import json
-          with open('/tmp/anonymous.json') as f:
-              data=json.load(f)
-          assert data.get('error') == 'Admin-Anmeldung erforderlich.', data
-          PY
-      - name: Upload code panel and HTML only after backup
-        run: |
-          set -euo pipefail
-          lftp -c "
-            set ftp:ssl-force true;
-            set ftp:ssl-protect-data true;
-            set ssl:verify-certificate true;
-            set net:max-retries 2;
-            set net:timeout 20;
-            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
-            put deployments/kp-code-editor/kp-code-panel.css -o kp-code-panel.css;
             put deployments/kp-code-editor/kp-code-panel.js -o kp-code-panel.js;
-            put deployments/kp-menu-corners/modern.html -o modern.html;
-            get kp-code-panel.css -o /tmp/panel.css;
-            get kp-code-panel.js -o /tmp/panel.js;
-            get modern.html -o /tmp/modern.html;
+            put deployments/kp-code-editor/kp-code-panel.css -o kp-code-panel.css;
+            get api/code-editor.php -o /tmp/code-editor.php;
+            get kp-code-panel.js -o /tmp/kp-code-panel.js;
+            get kp-code-panel.css -o /tmp/kp-code-panel.css;
             bye
           "
-          cmp deployments/kp-code-editor/kp-code-panel.css /tmp/panel.css
-          cmp deployments/kp-code-editor/kp-code-panel.js /tmp/panel.js
-          cmp deployments/kp-menu-corners/modern.html /tmp/modern.html
-      - name: Remove new endpoint if verification failed
-        if: failure()
+          cmp deployments/kp-code-editor/code-editor.php /tmp/code-editor.php
+          cmp deployments/kp-code-editor/kp-code-panel.js /tmp/kp-code-panel.js
+          cmp deployments/kp-code-editor/kp-code-panel.css /tmp/kp-code-panel.css
+          status=$(curl -sS -o /tmp/anonymous.json -w '%{http_code}' --max-time 20 'https://neu.koblenzer-puppenspiele.de/api/code-editor.php?file=modern.html')
+          test "$status" = 401
+      - name: Restore files after a failed upload
+        if: failure() && steps.upload.outcome == 'failure'
         run: |
           lftp -c "
             set ftp:ssl-force true;
             set ftp:ssl-protect-data true;
             set ssl:verify-certificate true;
             open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
-            rm -f api/code-editor.php;
+            put backup/code-editor.php -o api/code-editor.php;
+            put backup/kp-code-panel.js -o kp-code-panel.js;
+            put backup/kp-code-panel.css -o kp-code-panel.css;
             bye
           "
+

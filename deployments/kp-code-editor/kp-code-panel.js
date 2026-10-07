@@ -33,8 +33,30 @@
       const editor = dialog.querySelector('[data-code-content]');
       editor.value = current.content; previewed = false;
       dialog.querySelector('[data-code-preview]').textContent = '';
+      dialog.querySelector('[data-code-visual]').hidden = true;
       dialog.querySelector('[data-code-publish]').disabled = true;
+      await loadHistory();
       status(file + ' geladen. Änderungen bleiben bis zum Veröffentlichen lokal.');
+    } catch (error) { status(error.message, true); }
+  }
+  async function loadHistory() {
+    const list = dialog.querySelector('[data-code-history]');
+    list.replaceChildren(new Option('Sicherung auswählen', ''));
+    if (!current) return;
+    try {
+      const result = await request(api + '?action=history&file=' + encodeURIComponent(current.file));
+      for (const name of result.history) list.add(new Option(name.slice(0, 15).replace('-', ' '), name));
+    } catch (error) { status(error.message, true); }
+  }
+  async function useBackup() {
+    const name = dialog.querySelector('[data-code-history]').value;
+    if (!name || !current) return;
+    try {
+      const result = await request(api + '?action=backup&file=' + encodeURIComponent(current.file) + '&backup=' + encodeURIComponent(name));
+      dialog.querySelector('[data-code-content]').value = result.content;
+      previewed = false;
+      dialog.querySelector('[data-code-publish]').disabled = true;
+      status('Sicherung als Entwurf geladen. Prüfe die Änderung vor dem Veröffentlichen.');
     } catch (error) { status(error.message, true); }
   }
   async function preview() {
@@ -47,9 +69,16 @@
       dialog.querySelector('[data-code-preview]').textContent =
         'Vorher: ' + result.beforeBytes + ' Bytes · Nachher: ' + result.afterBytes + ' Bytes\n\n' +
         changedLines(current.content,content);
+      const visual = dialog.querySelector('[data-code-visual]');
+      visual.hidden = current.file !== 'modern.html' || result.beforeSha256 === result.afterSha256;
+      if (!visual.hidden) {
+        // Opaque sandbox: shows static layout, never runs the proposed page's scripts.
+        visual.srcdoc = '<base href="' + location.origin + '/">' + content;
+      } else visual.removeAttribute('srcdoc');
       previewed = true;
       dialog.querySelector('[data-code-publish]').disabled = result.beforeSha256 === result.afterSha256;
-      status('Vorschau erstellt. Prüfe die Änderung vor dem Veröffentlichen.');
+      status(visual.hidden ? 'Textvergleich erstellt. Prüfe die Änderung vor dem Veröffentlichen.' :
+        'Textvergleich und statische Seitenansicht erstellt. Skripte laufen in der Vorschau nicht.');
     } catch (error) { previewed = false; status(error.message,true); }
   }
   async function publish() {
@@ -61,6 +90,7 @@
         body:JSON.stringify({action:'publish',file:current.file,expectedSha256:current.sha256,content}) });
       current = {file:result.file,sha256:result.sha256,content};
       previewed = false; dialog.querySelector('[data-code-publish]').disabled = true;
+      await loadHistory();
       status('Veröffentlicht. Sicherung: ' + result.backup + '. Seite zum Prüfen neu laden.');
     } catch (error) { status(error.message,true); }
   }
@@ -71,14 +101,16 @@
       '<p>Nur ausgewählte Dateien unter /neu. Vor dem Veröffentlichen wird eine Sicherung erstellt.</p>' +
       '<label>Datei <select data-code-file><option>kp-inline.css</option><option>kp-inline.js</option><option>modern.html</option></select></label>' +
       '<label>Quellcode <textarea data-code-content spellcheck="false"></textarea></label>' +
+      '<div class="kp-code-history"><label>Frühere Sicherung <select data-code-history><option value="">Sicherung auswählen</option></select></label><button type="button" data-code-use-backup>Als Entwurf laden</button></div>' +
       '<div class="kp-code-actions"><button type="button" data-code-check>Änderung prüfen</button><button type="button" data-code-publish disabled>Veröffentlichen</button></div>' +
-      '<pre data-code-preview aria-label="Änderungsvorschau"></pre><p role="status" data-code-status></p></form>';
+      '<pre data-code-preview aria-label="Textvergleich"></pre><iframe data-code-visual title="Statische Seitenansicht" sandbox referrerpolicy="no-referrer" hidden></iframe><p role="status" data-code-status></p></form>';
     document.body.append(dialog);
     dialog.querySelector('[data-code-file]').addEventListener('change',loadFile);
     dialog.querySelector('[data-code-content]').addEventListener('input', () => {
       previewed=false; dialog.querySelector('[data-code-publish]').disabled=true;
     });
     dialog.querySelector('[data-code-check]').addEventListener('click',preview);
+    dialog.querySelector('[data-code-use-backup]').addEventListener('click',useBackup);
     dialog.querySelector('[data-code-publish]').addEventListener('click',publish);
   }
   async function open() {
@@ -98,3 +130,4 @@
   });
   observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
 })();
+

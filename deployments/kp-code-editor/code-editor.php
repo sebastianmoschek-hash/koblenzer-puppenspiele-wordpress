@@ -9,7 +9,8 @@ function code_fail(int $status, string $message): never {
   echo json_encode(['error' => $message], JSON_UNESCAPED_UNICODE);
   exit;
 }
-if (strtolower((string)($_SERVER['HTTP_HOST'] ?? '')) !== 'neu.koblenzer-puppenspiele.de') code_fail(403, 'Nur auf der Testseite verfügbar.');
+if (strtolower((string)($_SERVER['HTTP_HOST'] ?? '')) !== 'neu.koblenzer-puppenspiele.de'
+    || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') code_fail(403, 'Nur auf der HTTPS-Testseite verfügbar.');
 if (!current_admin_username()) code_fail(401, 'Admin-Anmeldung erforderlich.');
 $root = realpath(dirname(__DIR__));
 if (!$root || basename($root) !== 'neu') code_fail(500, 'Testverzeichnis nicht erkannt.');
@@ -19,6 +20,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && ($_GET['action'] ?? '') === 
 }
 $allowed = ['modern.html', 'kp-inline.css', 'kp-inline.js'];
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$backupDir = dirname($root) . '/.koblenzer-studio/code-history';
 $path = (string)($method === 'GET' ? ($_GET['file'] ?? '') : '');
 if ($method === 'POST') {
   if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 1200000) code_fail(413, 'Datei zu groß.');
@@ -30,6 +32,24 @@ if (!in_array($path, $allowed, true)) code_fail(400, 'Datei nicht freigegeben.')
 $file = realpath($root . '/' . $path);
 if (!$file || dirname($file) !== $root || !is_file($file)) code_fail(404, 'Datei nicht vorhanden.');
 if ($method === 'GET') {
+  if (($_GET['action'] ?? '') === 'history') {
+    $history = [];
+    foreach (glob($backupDir . '/*-' . $path) ?: [] as $item) {
+      $name = basename($item);
+      if (preg_match('/^\\d{8}-\\d{6}-[a-f0-9]{12}-' . preg_quote($path, '/') . '$/', $name) && is_file($item)) $history[] = $name;
+    }
+    rsort($history, SORT_STRING);
+    echo json_encode(['file'=>$path, 'history'=>array_slice($history, 0, 10)]); exit;
+  }
+  if (($_GET['action'] ?? '') === 'backup') {
+    $name = (string)($_GET['backup'] ?? '');
+    if (!preg_match('/^\\d{8}-\\d{6}-[a-f0-9]{12}-' . preg_quote($path, '/') . '$/', $name)) code_fail(400, 'Ungültige Sicherung.');
+    $candidate = realpath($backupDir . '/' . $name);
+    if (!$candidate || dirname($candidate) !== realpath($backupDir) || !is_file($candidate)) code_fail(404, 'Sicherung nicht vorhanden.');
+    $saved = file_get_contents($candidate);
+    if ($saved === false) code_fail(500, 'Sicherung nicht lesbar.');
+    echo json_encode(['file'=>$path,'backup'=>$name,'content'=>$saved], JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE); exit;
+  }
   $source = file_get_contents($file);
   if ($source === false) code_fail(500, 'Lesen fehlgeschlagen.');
   echo json_encode(['file'=>$path,'sha256'=>hash('sha256',$source),'content'=>$source], JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
@@ -41,8 +61,8 @@ $action = (string)($body['action'] ?? '');
 if (!in_array($action, ['preview','publish'], true)) code_fail(400, 'Unbekannte Aktion.');
 $content = $body['content'] ?? null;
 $expected = (string)($body['expectedSha256'] ?? '');
-if (!is_string($content) || strlen($content) > 1000000 || str_contains($content, "\0") || !preg_match('/^[a-f0-9]{64}$/', $expected)) code_fail(400, 'Ungültige Datei.');
-if ($content === '') code_fail(400, 'Leere Datei nicht erlaubt.');
+if (!preg_match('/^[a-f0-9]{64}$/', $expected)) code_fail(400, 'Ungültiger Versionsstand.');
+if (!is_string($content) || strlen($content) > 1000000 || str_contains($content, "\0") || $content === '') code_fail(400, 'Ungültige Datei.');
 $lockPath = $root . '/.kp-code-editor.lock';
 $lock = fopen($lockPath, 'c');
 if (!$lock || !flock($lock, LOCK_EX)) code_fail(503, 'Datei gerade gesperrt.');
@@ -52,11 +72,17 @@ $sha = hash('sha256', $current);
 if (!hash_equals($sha, $expected)) code_fail(409, 'Datei wurde inzwischen geändert. Neu laden.');
 $proposedSha = hash('sha256', $content);
 if ($action === 'preview') {
+  $_SESSION['kp_code_preview'] = ['file'=>$path,'before'=>$sha,'after'=>$proposedSha,'until'=>time()+900];
   flock($lock, LOCK_UN); fclose($lock);
   echo json_encode(['ok'=>true,'file'=>$path,'beforeSha256'=>$sha,'afterSha256'=>$proposedSha,'beforeBytes'=>strlen($current),'afterBytes'=>strlen($content)]);
   exit;
 }
-$backupDir = dirname($root) . '/.koblenzer-studio/code-history';
+if ($action === 'publish') {
+  $preview = $_SESSION['kp_code_preview'] ?? [];
+  if (($preview['file'] ?? '') !== $path || ($preview['before'] ?? '') !== $sha
+      || ($preview['after'] ?? '') !== $proposedSha || ($preview['until'] ?? 0) < time())
+    code_fail(409, 'Änderung zuerst erneut prüfen.');
+}
 if (!is_dir($backupDir) && !mkdir($backupDir, 0700, true) && !is_dir($backupDir)) code_fail(500, 'Sicherung nicht möglich.');
 $backup = $backupDir . '/' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(6)) . '-' . $path;
 if (file_put_contents($backup, $current, LOCK_EX) !== strlen($current)) code_fail(500, 'Sicherung fehlgeschlagen.');
@@ -65,5 +91,7 @@ $tmp = tempnam($root, '.kp-code-');
 if (!$tmp || file_put_contents($tmp, $content, LOCK_EX) !== strlen($content)) code_fail(500, 'Schreiben fehlgeschlagen.');
 chmod($tmp, fileperms($file) & 0777);
 if (!rename($tmp, $file)) { @unlink($tmp); code_fail(500, 'Veröffentlichen fehlgeschlagen.'); }
+unset($_SESSION['kp_code_preview']);
 flock($lock, LOCK_UN); fclose($lock);
 echo json_encode(['ok'=>true,'file'=>$path,'sha256'=>$proposedSha,'backup'=>basename($backup)]);
+
