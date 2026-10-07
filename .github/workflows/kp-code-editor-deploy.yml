@@ -47,9 +47,9 @@ jobs:
           "
           cd backup
           printf '%s\n' \
-            '011a9f2131150c37257a8ac14de6b799d6d14e606103fcbaad495c8fdaac5043  code-editor.php' \
-            '5ee2c97dd8f971d1a99f6227e8642768391e2ea3819b8c7a4ba41ba62f8113cc  kp-code-panel.js' \
-            '166caee27eaee2254acdb450f30c88d5219481600b37401b46fbfb493e32f9ce  kp-code-panel.css' | sha256sum -c -
+            '1993bf9625659ab90cc53f4fdea624240111550bc4c74f88a4be11c1e6ecd76f  code-editor.php' \
+            '17930b8d8f6ff11a0de52e7d1632710be1dde47ff6970343ec3250f1c056ef2f  kp-code-panel.js' \
+            'c889245473299613cbf590293e04e86182faabc58003a70d1a2e41f40fc08b6d  kp-code-panel.css' | sha256sum -c -
       - name: Retain verified backup
         uses: actions/upload-artifact@v4
         with:
