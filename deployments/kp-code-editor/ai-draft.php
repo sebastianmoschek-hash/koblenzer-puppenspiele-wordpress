@@ -17,6 +17,29 @@ if (empty($_SESSION['studio_csrf']) || !hash_equals((string)$_SESSION['studio_cs
 if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 6000) ai_fail(413, 'Anfrage zu groß.');
 $body = json_decode((string)file_get_contents('php://input'), true);
 if (!is_array($body)) ai_fail(400, 'Ungültige Anfrage.');
+// Private server storage: never write the credential into the website or repository.
+$privateBase = realpath(sys_get_temp_dir());
+$documentRoot = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
+if (!$privateBase || !$documentRoot || $privateBase === $documentRoot || str_starts_with($privateBase . '/', $documentRoot . '/')) ai_fail(503, 'Privater Schlüsselspeicher nicht verfügbar.');
+$privateDir = $privateBase . '/kp-ai-' . hash('sha256', __DIR__);
+$keyFile = $privateDir . '/gemini-key';
+$action = (string)($body['action'] ?? '');
+if ($action === 'save-key') {
+  $candidate = trim((string)($body['key'] ?? ''));
+  if (!preg_match('/^[A-Za-z0-9_-]{20,200}$/', $candidate)) ai_fail(400, 'Schlüssel hat ein ungültiges Format.');
+  if (is_link($privateDir) || is_link($keyFile)) ai_fail(503, 'Privater Speicher nicht verfügbar.');
+  $oldMask = umask(0077);
+  if (!is_dir($privateDir) && !mkdir($privateDir, 0700)) ai_fail(503, 'Privater Speicher kann nicht angelegt werden.');
+  if (!chmod($privateDir, 0700)) ai_fail(503, 'Speicherrechte konnten nicht gesetzt werden.');
+  $temporary = tempnam($privateDir, 'key-');
+  if (!$temporary || file_put_contents($temporary, $candidate, LOCK_EX) !== strlen($candidate) || !chmod($temporary, 0600) || !rename($temporary, $keyFile)) {
+    if ($temporary) @unlink($temporary);
+    ai_fail(503, 'Schlüssel konnte nicht gespeichert werden.');
+  }
+  umask($oldMask);
+  echo json_encode(['saved'=>true]);
+  exit;
+}
 $file = (string)($body['file'] ?? '');
 if (!in_array($file, ['modern.html','kp-inline.css','kp-inline.js'], true)) ai_fail(400, 'Datei nicht freigegeben.');
 $prompt = trim((string)($body['prompt'] ?? ''));
@@ -28,6 +51,7 @@ if (!$path || dirname($path) !== $root) ai_fail(404, 'Datei nicht vorhanden.');
 $original = file_get_contents($path);
 if ($original === false || strlen($original) > 250000) ai_fail(413, 'Datei kann nicht als Ganzes verarbeitet werden.');
 $key = getenv('GEMINI_API_KEY');
+if (!$key && !is_link($privateDir) && !is_link($keyFile) && is_file($keyFile)) $key = trim((string)file_get_contents($keyFile));
 if (!$key) ai_fail(503, 'KI-Schlüssel auf dem Testserver noch nicht eingerichtet.');
 $model = getenv('KP_GEMINI_MODEL') ?: 'gemini-2.5-flash';
 if (!preg_match('/^[a-zA-Z0-9._-]+$/', $model)) ai_fail(500, 'KI-Modell ungültig.');
