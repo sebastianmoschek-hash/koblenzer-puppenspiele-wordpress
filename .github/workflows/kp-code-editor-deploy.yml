@@ -39,13 +39,11 @@ jobs:
               "modern.html": "deployments/kp-menu-corners/modern.html",
               "kp-ai-panel.js": "deployments/kp-code-editor/kp-ai-panel.js",
               "kp-ai-panel.css": "deployments/kp-code-editor/kp-ai-panel.css",
-              "api/ai-draft.php": "deployments/kp-code-editor/ai-draft.php",
           }
           expected = {
-              "modern.html": "a03ba4ebd1a942a368ef3c7c80217d55476233224686172989e07e2e2143f3e8",
-              "kp-ai-panel.js": "4c8cbff832674bb92c328137c695715736aa2edc43ddf23f6f1b190f47c62d38",
-              "kp-ai-panel.css": "abf0a1c43b3576ac943f47ccb4172bcc3e0aad75734f81114a45848f7329b01c",
-              "api/ai-draft.php": "1dd877df7f07b2262c36d471c9afc3fa4fcad58dea77d3bd5ca7681e23030d3f",
+              "modern.html": "0aa91705003a4b18807119e35ec7842e7663c983da39885fff76abdb75e44904",
+              "kp-ai-panel.js": "985ef79ecc671c55e6bdb832a1d6dd158dc7c23584ce353f2d7a3b5950718b8b",
+              "kp-ai-panel.css": "12f8e624cd65873f5dd86abd23fa525ddf0d2a9187c134ab0152c1ca45d69e90",
           }
           ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
           ftp.connect("srv26.dsbsrv.de", 21)
