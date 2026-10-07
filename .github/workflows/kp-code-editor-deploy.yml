@@ -49,24 +49,7 @@ jobs:
           path: /tmp/previous/
           if-no-files-found: ignore
           retention-days: 14
-      - name: Read staging authentication implementation
-        run: |
-          mkdir -p /tmp/auth-review
-          lftp -c "
-            set ftp:ssl-force true;
-            set ftp:ssl-protect-data true;
-            set ssl:verify-certificate true;
-            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
-            get api/auth.php -o /tmp/auth-review/auth.php;
-            bye
-          "
-      - name: Retain private authentication review
-        uses: actions/upload-artifact@v4
-        with:
-          name: kp-auth-review
-          path: /tmp/auth-review/auth.php
-          retention-days: 1
-      - name: Remove staging API pending authentication review
+      - name: Upload staging API and verify anonymous denial
         run: |
           set -euo pipefail
           lftp -c "
@@ -76,11 +59,28 @@ jobs:
             set net:max-retries 2;
             set net:timeout 20;
             open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            put deployments/kp-code-editor/code-editor.php -o api/code-editor.php;
+            get api/code-editor.php -o /tmp/readback.php;
+            bye
+          "
+          cmp deployments/kp-code-editor/code-editor.php /tmp/readback.php
+          status=$(curl -sS -o /tmp/anonymous.json -w '%{http_code}' --max-time 20 'https://neu.koblenzer-puppenspiele.de/api/code-editor.php?file=modern.html')
+          echo "Anonymous request returned HTTP $status"
+          test "$status" = 401
+          python3 - <<'PY'
+          import json
+          with open('/tmp/anonymous.json') as f:
+              data=json.load(f)
+          assert data.get('error') == 'Admin-Anmeldung erforderlich.', data
+          PY
+      - name: Remove new endpoint if verification failed
+        if: failure()
+        run: |
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
             rm -f api/code-editor.php;
             bye
           "
-      - name: Verify endpoint removed
-        run: |
-          status=$(curl -sS -o /tmp/removed -w '%{http_code}' --max-time 20 'https://neu.koblenzer-puppenspiele.de/api/code-editor.php?file=modern.html')
-          echo "Removed endpoint HTTP $status"
-          test "$status" = 404 -o "$status" = 403
