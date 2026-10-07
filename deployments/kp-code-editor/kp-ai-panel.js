@@ -60,60 +60,195 @@
 
   let targets = new Map(), directBusy = false;
   const colors = {blau:'#2563eb',rot:'#dc2626',grün:'#16a34a',gruen:'#16a34a',orange:'#f07a22',weiß:'#ffffff',weiss:'#ffffff',schwarz:'#000000',gelb:'#facc15',lila:'#9333ea'};
+  let conversation=[], pendingDelete=null;
+  const ids=new WeakMap();let nextId=0;
+  const idFor=n=>{if(!ids.has(n))ids.set(n,'e'+(++nextId));return ids.get(n);};
+  const stamp=n=>JSON.stringify([n.textContent,n.getAttribute('style'),n.getAttribute('src'),n.getAttribute('href'),n.parentElement?.id]);
+  const editable=n=>n?.isConnected && n.matches('main *,main,.masthead h1,.masthead p,.masthead img,.desktop-nav a,.mobile-menu nav a') && !n.closest('[data-transient],.kp-ai-panel');
   function context() {
-    targets = new Map();
-    return [...document.querySelectorAll('main h1,main h2,main h3,main p,[data-editable-text],.masthead h1')]
-      .filter(n => !n.closest('[data-transient],.kp-ai-panel') && n.getClientRects().length && n.textContent.trim())
-      .slice(0,40).map((n,i) => {const id='e'+i; targets.set(id,n); return {id,tag:n.tagName,text:n.textContent.trim().slice(0,100)};});
+    targets=new Map();
+    const nodes=[...document.querySelectorAll('.masthead img,.masthead h1,.masthead p,main,main>section,main .piece'),...document.querySelectorAll('main h1,main h2,main h3,main p,main a,main img,[data-editable-text],.desktop-nav a')].filter(editable);
+    const selected=window.KPStudio?.selected || window.KPCtx?.element;
+    if(editable(selected))nodes.unshift(selected);
+    return [...new Set(nodes)].slice(0,100).map(n=>{const id=idFor(n);targets.set(id,n);return {id,tag:n.tagName,kind:n.matches('.piece')?'repertoire':n.matches('section,main')?'section':n.matches('img')?'image':n.matches('a')?'link':'text',text:n.textContent.trim().slice(0,160),alt:n.getAttribute('alt')||'',section:n.closest('section')?.id||'',selected:n===selected};});
   }
-  function applyOperations(ops) {
-    if (!document.body.classList.contains('editing')) throw new Error('Bearbeitungsmodus erforderlich.');
-    const validated = ops.map(op => {
-      const n=targets.get(op.id);
-      if (!n?.isConnected) throw new Error('Ziele haben sich geändert. Bitte erneut sprechen.');
-      if (op.type==='color' && !/^#[0-9a-f]{6}$/i.test(op.value)) throw new Error('Ungültige Farbe.');
-      if (op.type==='fontSize' && !(Number(op.value)>=8 && Number(op.value)<=120)) throw new Error('Ungültige Schriftgröße.');
-      if (op.type==='text' && (typeof op.value!=='string' || op.value.length>2000 || n.children.length)) throw new Error('Dieser Text benötigt eine gezieltere Auswahl.');
-      if (!['color','fontSize','text'].includes(op.type)) throw new Error('Befehl nicht unterstützt.');
-      return {n,op};
-    });
-    if (typeof saveDraft!=='function' || typeof recordHistory!=='function') throw new Error('Editor-Speicher noch nicht bereit.');
+  function checkpoint(){window.KPStudio?.captureDetail?.();refreshEditableElements();saveDraft();recordHistory();window.KPStudio?.refreshLayerList?.();document.dispatchEvent(new CustomEvent('kp-dirty',{detail:true}));document.dispatchEvent(new CustomEvent('editor-layout-change'));}
+  function clickControl(selector,root=document){const b=root.querySelector(selector);if(!b||b.disabled)throw new Error('Diese Editorfunktion ist gerade nicht verfügbar.');b.click();}
+  function safeLink(value){if(typeof value!=='string'||value.length>1000)throw new Error('Ungültiges Linkziel.');if(value.startsWith('#')&&/^#[\wäöüß-]+$/i.test(value))return value;const u=new URL(value,location.href);if(!['https:','http:','mailto:','tel:'].includes(u.protocol))throw new Error('Dieses Linkziel ist nicht erlaubt.');return value;}
+  const styleValues={color:v=>/^#[\da-f]{6}$/i.test(v),backgroundColor:v=>/^#[\da-f]{6}$/i.test(v),fontSize:v=>Number(v)>=8&&Number(v)<=120,fontWeight:v=>['normal','bold'].includes(v),fontStyle:v=>['normal','italic'].includes(v),textDecoration:v=>['none','underline'].includes(v),textAlign:v=>['left','center','right'].includes(v),opacity:v=>Number(v)>=0&&Number(v)<=1};
+  const styleNames={backgroundColor:'background-color',fontSize:'font-size',fontWeight:'font-weight',fontStyle:'font-style',textDecoration:'text-decoration',textAlign:'text-align'};
+  function validateOperation(op){
+    if(!op||typeof op!=='object')throw new Error('Ungültiger Editorbefehl.');
+    const global=['undo','redo','save','preview','versions','export','import','settings','addPage','snap'];
+    const types=[...global,'select','style','text','link','alt','width','duplicate','delete','up','down','parent','detail','addText','addButton','addImage','replaceImage','crop','imageAdjustment','imagePreset','removeBackground','editImage'];
+    if(!types.includes(op.type))throw new Error('Diese Funktion ist noch nicht angebunden.');
+    const n=targets.get(op.id);if(!global.includes(op.type)&&!editable(n))throw new Error('Bitte das Zielelement genauer benennen.');
+    if(op.type==='style'&&(!styleValues[op.property]||!styleValues[op.property](op.value)))throw new Error('Ungültige Gestaltung.');
+    if(['text','alt','addText','addButton','addPage'].includes(op.type)&&(typeof op.value!=='string'||!op.value.trim()||op.value.length>2000))throw new Error('Bitte den gewünschten Text nennen.');
+    if(op.type==='text'&&(n.children.length||n.matches('img,section,main')))throw new Error('Bitte den einzelnen Text statt des ganzen Bereichs auswählen.');
+    if(['link','addButton'].includes(op.type))safeLink(op.url);
+    if(op.type==='link'&&!n.matches('a'))throw new Error('Bitte einen Link oder Button auswählen.');
+    if(['alt','replaceImage','crop','imageAdjustment','imagePreset','removeBackground','editImage'].includes(op.type)&&!n.matches('img'))throw new Error('Bitte ein Bild auswählen.');
+    if(op.type==='width'&&!(Number(op.value)>=15&&Number(op.value)<=100))throw new Error('Breite muss zwischen 15 und 100 Prozent liegen.');
+    if(['addText','addButton','addImage'].includes(op.type)&&!n.matches('section,main,.piece,.hero-copy'))throw new Error('Bitte den Bereich für das neue Element nennen.');
+    if(op.type==='delete'&&n.matches('main,.masthead,.hero,.desktop-nav,.footer'))throw new Error('Dieser Hauptbereich wird nicht gelöscht.');
+    if(op.type==='imagePreset'&&!['original','vivid','mono','sepia','rotate-left','rotate-right'].includes(op.value))throw new Error('Unbekannter Bildstil.');
+    if(op.type==='imageAdjustment'&&!['brightness','contrast','blur','saturate','grayscale','sepia','rotation'].includes(op.property))throw new Error('Unbekannte Bildeinstellung.');
+    if(op.type==='crop'&&!['1:1','4:3','16:9'].includes(op.value))throw new Error('Bitte das gewünschte Bildformat nennen.');
+    if(op.type==='addPage'&&op.value.length>100)throw new Error('Bitte einen kürzeren Seitentitel nennen.');
+    if(op.type==='editImage'&&(typeof op.value!=='string'||!op.value.trim()||op.value.length>1800))throw new Error('Bitte die Bildänderung genauer beschreiben.');
+    if(op.type==='snap'&&typeof op.value!=='boolean')throw new Error('Bitte Raster an oder aus sagen.');
+    return n;
+  }
+  async function removeBackground(n){
+    // Conservative local colour-key: only backgrounds connected to the image border.
+    // It is not semantic segmentation and deliberately rejects complex backgrounds.
+    const image=new Image();image.crossOrigin='anonymous';image.src=n.currentSrc||n.src;await image.decode();
+    const canvas=document.createElement('canvas'),scale=Math.min(1,1600/Math.max(image.naturalWidth,image.naturalHeight));canvas.width=Math.round(image.naturalWidth*scale);canvas.height=Math.round(image.naturalHeight*scale);
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(image,0,0,canvas.width,canvas.height);
+    let pixels;try{pixels=ctx.getImageData(0,0,canvas.width,canvas.height);}catch{throw new Error('Dieses Bild lässt sich wegen seiner Herkunft nicht lokal bearbeiten.');}
+    const {data}=pixels,w=canvas.width,h=canvas.height;
+    const corners=[0,w-1,w*(h-1),w*h-1],sample=corners.map(i=>Array.from(data.slice(i*4,i*4+4)));
+    if(sample.every(c=>c[3]<10))throw new Error('Das Bild hat bereits einen transparenten Hintergrund.');
+    const ref=sample[0];if(sample.some(c=>Math.hypot(c[0]-ref[0],c[1]-ref[1],c[2]-ref[2])>35))throw new Error('Der Hintergrund ist zu unregelmäßig für das lokale Freistellen. Eine KI-Bildfreistellung ist noch nicht verfügbar.');
+    const visited=new Uint8Array(w*h),queue=new Int32Array(w*h);let head=0,tail=0,removed=0;
+    const add=i=>{if(i<0||i>=w*h||visited[i])return;visited[i]=1;const p=i*4;if(data[p+3]<10||Math.hypot(data[p]-ref[0],data[p+1]-ref[1],data[p+2]-ref[2])<40)queue[tail++]=i;};
+    for(let x=0;x<w;x++){add(x);add((h-1)*w+x);}for(let y=0;y<h;y++){add(y*w);add(y*w+w-1);}
+    while(head<tail){const i=queue[head++];data[i*4+3]=0;removed++;if(i%w)add(i-1);if(i%w<w-1)add(i+1);add(i-w);add(i+w);}
+    if(removed>w*h*.95||removed<w*h*.01)throw new Error('Kein eindeutiger Hintergrund erkannt. Das Bild bleibt unverändert.');
+    ctx.putImageData(pixels,0,0);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw new Error('Bild konnte nicht erstellt werden.');
+    if(typeof window.KPReplaceImage!=='function')throw new Error('Bildspeicher nicht verfügbar.');
+    recordHistory();await window.KPReplaceImage(new File([blob],'freigestellt.png',{type:'image/png'}),n);checkpoint();
+  }
+  async function applyOperation(op){
+    const n=validateOperation(op),S=window.KPStudio;
+    if(['undo','redo'].includes(op.type)){if(!window.KPHistoryState?.[op.type==='undo'?'canUndo':'canRedo']?.())throw new Error('Keine passende Änderung im Verlauf.');clickControl('[data-history="'+op.type+'"]');return;}
+    if(op.type==='save'){if(typeof window.KPSaveAndWait!=='function')throw new Error('Serverspeicher nicht verfügbar.');if(!await window.KPSaveAndWait('draft'))throw new Error('Entwurf konnte nicht gespeichert werden.');return;}
+    if(['preview','versions','export','import'].includes(op.type)){clickControl('[data-studio="'+op.type+'"]');return;}
+    if(op.type==='settings'){window.KPInline?.openSheet(true);clickControl('[data-il="more"]');return;}
+    if(op.type==='snap'){if(typeof window.KPSetSnap!=='function')throw new Error('Raster nicht verfügbar.');window.KPSetSnap(op.value);return;}
+    if(op.type==='addPage'){
+      const name=op.value.trim(),slug=name.toLowerCase().replace(/[^a-z0-9äöüß]+/gi,'-').replace(/^-|-$/g,'')||'neue-seite';
+      if(document.getElementById(slug))throw new Error('Eine Seite mit diesem Namen existiert bereits.');
+      const nav=document.querySelector('.desktop-nav'),mobile=document.querySelector('.mobile-menu nav'),main=document.querySelector('main');if(!nav||!mobile||!main)throw new Error('Seitennavigation nicht verfügbar.');
+      recordHistory();const section=document.createElement('section');section.className='section custom-page';section.id=slug;const heading=document.createElement('h2');heading.textContent=name;section.append(heading);main.append(section);
+      for(const container of [nav,mobile]){const a=document.createElement('a');a.href='#'+slug;a.textContent=name;container.append(a);}checkpoint();S?.select(section);return;
+    }
+    S?.select(n);
+    if(op.type==='select'){n.scrollIntoView({block:'center',behavior:'smooth'});return;}
+    if(['duplicate','delete','up','down','parent','detail'].includes(op.type)){recordHistory();clickControl('[data-element="'+({duplicate:'copy',delete:'remove',detail:'open'}[op.type]||op.type)+'"]',S.inspector);return;}
+    if(op.type==='replaceImage'){window.KPInline?.openImageSheet(n,'img');return;}
+    if(op.type==='crop'){
+      if(n.closest('.piece')&&op.value!=='4:3')throw new Error('Repertoirebilder verwenden das Format 4:3.');
+      const image=new Image();image.crossOrigin='anonymous';image.src=n.currentSrc||n.src;await image.decode();
+      const ratio={'1:1':1,'4:3':4/3,'16:9':16/9}[op.value],sw=image.naturalWidth,sh=image.naturalHeight,cw=Math.min(sw,sh*ratio),ch=cw/ratio;
+      const canvas=document.createElement('canvas');canvas.width=Math.round(Math.min(cw,1600));canvas.height=Math.round(canvas.width/ratio);canvas.getContext('2d').drawImage(image,(sw-cw)/2,(sh-ch)/2,cw,ch,0,0,canvas.width,canvas.height);
+      let blob;try{blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));}catch{throw new Error('Dieses Bild lässt sich wegen seiner Herkunft nicht zuschneiden.');}
+      if(!blob||typeof window.KPReplaceImage!=='function')throw new Error('Bildspeicher nicht verfügbar.');recordHistory();await window.KPReplaceImage(new File([blob],'zugeschnitten.png',{type:'image/png'}),n);checkpoint();return;
+    }
+    if(op.type==='removeBackground'){await removeBackground(n);return;}
+    if(op.type==='imagePreset'){clickControl('[data-image-preset="'+op.value+'"]',S.inspector);return;}
+    if(op.type==='imageAdjustment'||op.type==='width'){
+      const field=S.inspector.querySelector(op.type==='width'?'[data-property="width"]':'[data-image-adjust="'+op.property+'"]');const value=Number(op.value);
+      if(!field||!Number.isFinite(value)||value<Number(field.min)||value>Number(field.max))throw new Error('Wert liegt außerhalb des erlaubten Bereichs.');recordHistory();field.value=String(value);field.dispatchEvent(new Event('input',{bubbles:true}));return;
+    }
     recordHistory();
-    validated.forEach(({n,op}) => {
-      if (op.type==='color') n.style.setProperty('color',op.value,'important');
-      if (op.type==='fontSize') n.style.setProperty('font-size',Number(op.value)+'px','important');
-      if (op.type==='text') n.textContent=op.value;
-    });
-    window.KPStudio?.captureDetail?.(); saveDraft(); recordHistory();
-    document.dispatchEvent(new CustomEvent('kp-dirty',{detail:true}));
-    document.dispatchEvent(new CustomEvent('editor-layout-change'));
+    if(op.type==='style')n.style.setProperty(styleNames[op.property]||op.property,op.property==='fontSize'?Number(op.value)+'px':String(op.value),'important');
+    if(op.type==='text')n.textContent=op.value;
+    if(op.type==='link')n.setAttribute('href',safeLink(op.url));
+    if(op.type==='alt')n.alt=op.value;
+    if(['addText','addButton','addImage'].includes(op.type)){
+      if(op.type==='addImage'){const image=document.createElement('img');image.src='images/homeseite_koblenzer_puppenspiele.jpg';image.alt='Neues Bild';image.dataset.editableImage='true';image.style.maxWidth='320px';n.append(image);checkpoint();S?.select(image);window.KPInline?.openImageSheet(image,'img');return;}
+      const child=document.createElement(op.type==='addButton'?'a':'p');child.textContent=op.value;if(op.type==='addButton'){child.className='button primary';child.href=safeLink(op.url);}n.append(child);S?.select(child);
+    }
+    checkpoint();
   }
-  async function directCommand(prompt) {
-    if (directBusy) return;
-    directBusy=true; paint();
-    try {
-      const normalized=prompt.toLowerCase().replace(/[.,!?;:]/g,' ').replace(/\s+/g,' ').trim();
-      const undoCommand= /rückgängig|rueckgaengig|rückgängigbutton|undo/.test(normalized) && !/\b(nicht|kein|keine)\b/.test(normalized);
-      if (undoCommand || /^(bitte )?(zurück|zurueck)$/.test(normalized)) {
-        if (!window.KPHistoryState?.canUndo?.()) throw new Error('Keine Änderung zum Rückgängigmachen.');
-        const undoButton=document.querySelector('[data-history="undo"]');
-        if (!undoButton || undoButton.disabled) throw new Error('Keine Änderung zum Rückgängigmachen.');
-        undoButton.click(); status('Änderung rückgängig gemacht.'); return;
+  let imageAction,imageInput,externalJob=null;
+  function renderImageAction(){
+    if(!imageAction)return;const selected=window.KPStudio?.selected||window.KPCtx?.element;
+    imageAction.hidden=!document.body.classList.contains('editing')||(!externalJob&&!selected?.matches('img'));
+    imageAction.textContent=externalJob?.shared?'Ergebnis übernehmen':externalJob?.file?'Bild teilen':'Bild-KI';
+    imageAction.title=externalJob?.shared?'In Gemini gespeichertes Bild auswählen':externalJob?.file?'Android-Teilen öffnen; Gemini selbst auswählen':'Bild für die Gemini-App vorbereiten';
+  }
+  async function prepareExternalImage(n,prompt){
+    if(!n?.isConnected||!n.matches('img'))throw new Error('Bitte zuerst ein Bild auswählen.');
+    const before=stamp(n),image=new Image();image.crossOrigin='anonymous';image.src=n.currentSrc||n.src;await image.decode();
+    const canvas=document.createElement('canvas'),scale=Math.min(1,1600/Math.max(image.naturalWidth,image.naturalHeight));canvas.width=Math.round(image.naturalWidth*scale);canvas.height=Math.round(image.naturalHeight*scale);canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+    let blob;try{blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));}catch{throw new Error('Dieses Bild lässt sich wegen seiner Herkunft nicht teilen.');}
+    if(!blob||!n.isConnected||stamp(n)!==before)throw new Error('Bildvorbereitung fehlgeschlagen oder Original geändert.');
+    externalJob={node:n,before,prompt,file:new File([blob],'koblenzer-puppenspiele-bild.png',{type:'image/png'}),shared:false};renderImageAction();
+  }
+  function createExternalImageControls(){
+    imageAction=document.createElement('button');imageAction.type='button';imageAction.dataset.transient='';imageAction.hidden=true;imageAction.className='kp-ai-image-action';
+    imageAction.style.cssText='position:fixed;left:16px;bottom:calc(120px + env(safe-area-inset-bottom));z-index:10050;border:1px solid #a58152;border-radius:22px;padding:10px 14px;background:#231e17;color:#fff;font:600 14px system-ui;max-width:220px';
+    imageInput=document.createElement('input');imageInput.type='file';imageInput.accept='image/png,image/jpeg,image/webp';imageInput.hidden=true;imageInput.dataset.transient='';document.body.append(imageAction,imageInput);
+    imageAction.addEventListener('click',async()=>{
+      stopSpeech();
+      try{
+        if(externalJob?.shared){imageInput.click();return;}
+        if(!externalJob){await prepareExternalImage(window.KPStudio?.selected||window.KPCtx?.element,'Bearbeite dieses Bild nach meiner nächsten Nachricht.');status('Bild vorbereitet. Jetzt Bild teilen antippen und Gemini auswählen. Deinen Wunsch gibst du dort ein.');return;}
+        const job=externalJob;if(!job.node.isConnected||stamp(job.node)!==job.before){externalJob=null;renderImageAction();throw new Error('Das Original wurde verändert. Bitte das Bild erneut auswählen.');}
+        // Invoke sharing synchronously in the click handler, before any awaits.
+        if(navigator.share&&navigator.canShare?.({files:[job.file]})){
+          await navigator.share({files:[job.file],title:'Bild bearbeiten',text:job.prompt});
+        }else{
+          const a=document.createElement('a'),url=URL.createObjectURL(job.file);a.href=url;a.download=job.file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+          status('Datei heruntergeladen. Öffne Gemini, lade das Bild hoch und füge deinen Wunsch ein. Danach das Ergebnis hier übernehmen.');
+        }
+        job.shared=true;renderImageAction();
+        try{sessionStorage.setItem('kp-ai-image-return',JSON.stringify({src:job.node.getAttribute('src'),before:job.before,prompt:job.prompt}));}catch{}
+        if(navigator.share)status('Übergabe beendet. In Gemini den Wunsch prüfen und absenden. Das fertige Bild speichern, dann hier Ergebnis übernehmen.');
+      }catch(error){if(error.name!=='AbortError')status(error.message);}
+    });
+    imageInput.addEventListener('change',async()=>{
+      const file=imageInput.files?.[0],job=externalJob;imageInput.value='';if(!file||!job)return;
+      try{
+        if(!document.body.classList.contains('editing'))throw new Error('Bitte zuerst den Bearbeitungsmodus öffnen.');
+        if(!job.node.isConnected||stamp(job.node)!==job.before)throw new Error('Das Original wurde inzwischen verändert. Bitte Bild neu auswählen.');
+        if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>12000000)throw new Error('Bitte ein PNG-, JPEG- oder WebP-Bild bis 12 MB auswählen.');
+        if(typeof window.KPReplaceImage!=='function')throw new Error('Bildspeicher nicht verfügbar.');
+        recordHistory();await window.KPReplaceImage(file,job.node);checkpoint();externalJob=null;sessionStorage.removeItem('kp-ai-image-return');renderImageAction();status('Ausgewähltes Ergebnis übernommen. Rückgängig ist möglich.');
+      }catch(error){status(error.message);}
+    });
+    document.addEventListener('click',()=>setTimeout(renderImageAction,0));
+    document.addEventListener('editor-layout-change',renderImageAction);
+    new MutationObserver(renderImageAction).observe(document.body,{attributes:true,attributeFilter:['class']});
+    try{const saved=JSON.parse(sessionStorage.getItem('kp-ai-image-return')||'null');if(saved){const node=[...document.querySelectorAll('main img,.masthead img')].find(n=>n.getAttribute('src')===saved.src&&stamp(n)===saved.before);if(node)externalJob={node,before:saved.before,prompt:saved.prompt,shared:true};}}catch{}
+    renderImageAction();
+  }
+  async function directCommand(prompt){
+    if(directBusy)return;directBusy=true;paint();
+    try{
+      if(!document.body.classList.contains('editing'))throw new Error('Bearbeitungsmodus erforderlich.');
+      const words=prompt.toLowerCase().replace(/[.,!?;:]/g,' ').replace(/\s+/g,' ').trim();
+      if(/^(abbrechen|vergiss das|nein|nein danke)$/.test(words)){conversation=[];pendingDelete=null;status('Abgebrochen.');return;}
+      if(pendingDelete){
+        if(/^(ja|ja bitte|bestätigen|bestätige|löschen|ja löschen|mach das)$/.test(words)){const {op,node,before}=pendingDelete;pendingDelete=null;if(!node.isConnected||stamp(node)!==before)throw new Error('Der Eintrag hat sich verändert. Bitte erneut benennen.');targets.set(op.id,node);await applyOperation(op);conversation=[];status('Eintrag gelöscht. Rückgängig ist möglich.');return;}
+        pendingDelete=null;
       }
-      const elements=context();
-      const heading=[...targets].filter(([,n])=>n.tagName==='H1' && /Koblenzer Puppenspiele/i.test(n.textContent));
-      const words=prompt.toLowerCase();
-      const matches=Object.keys(colors).filter(k=>new RegExp('\\b'+k+'\\b','i').test(words));
-      if (heading.length===1 && /überschrift|koblenzer puppenspiele/.test(words) && matches.length===1 && !/nicht|außer|ausser|hintergrund|alle|unten|zweite|andere/.test(words)) {
-        applyOperations([{id:heading[0][0],type:'color',value:colors[matches[0]]}]); status('Überschrift geändert. Als Entwurf; rückgängig möglich.'); return;
+      context();let local;
+      if(!/\b(nicht|kein|keine)\b/.test(words)){
+        if(/rückgängig|rueckgaengig|\bundo\b/.test(words)||/^(bitte )?(zurück|zurueck)$/.test(words))local={type:'undo'};
+        else if(/^(bitte )?(wiederholen|wiederherstellen|redo)( bitte)?$/.test(words))local={type:'redo'};
+        else if(/^(bitte )?(speichern|entwurf speichern)( bitte)?$/.test(words))local={type:'save'};
+        else if(/^(vorschau|zeige die vorschau)$/.test(words))local={type:'preview'};
       }
-      status('Ich prüfe deinen Wunsch …');
-      if (!csrf) csrf=(await request('api/code-editor.php?action=session')).csrf;
-      const result=await request('api/ai-draft.php',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({action:'editor-command',prompt,elements})});
-      if (!result.operations.length) {status(result.message || 'Welches Element möchtest du ändern?');return;}
-      applyOperations(result.operations); status('Änderung übernommen. Als Entwurf; rückgängig möglich.');
-    } catch(error) {status(error.message);}
-    finally {directBusy=false;paint();resume();}
+      if(!local&&!conversation.length){const heading=[...targets].filter(([,n])=>n.tagName==='H1'&&/Koblenzer Puppenspiele/i.test(n.textContent));const matches=Object.keys(colors).filter(k=>new RegExp('\\b'+k+'\\b','i').test(words));if(heading.length===1&&/überschrift|koblenzer puppenspiele/.test(words)&&matches.length===1&&!/nicht|außer|ausser|hintergrund|alle|unten|zweite|andere/.test(words))local={id:heading[0][0],type:'style',property:'color',value:colors[matches[0]]};}
+      let result={message:''};const before=new Map([...targets].map(([id,n])=>[id,stamp(n)]));
+      if(local)result.operations=[local];else{
+        status('Ich prüfe deinen Wunsch …');if(!csrf)csrf=(await request('api/code-editor.php?action=session')).csrf;
+        result=await request('api/ai-draft.php',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({action:'editor-command',prompt,elements:context(),conversation})});
+      }
+      conversation.push({role:'user',text:prompt.slice(0,1800)});conversation.push({role:'assistant',text:String(result.message||'').slice(0,1000)});conversation=conversation.slice(-8);
+      if(!Array.isArray(result.operations)||result.operations.length>1)throw new Error('Kein eindeutiger Editorbefehl erhalten.');
+      if(!result.operations.length){status(result.message||'Welches Element und welche Änderung meinst du?');return;}
+      const op=result.operations[0],node=validateOperation(op);
+      if(node&&stamp(node)!==before.get(op.id))throw new Error('Das Element wurde inzwischen geändert. Bitte erneut sprechen.');
+      if(op.type==='editImage'){await prepareExternalImage(node,op.value);conversation=[];status('Bild und Wunsch vorbereitet. Tippe Bild teilen und wähle Gemini. Danach dort absenden, Bild speichern und hier Ergebnis übernehmen.');return;}
+      if(op.type==='delete'){pendingDelete={op,node,before:stamp(node)};status('Soll ich „'+(node.querySelector('h1,h2,h3')?.textContent||node.textContent||node.alt||'dieses Element').trim().slice(0,80)+'“ wirklich löschen? Sag Ja oder Abbrechen.');return;}
+      await applyOperation(op);conversation=[];
+      status(op.type==='undo'?'Änderung rückgängig gemacht.':op.type==='save'?'Entwurf auf dem Server gespeichert.':['preview','versions','export','import','settings','replaceImage'].includes(op.type)?'Editorfunktion geöffnet.':op.type==='select'?'Element ausgewählt.':'Änderung übernommen. Rückgängig ist möglich.');
+    }catch(error){status(error.message);}finally{directBusy=false;paint();resume();}
   }
 
   function create() {
@@ -133,7 +268,7 @@
     mute=document.createElement('button');mute.type='button';mute.className='kp-ai-mute';mute.textContent='◼';mute.hidden=true;
     mute.dataset.transient='';mute.setAttribute('aria-label','Mikrofon ausschalten');
     hint=document.createElement('div');hint.className='kp-ai-hint';hint.dataset.transient='';hint.hidden=true;hint.setAttribute('role','status');
-    document.body.append(button,hint,panel);
+    document.body.append(button,hint,panel);createExternalImageControls();
     mute.addEventListener('click',()=>{stopSpeech();status('Mikrofon aus.');});
     document.addEventListener('visibilitychange',()=>{if(document.hidden)stopSpeech();});
     let holdTimer, held=false;
