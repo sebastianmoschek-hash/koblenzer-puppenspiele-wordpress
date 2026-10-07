@@ -11,3 +11,13 @@
 .kp-ai-float{left:18px;right:auto}.kp-ai-panel details{display:block;margin:12px 0;padding:10px;border:1px solid #a17748;border-radius:10px}.kp-ai-panel summary{display:list-item;color:#fff;font-weight:600;cursor:pointer}.kp-ai-panel input[data-ai-key]{display:block;width:100%;box-sizing:border-box;padding:10px;background:#10151b;color:#fff;border:1px solid #80654a;border-radius:9px;font:inherit}
 
 .kp-ai-float.is-listening{background:#15803d;border-color:#86efac;box-shadow:0 0 0 8px #22c55e33,0 8px 28px #0008;animation:kp-mic-pulse 1s ease-in-out infinite}.kp-ai-panel{bottom:calc(env(safe-area-inset-bottom) + 124px)}.kp-ai-panel [data-ai-status]{position:sticky;bottom:0;background:#1c2028;padding:10px 0;font-weight:600}@keyframes kp-mic-pulse{50%{box-shadow:0 0 0 14px #22c55e11,0 8px 28px #0008}}@media(prefers-reduced-motion:reduce){.kp-ai-float.is-listening{animation:none}}
+
+.kp-ai-float{width:56px;height:56px;padding:0;left:12px;bottom:calc(env(safe-area-inset-bottom) + 76px);border-radius:50%;font-size:15px;touch-action:manipulation;user-select:none}
+.kp-ai-float[data-phase="listening"]{background:radial-gradient(circle at 35% 30%,#86efac,#15803d);border-color:#86efac;animation:kp-mic-pulse 1.6s ease-in-out infinite}
+.kp-ai-float[data-phase="thinking"]{background:#253c69;animation:kp-orb-think 1s ease-in-out infinite}
+.kp-ai-float[data-phase="speaking"]{background:radial-gradient(circle at 30% 30%,#bfdbfe,#2563eb);animation:kp-mic-pulse .8s ease-in-out infinite}
+.kp-ai-mute{position:fixed;z-index:9998;left:76px;bottom:calc(env(safe-area-inset-bottom) + 82px);width:44px;height:44px;border:1px solid #ffffff55;border-radius:50%;background:#1c2028dd;color:#fff;font:16px system-ui}
+.kp-ai-mute[hidden],.kp-ai-hint[hidden]{display:none!important}
+.kp-ai-hint{position:fixed;z-index:9998;left:12px;bottom:calc(env(safe-area-inset-bottom) + 140px);max-width:min(300px,calc(100vw - 24px));padding:7px 10px;border-radius:12px;background:#1c2028ed;color:#fff;font:12px/1.4 system-ui;pointer-events:none}
+@keyframes kp-orb-think{50%{transform:scale(.92);filter:brightness(1.5)}}
+@media(prefers-reduced-motion:reduce){.kp-ai-float[data-phase]{animation:none}}
