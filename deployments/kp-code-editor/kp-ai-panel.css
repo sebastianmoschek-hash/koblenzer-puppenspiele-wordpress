@@ -1,0 +1,9 @@
+.kp-ai-float{position:fixed;right:18px;bottom:calc(env(safe-area-inset-bottom) + 76px);z-index:9998;border:1px solid #c79453;border-radius:999px;background:#332317;color:#fff;padding:12px 16px;box-shadow:0 8px 28px #0008;font:600 15px system-ui,sans-serif}
+.kp-ai-float[hidden],.kp-ai-panel[hidden]{display:none!important}
+.kp-ai-panel{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 132px);z-index:9999;width:min(420px,calc(100vw - 24px));max-height:70dvh;overflow:auto;box-sizing:border-box;padding:16px;border:1px solid #a17748;border-radius:18px;background:#1c2028;color:#fff;box-shadow:0 12px 45px #0009;font:14px/1.4 system-ui,sans-serif}
+.kp-ai-panel header,.kp-ai-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.kp-ai-panel header strong{font-size:18px}.kp-ai-panel p{margin:10px 0}
+.kp-ai-panel label{display:block;margin:10px 0}.kp-ai-panel select,.kp-ai-panel textarea{display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:10px;border:1px solid #80654a;border-radius:9px;background:#10151b;color:#fff;font:inherit}
+.kp-ai-panel button{min-height:44px;padding:8px 12px;border:1px solid #a17748;border-radius:9px;background:#372719;color:#fff;font:inherit}
+.kp-ai-panel button:disabled{opacity:.5}
+@media(max-width:600px){.kp-ai-float{bottom:calc(env(safe-area-inset-bottom) + 72px)}.kp-ai-panel{bottom:calc(env(safe-area-inset-bottom) + 124px)}}
