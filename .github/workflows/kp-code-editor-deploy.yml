@@ -39,7 +39,7 @@ jobs:
               "api/ai-draft.php": "deployments/kp-code-editor/ai-draft.php",
           }
           expected = {
-              "api/ai-draft.php": "3cd121a6ca3ddeb79c37c799e825137eaa66f965b58024bb1568c1c3948d11dc",
+              "api/ai-draft.php": "7f803501c8b64eaada8265c7ece5bdd2ec1b631fa6b22ba2ebc54ff0a7d4b95f",
           }
           ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
           ftp.connect("srv26.dsbsrv.de", 21)
