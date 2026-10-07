@@ -67,8 +67,23 @@ curl_setopt_array($ch, [
   CURLOPT_POST=>true, CURLOPT_POSTFIELDS=>$payload, CURLOPT_HTTPHEADER=>['Content-Type: application/json','x-goog-api-key: ' . $key],
   CURLOPT_RETURNTRANSFER=>true, CURLOPT_TIMEOUT=>90, CURLOPT_CONNECTTIMEOUT=>10, CURLOPT_MAXREDIRS=>0
 ]);
-$response = curl_exec($ch); $http = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE); curl_close($ch);
-if (!is_string($response) || $http !== 200) ai_fail(502, 'KI-Dienst nicht erreichbar oder Anfrage abgelehnt.');
+$response = curl_exec($ch); $http = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE); $curlCode = curl_errno($ch); curl_close($ch);
+if (!is_string($response)) ai_fail(502, 'Serververbindung zu Google fehlgeschlagen (cURL ' . $curlCode . ').');
+if ($http !== 200) {
+  $errorBody = json_decode($response, true);
+  $googleStatus = (string)($errorBody['error']['status'] ?? '');
+  $reason = '';
+  foreach (($errorBody['error']['details'] ?? []) as $detail) {
+    if (($detail['reason'] ?? '') === 'API_KEY_INVALID') $reason = 'API_KEY_INVALID';
+  }
+  if ($reason === 'API_KEY_INVALID') ai_fail(502, 'Google lehnt den API-Schlüssel als ungültig ab. Bitte Schlüssel und Projekt prüfen.');
+  if ($http === 429) ai_fail(502, 'Google meldet ein Nutzungslimit oder fehlendes Kontingent (HTTP 429). Free-Tier-Limits im AI Studio prüfen.');
+  if ($http === 403) ai_fail(502, 'Google verweigert den Zugriff (HTTP 403). API-Aktivierung und Schlüsselbeschränkungen prüfen.');
+  if ($http === 404) ai_fail(502, 'Das konfigurierte Gemini-Modell ist nicht verfügbar (HTTP 404).');
+  if ($http === 400) ai_fail(502, 'Google lehnt die Anfrageparameter ab (HTTP 400). Modellkonfiguration muss geprüft werden.');
+  if ($http >= 500) ai_fail(502, 'Google meldet eine Dienststörung (HTTP ' . $http . ').');
+  ai_fail(502, 'Google hat die Anfrage abgelehnt (HTTP ' . $http . ').');
+}
 $remote = json_decode($response, true);
 $text = $remote['candidates'][0]['content']['parts'][0]['text'] ?? '';
 $result = is_string($text) ? json_decode($text, true) : null;
