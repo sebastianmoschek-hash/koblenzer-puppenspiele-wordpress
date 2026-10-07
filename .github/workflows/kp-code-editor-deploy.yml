@@ -49,6 +49,23 @@ jobs:
           path: /tmp/previous/
           if-no-files-found: ignore
           retention-days: 14
+      - name: Read staging authentication implementation
+        run: |
+          mkdir -p /tmp/auth-review
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            get api/auth.php -o /tmp/auth-review/auth.php;
+            bye
+          "
+      - name: Retain private authentication review
+        uses: actions/upload-artifact@v4
+        with:
+          name: kp-auth-review
+          path: /tmp/auth-review/auth.php
+          retention-days: 1
       - name: Remove staging API pending authentication review
         run: |
           set -euo pipefail
