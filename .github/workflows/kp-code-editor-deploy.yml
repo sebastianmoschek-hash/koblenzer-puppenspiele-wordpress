@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/kp-code-editor-deploy.yml
       - deployments/kp-code-editor/**
+      - deployments/kp-menu-corners/modern.html
 permissions:
   contents: read
 concurrency:
@@ -43,13 +44,15 @@ jobs:
             get api/code-editor.php -o backup/code-editor.php;
             get kp-code-panel.js -o backup/kp-code-panel.js;
             get kp-code-panel.css -o backup/kp-code-panel.css;
+            get modern.html -o backup/modern.html;
             bye
           "
           cd backup
           printf '%s\n' \
             '1993bf9625659ab90cc53f4fdea624240111550bc4c74f88a4be11c1e6ecd76f  code-editor.php' \
             '17930b8d8f6ff11a0de52e7d1632710be1dde47ff6970343ec3250f1c056ef2f  kp-code-panel.js' \
-            'c889245473299613cbf590293e04e86182faabc58003a70d1a2e41f40fc08b6d  kp-code-panel.css' | sha256sum -c -
+            'c889245473299613cbf590293e04e86182faabc58003a70d1a2e41f40fc08b6d  kp-code-panel.css' \
+            'e2c40d00c3a074bf22b32e8812327958807c35cc74a247cf8d884282fa3ffde6  modern.html' | sha256sum -c -
       - name: Retain verified backup
         uses: actions/upload-artifact@v4
         with:
@@ -57,7 +60,7 @@ jobs:
           path: backup/
           retention-days: 30
           if-no-files-found: error
-      - name: Upload three code editor files
+      - name: Upload code editor and cache version
         id: upload
         if: contains(github.event.head_commit.message, '[kp-code-upload]')
         run: |
@@ -72,14 +75,17 @@ jobs:
             put deployments/kp-code-editor/code-editor.php -o api/code-editor.php;
             put deployments/kp-code-editor/kp-code-panel.js -o kp-code-panel.js;
             put deployments/kp-code-editor/kp-code-panel.css -o kp-code-panel.css;
+            put deployments/kp-menu-corners/modern.html -o modern.html;
             get api/code-editor.php -o /tmp/code-editor.php;
             get kp-code-panel.js -o /tmp/kp-code-panel.js;
             get kp-code-panel.css -o /tmp/kp-code-panel.css;
+            get modern.html -o /tmp/modern.html;
             bye
           "
           cmp deployments/kp-code-editor/code-editor.php /tmp/code-editor.php
           cmp deployments/kp-code-editor/kp-code-panel.js /tmp/kp-code-panel.js
           cmp deployments/kp-code-editor/kp-code-panel.css /tmp/kp-code-panel.css
+          cmp deployments/kp-menu-corners/modern.html /tmp/modern.html
           status=$(curl -sS -o /tmp/anonymous.json -w '%{http_code}' --max-time 20 'https://neu.koblenzer-puppenspiele.de/api/code-editor.php?file=modern.html')
           test "$status" = 401
       - name: Restore files after a failed upload
@@ -93,6 +99,7 @@ jobs:
             put backup/code-editor.php -o api/code-editor.php;
             put backup/kp-code-panel.js -o kp-code-panel.js;
             put backup/kp-code-panel.css -o kp-code-panel.css;
+            put backup/modern.html -o modern.html;
             bye
           "
 

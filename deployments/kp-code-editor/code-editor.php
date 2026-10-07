@@ -20,7 +20,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && ($_GET['action'] ?? '') === 
 }
 $allowed = ['modern.html', 'kp-inline.css', 'kp-inline.js'];
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-$backupDir = dirname($root) . '/.koblenzer-studio/code-history';
+// Only the staging tree. The site's .htaccess denies direct .bak requests.
+$backupDir = $root . '/api/data/code-history';
 $path = (string)($method === 'GET' ? ($_GET['file'] ?? '') : '');
 if ($method === 'POST') {
   if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 1200000) code_fail(413, 'Datei zu groß.');
@@ -34,16 +35,16 @@ if (!$file || dirname($file) !== $root || !is_file($file)) code_fail(404, 'Datei
 if ($method === 'GET') {
   if (($_GET['action'] ?? '') === 'history') {
     $history = [];
-    foreach (glob($backupDir . '/*-' . $path) ?: [] as $item) {
+    foreach (glob($backupDir . '/*-' . $path . '.bak') ?: [] as $item) {
       $name = basename($item);
-      if (preg_match('/^\\d{8}-\\d{6}-[a-f0-9]{12}-' . preg_quote($path, '/') . '$/', $name) && is_file($item)) $history[] = $name;
+      if (preg_match('/^\\d{8}-\\d{6}-[a-f0-9]{12}-' . preg_quote($path, '/') . '\\.bak$/', $name) && is_file($item)) $history[] = $name;
     }
     rsort($history, SORT_STRING);
     echo json_encode(['file'=>$path, 'history'=>array_slice($history, 0, 10)]); exit;
   }
   if (($_GET['action'] ?? '') === 'backup') {
     $name = (string)($_GET['backup'] ?? '');
-    if (!preg_match('/^\\d{8}-\\d{6}-[a-f0-9]{12}-' . preg_quote($path, '/') . '$/', $name)) code_fail(400, 'Ungültige Sicherung.');
+    if (!preg_match('/^\\d{8}-\\d{6}-[a-f0-9]{12}-' . preg_quote($path, '/') . '\\.bak$/', $name)) code_fail(400, 'Ungültige Sicherung.');
     $candidate = realpath($backupDir . '/' . $name);
     if (!$candidate || dirname($candidate) !== realpath($backupDir) || !is_file($candidate)) code_fail(404, 'Sicherung nicht vorhanden.');
     $saved = file_get_contents($candidate);
@@ -84,7 +85,7 @@ if ($action === 'publish') {
     code_fail(409, 'Änderung zuerst erneut prüfen.');
 }
 if (!is_dir($backupDir) && !mkdir($backupDir, 0700, true) && !is_dir($backupDir)) code_fail(500, 'Sicherung nicht möglich.');
-$backup = $backupDir . '/' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(6)) . '-' . $path;
+$backup = $backupDir . '/' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(6)) . '-' . $path . '.bak';
 if (file_put_contents($backup, $current, LOCK_EX) !== strlen($current)) code_fail(500, 'Sicherung fehlgeschlagen.');
 chmod($backup, 0600);
 $tmp = tempnam($root, '.kp-code-');
