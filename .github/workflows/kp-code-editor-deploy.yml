@@ -68,5 +68,5 @@ jobs:
         run: |
           set -euo pipefail
           status=$(curl -sS -o /tmp/anonymous.json -w '%{http_code}' --max-time 20 'https://neu.koblenzer-puppenspiele.de/api/code-editor.php?file=modern.html')
-          test "$status" = 401 -o "$status" = 403
+          echo "Anonymous request returned HTTP $status"\n          cat /tmp/anonymous.json\n          test "$status" = 401 -o "$status" = 403
           echo "Anonymous source read denied (HTTP $status)"
