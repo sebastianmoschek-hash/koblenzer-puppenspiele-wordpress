@@ -53,7 +53,7 @@ if ($original === false || strlen($original) > 250000) ai_fail(413, 'Datei kann 
 $key = getenv('GEMINI_API_KEY');
 if (!$key && !is_link($privateDir) && !is_link($keyFile) && is_file($keyFile)) $key = trim((string)file_get_contents($keyFile));
 if (!$key) ai_fail(503, 'KI-Schlüssel auf dem Testserver noch nicht eingerichtet.');
-$model = getenv('KP_GEMINI_MODEL') ?: 'gemini-2.5-flash';
+$model = getenv('KP_GEMINI_MODEL') ?: 'gemini-3.5-flash-lite';
 if (!preg_match('/^[a-zA-Z0-9._-]+$/', $model)) ai_fail(500, 'KI-Modell ungültig.');
 if (!function_exists('curl_init')) ai_fail(503, 'KI-Verbindung auf dem Server nicht verfügbar.');
 $instruction = 'Du bearbeitest ausschließlich eine Datei der privaten Testseite. Gib ausschließlich JSON mit den Feldern message (kurze deutsche Erklärung) und content (vollständiger geänderter Dateiinhalt) zurück. Behalte alle nicht angeforderten Inhalte und Funktionen unverändert. Wenn die Anweisung unklar ist, gib den ursprünglichen Inhalt unverändert zurück und erkläre die Rückfrage in message. Füge keine Markdown-Codeblöcke hinzu.';
