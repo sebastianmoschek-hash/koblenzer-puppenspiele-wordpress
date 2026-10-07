@@ -1,0 +1,100 @@
+name: KP staging menu corners
+
+on:
+  push:
+    branches: [codex/kp-staging-menu-corners]
+    paths:
+      - .github/workflows/kp-staging-menu-deploy.yml
+      - deployments/kp-menu-corners/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kp-staging-menu-corners
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm staging account and install FTPS client
+        env:
+          FTP_USERNAME: ${{ secrets.KP_TEST_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/codex/kp-staging-menu-corners
+          test "$FTP_USERNAME" = web16_ftpneu || { echo 'The configured account is not confined to the staging site.'; exit 1; }
+          test -n "$FTP_PASSWORD" || { echo 'KP_TEST_FTP_PASSWORD is missing.'; exit 1; }
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends lftp
+      - name: Back up the three current staging files and verify expected state
+        env:
+          LFTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p backup
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            get modern.html -o backup/modern.html;
+            get kp-inline.css -o backup/kp-inline.css;
+            get kp-inline.js -o backup/kp-inline.js;
+            bye
+          "
+          cd backup
+          printf '%s\n' \
+            'ca4470d77438c566c471da8984c270a4f354c78675f6e19091da4e89a66f8a5e  modern.html' \
+            'd147c36a6eef2e7c64c3bf49bce910e9bcd5a01bf5e817e3906b69d7d1c003cf  kp-inline.css' \
+            '3e4cef861eb9c7a8840913350811eb02393c16a723a10e6b42a4a4c3b7fb4926  kp-inline.js' | sha256sum -c -
+      - name: Retain the verified backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: kp-menu-before-${{ github.run_id }}
+          path: backup/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Upload only the approved menu files
+        if: contains(github.event.head_commit.message, '[kp-upload]')
+        env:
+          LFTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          cd deployments/kp-menu-corners
+          printf '%s\n' \
+            '6181ff848bc222ea7c050bd743139251dd2b9f834dfca481bab166baca62d483  modern.html' \
+            '9fb33da1eee5cfdd686f39d899c998dac5c6c2035f03f7c98ee08878950255c1  kp-inline.css' \
+            '37912ac89640ff7acb46a573b96d27923f6d6a53022d97c21d5de839c1301ee8  kp-inline.js' | sha256sum -c -
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            put kp-inline.css -o kp-inline.css;
+            put kp-inline.js -o kp-inline.js;
+            put modern.html -o modern.html;
+            bye
+          "
+          mkdir -p ../../verified
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            get modern.html -o ../../verified/modern.html;
+            get kp-inline.css -o ../../verified/kp-inline.css;
+            get kp-inline.js -o ../../verified/kp-inline.js;
+            bye
+          "
+          cmp modern.html ../../verified/modern.html
+          cmp kp-inline.css ../../verified/kp-inline.css
+          cmp kp-inline.js ../../verified/kp-inline.js
