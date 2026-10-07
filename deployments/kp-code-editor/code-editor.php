@@ -10,7 +10,7 @@ function code_fail(int $status, string $message): never {
   exit;
 }
 if (strtolower((string)($_SERVER['HTTP_HOST'] ?? '')) !== 'neu.koblenzer-puppenspiele.de') code_fail(403, 'Nur auf der Testseite verfügbar.');
-require_login_json();
+if (!current_admin_username()) code_fail(401, 'Admin-Anmeldung erforderlich.');
 $root = realpath(dirname(__DIR__));
 if (!$root || basename($root) !== 'neu') code_fail(500, 'Testverzeichnis nicht erkannt.');
 $allowed = ['modern.html', 'kp-inline.css', 'kp-inline.js'];
