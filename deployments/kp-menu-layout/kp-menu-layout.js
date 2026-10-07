@@ -62,6 +62,7 @@
       const el = document.createElement('button');
       el.type = 'button'; el.className = 'kp-nav-touch kp-nav-touch-' + part;
       el.dataset.transient = ''; el.setAttribute('aria-label',part === 'move' ? 'Seitenmenü verschieben' : 'Seitenmenü an Ecke '+part+' vergrößern oder verkleinern');
+      if (part === 'move') el.textContent = 'Hier halten und verschieben';
       nav.append(el); handles[part] = el;
     }
   }

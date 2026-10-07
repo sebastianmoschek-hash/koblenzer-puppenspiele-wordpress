@@ -43,13 +43,15 @@ jobs:
             get modern.html -o backup/modern.html;
             get kp-inline.js -o backup/kp-inline.js;
             get kp-inline.css -o backup/kp-inline.css;
+            get kp-menu-layout.js -o backup/kp-menu-layout.js;
             bye
           "
           cd backup
           printf '%s\n' \
-            'c0b3dba550cdc05b592765289709aaa7fb75427a52da7c3e73a5999fc57289ca  modern.html' \
-            '37912ac89640ff7acb46a573b96d27923f6d6a53022d97c21d5de839c1301ee8  kp-inline.js' \
-            '9fb33da1eee5cfdd686f39d899c998dac5c6c2035f03f7c98ee08878950255c1  kp-inline.css' | sha256sum -c -
+            '2fc584c67d69d02fd97d10dccf71ccdb543b593eb0f5fa69a6830e07ef5cc8d7  modern.html' \
+            'b984fc1c572a02524af8c9b2367ea4664646d996489e3a674ab4dcac81e243e0  kp-inline.js' \
+            '2881d976539c61c1a0cd43f2ab044de1006fcf6898bd9957ce980b84d3de5341  kp-inline.css' \
+            'cc417d5391fa2b756e54e25dbd24dfb344a2eb9d04dc3a2e2dcca3bec76aa519  kp-menu-layout.js' | sha256sum -c -
       - name: Preserve verified backup
         uses: actions/upload-artifact@v4
         with:
@@ -92,6 +94,7 @@ jobs:
             open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
             put backup/kp-inline.css -o kp-inline.css;
             put backup/kp-inline.js -o kp-inline.js;
+            put backup/kp-menu-layout.js -o kp-menu-layout.js;
             put backup/modern.html -o modern.html;
             bye
           "

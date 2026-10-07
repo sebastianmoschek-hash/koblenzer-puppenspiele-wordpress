@@ -172,11 +172,13 @@
     } catch {}
   }
   function ensureSheetMoveHandle() {
-    const head = $('.kp-il-head', sheet); if (!head || head.dataset.kpMoveBound) return;
-    head.dataset.kpMoveBound = '1';
-    head.addEventListener('pointerdown', e => {
+    const head = $('.kp-il-head', sheet); if (!head || $('.kp-il-dragbar', sheet)) return;
+    const bar = document.createElement('div');
+    bar.className = 'kp-il-dragbar'; bar.textContent = 'Hier halten und verschieben';
+    bar.setAttribute('aria-label', 'Studio-Fenster verschieben');
+    head.before(bar);
+    bar.addEventListener('pointerdown', e => {
       if (e.button !== undefined && e.button !== 0) return;
-      if (e.target.closest('button,a,input,select')) return;
       const startX = e.clientX, startY = e.clientY, pointerId = e.pointerId;
       let dragging = false, start = null;
       const move = ev => {
@@ -189,20 +191,20 @@
       };
       const finish = ev => {
         if (ev && ev.pointerId !== pointerId) return;
-        clearTimeout(timer); head.classList.remove('dragging');
-        head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', finish); head.removeEventListener('pointercancel', finish);
+        clearTimeout(timer); bar.classList.remove('dragging');
+        bar.removeEventListener('pointermove', move); bar.removeEventListener('pointerup', finish); bar.removeEventListener('pointercancel', finish);
         if (dragging) {
           const r = sheet.getBoundingClientRect(), pos = clampSheetPosition(r.left, r.top, r.width, r.height);
           try { localStorage.setItem(SHEET_POS_KEY, JSON.stringify(pos)); } catch {}
         }
       };
       const timer = setTimeout(() => {
-        if (!head.isConnected) return;
-        dragging = true; head.classList.add('dragging'); head.setPointerCapture(pointerId);
+        if (!bar.isConnected) return;
+        dragging = true; bar.classList.add('dragging'); bar.setPointerCapture(pointerId);
         const r = sheet.getBoundingClientRect(); start = { left:r.left, top:r.top, width:r.width, height:r.height };
         sheet.style.left = start.left + 'px'; sheet.style.top = start.top + 'px'; sheet.style.bottom = 'auto'; sheet.style.transform = 'none';
       }, 320);
-      head.addEventListener('pointermove', move); head.addEventListener('pointerup', finish); head.addEventListener('pointercancel', finish);
+      bar.addEventListener('pointermove', move); bar.addEventListener('pointerup', finish); bar.addEventListener('pointercancel', finish);
     });
   }
   function applySheetSize() {

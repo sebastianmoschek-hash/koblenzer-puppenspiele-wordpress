@@ -74,6 +74,8 @@ body.editing.kp-inline .kp-il-sheet .kp-il-corner:is(:focus-visible,.dragging){o
 .kp-il-sheet .kp-il-corner-sw{bottom:0;left:0;cursor:nesw-resize}
 .kp-il-sheet .kp-il-corner-se{bottom:0;right:0;cursor:nwse-resize}
 .kp-il-sheet .kp-il-head{display:flex;align-items:center;gap:8px;margin:0 0 8px;touch-action:none;user-select:none}
+.kp-il-sheet .kp-il-dragbar{display:flex;align-items:center;justify-content:center;width:calc(100% - 72px);height:30px;margin:0 36px 2px;color:#cbb9aa;font:600 11px/1 var(--sans,system-ui);letter-spacing:.02em;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.kp-il-sheet .kp-il-dragbar.dragging{cursor:grabbing;color:#ffb27a}
 .kp-il-sheet .kp-il-head.dragging{cursor:grabbing}
 .kp-il-sheet .kp-il-move{flex:0 0 44px;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border-radius:10px;cursor:grab;touch-action:none;user-select:none;color:#cbb9aa}
 .kp-il-sheet .kp-il-move:is(:hover,:focus-visible,.dragging){color:#ffb27a;border-color:#f07a22;outline:2px solid #f07a22;outline-offset:-2px}
@@ -110,7 +112,8 @@ html.kp-menu-open .mobile-conversion-bar,body:has(.mobile-menu.open) .mobile-con
 body.editing .mobile-menu.open nav:not(.kp-nav-placed){position:relative!important}
 body.editing .mobile-menu.open nav .kp-nav-touch{position:absolute;z-index:5;display:block;width:34px;height:34px;padding:0;border:0;background:transparent;color:transparent;font-size:0;box-shadow:none;touch-action:none}
 body.editing .mobile-menu.open nav .kp-nav-touch:focus-visible{outline:2px solid #f07a22;outline-offset:-2px}
-body.editing .mobile-menu.open nav .kp-nav-touch-move{top:0;left:36px;width:calc(100% - 72px);height:20px;cursor:grab}
+body.editing .mobile-menu.open nav{padding-top:46px!important}
+body.editing .mobile-menu.open nav .kp-nav-touch-move{top:3px;left:36px;width:calc(100% - 72px);height:34px;min-height:34px;color:#b9aaa1;font:600 11px/1 var(--sans,system-ui);letter-spacing:.02em;cursor:grab}
 body.editing .mobile-menu.open nav .kp-nav-touch-nw{top:0;left:0;cursor:nwse-resize}
 body.editing .mobile-menu.open nav .kp-nav-touch-ne{top:0;right:0;cursor:nesw-resize}
 body.editing .mobile-menu.open nav .kp-nav-touch-sw{bottom:0;left:0;cursor:nesw-resize}
