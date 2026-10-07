@@ -92,9 +92,13 @@
     if (directBusy) return;
     directBusy=true; paint();
     try {
-      if (/^(bitte )?(rückgängig|zurück|undo)[.!]?$/i.test(prompt.trim())) {
+      const normalized=prompt.toLowerCase().replace(/[.,!?;:]/g,' ').replace(/\s+/g,' ').trim();
+      const undoCommand= /rückgängig|rueckgaengig|rückgängigbutton|undo/.test(normalized) && !/\b(nicht|kein|keine)\b/.test(normalized);
+      if (undoCommand || /^(bitte )?(zurück|zurueck)$/.test(normalized)) {
         if (!window.KPHistoryState?.canUndo?.()) throw new Error('Keine Änderung zum Rückgängigmachen.');
-        document.querySelector('[data-history="undo"]')?.click(); status('Änderung rückgängig gemacht.'); return;
+        const undoButton=document.querySelector('[data-history="undo"]');
+        if (!undoButton || undoButton.disabled) throw new Error('Keine Änderung zum Rückgängigmachen.');
+        undoButton.click(); status('Änderung rückgängig gemacht.'); return;
       }
       const elements=context();
       const heading=[...targets].filter(([,n])=>n.tagName==='H1' && /Koblenzer Puppenspiele/i.test(n.textContent));
@@ -129,7 +133,7 @@
     mute=document.createElement('button');mute.type='button';mute.className='kp-ai-mute';mute.textContent='◼';mute.hidden=true;
     mute.dataset.transient='';mute.setAttribute('aria-label','Mikrofon ausschalten');
     hint=document.createElement('div');hint.className='kp-ai-hint';hint.dataset.transient='';hint.hidden=true;hint.setAttribute('role','status');
-    document.body.append(button,mute,hint,panel);
+    document.body.append(button,hint,panel);
     mute.addEventListener('click',()=>{stopSpeech();status('Mikrofon aus.');});
     document.addEventListener('visibilitychange',()=>{if(document.hidden)stopSpeech();});
     let holdTimer, held=false;
