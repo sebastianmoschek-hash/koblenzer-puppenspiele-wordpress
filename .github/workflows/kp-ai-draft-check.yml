@@ -1,0 +1,22 @@
+name: KP AI draft checks
+on:
+  push:
+    branches: [codex/kp-editor-ai-staging]
+    paths:
+      - .github/workflows/kp-ai-draft-check.yml
+      - deployments/kp-code-editor/ai-draft.php
+      - deployments/kp-code-editor/kp-ai-panel.js
+      - deployments/kp-code-editor/kp-ai-panel.css
+      - deployments/kp-code-editor/kp-code-panel.js
+      - deployments/kp-menu-corners/modern.html
+permissions:
+  contents: read
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          php -l deployments/kp-code-editor/ai-draft.php
+          node --check deployments/kp-code-editor/kp-ai-panel.js
+          node --check deployments/kp-code-editor/kp-code-panel.js
