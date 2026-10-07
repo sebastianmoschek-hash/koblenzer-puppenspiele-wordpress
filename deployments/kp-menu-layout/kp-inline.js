@@ -177,8 +177,10 @@
     bar.className = 'kp-il-dragbar'; bar.textContent = 'Hier halten und verschieben';
     bar.setAttribute('aria-label', 'Studio-Fenster verschieben');
     head.before(bar);
+    bar.addEventListener('contextmenu', e => e.preventDefault());
     bar.addEventListener('pointerdown', e => {
       if (e.button !== undefined && e.button !== 0) return;
+      e.preventDefault(); e.stopPropagation();
       const startX = e.clientX, startY = e.clientY, pointerId = e.pointerId;
       let dragging = false, start = null;
       const move = ev => {
@@ -321,6 +323,7 @@
         ${window.KPDelete ? R('delanim', '🗑', 'Lösch-Animation: ' + window.KPDelete.nameOf(window.KPDelete.kind) + (window.KPDelete.speed !== 1 ? ' · ' + window.KPDelete.fmtSpeed(window.KPDelete.speed) + '×' : '') + ' ›', 'data-il-delanim') : ''}
         ${R('fx', '🎭', 'Bühnen-Effekte ›', 'aria-label="Bühnen-Effekte: Vorhang, OINK, Scheinwerfer …"')}
         ${designRow()}
+        <label class="kp-il-font-setting">Menüschrift: <output data-nav-font-value>${window.KPMenuLayout?.getFontSize?.() || 13}</output> px<input type="range" min="12" max="20" step="1" value="${window.KPMenuLayout?.getFontSize?.() || 13}" data-nav-font-size aria-label="Schriftgröße im Seitenmenü"></label>
         ${desk ? `<div class="kp-il-devs" role="group" aria-label="Geräteansicht">${B('dev-1280', '🖥 Desktop')}${B('dev-768', 'Tablet')}${B('dev-360', '📱 Mobil 360')}</div>` : ''}
         ${R('logout', '⎋', 'Abmelden')}
       </div>`;
@@ -333,6 +336,14 @@
     if (sheet.classList.contains('open')) { applySheetSize(); applySheetPosition(); }
     renderState();
   }
+  sheet.addEventListener('input', e => {
+    if (!e.target.matches('[data-nav-font-size]')) return;
+    $('[data-nav-font-value]', sheet).textContent = e.target.value;
+    window.KPMenuLayout?.previewFontSize(e.target.value);
+  });
+  sheet.addEventListener('change', e => {
+    if (e.target.matches('[data-nav-font-size]')) window.KPMenuLayout?.setFontSize(e.target.value);
+  });
   // Änderungen gegenüber dem veröffentlichten Stand (bzw. der Originalseite, solange nichts veröffentlicht ist) – nur zählen, nichts senden
   const norm = t => (t || '').replace(/\u00AD/g, '').replace(/\s+/g, ' ').trim();
   function bag(list) { const m = new Map(); for (const x of list) if (x) m.set(x, (m.get(x) || 0) + 1); return m; }

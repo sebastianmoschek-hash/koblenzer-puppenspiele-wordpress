@@ -48,10 +48,10 @@ jobs:
           "
           cd backup
           printf '%s\n' \
-            '2fc584c67d69d02fd97d10dccf71ccdb543b593eb0f5fa69a6830e07ef5cc8d7  modern.html' \
-            'b984fc1c572a02524af8c9b2367ea4664646d996489e3a674ab4dcac81e243e0  kp-inline.js' \
-            '2881d976539c61c1a0cd43f2ab044de1006fcf6898bd9957ce980b84d3de5341  kp-inline.css' \
-            'cc417d5391fa2b756e54e25dbd24dfb344a2eb9d04dc3a2e2dcca3bec76aa519  kp-menu-layout.js' | sha256sum -c -
+            '1519d5a77c323b2759cf313b81976bde59329e55655d604ef06451985837cb50  modern.html' \
+            '6b2370dae4c10b3bdb3df336f552ac3bdb97a8cc83426e5e5284a4e72499d4c1  kp-inline.js' \
+            'af10c8d32c8e73775a608926ae9a575ff35d55cb69d0c0fd080d0fc7585bcad5  kp-inline.css' \
+            '06d110403af2eb288cab951624415fb00d1bf668582dd20c4fd053fbc78ce417  kp-menu-layout.js' | sha256sum -c -
       - name: Preserve verified backup
         uses: actions/upload-artifact@v4
         with:

@@ -9,6 +9,16 @@
   const editing = () => document.body.classList.contains('editing') && !document.body.classList.contains('kp-preview');
   const kind = () => matchMedia('(max-width:980px)').matches ? 'm' : 'd';
   const marker = () => nav.querySelector(':scope > [data-kp-nav-layout]');
+  function ensureMarker() {
+    let item = marker();
+    if (!item) {
+      item = document.createElement('span'); item.hidden = true; item.dataset.kpNavLayout = '';
+      nav.prepend(item);
+    }
+    return item;
+  }
+  const fontSize = () => Math.max(12, Math.min(20, Number(marker()?.dataset.f) || 13));
+  function applyFont(size = fontSize()) { nav.style.setProperty('--kp-nav-font', size + 'px'); }
   const number = value => Number.isFinite(+value) ? +value : NaN;
   const read = type => {
     const text = marker()?.dataset[type];
@@ -35,25 +45,35 @@
     for (const prop of ['position','left','top','width','height','max-height','transform','margin']) nav.style.removeProperty(prop);
   }
   function apply() {
+    applyFont();
     const v = read(kind());
     if (!v) { reset(); return; }
     const box = clamp(v[0]*innerWidth/100,v[1]*innerHeight/100,v[2]*innerWidth/100,v[3]*innerHeight/100);
     place(box);
   }
-  function persist(box) {
-    let item = marker();
-    if (!item) {
-      item = document.createElement('span'); item.hidden = true; item.dataset.kpNavLayout = '';
-      nav.prepend(item);
-    }
-    item.dataset[kind()] = [box.left/innerWidth,box.top/innerHeight,box.width/innerWidth,box.height/innerHeight]
-      .map(v => Math.round(v*10000)/100).join(',');
-    place(box);
+  function save() {
     if (typeof saveDraft === 'function') saveDraft();
     if (typeof recordHistory === 'function') recordHistory();
     document.dispatchEvent(new CustomEvent('kp-dirty',{detail:true}));
     window.KPStudio?.save('draft');
   }
+  function persist(box) {
+    const item = ensureMarker();
+    item.dataset[kind()] = [box.left/innerWidth,box.top/innerHeight,box.width/innerWidth,box.height/innerHeight]
+      .map(v => Math.round(v*10000)/100).join(',');
+    place(box);
+    save();
+  }
+  window.KPMenuLayout = {
+    getFontSize: fontSize,
+    previewFontSize: size => { if (editing()) applyFont(Math.max(12, Math.min(20, Number(size) || 13))); },
+    setFontSize: size => {
+      if (!editing()) return;
+      const value = Math.max(12, Math.min(20, Number(size) || 13));
+      ensureMarker().dataset.f = String(value);
+      applyFont(value); save();
+    }
+  };
   const handles = {};
   function addHandles() {
     if (!editing() || !menu.classList.contains('open')) { Object.values(handles).forEach(el => el.remove()); return; }
@@ -69,6 +89,7 @@
   function begin(e, part) {
     if (!editing() || !menu.classList.contains('open') || (e.button !== undefined && e.button !== 0)) return;
     const grip = part === 'move' ? (e.target.closest('.kp-nav-touch-move') || nav) : handles[part];
+    e.preventDefault(); e.stopPropagation();
     const start = nav.getBoundingClientRect(), x = e.clientX, y = e.clientY, id = e.pointerId;
     let active = false;
     const move = ev => {
@@ -106,6 +127,7 @@
     if (corner) begin(e,corner.className.match(/kp-nav-touch-(nw|ne|sw|se)/)?.[1]||'move');
     else if (e.target===nav) begin(e,'move');
   });
+  nav.addEventListener('contextmenu',e=>{ if (editing() && e.target.closest('.kp-nav-touch-move')) e.preventDefault(); });
   nav.addEventListener('keydown',e=>{
     const part=e.target.className?.match?.(/kp-nav-touch-(nw|ne|sw|se|move)/)?.[1];
     if (!part || !['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) return;

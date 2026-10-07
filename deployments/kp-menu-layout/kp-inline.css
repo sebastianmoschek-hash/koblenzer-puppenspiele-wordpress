@@ -74,7 +74,7 @@ body.editing.kp-inline .kp-il-sheet .kp-il-corner:is(:focus-visible,.dragging){o
 .kp-il-sheet .kp-il-corner-sw{bottom:0;left:0;cursor:nesw-resize}
 .kp-il-sheet .kp-il-corner-se{bottom:0;right:0;cursor:nwse-resize}
 .kp-il-sheet .kp-il-head{display:flex;align-items:center;gap:8px;margin:0 0 8px;touch-action:none;user-select:none}
-.kp-il-sheet .kp-il-dragbar{display:flex;align-items:center;justify-content:center;width:calc(100% - 72px);height:30px;margin:0 36px 2px;color:#cbb9aa;font:600 11px/1 var(--sans,system-ui);letter-spacing:.02em;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.kp-il-sheet .kp-il-dragbar{display:flex;align-items:center;justify-content:center;width:calc(100% - 72px);height:30px;margin:0 36px 2px;color:#cbb9aa;font:600 11px/1 var(--sans,system-ui);letter-spacing:.02em;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .kp-il-sheet .kp-il-dragbar.dragging{cursor:grabbing;color:#ffb27a}
 .kp-il-sheet .kp-il-head.dragging{cursor:grabbing}
 .kp-il-sheet .kp-il-move{flex:0 0 44px;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border-radius:10px;cursor:grab;touch-action:none;user-select:none;color:#cbb9aa}
@@ -82,6 +82,8 @@ body.editing.kp-inline .kp-il-sheet .kp-il-corner:is(:focus-visible,.dragging){o
 .kp-il-sheet .kp-il-move.dragging{cursor:grabbing}
 .kp-il-sheet .kp-il-head b{flex:1;font-size:15px}
 .kp-il-sheet .kp-il-head small{color:#bfae9f;font-size:12px}
+.kp-il-sheet .kp-il-font-setting{display:flex;align-items:center;gap:5px;min-height:44px;padding:4px 10px;color:#f6ece2;font:600 14px/1.2 var(--sans,system-ui)}
+.kp-il-sheet .kp-il-font-setting input{flex:1;width:100%;min-width:70px;margin-left:8px;accent-color:#f07a22}
 .kp-il-sheet .kp-il-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .kp-il-sheet button,.kp-il-pop button{display:flex;align-items:center;justify-content:center;gap:5px;min-height:44px;margin:0;padding:6px 8px;border:1px solid #3d2f27;border-radius:10px;background:#2a201b;color:#f6ece2;font:600 13px/1.15 var(--sans,system-ui);text-align:center;cursor:pointer;touch-action:manipulation}
 .kp-il-sheet button[aria-pressed=true]{border-color:#f07a22;color:#ffb27a}
@@ -110,7 +112,7 @@ body.kp-il-nosel,body.kp-il-nosel *{-webkit-user-select:none!important;user-sele
 /* ☰-Menü offen (29.09. delanim): Buchungsleiste und ✎ ausblenden, Menü bis unten scrollbar mit Abstand für Leiste + Safe-Area */
 html.kp-menu-open .mobile-conversion-bar,body:has(.mobile-menu.open) .mobile-conversion-bar,html.kp-menu-open body.editing.kp-inline .kp-il-fab,body.editing.kp-inline:has(.mobile-menu.open) .kp-il-fab{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
 body.editing .mobile-menu.open nav:not(.kp-nav-placed){position:relative!important}
-body.editing .mobile-menu.open nav .kp-nav-touch{position:absolute;z-index:5;display:block;width:34px;height:34px;padding:0;border:0;background:transparent;color:transparent;font-size:0;box-shadow:none;touch-action:none}
+body.editing .mobile-menu.open nav .kp-nav-touch{position:absolute;z-index:5;display:block;width:34px;height:34px;padding:0;border:0;background:transparent;color:transparent;font-size:0;box-shadow:none;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 body.editing .mobile-menu.open nav .kp-nav-touch:focus-visible{outline:2px solid #f07a22;outline-offset:-2px}
 body.editing .mobile-menu.open nav{padding-top:46px!important}
 body.editing .mobile-menu.open nav .kp-nav-touch-move{top:3px;left:36px;width:calc(100% - 72px);height:34px;min-height:34px;color:#b9aaa1;font:600 11px/1 var(--sans,system-ui);letter-spacing:.02em;cursor:grab}
@@ -120,6 +122,15 @@ body.editing .mobile-menu.open nav .kp-nav-touch-sw{bottom:0;left:0;cursor:nesw-
 body.editing .mobile-menu.open nav .kp-nav-touch-se{bottom:0;right:0;cursor:nwse-resize}
 @media(max-width:980px){body .mobile-menu.open nav{max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important;padding-bottom:calc(14px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(72px + env(safe-area-inset-bottom))}}
 @supports not (height:100dvh){@media(max-width:980px){body .mobile-menu.open nav{max-height:calc(100vh - 120px)!important}}}
+@media(max-width:600px){
+  body .mobile-menu nav{gap:0!important;padding:10px 12px 8px!important}
+  body .mobile-menu nav a{display:flex;align-items:center;justify-content:center;min-height:35px;padding:2px 6px!important;font-size:var(--kp-nav-font,13px)!important;line-height:1.15!important}
+  body.editing .mobile-menu.open nav{padding-top:42px!important}
+  body.editing.kp-inline .kp-il-sheet.open{border-radius:18px;max-height:calc(100dvh - 30px)}
+  body.editing.kp-inline .kp-il-sheet .kp-il-row{min-height:44px;padding:4px 10px;font-size:14px}
+  body.editing.kp-inline .kp-il-sheet .kp-il-rico{font-size:16px}
+  body.editing.kp-inline .kp-il-sheet .kp-il-publish{min-height:46px;font-size:14px}
+}
 
 /* 30.09.2026: Speicherstatus über dem ✎ (fixed, kein Layout-Shift) */
 .kp-il-status{display:none}
@@ -303,3 +314,8 @@ body.editing.kp-inline .kp-il-sheet .kp-il-fxplay{width:100%;min-height:48px;mar
 .kp-il-sheet .kp-il-fxfield input[type=color]{width:44px;height:44px;padding:2px;border:1px solid #3d2f27;border-radius:10px;background:#2a201b}
 .kp-il-sheet .kp-il-fxinline label{white-space:nowrap}
 .kp-il-sheet .kp-il-fxinline select{flex:1 1 auto;min-width:0;max-width:230px}
+@media(max-width:600px){
+  body.editing.kp-inline .kp-il-sheet.open,html[data-app-theme=light] body.editing.kp-inline .kp-il-sheet.open{border-radius:18px}
+  body.editing.kp-inline .kp-il-sheet .kp-il-row,html[data-app-theme=light] body.editing.kp-inline .kp-il-sheet .kp-il-row{min-height:44px;padding:4px 10px;font:500 14px/1.15 var(--sans,'Outfit',system-ui)}
+  body.editing.kp-inline .kp-il-sheet .kp-il-publish,html[data-app-theme=light] body.editing.kp-inline .kp-il-sheet .kp-il-publish{min-height:46px;font:700 14px/1.15 var(--sans,'Outfit',system-ui)}
+}
