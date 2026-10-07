@@ -1,0 +1,72 @@
+name: KP staging code editor API
+on:
+  push:
+    branches: [codex/kp-editor-ai-staging]
+    paths:
+      - .github/workflows/kp-code-editor-deploy.yml
+      - deployments/kp-code-editor/**
+permissions:
+  contents: read
+concurrency:
+  group: kp-code-editor-staging
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      LFTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
+      FTP_USERNAME: ${{ secrets.KP_TEST_FTP_USERNAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard target and check PHP syntax
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/codex/kp-editor-ai-staging
+          test "$FTP_USERNAME" = web16_ftpneu
+          test -n "$LFTP_PASSWORD"
+          php -l deployments/kp-code-editor/code-editor.php
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends lftp
+      - name: Save any existing test API
+        run: |
+          mkdir -p /tmp/previous
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            get api/code-editor.php -o /tmp/previous/code-editor.php;
+            bye
+          " || true
+      - name: Keep existing version if present
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kp-code-editor-previous
+          path: /tmp/previous/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload only staging API
+        run: |
+          set -euo pipefail
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            put deployments/kp-code-editor/code-editor.php -o api/code-editor.php;
+            get api/code-editor.php -o /tmp/readback.php;
+            bye
+          "
+          cmp deployments/kp-code-editor/code-editor.php /tmp/readback.php
+      - name: Check anonymous access denied
+        run: |
+          set -euo pipefail
+          status=$(curl -sS -o /tmp/anonymous.json -w '%{http_code}' --max-time 20 'https://neu.koblenzer-puppenspiele.de/api/code-editor.php?file=modern.html')
+          test "$status" = 401 -o "$status" = 403
+          echo "Anonymous source read denied (HTTP $status)"
