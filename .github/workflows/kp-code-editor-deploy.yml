@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           cat > /tmp/kp-ai-deploy.py <<'PY'
-          import ftplib, hashlib, io, json, os, pathlib, sys
+          import ftplib, hashlib, io, json, os, pathlib, ssl, sys
           files = {
               "modern.html": "deployments/kp-menu-corners/modern.html",
               "kp-code-panel.js": "deployments/kp-code-editor/kp-code-panel.js",
@@ -46,7 +46,7 @@ jobs:
               "modern.html": "8e33d55ce228ad4c26ad352b8153a45172423cbdca7cf62f8a8cfee9a0fb6b08",
               "kp-code-panel.js": "6ecf835c7a7e3fda7c25a2cee735751d39787bd6067df7d54c4c3713d107383c",
           }
-          ftp = ftplib.FTP_TLS(timeout=30)
+          ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
           ftp.connect("srv26.dsbsrv.de", 21)
           ftp.login(os.environ["KP_FTP_USERNAME"], os.environ["KP_FTP_PASSWORD"])
           ftp.prot_p()
