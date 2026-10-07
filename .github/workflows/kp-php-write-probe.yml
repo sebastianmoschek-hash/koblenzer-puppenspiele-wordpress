@@ -1,0 +1,83 @@
+name: KP PHP staging write probe
+on:
+  push:
+    branches: [codex/kp-php-write-probe]
+    paths: [.github/workflows/kp-php-write-probe.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LFTP_PASSWORD: ${{ secrets.KP_TEST_FTP_PASSWORD }}
+      FTP_USERNAME: ${{ secrets.KP_TEST_FTP_USERNAME }}
+    steps:
+      - name: Check staging confinement and install FTPS
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/codex/kp-php-write-probe
+          test "$FTP_USERNAME" = web16_ftpneu
+          test -n "$LFTP_PASSWORD"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends lftp
+      - name: Create restricted one-time PHP probe
+        run: |
+          cat > /tmp/kp-php-write-probe-20261007.php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          header('Content-Type: application/json; charset=utf-8');
+          header('Cache-Control: no-store');
+          $root = __DIR__;
+          $marker = $root . '/kp-php-write-marker-20261007.tmp';
+          $payload = 'kp-probe-20261007';
+          $created = @file_put_contents($marker, $payload, LOCK_EX) === strlen($payload);
+          $readBack = $created && @file_get_contents($marker) === $payload;
+          $removed = $created ? @unlink($marker) : !file_exists($marker);
+          echo json_encode([
+            'php_write_read_remove' => $created && $readBack && $removed,
+            'html_writable' => is_writable($root . '/modern.html'),
+            'css_writable' => is_writable($root . '/kp-inline.css'),
+            'js_writable' => is_writable($root . '/kp-inline.js')
+          ], JSON_THROW_ON_ERROR);
+          PHP
+      - name: Upload probe only to confined staging root
+        run: |
+          set -euo pipefail
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            put /tmp/kp-php-write-probe-20261007.php -o kp-php-write-probe-20261007.php;
+            bye
+          "
+      - name: Exercise PHP and verify result
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 20 \
+            'https://neu.koblenzer-puppenspiele.de/kp-php-write-probe-20261007.php' \
+            -o /tmp/probe-result.json
+          cat /tmp/probe-result.json
+          python3 - <<'PY'
+          import json
+          with open('/tmp/probe-result.json') as f:
+              data = json.load(f)
+          assert data['php_write_read_remove'] is True, data
+          PY
+      - name: Remove probe and marker, even on failure
+        if: always()
+        run: |
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            rm -f kp-php-write-probe-20261007.php;
+            rm -f kp-php-write-marker-20261007.tmp;
+            bye
+          "
