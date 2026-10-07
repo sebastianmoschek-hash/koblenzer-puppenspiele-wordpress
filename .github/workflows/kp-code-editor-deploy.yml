@@ -32,6 +32,24 @@ jobs:
           node --check deployments/kp-code-editor/kp-ai-panel.js
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends lftp
+      - name: Inspect staging file hashes (read only)
+        run: |
+          set -euo pipefail
+          mkdir -p inspection
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            get api/code-editor.php -o inspection/code-editor.php;
+            get kp-code-panel.js -o inspection/kp-code-panel.js;
+            get kp-code-panel.css -o inspection/kp-code-panel.css;
+            get modern.html -o inspection/modern.html;
+            bye
+          "
+          sha256sum inspection/*
       - name: Back up and check current staging files
         if: contains(github.event.head_commit.message, '[kp-code-upload]')
         run: |
