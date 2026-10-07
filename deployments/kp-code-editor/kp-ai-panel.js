@@ -19,7 +19,7 @@
     panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'KI-Assistent');
     panel.innerHTML = '<header><strong>KI-Assistent</strong><button type="button" data-ai-close aria-label="Schließen">×</button></header>' +
       '<p>Beschreibe deine Änderung. Die KI erstellt einen Entwurf im Code-Fenster; sie veröffentlicht nichts.</p>' +
-      '<details><summary>Gemini-Schlüssel einrichten</summary><p>Nur auf dem Testserver gespeichert. Bei Bereinigung des privaten Serverspeichers erneut eingeben.</p><label>API-Schlüssel <input type="password" data-ai-key autocomplete="off"></label><button type="button" data-ai-save-key>Schlüssel speichern</button></details>' +
+      '<details open><summary>Gemini-Schlüssel einrichten</summary><p>Nur auf dem Testserver gespeichert. Bei Bereinigung des privaten Serverspeichers erneut eingeben.</p><label>API-Schlüssel <input type="password" data-ai-key autocomplete="off"></label><button type="button" data-ai-save-key>Schlüssel speichern</button></details>' +
       '<label>Datei <select data-ai-file><option value="modern.html">Seite</option><option value="kp-inline.css">Design</option><option value="kp-inline.js">Interaktionen</option></select></label>' +
       '<label>Dein Wunsch <textarea data-ai-prompt rows="3" placeholder="Mach die Überschrift oben kleiner"></textarea></label>' +
       '<div class="kp-ai-actions"><button type="button" data-ai-mic>🎙 Sprechen</button><button type="button" data-ai-send>Entwurf erstellen</button></div>' +
