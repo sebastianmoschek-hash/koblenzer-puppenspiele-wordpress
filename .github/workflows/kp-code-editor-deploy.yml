@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/kp-code-editor-deploy.yml
       - deployments/kp-code-editor/**
+      - deployments/kp-menu-corners/modern.html
 permissions:
   contents: read
 concurrency:
@@ -26,6 +27,7 @@ jobs:
           test "$FTP_USERNAME" = web16_ftpneu
           test -n "$LFTP_PASSWORD"
           php -l deployments/kp-code-editor/code-editor.php
+          node --check deployments/kp-code-editor/kp-code-panel.js
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends lftp
       - name: Save any existing test API
@@ -49,6 +51,26 @@ jobs:
           path: /tmp/previous/
           if-no-files-found: ignore
           retention-days: 14
+      - name: Verify and back up current staging HTML
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/kp-html-before
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            get modern.html -o /tmp/kp-html-before/modern.html;
+            bye
+          "
+          echo '6181ff848bc222ea7c050bd743139251dd2b9f834dfca481bab166baca62d483  /tmp/kp-html-before/modern.html' | sha256sum -c -
+      - name: Retain staging HTML backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: kp-html-before-${{ github.run_id }}
+          path: /tmp/kp-html-before/modern.html
+          retention-days: 14
+          if-no-files-found: error
       - name: Upload staging API and verify anonymous denial
         run: |
           set -euo pipefail
@@ -73,6 +95,27 @@ jobs:
               data=json.load(f)
           assert data.get('error') == 'Admin-Anmeldung erforderlich.', data
           PY
+      - name: Upload code panel and HTML only after backup
+        run: |
+          set -euo pipefail
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open --user web16_ftpneu --env-password -p 21 srv26.dsbsrv.de;
+            put deployments/kp-code-editor/kp-code-panel.css -o kp-code-panel.css;
+            put deployments/kp-code-editor/kp-code-panel.js -o kp-code-panel.js;
+            put deployments/kp-menu-corners/modern.html -o modern.html;
+            get kp-code-panel.css -o /tmp/panel.css;
+            get kp-code-panel.js -o /tmp/panel.js;
+            get modern.html -o /tmp/modern.html;
+            bye
+          "
+          cmp deployments/kp-code-editor/kp-code-panel.css /tmp/panel.css
+          cmp deployments/kp-code-editor/kp-code-panel.js /tmp/panel.js
+          cmp deployments/kp-menu-corners/modern.html /tmp/modern.html
       - name: Remove new endpoint if verification failed
         if: failure()
         run: |
