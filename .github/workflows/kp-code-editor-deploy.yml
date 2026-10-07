@@ -27,10 +27,13 @@ jobs:
           test "$FTP_USERNAME" = web16_ftpneu
           test -n "$LFTP_PASSWORD"
           php -l deployments/kp-code-editor/code-editor.php
+          php -l deployments/kp-code-editor/ai-draft.php
           node --check deployments/kp-code-editor/kp-code-panel.js
+          node --check deployments/kp-code-editor/kp-ai-panel.js
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends lftp
       - name: Back up and check current staging files
+        if: contains(github.event.head_commit.message, '[kp-code-upload]')
         run: |
           set -euo pipefail
           mkdir -p backup
@@ -54,6 +57,7 @@ jobs:
             'c889245473299613cbf590293e04e86182faabc58003a70d1a2e41f40fc08b6d  kp-code-panel.css' \
             'e2c40d00c3a074bf22b32e8812327958807c35cc74a247cf8d884282fa3ffde6  modern.html' | sha256sum -c -
       - name: Retain verified backup
+        if: contains(github.event.head_commit.message, '[kp-code-upload]')
         uses: actions/upload-artifact@v4
         with:
           name: kp-code-before-${{ github.run_id }}
