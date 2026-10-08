@@ -163,59 +163,6 @@
     }
     checkpoint();
   }
-  let imageAction,imageInput,externalJob=null;
-  function renderImageAction(){
-    if(!imageAction)return;const selected=window.KPStudio?.selected||window.KPCtx?.element;
-    imageAction.hidden=!document.body.classList.contains('editing')||(!externalJob&&!selected?.matches('img'));
-    imageAction.textContent=externalJob?.shared?'Ergebnis übernehmen':externalJob?.file?'Bild teilen':'Bild-KI';
-    imageAction.title=externalJob?.shared?'In Gemini gespeichertes Bild auswählen':externalJob?.file?'Android-Teilen öffnen; Gemini selbst auswählen':'Bild für die Gemini-App vorbereiten';
-  }
-  async function prepareExternalImage(n,prompt){
-    if(!n?.isConnected||!n.matches('img'))throw new Error('Bitte zuerst ein Bild auswählen.');
-    const before=stamp(n),image=new Image();image.crossOrigin='anonymous';image.src=n.currentSrc||n.src;await image.decode();
-    const canvas=document.createElement('canvas'),scale=Math.min(1,1600/Math.max(image.naturalWidth,image.naturalHeight));canvas.width=Math.round(image.naturalWidth*scale);canvas.height=Math.round(image.naturalHeight*scale);canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
-    let blob;try{blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));}catch{throw new Error('Dieses Bild lässt sich wegen seiner Herkunft nicht teilen.');}
-    if(!blob||!n.isConnected||stamp(n)!==before)throw new Error('Bildvorbereitung fehlgeschlagen oder Original geändert.');
-    externalJob={node:n,before,prompt,file:new File([blob],'koblenzer-puppenspiele-bild.png',{type:'image/png'}),shared:false};renderImageAction();
-  }
-  function createExternalImageControls(){
-    imageAction=document.createElement('button');imageAction.type='button';imageAction.dataset.transient='';imageAction.hidden=true;imageAction.className='kp-ai-image-action';
-    imageAction.style.cssText='position:fixed;left:16px;bottom:calc(120px + env(safe-area-inset-bottom));z-index:10050;border:1px solid #a58152;border-radius:22px;padding:10px 14px;background:#231e17;color:#fff;font:600 14px system-ui;max-width:220px';
-    imageInput=document.createElement('input');imageInput.type='file';imageInput.accept='image/png,image/jpeg,image/webp';imageInput.hidden=true;imageInput.dataset.transient='';document.body.append(imageAction,imageInput);
-    imageAction.addEventListener('click',async()=>{
-      stopSpeech();
-      try{
-        if(externalJob?.shared){imageInput.click();return;}
-        if(!externalJob){await prepareExternalImage(window.KPStudio?.selected||window.KPCtx?.element,'Bearbeite dieses Bild nach meiner nächsten Nachricht.');status('Bild vorbereitet. Jetzt Bild teilen antippen und Gemini auswählen. Deinen Wunsch gibst du dort ein.');return;}
-        const job=externalJob;if(!job.node.isConnected||stamp(job.node)!==job.before){externalJob=null;renderImageAction();throw new Error('Das Original wurde verändert. Bitte das Bild erneut auswählen.');}
-        // Invoke sharing synchronously in the click handler, before any awaits.
-        if(navigator.share&&navigator.canShare?.({files:[job.file]})){
-          await navigator.share({files:[job.file],title:'Bild bearbeiten',text:job.prompt});
-        }else{
-          const a=document.createElement('a'),url=URL.createObjectURL(job.file);a.href=url;a.download=job.file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
-          status('Datei heruntergeladen. Öffne Gemini, lade das Bild hoch und füge deinen Wunsch ein. Danach das Ergebnis hier übernehmen.');
-        }
-        job.shared=true;renderImageAction();
-        try{sessionStorage.setItem('kp-ai-image-return',JSON.stringify({src:job.node.getAttribute('src'),before:job.before,prompt:job.prompt}));}catch{}
-        if(navigator.share)status('Übergabe beendet. In Gemini den Wunsch prüfen und absenden. Das fertige Bild speichern, dann hier Ergebnis übernehmen.');
-      }catch(error){if(error.name!=='AbortError')status(error.message);}
-    });
-    imageInput.addEventListener('change',async()=>{
-      const file=imageInput.files?.[0],job=externalJob;imageInput.value='';if(!file||!job)return;
-      try{
-        if(!document.body.classList.contains('editing'))throw new Error('Bitte zuerst den Bearbeitungsmodus öffnen.');
-        if(!job.node.isConnected||stamp(job.node)!==job.before)throw new Error('Das Original wurde inzwischen verändert. Bitte Bild neu auswählen.');
-        if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>12000000)throw new Error('Bitte ein PNG-, JPEG- oder WebP-Bild bis 12 MB auswählen.');
-        if(typeof window.KPReplaceImage!=='function')throw new Error('Bildspeicher nicht verfügbar.');
-        recordHistory();await window.KPReplaceImage(file,job.node);checkpoint();externalJob=null;sessionStorage.removeItem('kp-ai-image-return');renderImageAction();status('Ausgewähltes Ergebnis übernommen. Rückgängig ist möglich.');
-      }catch(error){status(error.message);}
-    });
-    document.addEventListener('click',()=>setTimeout(renderImageAction,0));
-    document.addEventListener('editor-layout-change',renderImageAction);
-    new MutationObserver(renderImageAction).observe(document.body,{attributes:true,attributeFilter:['class']});
-    try{const saved=JSON.parse(sessionStorage.getItem('kp-ai-image-return')||'null');if(saved){const node=[...document.querySelectorAll('main img,.masthead img')].find(n=>n.getAttribute('src')===saved.src&&stamp(n)===saved.before);if(node)externalJob={node,before:saved.before,prompt:saved.prompt,shared:true};}}catch{}
-    renderImageAction();
-  }
   async function directCommand(prompt){
     if(directBusy)return;directBusy=true;paint();
     try{
@@ -234,6 +181,12 @@
         else if(/^(vorschau|zeige die vorschau)$/.test(words))local={type:'preview'};
       }
       if(!local&&!conversation.length){const heading=[...targets].filter(([,n])=>n.tagName==='H1'&&/Koblenzer Puppenspiele/i.test(n.textContent));const matches=Object.keys(colors).filter(k=>new RegExp('\\b'+k+'\\b','i').test(words));if(heading.length===1&&/überschrift|koblenzer puppenspiele/.test(words)&&matches.length===1&&!/nicht|außer|ausser|hintergrund|alle|unten|zweite|andere/.test(words))local={id:heading[0][0],type:'style',property:'color',value:colors[matches[0]]};}
+      if(!local&&!conversation.length){
+        const page=prompt.trim().match(/^(?:bitte\s+)?(?:erstelle|mach|lege|füge)\s+(?:mir\s+)?(?:eine\s+)?neue\s+seite\s+(?:(?:mit dem namen|namens|mit dem titel)\s+)?[„"]?(.+?)[”"]?(?:\s+an|\s+hinzu)?[.!]?$/i);
+        if(page)local={type:'addPage',value:page[1].trim()};
+        const selected=window.KPStudio?.selected||window.KPCtx?.element;
+        if(!local&&selected?.matches('img')&&/gemini|stell.*frei|freistellen|(?:ändere|bearbeite).*(?:bild|foto)/i.test(prompt))local={type:'editImage',id:idFor(selected),value:prompt};
+      }
       let result={message:''};const before=new Map([...targets].map(([id,n])=>[id,stamp(n)]));
       if(local)result.operations=[local];else{
         status('Ich prüfe deinen Wunsch …');if(!csrf)csrf=(await request('api/code-editor.php?action=session')).csrf;
@@ -244,7 +197,7 @@
       if(!result.operations.length){status(result.message||'Welches Element und welche Änderung meinst du?');return;}
       const op=result.operations[0],node=validateOperation(op);
       if(node&&stamp(node)!==before.get(op.id))throw new Error('Das Element wurde inzwischen geändert. Bitte erneut sprechen.');
-      if(op.type==='editImage'){await prepareExternalImage(node,op.value);conversation=[];status('Bild und Wunsch vorbereitet. Tippe Bild teilen und wähle Gemini. Danach dort absenden, Bild speichern und hier Ergebnis übernehmen.');return;}
+      if(op.type==='editImage'){conversation=[];status('Die automatische KI-Bildbearbeitung wird gerade eingerichtet. Es wird weder geteilt noch eine kostenpflichtige Bild-API verwendet.');return;}
       if(op.type==='delete'){pendingDelete={op,node,before:stamp(node)};status('Soll ich „'+(node.querySelector('h1,h2,h3')?.textContent||node.textContent||node.alt||'dieses Element').trim().slice(0,80)+'“ wirklich löschen? Sag Ja oder Abbrechen.');return;}
       await applyOperation(op);conversation=[];
       status(op.type==='undo'?'Änderung rückgängig gemacht.':op.type==='save'?'Entwurf auf dem Server gespeichert.':['preview','versions','export','import','settings','replaceImage'].includes(op.type)?'Editorfunktion geöffnet.':op.type==='select'?'Element ausgewählt.':'Änderung übernommen. Rückgängig ist möglich.');
@@ -268,7 +221,7 @@
     mute=document.createElement('button');mute.type='button';mute.className='kp-ai-mute';mute.textContent='◼';mute.hidden=true;
     mute.dataset.transient='';mute.setAttribute('aria-label','Mikrofon ausschalten');
     hint=document.createElement('div');hint.className='kp-ai-hint';hint.dataset.transient='';hint.hidden=true;hint.setAttribute('role','status');
-    document.body.append(button,hint,panel);createExternalImageControls();
+    document.body.append(button,hint,panel);
     mute.addEventListener('click',()=>{stopSpeech();status('Mikrofon aus.');});
     document.addEventListener('visibilitychange',()=>{if(document.hidden)stopSpeech();});
     let holdTimer, held=false;
