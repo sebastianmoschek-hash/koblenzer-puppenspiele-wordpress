@@ -53,7 +53,7 @@ jobs:
               "kp-ai-panel.js": "deployments/kp-code-editor/kp-ai-panel.js",
               "api/ai-draft.php": "deployments/kp-code-editor/ai-draft.php",
           }
-          expected = {'api/ai-draft.php': '7f371e8ac0b658fb27be97787aa957cad01f1b3d3a2de71e2961287a6fc771fc', 'kp-ai-live.js': '40ff2cb40f96c7db19fbfdbea661dd2bb9cd18d2439f3974ce21d8986ff96c7b', 'kp-ai-audio-worklet.js': '1bdb2ea7b59a1d396e72bc0dc0633f3cf050c9e91e5d9735b25714bf3d008f01', 'kp-ai-panel.css': '241ff60ffbe6b4ad6f1c93d57e02c4e312375cb96656d3a13941619a541da318', 'kp-code-panel.js': '5b649adb8ac62ce081316c88a86f52b4b14d370eb5199c531df4f445b8b0bcd3', 'kp-code-panel.css': 'bbff574c3c27a0402b67c287754c39ddbff547a74fc571673e0a0c2eb62d6df1', 'kp-ai-panel.js': 'aaa8cfbb8dc7f83286dd1b2d28aa9fa97513a5e4aeac105c7962d202389f470e'}
+          expected = {'api/ai-draft.php': 'abc30852e81b627b098430d0b61bd4278c27387b2d863bcfc9919907799bea2a', 'kp-ai-live.js': '40ff2cb40f96c7db19fbfdbea661dd2bb9cd18d2439f3974ce21d8986ff96c7b', 'kp-ai-audio-worklet.js': '1bdb2ea7b59a1d396e72bc0dc0633f3cf050c9e91e5d9735b25714bf3d008f01', 'kp-ai-panel.css': '241ff60ffbe6b4ad6f1c93d57e02c4e312375cb96656d3a13941619a541da318', 'kp-code-panel.js': '5b649adb8ac62ce081316c88a86f52b4b14d370eb5199c531df4f445b8b0bcd3', 'kp-code-panel.css': 'bbff574c3c27a0402b67c287754c39ddbff547a74fc571673e0a0c2eb62d6df1', 'kp-ai-panel.js': 'aaa8cfbb8dc7f83286dd1b2d28aa9fa97513a5e4aeac105c7962d202389f470e'}
           ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
           ftp.connect("srv26.dsbsrv.de", 21)
           ftp.login(os.environ["KP_FTP_USERNAME"], os.environ["KP_FTP_PASSWORD"])
