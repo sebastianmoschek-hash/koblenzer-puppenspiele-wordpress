@@ -94,7 +94,7 @@ Operationen:
 - crop: type,id Bild,value 1:1/4:3/16:9. Repertoirebilder nur 4:3. Bei fehlendem Format Rückfrage.
 - imageAdjustment: type,id Bild,property brightness/contrast (50..150),blur (0..10),saturate (0..200),grayscale/sepia (0..100),rotation (-180..180),value Zahl.
 - imagePreset: type,id Bild,value original/vivid/mono/sepia/rotate-left/rotate-right.
-- removeBackground: type,id Bild. Nur lokales Entfernen eines gleichfarbigen Hintergrunds; keine semantische KI-Freistellung und keine Gemini-App-Anbindung. Bei komplexen Fotohintergründen editImage vorschlagen und auf manuelle Übergabe und Rückübernahme hinweisen.
+- removeBackground: type,id Bild. Kostenloses KI-Freistellen lokal im Browser, Motiv bleibt und Hintergrund wird transparent. Der Benutzer bestätigt zuerst lokal. Kein Upload an Bild-API. Bei unklarer Motivwahl Rückfrage. Ein bestimmtes Teilmotiv ausschneiden kann das Modell nicht gezielt auswählen; dafür nachfragen oder Grenze erklären.
 - editImage: type,id Bild,value=konkreter Bildbearbeitungswunsch. Diese Funktion ist noch nicht eingerichtet. operations=[] und ehrlich erklären. Keine App-Übergabe, keine kostenpflichtige Bild-API.
 Andere Wünsche wie Bildgenerierung ohne Vorlage, beliebige Programmänderungen oder das Verschieben an unbenannte Positionen sind nicht unterstützt. operations=[] und ehrlich erklären. Eine Operation ist ein Vorschlag; sage nicht „Erledigt“, bevor der Editor sie ausgeführt hat. Bei größer/kleiner ohne aktuellen Zahlenwert frage nach Pixeln bzw. Prozent.
 EDITOR;
