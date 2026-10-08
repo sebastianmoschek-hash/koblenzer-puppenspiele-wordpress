@@ -4,10 +4,11 @@
   let socket, audio, microphone, processor, source, silence, display, video, frameTimer, contextTimer, expiryTimer;
   let awaitingScreenPermission=false;
   let running=false, starting=false, epoch=0, nextAudio=0, queue=Promise.resolve();
+  let screenShareButton;
   const playing=new Set(), cancelled=new Set();
   const orb=()=>document.querySelector('.kp-ai-float');
   const note=text=>{const n=document.querySelector('.kp-ai-hint');if(n){n.textContent=String(text);n.hidden=false;}};
-  const phase=p=>{const b=orb();if(b){b.dataset.phase=p;b.setAttribute('aria-pressed',String(running||starting));b.setAttribute('aria-label',running||starting?'Live-Gespräch beenden':'Live-Gespräch starten');}};
+  const phase=p=>{const b=orb();if(b){b.dataset.phase=p;b.setAttribute('aria-pressed',String(running||starting));b.setAttribute('aria-label',running||starting?'Live-Gespräch beenden':'Live-Gespräch starten');}if(screenShareButton){screenShareButton.disabled=!running;screenShareButton.textContent=running?'Bildschirm teilen':'Erst Live-Gespräch starten';}};
   const send=value=>{if(socket?.readyState===WebSocket.OPEN && socket.bufferedAmount<1000000)socket.send(JSON.stringify(value));};
   async function api(body){
     const s=await fetch('api/code-editor.php?action=session',{credentials:'same-origin',cache:'no-store'});
@@ -106,7 +107,7 @@
     if(!running)throw new Error('Bitte zuerst das Live-Gespräch starten.');
     if(window.KPStudioCloud){awaitingScreenPermission=true;setTimeout(()=>{awaitingScreenPermission=false;if(document.hidden&&!awaitingScreenPermission)stop();},30000);window.KPStudioCloud.startScreen();clearInterval(frameTimer);frameTimer=setInterval(()=>{const image=window.KPStudioCloud.frame();if(image&&running)send({realtimeInput:{video:{mimeType:'image/jpeg',data:image}}});},1100);note('Bitte Android-Bildschirmfreigabe bestätigen.');return;}
     if(!navigator.mediaDevices?.getDisplayMedia)throw new Error('Bildschirmfreigabe ist hier nicht verfügbar. Auf Android bitte die KP-Studio-App nutzen.');
-    const stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
+    let stream;try{stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});}catch(error){if(error.name==='NotAllowedError'||error.name==='AbortError')throw new Error('Bildschirmfreigabe nicht erteilt oder abgebrochen. Das Live-Gespräch läuft weiter; tippe zum erneuten Teilen auf „Bildschirm teilen“.');throw error;}
     if(!running){stream.getTracks().forEach(t=>t.stop());return;}
     display?.getTracks().forEach(t=>t.stop());display=stream;
     video=document.createElement('video');video.srcObject=stream;video.muted=true;await video.play();
@@ -134,14 +135,14 @@
   }
   function settings(){
     const panel=document.querySelector('.kp-ai-panel');if(!panel)return;
-    const box=document.createElement('div');box.innerHTML='<label><input type="checkbox" data-live-mode> Gemini-Live-Stimme verwenden</label><label><input type="checkbox" data-image-api> Bildbearbeitung über API aktivieren (kann Kosten verursachen)</label><button type="button" data-screen-share>Bildschirm teilen</button><button type="button" data-live-test>Live-Verbindung prüfen</button><p>Live nutzt Mikrofon und optional den freigegebenen Bildschirm. Ein Gespräch endet nach zehn Minuten. Gedrückt halten öffnet diese Einstellungen.</p>';
+    const box=document.createElement('div');box.innerHTML='<label><input type="checkbox" data-live-mode> Gemini-Live-Stimme verwenden</label><label><input type="checkbox" data-image-api> Bildbearbeitung über API aktivieren (kann Kosten verursachen)</label><p class="kp-ai-screen-instructions" id="kp-ai-screen-instructions"><strong>Bildschirm teilen:</strong> 1. Live-Gespräch am KI-Kreis starten und den Mikrofonzugriff erlauben. 2. Danach hier „Bildschirm teilen“ antippen und die Android-Bildschirmfreigabe bestätigen. Wenn du die Abfrage abbrichst, läuft das Gespräch ohne Bildschirm weiter; du kannst die Freigabe hier erneut starten.</p><button type="button" data-screen-share aria-describedby="kp-ai-screen-instructions" disabled>Erst Live-Gespräch starten</button><button type="button" data-live-test>Live-Verbindung prüfen</button><p>Live nutzt das Mikrofon und optional den freigegebenen Bildschirm. Ein Gespräch endet nach zehn Minuten. Gedrückt halten öffnet diese Einstellungen.</p>';
     panel.querySelector('details').after(box);
     const live=box.querySelector('[data-live-mode]');live.checked=localStorage.getItem('kp-ai-live-mode')!=='off';live.onchange=()=>{stop();localStorage.setItem('kp-ai-live-mode',live.checked?'on':'off');};
     const image=box.querySelector('[data-image-api]');image.checked=localStorage.getItem('kp-ai-image-api')==='on';image.onchange=()=>localStorage.setItem('kp-ai-image-api',image.checked?'on':'off');
     box.querySelector('[data-live-test]').onclick=()=>connectionTest().catch(e=>note(e.message));
-    box.querySelector('[data-screen-share]').onclick=()=>share().then(()=>panel.hidden=true).catch(e=>note(e.message));
+    screenShareButton=box.querySelector('[data-screen-share]');screenShareButton.onclick=()=>share().then(()=>panel.hidden=true).catch(e=>note(e.message));
     const shareButton=document.createElement('button');shareButton.type='button';shareButton.textContent='▣';shareButton.className='kp-ai-screen';shareButton.dataset.transient='';shareButton.hidden=true;shareButton.setAttribute('aria-label','Bildschirm mit KI teilen');shareButton.onclick=()=>share().catch(e=>note(e.message));document.body.append(shareButton);
-    setInterval(()=>{shareButton.hidden=!running;},500);
+    setInterval(()=>{shareButton.hidden=!running;},500);phase('idle');
   }
   window.KPAILive=Object.freeze({start,stop,share,status:note,get running(){return running||starting;},get awaitingScreenPermission(){return awaitingScreenPermission;}});
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&!awaitingScreenPermission)stop();});

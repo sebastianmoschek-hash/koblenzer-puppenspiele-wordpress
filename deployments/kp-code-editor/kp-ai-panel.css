@@ -23,3 +23,5 @@
 @media(prefers-reduced-motion:reduce){.kp-ai-float[data-phase]{animation:none}}
 
 .kp-ai-screen{position:fixed;left:76px;bottom:calc(env(safe-area-inset-bottom) + 82px);z-index:9998;width:44px;height:44px;border:1px solid #a17748;border-radius:50%;background:#1c2028;color:#fff;font:20px system-ui}.kp-ai-screen[hidden]{display:none!important}\n
+.kp-ai-panel .kp-ai-screen-instructions{margin:14px 0 8px;padding:10px 12px;border-left:3px solid #c79453;border-radius:6px;background:#29251f;font-size:14px;line-height:1.5}
+.kp-ai-panel [data-screen-share]:disabled{opacity:.75;color:#e6d7c5}
