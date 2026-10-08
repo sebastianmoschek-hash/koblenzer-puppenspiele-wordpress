@@ -102,13 +102,14 @@
   }
   let backgroundLibrary;
   function loadBackgroundLibrary(){
-    if(window.KPBackground?.remove)return Promise.resolve(window.KPBackground);
-    if(!backgroundLibrary)backgroundLibrary=new Promise((resolve,reject)=>{
-      const script=document.createElement('script');script.src='kp-background-lib.js?v=20261008-free9';script.dataset.transient='';
-      const timer=setTimeout(()=>{backgroundLibrary=null;script.remove();reject(new Error('Freistell-Bibliothek konnte nicht geladen werden. Bitte erneut versuchen.'));},30000);
-      script.onload=()=>{clearTimeout(timer);if(window.KPBackground?.remove)resolve(window.KPBackground);else{backgroundLibrary=null;reject(new Error('Freistellen nicht verfügbar.'));}};
-      script.onerror=()=>{clearTimeout(timer);backgroundLibrary=null;script.remove();reject(new Error('Freistell-Bibliothek konnte nicht geladen werden.'));};document.head.append(script);
-    });return backgroundLibrary;
+    if(typeof Worker!=='function'||typeof OffscreenCanvas!=='function')throw new Error('Dieser Browser unterstützt lokales KI-Freistellen noch nicht. Bitte Chrome aktualisieren.');
+    if(!backgroundLibrary)backgroundLibrary=Promise.resolve({remove:(input,config)=>new Promise((resolve,reject)=>{
+      const worker=new Worker('kp-background-worker.js?v=20261008-free10');
+      const finish=(error,output)=>{clearTimeout(timer);worker.terminate();error?reject(error):resolve(output);};
+      const timer=setTimeout(()=>finish(new Error('Freistellen hat zu lange gedauert. Original unverändert.')),150000);
+      worker.onmessage=event=>{const data=event.data||{};if(data.kind==='progress')config.progress?.(data.key,data.current,data.total);else if(data.kind==='result')finish(null,data.output);else if(data.kind==='error')finish(new Error(data.message));};
+      worker.onerror=()=>finish(new Error('Freistell-Worker konnte nicht geladen oder gestartet werden.'));worker.postMessage({input});
+    })});return backgroundLibrary;
   }
   async function removeBackground(n){
     const before=stamp(n),src=n.currentSrc||n.src;
