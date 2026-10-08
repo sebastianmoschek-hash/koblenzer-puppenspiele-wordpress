@@ -70,10 +70,20 @@
         'Vorher: ' + result.beforeBytes + ' Bytes · Nachher: ' + result.afterBytes + ' Bytes\n\n' +
         changedLines(current.content,content);
       const visual = dialog.querySelector('[data-code-visual]');
-      visual.hidden = current.file !== 'modern.html' || result.beforeSha256 === result.afterSha256;
+      visual.hidden = current.file === 'kp-inline.js' || result.beforeSha256 === result.afterSha256;
       if (!visual.hidden) {
         // Opaque sandbox: shows static layout, never runs the proposed page's scripts.
-        visual.srcdoc = '<base href="' + location.origin + '/">' + content;
+        let html=content;
+        if(current.file==='kp-inline.css'){
+          const response=await fetch('modern.html',{credentials:'same-origin',cache:'no-store'});
+          if(!response.ok)throw new Error('Seitenvorschau nicht verfügbar.');
+          const parsed=new DOMParser().parseFromString(await response.text(),'text/html');
+          parsed.querySelectorAll('link[rel=stylesheet]').forEach(link=>{if(new URL(link.getAttribute('href'),location.href).pathname.endsWith('/kp-inline.css'))link.remove();});
+          const style=parsed.createElement('style');style.textContent=content;parsed.head.append(style);html='<!doctype html>'+parsed.documentElement.outerHTML;
+        }
+        const parsed=new DOMParser().parseFromString(html,'text/html');
+        const base=parsed.createElement('base');base.href=location.origin+'/';parsed.head.prepend(base);
+        visual.srcdoc='<!doctype html>'+parsed.documentElement.outerHTML;
       } else visual.removeAttribute('srcdoc');
       previewed = true;
       dialog.querySelector('[data-code-publish]').disabled = result.beforeSha256 === result.afterSha256;
@@ -115,7 +125,8 @@
   }
   async function open() {
     if (!dialog) createDialog();
-    dialog.showModal();
+    dialog.classList.remove('kp-ai-code-preview');
+    if(!dialog.open)dialog.showModal();
     try { await session(); await loadFile(); } catch (error) { status(error.message,true); }
   }
   window.addEventListener('kp-ai-code-draft', async (event) => {
@@ -131,7 +142,9 @@
     dialog.querySelector('[data-code-content]').value = draft.content;
     previewed = false;
     dialog.querySelector('[data-code-publish]').disabled = true;
-    status((draft.message || 'KI-Entwurf geladen.') + ' Änderung prüfen, bevor du veröffentlichst.');
+    dialog.classList.add('kp-ai-code-preview');
+    await preview();
+    status((draft.message || 'KI-Entwurf geladen.') + (draft.file==='kp-inline.js'?' Programmänderung als Entwurf vorbereitet; Laufzeittest vor Übernahme erforderlich.':' Vorschau erstellt. Veröffentlichen übernimmt die Änderung mit Sicherung.'));
   });
   const observer = new MutationObserver(() => {
     if (!document.body.classList.contains('editing')) return;
@@ -145,4 +158,5 @@
   });
   observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
 })();
+
 

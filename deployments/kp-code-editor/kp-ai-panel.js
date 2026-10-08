@@ -21,7 +21,10 @@
     clearTimeout(restartTimer);
     if (active && !listening && !directBusy && !speaking && !document.hidden) restartTimer=setTimeout(startListening,350);
   }
+  let latestStatus = '';
   const status = message => {
+    latestStatus=String(message);
+    if(window.KPAILive?.running){window.KPAILive.status(message);return;}
     if (panel) panel.querySelector('[data-ai-status]').textContent=message;
     if (hint) {hint.textContent=message;hint.hidden=false;clearTimeout(hintTimer);hintTimer=setTimeout(()=>{hint.hidden=true;},5000);}
     if (active && !/^(Ich höre|Ich prüfe|Sag deinen)/.test(message)) {
@@ -37,7 +40,7 @@
     }
   };
   function stopSpeech() {
-    active=false;clearTimeout(restartTimer);if(recognition)recognition.abort();
+    window.KPAILive?.stop();active=false;clearTimeout(restartTimer);if(recognition)recognition.abort();
     listening=false;speaking=false;window.speechSynthesis?.cancel();paint();
   }
   function startListening() {
@@ -247,7 +250,7 @@
     }
     checkpoint();
   }
-  async function directCommand(prompt){
+  async function directCommand(prompt,isCurrent=()=>true){
     if(directBusy)return;directBusy=true;paint();
     try{
       if(!document.body.classList.contains('editing'))throw new Error('Bearbeitungsmodus erforderlich.');
@@ -280,6 +283,7 @@
       conversation.push({role:'user',text:prompt.slice(0,1800)});conversation.push({role:'assistant',text:String(result.message||'').slice(0,1000)});conversation=conversation.slice(-8);
       if(!Array.isArray(result.operations)||result.operations.length>1)throw new Error('Kein eindeutiger Editorbefehl erhalten.');
       if(!result.operations.length){status(result.message||'Welches Element und welche Änderung meinst du?');return;}
+      if(!isCurrent())throw new Error('Gespräch beendet; Änderung verworfen.');
       const op=result.operations[0],node=validateOperation(op);
       if(op.type==='design'&&stamp(document.querySelector('main'))!==designBefore)throw new Error('Die Seite wurde inzwischen geändert. Bitte den Designwunsch wiederholen.');
       if(node&&stamp(node)!==before.get(op.id))throw new Error('Das Element wurde inzwischen geändert. Bitte erneut sprechen.');
@@ -287,9 +291,32 @@
         if(op.type==='delete'){pendingDelete={op,node,before:stamp(node)};status('Soll ich „'+(node.querySelector('h1,h2,h3')?.textContent||node.textContent||node.alt||'dieses Element').trim().slice(0,80)+'“ wirklich löschen? Sag Ja oder Abbrechen.');return;}
       await applyOperation(op);conversation=[];
       status(op.type==='design'?'Designvorschlag angewendet. Sag Rückgängig oder beschreibe die nächste Anpassung.':op.type==='undo'?'Änderung rückgängig gemacht.':op.type==='save'?'Entwurf auf dem Server gespeichert.':['preview','versions','export','import','settings','replaceImage'].includes(op.type)?'Editorfunktion geöffnet.':op.type==='select'?'Element ausgewählt.':'Änderung übernommen. Rückgängig ist möglich.');
-    }catch(error){status(error.message);}finally{directBusy=false;paint();resume();}
+    }catch(error){status(error.message);return {error:error.message};}finally{directBusy=false;paint();resume();}
   }
 
+  window.KPAIEditor = Object.freeze({
+    context,
+    command: async (prompt,isCurrent) => {
+      if(directBusy)throw new Error('Eine Änderung läuft bereits.');
+      const result=await directCommand(String(prompt).slice(0,1800),isCurrent);
+      return result||{message:latestStatus};
+    },
+    draft: async (prompt,file,isCurrent=()=>true) => {
+      if(!['modern.html','kp-inline.css','kp-inline.js'].includes(file))throw new Error('Datei nicht freigegeben.');
+      if(!csrf)csrf=(await request('api/code-editor.php?action=session')).csrf;
+      const draft=await request('api/ai-draft.php',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({prompt,file})});
+      if(!isCurrent())throw new Error('Gespräch beendet; Entwurf verworfen.');
+      window.dispatchEvent(new CustomEvent('kp-ai-code-draft',{detail:draft}));
+      return {message:'Codeentwurf erstellt. Prüfe die Vorschau und übernimm ihn ausdrücklich.'};
+    },
+    replaceImage: async file => {
+      const image=chosenImage();if(!image)throw new Error('Bitte zuerst das Bild auswählen.');
+      if(typeof window.KPReplaceImage!=='function')throw new Error('Bildspeicher nicht verfügbar.');
+      recordHistory();await window.KPReplaceImage(file,image);checkpoint();
+      return {message:'Bild geändert. Rückgängig ist möglich.'};
+    },
+    selectedImage: chosenImage
+  });
   function create() {
     const button = orb = document.createElement('button');
     button.type = 'button'; button.className = 'kp-ai-float'; button.textContent = '✦ KI';
@@ -309,7 +336,7 @@
     hint=document.createElement('div');hint.className='kp-ai-hint';hint.dataset.transient='';hint.hidden=true;hint.setAttribute('role','status');
     document.body.append(button,hint,panel);createImageTools();watchDesigns();
     mute.addEventListener('click',()=>{stopSpeech();status('Mikrofon aus.');});
-    document.addEventListener('visibilitychange',()=>{if(document.hidden)stopSpeech();});
+    document.addEventListener('visibilitychange',()=>{if(document.hidden&&!window.KPAILive?.awaitingScreenPermission)stopSpeech();});
     let holdTimer, held=false;
     const settings=()=>{stopSpeech();panel.hidden=false;panel.querySelector('details').open=true;};
     button.addEventListener('pointerdown',()=>{held=false;holdTimer=setTimeout(()=>{held=true;settings();},600);});
@@ -320,8 +347,11 @@
     button.addEventListener('click',event=>{
       if(held){held=false;return;}
       if(event.shiftKey){settings();return;}
+      if(window.KPAILive?.running){window.KPAILive.stop();return;}
       if(active){stopSpeech();status('Sprachmodus pausiert.');return;}
-      panel.hidden=true;active=true;startListening();
+      panel.hidden=true;
+      if(window.KPAILive && localStorage.getItem('kp-ai-live-mode')!=='off'){window.KPAILive.start().catch(error=>status(error.message));return;}
+      active=true;startListening();
     });
     panel.querySelector('[data-ai-save-key]').addEventListener('click', async () => {
       const input = panel.querySelector('[data-ai-key]');
@@ -350,5 +380,7 @@
     }).observe(document.body, {attributes:true, attributeFilter:['class']});
     button.hidden = !document.body.classList.contains('editing'); paint();
   }
+  const liveScript=document.createElement('script');liveScript.src='kp-ai-live.js?v=20261008-cloud-live';liveScript.defer=true;document.head.append(liveScript);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',create); else create();
 })();
+

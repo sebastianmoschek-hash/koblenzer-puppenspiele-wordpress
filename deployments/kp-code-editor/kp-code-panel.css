@@ -18,3 +18,6 @@
 .kp-code-panel [data-code-status].error{color:#ff9a8e}
 @media(max-width:600px){.kp-code-dialog{width:100vw;height:100dvh;max-height:100dvh;border-radius:0}.kp-code-panel{padding:12px}}
 
+
+.kp-ai-code-preview label,.kp-ai-code-preview .kp-code-history,.kp-ai-code-preview [data-code-check],.kp-ai-code-preview [data-code-preview]{display:none}.kp-ai-code-preview [data-code-visual]{width:100%;height:min(65dvh,600px);background:#fff}.kp-ai-code-preview header strong{font-size:0}.kp-ai-code-preview header strong:after{content:'KI-Entwurf';font-size:18px}
+

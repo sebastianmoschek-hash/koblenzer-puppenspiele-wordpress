@@ -21,3 +21,5 @@
 .kp-ai-hint{position:fixed;z-index:9998;left:12px;bottom:calc(env(safe-area-inset-bottom) + 140px);max-width:min(300px,calc(100vw - 24px));padding:7px 10px;border-radius:12px;background:#1c2028ed;color:#fff;font:12px/1.4 system-ui;pointer-events:none}
 @keyframes kp-orb-think{50%{transform:scale(.92);filter:brightness(1.5)}}
 @media(prefers-reduced-motion:reduce){.kp-ai-float[data-phase]{animation:none}}
+
+.kp-ai-screen{position:fixed;left:76px;bottom:calc(env(safe-area-inset-bottom) + 82px);z-index:9998;width:44px;height:44px;border:1px solid #a17748;border-radius:50%;background:#1c2028;color:#fff;font:20px system-ui}.kp-ai-screen[hidden]{display:none!important}\n
