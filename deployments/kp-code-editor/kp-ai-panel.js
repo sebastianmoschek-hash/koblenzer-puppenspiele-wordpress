@@ -79,7 +79,7 @@
   const styleNames={backgroundColor:'background-color',fontSize:'font-size',fontWeight:'font-weight',fontStyle:'font-style',textDecoration:'text-decoration',textAlign:'text-align'};
   function validateOperation(op){
     if(!op||typeof op!=='object')throw new Error('Ungültiger Editorbefehl.');
-    const global=['undo','redo','save','preview','versions','export','import','settings','addPage','snap'];
+    const global=['undo','redo','save','preview','versions','export','import','settings','addPage','snap','design'];
     const types=[...global,'select','style','text','link','alt','width','duplicate','delete','up','down','parent','detail','addText','addButton','addImage','replaceImage','crop','imageAdjustment','imagePreset','editImage'];
     if(!types.includes(op.type))throw new Error('Diese Funktion ist noch nicht angebunden.');
     const n=targets.get(op.id);if(!global.includes(op.type)&&!editable(n))throw new Error('Bitte das Zielelement genauer benennen.');
@@ -98,6 +98,7 @@
     if(op.type==='addPage'&&op.value.length>100)throw new Error('Bitte einen kürzeren Seitentitel nennen.');
     if(op.type==='editImage'&&(typeof op.value!=='string'||!op.value.trim()||op.value.length>1800))throw new Error('Bitte die Bildänderung genauer beschreiben.');
     if(op.type==='snap'&&typeof op.value!=='boolean')throw new Error('Bitte Raster an oder aus sagen.');
+    if(op.type==='design')validateDesign(op);
     return n;
   }
 
@@ -162,8 +163,50 @@
     refreshImageTools();
   }
 
+
+  const designFonts={modern:'system-ui, sans-serif',classic:'Georgia, serif',clean:'Arial, sans-serif'};
+  function validateDesign(op){
+    if(!['page','header','menu'].includes(op.scope)||!['modern','classic','clean'].includes(op.font)||!['soft','square','pill'].includes(op.shape)||!['airy','compact'].includes(op.spacing))throw new Error('Ungültiger Designvorschlag.');
+    for(const k of ['background','surface','text','accent','accentText'])if(!/^#[0-9a-f]{6}$/i.test(op[k]))throw new Error('Ungültige Designfarbe.');
+    if(op.imageId&&!targets.get(op.imageId)?.matches('img'))throw new Error('Das vorgeschlagene Bild ist nicht verfügbar.');
+  }
+  function designConfig(scope){const n=document.querySelector('main [data-ai-design="'+scope+'"]');try{return n?JSON.parse(n.getAttribute('data-design')):null;}catch{return null;}}
+  function renderDesigns(){
+    let style=document.querySelector('style[data-ai-design-rules]');if(!style){style=document.createElement('style');style.dataset.aiDesignRules='';style.dataset.transient='';document.head.append(style);}
+    let css='';
+    for(const scope of ['page','header','menu']){
+      const d=designConfig(scope);if(!d)continue;
+      try{validateDesign({...d,imageId:null});}catch{continue;}
+      const r=d.shape==='pill'?'999px':d.shape==='soft'?'20px':'4px',gap=d.spacing==='airy'?'28px':'12px',font=designFonts[d.font];
+      if(scope==='page')css+='body{background:'+d.background+'!important}main{color:'+d.text+'!important;font-family:'+font+'!important}main>section{background:'+d.surface+'!important;color:'+d.text+'!important;padding-top:'+gap+'!important;padding-bottom:'+gap+'!important}main h1,main h2,main h3,main p{color:'+d.text+'!important;font-family:'+font+'!important}main .button,main a.button{background:'+d.accent+'!important;color:'+d.accentText+'!important;border-radius:'+r+'!important}main .piece{border-radius:'+r+'!important}';
+      if(scope==='header')css+='.masthead{background:'+d.background+'!important;border-radius:0 0 '+r+' '+r+'!important}.masthead img{object-fit:cover!important;filter:'+(d.font==='classic'?'saturate(.75)':'saturate(1.1)')+'!important}main .hero-copy{background:'+d.surface+'!important;color:'+d.text+'!important;border-radius:'+r+'!important;padding:'+gap+'!important}main .hero-copy h1{color:'+d.text+'!important;font-family:'+font+'!important}';
+      if(scope==='menu')css+='.site-header,.mobile-menu{background:'+d.background+'!important;color:'+d.text+'!important}.desktop-nav,.mobile-menu nav{gap:'+gap+'!important}.desktop-nav a,.mobile-menu nav a,.desktop-nav summary,.mobile-menu nav summary{font-family:'+font+'!important;color:'+d.text+'!important;background:'+d.surface+'!important;border-radius:'+r+'!important;padding:10px 14px!important}.site-header .nav-cta{background:'+d.accent+'!important;color:'+d.accentText+'!important;border-radius:'+r+'!important}';
+    }
+    if(style.textContent!==css)style.textContent=css;
+  }
+  function applyDesign(op){
+    validateDesign(op);const main=document.querySelector('main');if(!main)throw new Error('Seiteninhalt nicht verfügbar.');
+    let source;if(op.imageId){const image=targets.get(op.imageId);source=image.currentSrc||image.src;const url=new URL(source,location.href);if(!['https:','http:','data:','blob:'].includes(url.protocol))throw new Error('Ungültige Bildquelle.');}
+    recordHistory();let config=main.querySelector('[data-ai-design="'+op.scope+'"]');if(!config){config=document.createElement('span');config.hidden=true;config.dataset.aiDesign=op.scope;main.append(config);}
+    const data={scope:op.scope,font:op.font,shape:op.shape,spacing:op.spacing};for(const k of ['background','surface','text','accent','accentText'])data[k]=op[k];
+    config.setAttribute('data-design',JSON.stringify(data));
+    if(source){const header=document.querySelector('.masthead img');if(header){header.src=source;header.removeAttribute('srcset');}}
+    renderDesigns();checkpoint();
+  }
+  function localDesign(prompt){
+    const words=prompt.toLowerCase();if(!/design|optik|moderner|modernisiere|gestalte/.test(words)||/nicht|kein/.test(words))return null;
+    const scope=/menü|menu|navigation/.test(words)?'menu':/header|kopfzeile/.test(words)?'header':'page';
+    if(!/moderner|modernisiere|ander.*optik|ander.*design|neues design|gestalte.*modern/.test(words))return null;
+    const previous=designConfig(scope),light=/hell|freundlich/.test(words)||(/ander/.test(words)&&previous?.background==='#102334');
+    return {type:'design',scope,font:'modern',shape:scope==='menu'&&previous?.shape==='pill'?'soft':'pill',spacing:'airy',background:light?'#f4f0e8':'#102334',surface:light?'#ffffff':'#1b3446',text:light?'#172a38':'#f7fafc',accent:'#f07a22',accentText:'#172a38'};
+  }
+  function watchDesigns(){
+    renderDesigns();const main=document.querySelector('main');if(main)new MutationObserver(renderDesigns).observe(main,{childList:true,subtree:true,attributes:true,attributeFilter:['data-design']});
+  }
+
   async function applyOperation(op){
     const n=validateOperation(op),S=window.KPStudio;
+    if(op.type==='design'){applyDesign(op);return;}
     if(['undo','redo'].includes(op.type)){if(!window.KPHistoryState?.[op.type==='undo'?'canUndo':'canRedo']?.())throw new Error('Keine passende Änderung im Verlauf.');clickControl('[data-history="'+op.type+'"]');return;}
     if(op.type==='save'){if(typeof window.KPSaveAndWait!=='function')throw new Error('Serverspeicher nicht verfügbar.');if(!await window.KPSaveAndWait('draft'))throw new Error('Entwurf konnte nicht gespeichert werden.');return;}
     if(['preview','versions','export','import'].includes(op.type)){clickControl('[data-studio="'+op.type+'"]');return;}
@@ -214,9 +257,9 @@
         if(/^(ja|ja bitte|bestätigen|bestätige|löschen|ja löschen|mach das)$/.test(words)){const {op,node,before}=pendingDelete;pendingDelete=null;if(!node.isConnected||stamp(node)!==before)throw new Error('Der Eintrag hat sich verändert. Bitte erneut benennen.');targets.set(op.id,node);await applyOperation(op);conversation=[];status('Eintrag gelöscht. Rückgängig ist möglich.');return;}
         pendingDelete=null;
       }
-      context();let local;
+      context();let local=localDesign(prompt);
       const image=chosenImage()||(/header|kopfzeile/i.test(prompt)?document.querySelector('.masthead img'):null);
-      if(image&&/bild|foto|gemini|t.shirt|kleidung|hintergrund/i.test(prompt)&&/bearbeit|änder|ändere|ersetz|gemini|t.shirt/i.test(prompt)&&!/nicht|kein/i.test(prompt)){offerImageEdit(image,prompt);return;}
+      if(!local&&image&&/bild|foto|gemini|t.shirt|kleidung|hintergrund/i.test(prompt)&&/bearbeit|änder|ändere|ersetz|gemini|t.shirt/i.test(prompt)&&!/nicht|kein/i.test(prompt)){offerImageEdit(image,prompt);return;}
       if(!/\b(nicht|kein|keine)\b/.test(words)){
         if(/rückgängig|rueckgaengig|\bundo\b/.test(words)||/^(bitte )?(zurück|zurueck)$/.test(words))local={type:'undo'};
         else if(/^(bitte )?(wiederholen|wiederherstellen|redo)( bitte)?$/.test(words))local={type:'redo'};
@@ -229,7 +272,7 @@
         if(page)local={type:'addPage',value:page[1].trim()};
         const selected=window.KPStudio?.selected||window.KPCtx?.element;
       }
-      let result={message:''};const before=new Map([...targets].map(([id,n])=>[id,stamp(n)]));
+      const designBefore=stamp(document.querySelector('main'));let result={message:''};const before=new Map([...targets].map(([id,n])=>[id,stamp(n)]));
       if(local)result.operations=[local];else{
         status('Ich prüfe deinen Wunsch …');if(!csrf)csrf=(await request('api/code-editor.php?action=session')).csrf;
         result=await request('api/ai-draft.php',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({action:'editor-command',prompt,elements:context(),conversation})});
@@ -238,11 +281,12 @@
       if(!Array.isArray(result.operations)||result.operations.length>1)throw new Error('Kein eindeutiger Editorbefehl erhalten.');
       if(!result.operations.length){status(result.message||'Welches Element und welche Änderung meinst du?');return;}
       const op=result.operations[0],node=validateOperation(op);
+      if(op.type==='design'&&stamp(document.querySelector('main'))!==designBefore)throw new Error('Die Seite wurde inzwischen geändert. Bitte den Designwunsch wiederholen.');
       if(node&&stamp(node)!==before.get(op.id))throw new Error('Das Element wurde inzwischen geändert. Bitte erneut sprechen.');
       if(op.type==='editImage'){conversation=[];offerImageEdit(node,op.value||prompt);return;}
         if(op.type==='delete'){pendingDelete={op,node,before:stamp(node)};status('Soll ich „'+(node.querySelector('h1,h2,h3')?.textContent||node.textContent||node.alt||'dieses Element').trim().slice(0,80)+'“ wirklich löschen? Sag Ja oder Abbrechen.');return;}
       await applyOperation(op);conversation=[];
-      status(op.type==='undo'?'Änderung rückgängig gemacht.':op.type==='save'?'Entwurf auf dem Server gespeichert.':['preview','versions','export','import','settings','replaceImage'].includes(op.type)?'Editorfunktion geöffnet.':op.type==='select'?'Element ausgewählt.':'Änderung übernommen. Rückgängig ist möglich.');
+      status(op.type==='design'?'Designvorschlag angewendet. Sag Rückgängig oder beschreibe die nächste Anpassung.':op.type==='undo'?'Änderung rückgängig gemacht.':op.type==='save'?'Entwurf auf dem Server gespeichert.':['preview','versions','export','import','settings','replaceImage'].includes(op.type)?'Editorfunktion geöffnet.':op.type==='select'?'Element ausgewählt.':'Änderung übernommen. Rückgängig ist möglich.');
     }catch(error){status(error.message);}finally{directBusy=false;paint();resume();}
   }
 
@@ -263,7 +307,7 @@
     mute=document.createElement('button');mute.type='button';mute.className='kp-ai-mute';mute.textContent='◼';mute.hidden=true;
     mute.dataset.transient='';mute.setAttribute('aria-label','Mikrofon ausschalten');
     hint=document.createElement('div');hint.className='kp-ai-hint';hint.dataset.transient='';hint.hidden=true;hint.setAttribute('role','status');
-    document.body.append(button,hint,panel);createImageTools();
+    document.body.append(button,hint,panel);createImageTools();watchDesigns();
     mute.addEventListener('click',()=>{stopSpeech();status('Mikrofon aus.');});
     document.addEventListener('visibilitychange',()=>{if(document.hidden)stopSpeech();});
     let holdTimer, held=false;
