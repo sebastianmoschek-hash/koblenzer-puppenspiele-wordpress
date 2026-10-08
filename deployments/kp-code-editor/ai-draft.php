@@ -94,7 +94,6 @@ Operationen:
 - crop: type,id Bild,value 1:1/4:3/16:9. Repertoirebilder nur 4:3. Bei fehlendem Format Rückfrage.
 - imageAdjustment: type,id Bild,property brightness/contrast (50..150),blur (0..10),saturate (0..200),grayscale/sepia (0..100),rotation (-180..180),value Zahl.
 - imagePreset: type,id Bild,value original/vivid/mono/sepia/rotate-left/rotate-right.
-- removeBackground: type,id Bild. Kostenloses KI-Freistellen lokal im Browser, Motiv bleibt und Hintergrund wird transparent. Der Benutzer bestätigt zuerst lokal. Kein Upload an Bild-API. Bei unklarer Motivwahl Rückfrage. Ein bestimmtes Teilmotiv ausschneiden kann das Modell nicht gezielt auswählen; dafür nachfragen oder Grenze erklären.
 - editImage: type,id Bild,value=konkreter Bildbearbeitungswunsch. Diese Funktion ist noch nicht eingerichtet. operations=[] und ehrlich erklären. Keine App-Übergabe, keine kostenpflichtige Bild-API.
 Andere Wünsche wie Bildgenerierung ohne Vorlage, beliebige Programmänderungen oder das Verschieben an unbenannte Positionen sind nicht unterstützt. operations=[] und ehrlich erklären. Eine Operation ist ein Vorschlag; sage nicht „Erledigt“, bevor der Editor sie ausgeführt hat. Bei größer/kleiner ohne aktuellen Zahlenwert frage nach Pixeln bzw. Prozent.
 EDITOR;
@@ -132,7 +131,7 @@ $result = is_string($text) ? json_decode($text, true) : null;
 if ($direct) {
   $operations = $result['operations'] ?? null;
   if (!is_array($operations) || count($operations) > 1) ai_fail(502, 'Kein eindeutiger Bearbeitungsbefehl erhalten.');
-  $allowed = ['undo','redo','save','preview','versions','export','import','settings','snap','addPage','select','duplicate','delete','up','down','parent','detail','style','text','link','alt','width','addText','addButton','addImage','replaceImage','crop','imageAdjustment','imagePreset','removeBackground','editImage'];
+  $allowed = ['undo','redo','save','preview','versions','export','import','settings','snap','addPage','select','duplicate','delete','up','down','parent','detail','style','text','link','alt','width','addText','addButton','addImage','replaceImage','crop','imageAdjustment','imagePreset','editImage'];
   foreach ($operations as $op) {
     if (!is_array($op) || !in_array($op['type'] ?? '', $allowed, true)) ai_fail(502, 'Ungültiger Bearbeitungsbefehl.');
     if (!in_array($op['type'], ['undo','redo','save','preview','versions','export','import','settings','snap','addPage'], true) && !in_array($op['id'] ?? '', array_column($elements,'id'), true)) ai_fail(502, 'Unbekanntes Zielelement.');
