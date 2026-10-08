@@ -117,12 +117,28 @@
     },1100);
     stream.getVideoTracks()[0].onended=()=>{clearInterval(frameTimer);note('Bildschirmfreigabe beendet. Gespräch läuft weiter.');};note('Bildschirm wird mit Gemini geteilt.');
   }
+  async function connectionTest(){
+    if(running||starting)throw new Error('Bitte das Live-Gespräch zuerst beenden.');
+    note('Live-Verbindung wird ohne Mikrofon geprüft …');
+    const access=await api({action:'live-token'});
+    await new Promise((resolve,reject)=>{
+      const ws=new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(access.token));
+      const finish=error=>{clearTimeout(timer);ws.onclose=null;ws.close();error?reject(error):resolve();};
+      const timer=setTimeout(()=>finish(new Error('Live-Verbindung hat nicht rechtzeitig geantwortet.')),15000);
+      ws.onopen=()=>ws.send(JSON.stringify({setup:access.setup}));
+      ws.onmessage=async event=>{try{const msg=JSON.parse(typeof event.data==='string'?event.data:await event.data.text());if(msg.setupComplete)finish();else if(msg.error)finish(new Error('Live-Dienst: '+String(msg.error.message||'Anfrage abgelehnt').slice(0,200)));}catch{finish(new Error('Ungültige Live-Antwort.'));}};
+      ws.onerror=()=>finish(new Error('Live-Verbindung fehlgeschlagen.'));
+      ws.onclose=event=>finish(new Error('Live-Verbindung beendet ('+event.code+'): '+event.reason.slice(0,200)));
+    });
+    note('Live-Verbindung bereit. Mikrofon und Bildschirm wurden nicht übertragen.');
+  }
   function settings(){
     const panel=document.querySelector('.kp-ai-panel');if(!panel)return;
-    const box=document.createElement('div');box.innerHTML='<label><input type="checkbox" data-live-mode> Gemini-Live-Stimme verwenden</label><label><input type="checkbox" data-image-api> Bildbearbeitung über API aktivieren (kann Kosten verursachen)</label><button type="button" data-screen-share>Bildschirm teilen</button><p>Live nutzt Mikrofon und optional den freigegebenen Bildschirm. Ein Gespräch endet nach zehn Minuten. Gedrückt halten öffnet diese Einstellungen.</p>';
+    const box=document.createElement('div');box.innerHTML='<label><input type="checkbox" data-live-mode> Gemini-Live-Stimme verwenden</label><label><input type="checkbox" data-image-api> Bildbearbeitung über API aktivieren (kann Kosten verursachen)</label><button type="button" data-screen-share>Bildschirm teilen</button><button type="button" data-live-test>Live-Verbindung prüfen</button><p>Live nutzt Mikrofon und optional den freigegebenen Bildschirm. Ein Gespräch endet nach zehn Minuten. Gedrückt halten öffnet diese Einstellungen.</p>';
     panel.querySelector('details').after(box);
     const live=box.querySelector('[data-live-mode]');live.checked=localStorage.getItem('kp-ai-live-mode')!=='off';live.onchange=()=>{stop();localStorage.setItem('kp-ai-live-mode',live.checked?'on':'off');};
     const image=box.querySelector('[data-image-api]');image.checked=localStorage.getItem('kp-ai-image-api')==='on';image.onchange=()=>localStorage.setItem('kp-ai-image-api',image.checked?'on':'off');
+    box.querySelector('[data-live-test]').onclick=()=>connectionTest().catch(e=>note(e.message));
     box.querySelector('[data-screen-share]').onclick=()=>share().then(()=>panel.hidden=true).catch(e=>note(e.message));
     const shareButton=document.createElement('button');shareButton.type='button';shareButton.textContent='▣';shareButton.className='kp-ai-screen';shareButton.dataset.transient='';shareButton.hidden=true;shareButton.setAttribute('aria-label','Bildschirm mit KI teilen');shareButton.onclick=()=>share().catch(e=>note(e.message));document.body.append(shareButton);
     setInterval(()=>{shareButton.hidden=!running;},500);
