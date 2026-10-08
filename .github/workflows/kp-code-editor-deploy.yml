@@ -1,3 +1,4 @@
+# Current voice scope: no Android sharing or paid image API.
 name: KP staging code editor API
 on:
   push:
