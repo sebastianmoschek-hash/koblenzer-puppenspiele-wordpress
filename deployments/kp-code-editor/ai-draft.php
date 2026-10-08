@@ -75,7 +75,8 @@ if ($action === 'live-token') {
       ['name'=>'image_edit','description'=>'Bearbeitet das ausgewählte Bild mit der Bild-API, falls der Benutzer diese aktiviert hat.','parameters'=>['type'=>'OBJECT','properties'=>['prompt'=>['type'=>'STRING']],'required'=>['prompt']]]
     ]]]
   ];
-  $constraints = $setup; unset($constraints['model']);
+  $constraints = $setup; unset($constraints['model'], $constraints['generationConfig']);
+  $constraints['responseModalities'] = ['AUDIO'];
   $result = ai_google('auth_tokens', [
     'uses'=>1, 'expireTime'=>gmdate('Y-m-d\TH:i:s\Z',time()+600),
     'newSessionExpireTime'=>gmdate('Y-m-d\TH:i:s\Z',time()+60),
