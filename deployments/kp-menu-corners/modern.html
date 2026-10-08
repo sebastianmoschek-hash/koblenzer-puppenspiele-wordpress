@@ -43,7 +43,7 @@
   <script>/* sammel13: Vollbild-Vorhang vor dem ersten Bild – nur Besucher, einmal pro Sitzung (oder „bei jedem Laden“), nie bei weniger Bewegung, nie im Studio/Rahmen */(function(){try{var d=document.documentElement;if(window.top!==window||/[?&]edit=1(&|$)/.test(location.search))return;if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;var c=null;try{c=JSON.parse(localStorage.getItem('kp-fx-curtain')||'null')}catch(e){}if(c&&c.on===false)return;var always=!!(c&&c.mode==='always');var s=null;try{s=sessionStorage.getItem('kp-curtain-seen')}catch(e){}if(!always&&s==='1')return;try{sessionStorage.setItem('kp-curtain-seen','1')}catch(e){}if(c&&/^#[0-9a-f]{6}$/i.test(c.color||''))d.style.setProperty('--kp-curtain',c.color);d.classList.add('kp-curtain-pending')}catch(e){}})();</script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="app-icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="kp-ai-panel.css?v=20261008-share12">
+  <link rel="stylesheet" href="kp-ai-panel.css?v=20261008-design13">
 </head>
 <body class="kp-inline">
   <a class="skip-link" href="#start">Zum Inhalt springen</a>
@@ -583,6 +583,6 @@
   <script src="kp-inline.js?v=20261008-mobile-compact"></script>
   <script src="kp-menu-layout.js?v=20261008-mobile-compact"></script>
   <script src="kp-code-panel.js?v=20261008-ai2" defer></script>
-  <script src="kp-ai-panel.js?v=20261008-share12" defer></script>
+  <script src="kp-ai-panel.js?v=20261008-design13" defer></script>
 </body>
 </html>
