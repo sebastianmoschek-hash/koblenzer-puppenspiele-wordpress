@@ -52,7 +52,14 @@ function ai_google(string $endpoint, array $payload, string $key): array {
     CURLOPT_RETURNTRANSFER=>true, CURLOPT_TIMEOUT=>90, CURLOPT_CONNECTTIMEOUT=>10, CURLOPT_MAXREDIRS=>0]);
   $raw = curl_exec($ch); $http = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE); curl_close($ch);
   if (!is_string($raw)) ai_fail(502, 'Verbindung zu Google fehlgeschlagen.');
-  if ($http !== 200) ai_fail(502, $http === 429 ? 'Google-Nutzungslimit erreicht. Es wird nicht automatisch der Anbieter gewechselt.' : 'Google-Anfrage abgelehnt (HTTP ' . $http . ').');
+  if ($http !== 200) {
+    $remoteError = json_decode($raw, true);
+    $reason = (string)($remoteError['error']['message'] ?? '');
+    $reason = str_replace($key, '[entfernt]', $reason);
+    $reason = preg_replace('/AIza[A-Za-z0-9_-]+/', '[entfernt]', $reason);
+    ai_fail(502, $http === 429 ? 'Google-Nutzungslimit erreicht. Es wird nicht automatisch der Anbieter gewechselt.'
+      : 'Google-Anfrage abgelehnt (HTTP ' . $http . '): ' . mb_substr($reason, 0, 280));
+  }
   $result = json_decode($raw, true);
   if (!is_array($result)) ai_fail(502, 'Ungültige Google-Antwort.');
   return $result;
