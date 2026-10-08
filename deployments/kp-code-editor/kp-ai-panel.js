@@ -100,6 +100,68 @@
     if(op.type==='snap'&&typeof op.value!=='boolean')throw new Error('Bitte Raster an oder aus sagen.');
     return n;
   }
+
+  let imageFlow=null, imageTools, shareControl, importControl, preparedImage=null, preparingSource='';
+  function chosenImage(){const n=window.KPStudio?.selected||window.KPCtx?.element;return n?.matches('img')?n:null;}
+  function imageSource(n){return n.currentSrc||n.src;}
+  function offerImageEdit(n,prompt='Bearbeite dieses Bild.'){
+    imageFlow={node:n,source:imageSource(n),before:stamp(n),prompt};
+    refreshImageTools();status('Tippe auf „An Gemini teilen“, wähle Gemini und bearbeite das Bild dort. Danach das Ergebnis speichern und hier „Bild übernehmen“ antippen.');
+  }
+  async function prepareShare(n){
+    const source=imageSource(n);if(preparingSource===source)return;preparingSource=source;preparedImage=null;
+    try{
+      const response=await fetch(source,{credentials:'same-origin'});if(!response.ok)throw new Error('Bild konnte nicht geladen werden.');
+      const blob=await response.blob();if(!/^image\/(png|jpeg|webp)$/.test(blob.type)||blob.size>20*1024*1024)throw new Error('Bitte ein PNG, JPEG oder WebP bis 20 MB verwenden.');
+      if(preparingSource===source)preparedImage={source,file:new File([blob],'bild.'+({ 'image/png':'png','image/jpeg':'jpg','image/webp':'webp'}[blob.type]),{type:blob.type})};
+    }catch(error){if(preparingSource===source){preparedImage={source,error:error.message};}}
+    refreshImageTools(false);
+  }
+  function refreshImageTools(prepare=true){
+    if(!imageTools)return;const editing=document.body.classList.contains('editing'),n=imageFlow?.node?.isConnected?imageFlow.node:chosenImage();
+    imageTools.hidden=!editing||!n;importControl.hidden=!imageFlow;
+    if(n&&prepare)prepareShare(n);
+    shareControl.disabled=!n||!preparedImage||preparedImage.source!==imageSource(n)||!!preparedImage.error;
+    shareControl.textContent=preparedImage?.source===imageSource(n||{})?'An Gemini teilen':'Bild vorbereiten …';
+  }
+  function createImageTools(){
+    imageTools=document.createElement('div');imageTools.dataset.transient='';imageTools.hidden=true;
+    imageTools.style.cssText='position:fixed;left:16px;bottom:94px;z-index:10050;display:flex;gap:6px;max-width:calc(100vw - 32px);flex-wrap:wrap';
+    const style=document.createElement('style');style.dataset.transient='';style.textContent='[data-ai-image-tools][hidden]{display:none!important}[data-ai-image-tools] button{font:500 13px system-ui;padding:10px 12px;border:1px solid #967649;border-radius:22px;background:#192127;color:white;box-shadow:0 3px 14px #0004}[data-ai-image-tools] button:disabled{opacity:.6}';
+    imageTools.dataset.aiImageTools='';
+    shareControl=document.createElement('button');shareControl.type='button';shareControl.textContent='An Gemini teilen';
+    importControl=document.createElement('button');importControl.type='button';importControl.textContent='Bild übernehmen';importControl.hidden=true;
+    const picker=document.createElement('input');picker.type='file';picker.accept='image/png,image/jpeg,image/webp';picker.hidden=true;
+    shareControl.addEventListener('click',async()=>{
+      const n=imageFlow?.node?.isConnected?imageFlow.node:chosenImage();
+      if(!n||!preparedImage?.file||preparedImage.source!==imageSource(n)){status('Bild wird vorbereitet. Bitte gleich noch einmal tippen.');return;}
+      if(!navigator.share||!navigator.canShare?.({files:[preparedImage.file]})){status('Bildteilen wird hier nicht unterstützt. Bitte Chrome auf deinem Handy verwenden.');return;}
+      if(!imageFlow)imageFlow={node:n,source:imageSource(n),before:stamp(n),prompt:'Bearbeite dieses Bild.'};
+      stopSpeech();const job=imageFlow;
+      try{await navigator.share({files:[preparedImage.file],title:'Bild bearbeiten',text:job.prompt});status('In Gemini bearbeiten und das Ergebnis speichern. Danach hier „Bild übernehmen“ antippen.');}
+      catch(error){if(error.name!=='AbortError')status('Teilen fehlgeschlagen: '+error.message);}
+      refreshImageTools();
+    });
+    importControl.addEventListener('click',()=>{stopSpeech();picker.value='';picker.click();});
+    picker.addEventListener('change',async()=>{
+      const job=imageFlow,file=picker.files?.[0];if(!job||!file)return;
+      try{
+        if(!job.node.isConnected||stamp(job.node)!==job.before)throw new Error('Das ursprüngliche Bild wurde inzwischen geändert. Bitte erneut auswählen und teilen.');
+        if(!document.body.classList.contains('editing'))throw new Error('Bitte zuerst den Bearbeitungsmodus öffnen.');
+        if(!/^image\/(png|jpeg|webp)$/.test(file.type)||file.size>20*1024*1024)throw new Error('Bitte ein PNG, JPEG oder WebP bis 20 MB wählen.');
+        const decoded=await createImageBitmap(file);decoded.close();
+        if(!job.node.isConnected||stamp(job.node)!==job.before)throw new Error('Das Bild wurde inzwischen geändert. Bitte erneut auswählen.');
+        if(typeof window.KPReplaceImage!=='function')throw new Error('Bildspeicher nicht verfügbar.');
+        recordHistory();await window.KPReplaceImage(file,job.node);checkpoint();imageFlow=null;status('Bearbeitetes Bild übernommen. Rückgängig ist möglich.');
+      }catch(error){status(error.message);}finally{refreshImageTools();}
+    });
+    imageTools.append(shareControl,importControl,picker);document.body.append(style,imageTools);
+    document.addEventListener('pointerup',()=>setTimeout(refreshImageTools,150));
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshImageTools();});
+    new MutationObserver(()=>refreshImageTools()).observe(document.body,{attributes:true,attributeFilter:['class']});
+    refreshImageTools();
+  }
+
   async function applyOperation(op){
     const n=validateOperation(op),S=window.KPStudio;
     if(['undo','redo'].includes(op.type)){if(!window.KPHistoryState?.[op.type==='undo'?'canUndo':'canRedo']?.())throw new Error('Keine passende Änderung im Verlauf.');clickControl('[data-history="'+op.type+'"]');return;}
@@ -153,6 +215,8 @@
         pendingDelete=null;
       }
       context();let local;
+      const image=chosenImage()||(/header|kopfzeile/i.test(prompt)?document.querySelector('.masthead img'):null);
+      if(image&&/bild|foto|gemini|t.shirt|kleidung|hintergrund/i.test(prompt)&&/bearbeit|änder|ändere|ersetz|gemini|t.shirt/i.test(prompt)&&!/nicht|kein/i.test(prompt)){offerImageEdit(image,prompt);return;}
       if(!/\b(nicht|kein|keine)\b/.test(words)){
         if(/rückgängig|rueckgaengig|\bundo\b/.test(words)||/^(bitte )?(zurück|zurueck)$/.test(words))local={type:'undo'};
         else if(/^(bitte )?(wiederholen|wiederherstellen|redo)( bitte)?$/.test(words))local={type:'redo'};
@@ -175,7 +239,7 @@
       if(!result.operations.length){status(result.message||'Welches Element und welche Änderung meinst du?');return;}
       const op=result.operations[0],node=validateOperation(op);
       if(node&&stamp(node)!==before.get(op.id))throw new Error('Das Element wurde inzwischen geändert. Bitte erneut sprechen.');
-      if(op.type==='editImage'){conversation=[];status('Die automatische KI-Bildbearbeitung wird gerade eingerichtet. Es wird weder geteilt noch eine kostenpflichtige Bild-API verwendet.');return;}
+      if(op.type==='editImage'){conversation=[];offerImageEdit(node,op.value||prompt);return;}
         if(op.type==='delete'){pendingDelete={op,node,before:stamp(node)};status('Soll ich „'+(node.querySelector('h1,h2,h3')?.textContent||node.textContent||node.alt||'dieses Element').trim().slice(0,80)+'“ wirklich löschen? Sag Ja oder Abbrechen.');return;}
       await applyOperation(op);conversation=[];
       status(op.type==='undo'?'Änderung rückgängig gemacht.':op.type==='save'?'Entwurf auf dem Server gespeichert.':['preview','versions','export','import','settings','replaceImage'].includes(op.type)?'Editorfunktion geöffnet.':op.type==='select'?'Element ausgewählt.':'Änderung übernommen. Rückgängig ist möglich.');
@@ -199,7 +263,7 @@
     mute=document.createElement('button');mute.type='button';mute.className='kp-ai-mute';mute.textContent='◼';mute.hidden=true;
     mute.dataset.transient='';mute.setAttribute('aria-label','Mikrofon ausschalten');
     hint=document.createElement('div');hint.className='kp-ai-hint';hint.dataset.transient='';hint.hidden=true;hint.setAttribute('role','status');
-    document.body.append(button,hint,panel);
+    document.body.append(button,hint,panel);createImageTools();
     mute.addEventListener('click',()=>{stopSpeech();status('Mikrofon aus.');});
     document.addEventListener('visibilitychange',()=>{if(document.hidden)stopSpeech();});
     let holdTimer, held=false;
