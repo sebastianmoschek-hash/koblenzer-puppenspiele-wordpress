@@ -73,19 +73,22 @@ jobs:
           if sys.argv[1] == "backup":
               backup.mkdir()
               manifest = {}
+              mismatches = []
               for remote in files:
                   data = read(remote)
                   sha = digest(data)
                   if remote in expected and sha != expected[remote]:
-                      raise RuntimeError("Staging changed: " + remote + " actual SHA256 " + str(sha))
+                      mismatches.append("Staging changed: " + remote + " actual SHA256 " + str(sha))
                   if remote not in expected and data is not None:
-                      raise RuntimeError("AI file already exists; review before replacing: " + remote)
+                      mismatches.append("AI file already exists; review before replacing: " + remote)
                   manifest[remote] = sha
                   if data is not None:
                       target = backup / remote
                       target.parent.mkdir(parents=True, exist_ok=True)
                       target.write_bytes(data)
               (backup / "manifest.json").write_text(json.dumps(manifest))
+              if mismatches:
+                  raise RuntimeError("; ".join(mismatches))
           else:
               manifest = json.loads((backup / "manifest.json").read_text())
               for remote, sha in manifest.items():
@@ -114,7 +117,7 @@ jobs:
           PY
           python /tmp/kp-ai-deploy.py backup
       - name: Retain verified backup
-        if: contains(github.event.head_commit.message, '[kp-code-upload]')
+        if: always() && contains(github.event.head_commit.message, '[kp-code-upload]')
         uses: actions/upload-artifact@v4
         with:
           name: kp-ai-before-${{ github.run_id }}
