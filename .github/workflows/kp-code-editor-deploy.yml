@@ -30,6 +30,7 @@ jobs:
           php -l deployments/kp-code-editor/ai-draft.php
           node --check deployments/kp-code-editor/kp-code-panel.js
           node --check deployments/kp-code-editor/kp-ai-panel.js
+          node --check deployments/kp-code-editor/kp-background-lib.js
       - name: Prepare verified staging backup
         if: contains(github.event.head_commit.message, '[kp-code-upload]')
         run: |
@@ -40,11 +41,13 @@ jobs:
               "modern.html": "deployments/kp-menu-corners/modern.html",
               "kp-ai-panel.js": "deployments/kp-code-editor/kp-ai-panel.js",
               "api/ai-draft.php": "deployments/kp-code-editor/ai-draft.php",
+              "kp-background-lib.js": "deployments/kp-code-editor/kp-background-lib.js",
+              "kp-background-licenses.txt": "deployments/kp-code-editor/kp-background-licenses.txt",
           }
           expected = {
-              "modern.html": "4bfa91f952681e846f683d39ba0a60631789af47624f6edac3e669a5585dc6ef",
-              "kp-ai-panel.js": "6ca96ec7d276a87b39060f5818ae6642fb8f3b65fb1ac3d557c0fdd91b528e58",
-              "api/ai-draft.php": "feaada82d4e98d54b110eb5d43ad986daedc4f6f20d96fa8a4ee70e63e4afbfe",
+              "modern.html": "b120a0764cbefe4e63012e8a2497d05c3fd8751d2b3746d3e459e2c7f4b55ea1",
+              "kp-ai-panel.js": "eaa3b082880be39f880ae3b8e42a9e4d615993cea5bd15035162b6ecbcc466df",
+              "api/ai-draft.php": "27b5d8edc9f66235c8765111193f505495a37e1f45140909782e8e9b9675b444",
           }
           ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
           ftp.connect("srv26.dsbsrv.de", 21)
