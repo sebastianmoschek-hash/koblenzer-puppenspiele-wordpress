@@ -60,7 +60,7 @@
 
   let targets = new Map(), directBusy = false;
   const colors = {blau:'#2563eb',rot:'#dc2626',grün:'#16a34a',gruen:'#16a34a',orange:'#f07a22',weiß:'#ffffff',weiss:'#ffffff',schwarz:'#000000',gelb:'#facc15',lila:'#9333ea'};
-  let conversation=[], pendingDelete=null, pendingBackground=null;
+  let conversation=[], pendingDelete=null;
   const ids=new WeakMap();let nextId=0;
   const idFor=n=>{if(!ids.has(n))ids.set(n,'e'+(++nextId));return ids.get(n);};
   const stamp=n=>JSON.stringify([n.textContent,n.getAttribute('style'),n.getAttribute('src'),n.getAttribute('href'),n.parentElement?.id]);
@@ -80,7 +80,7 @@
   function validateOperation(op){
     if(!op||typeof op!=='object')throw new Error('Ungültiger Editorbefehl.');
     const global=['undo','redo','save','preview','versions','export','import','settings','addPage','snap'];
-    const types=[...global,'select','style','text','link','alt','width','duplicate','delete','up','down','parent','detail','addText','addButton','addImage','replaceImage','crop','imageAdjustment','imagePreset','removeBackground','editImage'];
+    const types=[...global,'select','style','text','link','alt','width','duplicate','delete','up','down','parent','detail','addText','addButton','addImage','replaceImage','crop','imageAdjustment','imagePreset','editImage'];
     if(!types.includes(op.type))throw new Error('Diese Funktion ist noch nicht angebunden.');
     const n=targets.get(op.id);if(!global.includes(op.type)&&!editable(n))throw new Error('Bitte das Zielelement genauer benennen.');
     if(op.type==='style'&&(!styleValues[op.property]||!styleValues[op.property](op.value)))throw new Error('Ungültige Gestaltung.');
@@ -88,7 +88,7 @@
     if(op.type==='text'&&(n.children.length||n.matches('img,section,main')))throw new Error('Bitte den einzelnen Text statt des ganzen Bereichs auswählen.');
     if(['link','addButton'].includes(op.type))safeLink(op.url);
     if(op.type==='link'&&!n.matches('a'))throw new Error('Bitte einen Link oder Button auswählen.');
-    if(['alt','replaceImage','crop','imageAdjustment','imagePreset','removeBackground','editImage'].includes(op.type)&&!n.matches('img'))throw new Error('Bitte ein Bild auswählen.');
+    if(['alt','replaceImage','crop','imageAdjustment','imagePreset','editImage'].includes(op.type)&&!n.matches('img'))throw new Error('Bitte ein Bild auswählen.');
     if(op.type==='width'&&!(Number(op.value)>=15&&Number(op.value)<=100))throw new Error('Breite muss zwischen 15 und 100 Prozent liegen.');
     if(['addText','addButton','addImage'].includes(op.type)&&!n.matches('section,main,.piece,.hero-copy'))throw new Error('Bitte den Bereich für das neue Element nennen.');
     if(op.type==='delete'&&n.matches('main,.masthead,.hero,.desktop-nav,.footer'))throw new Error('Dieser Hauptbereich wird nicht gelöscht.');
@@ -99,40 +99,6 @@
     if(op.type==='editImage'&&(typeof op.value!=='string'||!op.value.trim()||op.value.length>1800))throw new Error('Bitte die Bildänderung genauer beschreiben.');
     if(op.type==='snap'&&typeof op.value!=='boolean')throw new Error('Bitte Raster an oder aus sagen.');
     return n;
-  }
-  let backgroundLibrary;
-  function loadBackgroundLibrary(){
-    if(typeof Worker!=='function'||typeof OffscreenCanvas!=='function')throw new Error('Dieser Browser unterstützt lokales KI-Freistellen noch nicht. Bitte Chrome aktualisieren.');
-    if(!backgroundLibrary)backgroundLibrary=Promise.resolve({remove:(input,config)=>new Promise((resolve,reject)=>{
-      const worker=new Worker('kp-background-worker.js?v=20261008-free10');
-      const finish=(error,output)=>{clearTimeout(timer);worker.terminate();error?reject(error):resolve(output);};
-      const timer=setTimeout(()=>finish(new Error('Freistellen hat zu lange gedauert. Original unverändert.')),150000);
-      worker.onmessage=event=>{const data=event.data||{};if(data.kind==='progress')config.progress?.(data.key,data.current,data.total);else if(data.kind==='result')finish(null,data.output);else if(data.kind==='error')finish(new Error(data.message));};
-      worker.onerror=()=>finish(new Error('Freistell-Worker konnte nicht geladen oder gestartet werden.'));worker.postMessage({input});
-    })});return backgroundLibrary;
-  }
-  async function removeBackground(n){
-    const before=stamp(n),src=n.currentSrc||n.src;
-    const library=await loadBackgroundLibrary();
-    const image=new Image();image.crossOrigin='anonymous';image.src=src;await image.decode();
-    const canvas=document.createElement('canvas'),scale=Math.min(1,1600/Math.max(image.naturalWidth,image.naturalHeight));canvas.width=Math.round(image.naturalWidth*scale);canvas.height=Math.round(image.naturalHeight*scale);canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
-    let input;try{input=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));}catch{throw new Error('Dieses Bild lässt sich wegen seiner Herkunft nicht lokal freistellen.');}
-    if(!input)throw new Error('Bildvorbereitung fehlgeschlagen.');
-    status('Ich stelle das Bild lokal frei … Beim ersten Mal wird das KI-Modell geladen.');
-    let lastProgress=0;
-    let output;try{output=await library.remove(input,{model:'isnet_quint8',device:'cpu',output:{format:'image/png',quality:1},progress:(key,current,total)=>{
-      const now=Date.now();if(now-lastProgress<1500)return;lastProgress=now;
-      // Download progress is visual only: do not read every chunk aloud or restart listening.
-      const msg=key.startsWith('compute')?'Bild wird lokal freigestellt …':'KI-Modell wird geladen'+(total?' ('+Math.round(current/total*100)+' %)':'')+' …';
-      if(panel)panel.querySelector('[data-ai-status]').textContent=msg;if(hint){hint.textContent=msg;hint.hidden=false;clearTimeout(hintTimer);}
-    }});}catch(error){throw new Error('Lokales Freistellen fehlgeschlagen. Original unverändert. '+String(error.message||'').slice(0,160));}
-    if(!n.isConnected||stamp(n)!==before)throw new Error('Das Original wurde inzwischen geändert. Ergebnis wird nicht eingesetzt.');
-    if(!document.body.classList.contains('editing'))throw new Error('Bearbeitungsmodus wurde beendet. Original unverändert.');
-    if(!(output instanceof Blob)||output.type!=='image/png')throw new Error('Kein gültiges Freistellergebnis.');
-    const decoded=await createImageBitmap(output),check=document.createElement('canvas');check.width=decoded.width;check.height=decoded.height;const ctx=check.getContext('2d',{willReadFrequently:true});ctx.drawImage(decoded,0,0);decoded.close();
-    const data=ctx.getImageData(0,0,check.width,check.height).data;let visible=0,transparent=0;for(let i=3;i<data.length;i+=4){if(data[i]>220)visible++;if(data[i]<30)transparent++;}
-    if(visible<100||transparent<100)throw new Error('Kein eindeutiges Motiv mit transparentem Hintergrund erkannt. Original unverändert.');
-    if(typeof window.KPReplaceImage!=='function')throw new Error('Bildspeicher nicht verfügbar.');recordHistory();await window.KPReplaceImage(new File([output],'freigestellt.png',{type:'image/png'}),n);checkpoint();
   }
   async function applyOperation(op){
     const n=validateOperation(op),S=window.KPStudio;
@@ -160,7 +126,6 @@
       let blob;try{blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));}catch{throw new Error('Dieses Bild lässt sich wegen seiner Herkunft nicht zuschneiden.');}
       if(!blob||typeof window.KPReplaceImage!=='function')throw new Error('Bildspeicher nicht verfügbar.');recordHistory();await window.KPReplaceImage(new File([blob],'zugeschnitten.png',{type:'image/png'}),n);checkpoint();return;
     }
-    if(op.type==='removeBackground'){await removeBackground(n);return;}
     if(op.type==='imagePreset'){clickControl('[data-image-preset="'+op.value+'"]',S.inspector);return;}
     if(op.type==='imageAdjustment'||op.type==='width'){
       const field=S.inspector.querySelector(op.type==='width'?'[data-property="width"]':'[data-image-adjust="'+op.property+'"]');const value=Number(op.value);
@@ -182,11 +147,7 @@
     try{
       if(!document.body.classList.contains('editing'))throw new Error('Bearbeitungsmodus erforderlich.');
       const words=prompt.toLowerCase().replace(/[.,!?;:]/g,' ').replace(/\s+/g,' ').trim();
-      if(/^(abbrechen|vergiss das|nein|nein danke)$/.test(words)){conversation=[];pendingDelete=null;pendingBackground=null;status('Abgebrochen.');return;}
-      if(pendingBackground){
-        if(/^(ja|ja bitte|bestätigen|bestätige|mach das|freistellen)$/.test(words)){const job=pendingBackground;pendingBackground=null;if(!job.node.isConnected||stamp(job.node)!==job.before)throw new Error('Das Bild wurde inzwischen geändert. Bitte erneut auswählen.');targets.set(job.op.id,job.node);await applyOperation(job.op);conversation=[];status('Bild lokal freigestellt. Rückgängig ist möglich.');return;}
-        pendingBackground=null;
-      }
+      if(/^(abbrechen|vergiss das|nein|nein danke)$/.test(words)){conversation=[];pendingDelete=null;status('Abgebrochen.');return;}
       if(pendingDelete){
         if(/^(ja|ja bitte|bestätigen|bestätige|löschen|ja löschen|mach das)$/.test(words)){const {op,node,before}=pendingDelete;pendingDelete=null;if(!node.isConnected||stamp(node)!==before)throw new Error('Der Eintrag hat sich verändert. Bitte erneut benennen.');targets.set(op.id,node);await applyOperation(op);conversation=[];status('Eintrag gelöscht. Rückgängig ist möglich.');return;}
         pendingDelete=null;
@@ -203,7 +164,6 @@
         const page=prompt.trim().match(/^(?:bitte\s+)?(?:erstelle|mach|lege|füge)\s+(?:mir\s+)?(?:eine\s+)?neue\s+seite\s+(?:(?:mit dem namen|namens|mit dem titel)\s+)?[„"]?(.+?)[”"]?(?:\s+an|\s+hinzu)?[.!]?$/i);
         if(page)local={type:'addPage',value:page[1].trim()};
         const selected=window.KPStudio?.selected||window.KPCtx?.element;
-        if(!local&&/stell.*frei|freistellen|entfern.*hintergrund/i.test(prompt)&&!/nicht|kein/i.test(prompt)){const image=selected?.matches('img')?selected:/header|kopfzeile/i.test(prompt)?document.querySelector('.masthead img'):null;if(image)local={type:'removeBackground',id:idFor(image)};}
       }
       let result={message:''};const before=new Map([...targets].map(([id,n])=>[id,stamp(n)]));
       if(local)result.operations=[local];else{
@@ -216,8 +176,7 @@
       const op=result.operations[0],node=validateOperation(op);
       if(node&&stamp(node)!==before.get(op.id))throw new Error('Das Element wurde inzwischen geändert. Bitte erneut sprechen.');
       if(op.type==='editImage'){conversation=[];status('Die automatische KI-Bildbearbeitung wird gerade eingerichtet. Es wird weder geteilt noch eine kostenpflichtige Bild-API verwendet.');return;}
-      if(op.type==='removeBackground'){pendingBackground={op,node,before:stamp(node)};status('Soll ich dieses Bild kostenlos lokal freistellen? Sag Ja oder Abbrechen. Beim ersten Mal wird ein KI-Modell heruntergeladen.');return;}
-      if(op.type==='delete'){pendingDelete={op,node,before:stamp(node)};status('Soll ich „'+(node.querySelector('h1,h2,h3')?.textContent||node.textContent||node.alt||'dieses Element').trim().slice(0,80)+'“ wirklich löschen? Sag Ja oder Abbrechen.');return;}
+        if(op.type==='delete'){pendingDelete={op,node,before:stamp(node)};status('Soll ich „'+(node.querySelector('h1,h2,h3')?.textContent||node.textContent||node.alt||'dieses Element').trim().slice(0,80)+'“ wirklich löschen? Sag Ja oder Abbrechen.');return;}
       await applyOperation(op);conversation=[];
       status(op.type==='undo'?'Änderung rückgängig gemacht.':op.type==='save'?'Entwurf auf dem Server gespeichert.':['preview','versions','export','import','settings','replaceImage'].includes(op.type)?'Editorfunktion geöffnet.':op.type==='select'?'Element ausgewählt.':'Änderung übernommen. Rückgängig ist möglich.');
     }catch(error){status(error.message);}finally{directBusy=false;paint();resume();}
@@ -235,8 +194,7 @@
       '<details><summary>Gemini-Schlüssel verwalten</summary><p>Nur auf dem Testserver gespeichert. Bei Bereinigung des privaten Serverspeichers erneut eingeben.</p><label>API-Schlüssel <input type="password" data-ai-key autocomplete="off"></label><button type="button" data-ai-save-key>Schlüssel speichern</button></details>' +
       '<label>Dein Wunsch <textarea data-ai-prompt rows="3" placeholder="Mach die Überschrift oben kleiner"></textarea></label>' +
       '<div class="kp-ai-actions"><button type="button" data-ai-mic>🎙 Sprechen</button><button type="button" data-ai-send>Ändern</button></div>' +
-      '<p data-ai-status role="status" aria-live="polite"></p>'+
-      '<small>Lokales Freistellen: IMG.LY · <a href="kp-background-licenses.txt" target="_blank" rel="noopener">Lizenzen</a> · <a href="https://github.com/sebastianmoschek-hash/koblenzer-puppenspiele-wordpress/tree/codex/kp-editor-ai-staging/deployments/kp-code-editor" target="_blank" rel="noopener">Quellcode</a></small>';
+      '<p data-ai-status role="status" aria-live="polite"></p>';
 
     mute=document.createElement('button');mute.type='button';mute.className='kp-ai-mute';mute.textContent='◼';mute.hidden=true;
     mute.dataset.transient='';mute.setAttribute('aria-label','Mikrofon ausschalten');
