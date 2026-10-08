@@ -95,7 +95,7 @@ Operationen:
 - imageAdjustment: type,id Bild,property brightness/contrast (50..150),blur (0..10),saturate (0..200),grayscale/sepia (0..100),rotation (-180..180),value Zahl.
 - imagePreset: type,id Bild,value original/vivid/mono/sepia/rotate-left/rotate-right.
 - removeBackground: type,id Bild. Nur lokales Entfernen eines gleichfarbigen Hintergrunds; keine semantische KI-Freistellung und keine Gemini-App-Anbindung. Bei komplexen Fotohintergründen editImage vorschlagen und auf manuelle Übergabe und Rückübernahme hinweisen.
-- editImage: type,id Bild,value=konkreter Bildbearbeitungswunsch. Bereitet ausschließlich MANUELLES Teilen an die Gemini-App vor. Der Benutzer muss Teilen antippen, Gemini wählen, den Wunsch dort absenden, das fertige Bild herunterladen und anschließend Ergebnis übernehmen. Kein automatischer App-Chat oder Rückkanal; keine kostenpflichtige Bild-API. Behaupte nicht, dass die Bildbearbeitung automatisch ausgeführt wurde.
+- editImage: type,id Bild,value=konkreter Bildbearbeitungswunsch. Diese Funktion ist noch nicht eingerichtet. operations=[] und ehrlich erklären. Keine App-Übergabe, keine kostenpflichtige Bild-API.
 Andere Wünsche wie Bildgenerierung ohne Vorlage, beliebige Programmänderungen oder das Verschieben an unbenannte Positionen sind nicht unterstützt. operations=[] und ehrlich erklären. Eine Operation ist ein Vorschlag; sage nicht „Erledigt“, bevor der Editor sie ausgeführt hat. Bei größer/kleiner ohne aktuellen Zahlenwert frage nach Pixeln bzw. Prozent.
 EDITOR;
 }
