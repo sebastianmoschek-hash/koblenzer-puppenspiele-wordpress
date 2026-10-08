@@ -82,12 +82,12 @@ if ($action === 'live-token') {
       ['name'=>'image_edit','description'=>'Bearbeitet das ausgewählte Bild mit der Bild-API, falls der Benutzer diese aktiviert hat.','parameters'=>['type'=>'OBJECT','properties'=>['prompt'=>['type'=>'STRING']],'required'=>['prompt']]]
     ]]]
   ];
-  // Lock only the documented token constraints. The full setup is sent on the WebSocket.
-  $constraints = ['responseModalities'=>['AUDIO']];
+  // Lock the one-use token to this model; the client sends the remaining setup fields.
+  $constraints = ['model'=>$setup['model']];
   $result = ai_google('auth_tokens', [
     'uses'=>1, 'expireTime'=>gmdate('Y-m-d\TH:i:s\Z',time()+600),
     'newSessionExpireTime'=>gmdate('Y-m-d\TH:i:s\Z',time()+60),
-    'liveConnectConstraints'=>['model'=>$setup['model'],'config'=>$constraints]
+    'bidiGenerateContentSetup'=>$constraints, 'fieldMask'=>'model'
   ], $key);
   if (!is_string($result['name'] ?? null)) ai_fail(502, 'Kein Live-Zugang erhalten.');
   echo json_encode(['token'=>$result['name'],'setup'=>$setup,'durationSeconds'=>600]); exit;
