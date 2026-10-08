@@ -60,7 +60,7 @@
 
   let targets = new Map(), directBusy = false;
   const colors = {blau:'#2563eb',rot:'#dc2626',grün:'#16a34a',gruen:'#16a34a',orange:'#f07a22',weiß:'#ffffff',weiss:'#ffffff',schwarz:'#000000',gelb:'#facc15',lila:'#9333ea'};
-  let conversation=[], pendingDelete=null;
+  let conversation=[], pendingDelete=null, pendingBackground=null;
   const ids=new WeakMap();let nextId=0;
   const idFor=n=>{if(!ids.has(n))ids.set(n,'e'+(++nextId));return ids.get(n);};
   const stamp=n=>JSON.stringify([n.textContent,n.getAttribute('style'),n.getAttribute('src'),n.getAttribute('href'),n.parentElement?.id]);
@@ -100,25 +100,38 @@
     if(op.type==='snap'&&typeof op.value!=='boolean')throw new Error('Bitte Raster an oder aus sagen.');
     return n;
   }
+  let backgroundLibrary;
+  function loadBackgroundLibrary(){
+    if(window.KPBackground?.remove)return Promise.resolve(window.KPBackground);
+    if(!backgroundLibrary)backgroundLibrary=new Promise((resolve,reject)=>{
+      const script=document.createElement('script');script.src='kp-background-lib.js?v=20261008-free9';script.dataset.transient='';
+      const timer=setTimeout(()=>{backgroundLibrary=null;script.remove();reject(new Error('Freistell-Bibliothek konnte nicht geladen werden. Bitte erneut versuchen.'));},30000);
+      script.onload=()=>{clearTimeout(timer);if(window.KPBackground?.remove)resolve(window.KPBackground);else{backgroundLibrary=null;reject(new Error('Freistellen nicht verfügbar.'));}};
+      script.onerror=()=>{clearTimeout(timer);backgroundLibrary=null;script.remove();reject(new Error('Freistell-Bibliothek konnte nicht geladen werden.'));};document.head.append(script);
+    });return backgroundLibrary;
+  }
   async function removeBackground(n){
-    // Conservative local colour-key: only backgrounds connected to the image border.
-    // It is not semantic segmentation and deliberately rejects complex backgrounds.
-    const image=new Image();image.crossOrigin='anonymous';image.src=n.currentSrc||n.src;await image.decode();
-    const canvas=document.createElement('canvas'),scale=Math.min(1,1600/Math.max(image.naturalWidth,image.naturalHeight));canvas.width=Math.round(image.naturalWidth*scale);canvas.height=Math.round(image.naturalHeight*scale);
-    const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(image,0,0,canvas.width,canvas.height);
-    let pixels;try{pixels=ctx.getImageData(0,0,canvas.width,canvas.height);}catch{throw new Error('Dieses Bild lässt sich wegen seiner Herkunft nicht lokal bearbeiten.');}
-    const {data}=pixels,w=canvas.width,h=canvas.height;
-    const corners=[0,w-1,w*(h-1),w*h-1],sample=corners.map(i=>Array.from(data.slice(i*4,i*4+4)));
-    if(sample.every(c=>c[3]<10))throw new Error('Das Bild hat bereits einen transparenten Hintergrund.');
-    const ref=sample[0];if(sample.some(c=>Math.hypot(c[0]-ref[0],c[1]-ref[1],c[2]-ref[2])>35))throw new Error('Der Hintergrund ist zu unregelmäßig für das lokale Freistellen. Eine KI-Bildfreistellung ist noch nicht verfügbar.');
-    const visited=new Uint8Array(w*h),queue=new Int32Array(w*h);let head=0,tail=0,removed=0;
-    const add=i=>{if(i<0||i>=w*h||visited[i])return;visited[i]=1;const p=i*4;if(data[p+3]<10||Math.hypot(data[p]-ref[0],data[p+1]-ref[1],data[p+2]-ref[2])<40)queue[tail++]=i;};
-    for(let x=0;x<w;x++){add(x);add((h-1)*w+x);}for(let y=0;y<h;y++){add(y*w);add(y*w+w-1);}
-    while(head<tail){const i=queue[head++];data[i*4+3]=0;removed++;if(i%w)add(i-1);if(i%w<w-1)add(i+1);add(i-w);add(i+w);}
-    if(removed>w*h*.95||removed<w*h*.01)throw new Error('Kein eindeutiger Hintergrund erkannt. Das Bild bleibt unverändert.');
-    ctx.putImageData(pixels,0,0);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw new Error('Bild konnte nicht erstellt werden.');
-    if(typeof window.KPReplaceImage!=='function')throw new Error('Bildspeicher nicht verfügbar.');
-    recordHistory();await window.KPReplaceImage(new File([blob],'freigestellt.png',{type:'image/png'}),n);checkpoint();
+    const before=stamp(n),src=n.currentSrc||n.src;
+    const library=await loadBackgroundLibrary();
+    const image=new Image();image.crossOrigin='anonymous';image.src=src;await image.decode();
+    const canvas=document.createElement('canvas'),scale=Math.min(1,1600/Math.max(image.naturalWidth,image.naturalHeight));canvas.width=Math.round(image.naturalWidth*scale);canvas.height=Math.round(image.naturalHeight*scale);canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+    let input;try{input=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));}catch{throw new Error('Dieses Bild lässt sich wegen seiner Herkunft nicht lokal freistellen.');}
+    if(!input)throw new Error('Bildvorbereitung fehlgeschlagen.');
+    status('Ich stelle das Bild lokal frei … Beim ersten Mal wird das KI-Modell geladen.');
+    let lastProgress=0;
+    let output;try{output=await library.remove(input,{model:'isnet_quint8',device:'cpu',output:{format:'image/png',quality:1},progress:(key,current,total)=>{
+      const now=Date.now();if(now-lastProgress<1500)return;lastProgress=now;
+      // Download progress is visual only: do not read every chunk aloud or restart listening.
+      const msg=key.startsWith('compute')?'Bild wird lokal freigestellt …':'KI-Modell wird geladen'+(total?' ('+Math.round(current/total*100)+' %)':'')+' …';
+      if(panel)panel.querySelector('[data-ai-status]').textContent=msg;if(hint){hint.textContent=msg;hint.hidden=false;clearTimeout(hintTimer);}
+    }});}catch(error){throw new Error('Lokales Freistellen fehlgeschlagen. Original unverändert. '+String(error.message||'').slice(0,160));}
+    if(!n.isConnected||stamp(n)!==before)throw new Error('Das Original wurde inzwischen geändert. Ergebnis wird nicht eingesetzt.');
+    if(!document.body.classList.contains('editing'))throw new Error('Bearbeitungsmodus wurde beendet. Original unverändert.');
+    if(!(output instanceof Blob)||output.type!=='image/png')throw new Error('Kein gültiges Freistellergebnis.');
+    const decoded=await createImageBitmap(output),check=document.createElement('canvas');check.width=decoded.width;check.height=decoded.height;const ctx=check.getContext('2d',{willReadFrequently:true});ctx.drawImage(decoded,0,0);decoded.close();
+    const data=ctx.getImageData(0,0,check.width,check.height).data;let visible=0,transparent=0;for(let i=3;i<data.length;i+=4){if(data[i]>220)visible++;if(data[i]<30)transparent++;}
+    if(visible<100||transparent<100)throw new Error('Kein eindeutiges Motiv mit transparentem Hintergrund erkannt. Original unverändert.');
+    if(typeof window.KPReplaceImage!=='function')throw new Error('Bildspeicher nicht verfügbar.');recordHistory();await window.KPReplaceImage(new File([output],'freigestellt.png',{type:'image/png'}),n);checkpoint();
   }
   async function applyOperation(op){
     const n=validateOperation(op),S=window.KPStudio;
@@ -168,7 +181,11 @@
     try{
       if(!document.body.classList.contains('editing'))throw new Error('Bearbeitungsmodus erforderlich.');
       const words=prompt.toLowerCase().replace(/[.,!?;:]/g,' ').replace(/\s+/g,' ').trim();
-      if(/^(abbrechen|vergiss das|nein|nein danke)$/.test(words)){conversation=[];pendingDelete=null;status('Abgebrochen.');return;}
+      if(/^(abbrechen|vergiss das|nein|nein danke)$/.test(words)){conversation=[];pendingDelete=null;pendingBackground=null;status('Abgebrochen.');return;}
+      if(pendingBackground){
+        if(/^(ja|ja bitte|bestätigen|bestätige|mach das|freistellen)$/.test(words)){const job=pendingBackground;pendingBackground=null;if(!job.node.isConnected||stamp(job.node)!==job.before)throw new Error('Das Bild wurde inzwischen geändert. Bitte erneut auswählen.');targets.set(job.op.id,job.node);await applyOperation(job.op);conversation=[];status('Bild lokal freigestellt. Rückgängig ist möglich.');return;}
+        pendingBackground=null;
+      }
       if(pendingDelete){
         if(/^(ja|ja bitte|bestätigen|bestätige|löschen|ja löschen|mach das)$/.test(words)){const {op,node,before}=pendingDelete;pendingDelete=null;if(!node.isConnected||stamp(node)!==before)throw new Error('Der Eintrag hat sich verändert. Bitte erneut benennen.');targets.set(op.id,node);await applyOperation(op);conversation=[];status('Eintrag gelöscht. Rückgängig ist möglich.');return;}
         pendingDelete=null;
@@ -185,7 +202,7 @@
         const page=prompt.trim().match(/^(?:bitte\s+)?(?:erstelle|mach|lege|füge)\s+(?:mir\s+)?(?:eine\s+)?neue\s+seite\s+(?:(?:mit dem namen|namens|mit dem titel)\s+)?[„"]?(.+?)[”"]?(?:\s+an|\s+hinzu)?[.!]?$/i);
         if(page)local={type:'addPage',value:page[1].trim()};
         const selected=window.KPStudio?.selected||window.KPCtx?.element;
-        if(!local&&selected?.matches('img')&&/gemini|stell.*frei|freistellen|(?:ändere|bearbeite).*(?:bild|foto)/i.test(prompt))local={type:'editImage',id:idFor(selected),value:prompt};
+        if(!local&&/stell.*frei|freistellen|entfern.*hintergrund/i.test(prompt)&&!/nicht|kein/i.test(prompt)){const image=selected?.matches('img')?selected:/header|kopfzeile/i.test(prompt)?document.querySelector('.masthead img'):null;if(image)local={type:'removeBackground',id:idFor(image)};}
       }
       let result={message:''};const before=new Map([...targets].map(([id,n])=>[id,stamp(n)]));
       if(local)result.operations=[local];else{
@@ -198,6 +215,7 @@
       const op=result.operations[0],node=validateOperation(op);
       if(node&&stamp(node)!==before.get(op.id))throw new Error('Das Element wurde inzwischen geändert. Bitte erneut sprechen.');
       if(op.type==='editImage'){conversation=[];status('Die automatische KI-Bildbearbeitung wird gerade eingerichtet. Es wird weder geteilt noch eine kostenpflichtige Bild-API verwendet.');return;}
+      if(op.type==='removeBackground'){pendingBackground={op,node,before:stamp(node)};status('Soll ich dieses Bild kostenlos lokal freistellen? Sag Ja oder Abbrechen. Beim ersten Mal wird ein KI-Modell heruntergeladen.');return;}
       if(op.type==='delete'){pendingDelete={op,node,before:stamp(node)};status('Soll ich „'+(node.querySelector('h1,h2,h3')?.textContent||node.textContent||node.alt||'dieses Element').trim().slice(0,80)+'“ wirklich löschen? Sag Ja oder Abbrechen.');return;}
       await applyOperation(op);conversation=[];
       status(op.type==='undo'?'Änderung rückgängig gemacht.':op.type==='save'?'Entwurf auf dem Server gespeichert.':['preview','versions','export','import','settings','replaceImage'].includes(op.type)?'Editorfunktion geöffnet.':op.type==='select'?'Element ausgewählt.':'Änderung übernommen. Rückgängig ist möglich.');
@@ -216,7 +234,8 @@
       '<details><summary>Gemini-Schlüssel verwalten</summary><p>Nur auf dem Testserver gespeichert. Bei Bereinigung des privaten Serverspeichers erneut eingeben.</p><label>API-Schlüssel <input type="password" data-ai-key autocomplete="off"></label><button type="button" data-ai-save-key>Schlüssel speichern</button></details>' +
       '<label>Dein Wunsch <textarea data-ai-prompt rows="3" placeholder="Mach die Überschrift oben kleiner"></textarea></label>' +
       '<div class="kp-ai-actions"><button type="button" data-ai-mic>🎙 Sprechen</button><button type="button" data-ai-send>Ändern</button></div>' +
-      '<p data-ai-status role="status" aria-live="polite"></p>';
+      '<p data-ai-status role="status" aria-live="polite"></p>'+
+      '<small>Lokales Freistellen: IMG.LY · <a href="kp-background-licenses.txt" target="_blank" rel="noopener">Lizenzen</a> · <a href="https://github.com/sebastianmoschek-hash/koblenzer-puppenspiele-wordpress/tree/codex/kp-editor-ai-staging/deployments/kp-code-editor" target="_blank" rel="noopener">Quellcode</a></small>';
 
     mute=document.createElement('button');mute.type='button';mute.className='kp-ai-mute';mute.textContent='◼';mute.hidden=true;
     mute.dataset.transient='';mute.setAttribute('aria-label','Mikrofon ausschalten');
